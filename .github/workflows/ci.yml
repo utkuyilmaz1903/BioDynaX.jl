@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        julia-version: ["1.10", "1"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+
+  allocation-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Allocation regression gate
+        run: julia --project=. benchmark/allocation_gate.jl
+
+  benchmark-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Benchmark smoke
+        run: |
+          julia --project=. -e 'using BioDynaX, Random; rng=MersenneTwister(0); net=build_linear_test_network(); model,p=build_ude_model(rng,net); cache=allocate_cache(model,Float64); u=[0.2,0.1]; params=pack_parameters((k_ba=0.8,k_a=1.2,k_b=0.5), p.nn); for _ in 1:10; ude_rhs!(cache.du,u,params,0.0,model,cache); end; println(@allocated ude_rhs!(cache.du,u,params,0.0,model,cache))'
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - name: Static quality gates
+        run: |
+          julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add([Pkg.PackageSpec(name=string(name)) for name in (:Aqua, :JET)]); Base.eval(Main, :(using BioDynaX)); Base.eval(Main, :(using Aqua)); Base.eval(Main, :(using JET)); Aqua.test_all(BioDynaX); JET.test_package(BioDynaX; target_modules=(BioDynaX,))'
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - name: Build documentation
+        run: |
+          julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+          julia --project=docs docs/make.jl

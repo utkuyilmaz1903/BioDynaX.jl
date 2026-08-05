@@ -33,7 +33,7 @@ function section(title::AbstractString)
 end
 
 function main(; seed::Int       = 42,
-                adam_iters::Int = 200,
+                adam_iters::Int = 300,
                 adam_lr::Float64 = 0.01,
                 bfgs_iters::Int = 100,
                 noise_σ::Float64 = 0.05,
@@ -75,6 +75,7 @@ function main(; seed::Int       = 42,
     # 5) Symbolic regression -----------------------------------------------
     section("5) Symbolic regression (Discovery)")
     discovery = discover_equations(tr.params, nn, nn_st;
+                                   network = net,
                                    polynomial_degree  = poly_degree,
                                    sparsity_threshold = sparsity_threshold,
                                    verbose = true)
@@ -113,7 +114,7 @@ function main(; seed::Int       = 42,
     plot!(plt[3], 1:length(tr.history), tr.history;
           yscale = :log10, lw = 2, color = :purple, label = "loss")
     title!(plt[3], "Training loss (log scale)")
-    xlabel!(plt[3], "iteration"); ylabel!(plt[3], "MSE")
+    xlabel!(plt[3], "iteration"); ylabel!(plt[3], "objective")
 
     out = joinpath(SCRIPT_DIR, "biodynax_discovery.png")
     savefig(plt, out)
