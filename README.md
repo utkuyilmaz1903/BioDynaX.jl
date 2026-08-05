@@ -1,76 +1,157 @@
 # BioDynaX.jl
 
-`BioDynaX.jl` is a production-grade Scientific Machine Learning (SciML) framework designed to transform static biological interaction networks into differentiable, dynamic mathematical simulators. 
+**Graph-guided Universal Differential Equations for biological networks.**
 
-By leveraging **Universal Differential Equations (UDEs)** and **Symbolic Regression**, it allows researchers to input biological network topologies, train neural networks to capture completely unknown cellular mechanisms from noisy lab data, and automatically extract the underlying governing physical equations.
+BioDynaX.jl is a [SciML](https://sciml.ai/) Julia package that turns a biological interaction network into a trainable dynamical model. Known mechanisms are compiled from network metadata; unknown interactions are represented by a small Lux neural network. After fitting to time-series data, an implicit sparse-regression backend can recover rational kinetic forms on the graph.
 
----
-
-## 1. Why BioDynaX? (The Core Value)
-
-In traditional bioinformatics (Python/R networks):
-* Graphs are static data structures that cannot simulate time-series dynamics seamlessly.
-* Standard Neural Networks act as total black boxes, providing curve-fitting but zero mechanistic insight.
-* Combining differential equations with deep learning breaks the automatic differentiation (AD) chain, leading to massive performance drops or non-differentiable code.
-
-**BioDynaX.jl solves this.** It compiles the network topology into native, type-stable Julia code compiled via LLVM. It bridges neural architectures (`Lux.jl`) and differential solvers (`OrdinaryDiffEq.jl`), keeping the backpropagation chain fully differentiable via `Zygote.jl` to perform automated automated scientific discovery.
+Requires **Julia ≥ 1.10**.
 
 ---
 
-## 2. Repository Architecture (Separation of Concerns)
+## What it does
 
-The repository strictly follows professional Julia package design patterns, decoupling data generation, model optimization, physics boundaries, and symbolic discovery:
+1. **Define a network** — nodes, edges, and stoichiometric reactions with kinetic metadata (mass action, Hill, competitive inhibition, or neural unknowns).
+2. **Compile a UDE** — a production–destruction RHS `duᵢ = Pᵢ(u,p) − Dᵢ(u,p)·uᵢ` with non-negative production and destruction rates.
+3. **Train** — fit physical and neural parameters with Adam (optional BFGS refinement), SciMLSensitivity adjoints, and differentiable soft constraints.
+4. **Discover** — recover graph-local rational equations from the trained dynamics via implicit SINDy-PI (STLSQ on a monomial basis).
 
-```bash
-BioDynaX.jl/├── Project.toml        # Package metadata and official SciML/DataDriven dependencies
-            ├── src/
-            │   ├── BioDynaX.jl     # Main module namespace handler (clean includes & exports)
-            │   ├── Network.jl      # Graph topology engine and BiologicalNetwork structs
-            │   ├── UDE.jl          # Lux Neural Network injection and Zygote-safe out-of-place RHS
-            │   ├── DataGen.jl      # Synthetic biological data generator using true non-linear kinetics
-            │   ├── Training.jl     # Optimization pipeline (Adam + BFGS with gradient-friendly soft constraints)
-            │   └── Discovery.jl    # Multivariate Sparse Regression engine (STLSQ Equation Extractor)
-            └── scripts/
-              └── run_discovery.jl # End-to-end simulation, training, and discovery runner script
+The default example is the **p53–Mdm2** feedback loop (`build_network()`). A second fully known test topology is available via `build_linear_test_network()`.
+
+---
+
+## Design highlights
+
+| Topic | Implementation |
+|--------|----------------|
+| **Dynamics** | Compiled `MechanismCompiler` IR → `ude_system` (Zygote-safe out-of-place) or `ude_rhs!` (preallocated in-place) |
+| **Unknown biology** | `NeuralDestructionTerm` with softplus-headed Lux MLP |
+| **Positivity** | States read through `max(0, x)`; optional **augmented Lagrangian** soft penalties on trajectories |
+| **Parameters** | `ComponentVector` with typed `phys` / `nn` axes; compile-time `ParameterSchema` |
+| **Training** | `train_ude`, multi-experiment `train_experiments`, versioned checkpoints + `resume_training` |
+| **Discovery** | **`ImplicitSINDyPI`** backend (bootstrap support, validation hold-out). `ExplicitSTLSQ` is exported for API compatibility but is not wired into `discover_equations` yet |
+| **Execution** | Serial, threaded, or distributed experiment runners; optional **CUDA** extension for device arrays |
+
+Training uses **`ZygoteAD`** by default (`SolverConfig(ad_policy = ZygoteAD())`). A **`ProductionAD`** policy selects the in-place RHS path for forward integration; adjoint settings remain Zygote-based today.
+
+---
+
+## Repository layout
+
+```
+BioDynaX.jl/
+├── src/
+│   ├── Network.jl           # BiologicalNetwork, edges, reactions
+│   ├── MechanismCompiler.jl # compile_mechanism, UDEModel, ude_system / ude_rhs!
+│   ├── UDE.jl               # Lux NN builder, pack_parameters
+│   ├── ModelCache.jl        # preallocated RHS workspace
+│   ├── ParameterSchema.jl   # compile-time parameter names & defaults
+│   ├── DataGen.jl           # synthetic data (Hill ground truth or compiled model)
+│   ├── Training.jl          # predict_ude, train_ude, checkpoints
+│   ├── BasisFactory.jl      # graph-local monomial libraries
+│   ├── Discovery.jl         # implicit SINDy-PI discovery
+│   ├── Execution.jl         # serial / threads / distributed backends
+│   ├── Experiments.jl       # Experiment, ExperimentSet
+│   └── Config.jl            # training, solver, discovery, execution configs
+├── ext/
+│   ├── BioDynaXCUDAExt.jl   # optional GPU device transfer (requires CUDA.jl)
+│   └── BioDynaXPlotsExt.jl  # optional plotting helpers (requires Plots.jl)
+├── scripts/run_discovery.jl # end-to-end p53 example (needs Plots.jl)
+├── test/                    # regression + quality gates
+└── benchmark/allocation_gate.jl
 ```
 
 ---
 
-## 3. Core Engineering & Numerical Innovations
+## Installation
 
-### 🧬 Physics-Informed Soft Penalties (Gradient-Friendly Barriers)
-Biological concentrations cannot be negative ($x < 0$). Instead of using hard constraints like `isoutofdomain` which truncate the execution and destroy the automatic differentiation (AD) gradient chain, BioDynaX implements a **differentiable Soft Penalty** inside the loss loop:
+Clone the repository and instantiate the project environment:
 
-$$\text{Loss} = \text{MSE} + \lambda \sum \min(0.0, x_{\text{predicted}})^2$$
+```bash
+git clone https://github.com/<your-org>/BioDynaX.jl.git
+cd BioDynaX.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
 
-This creates a smooth mathematical barrier. The neural network naturally learns to stay within valid biological bounds through gradients rather than errors, keeping the solver fully stable.
+Optional extensions load when their weak dependencies are available:
 
-### 📊 Multivariate Sparse Discovery
-Instead of standard univariate curve fitting, the symbolic regression layer constructs a rich multivariate basis including cross-interaction terms ($u_1 \cdot u_2$). This enables the extraction of real mass-action biological kinetics.
+```julia
+using BioDynaX
+using CUDA      # BioDynaXCUDAExt
+using Plots     # BioDynaXPlotsExt
+```
 
 ---
 
-## 4. Quick Start
+## Quick start (REPL)
 
-### Installation
-Clone the repository and instantiate the isolated environment:
+```julia
+using BioDynaX, Random
 
-```bash
-julia --project=. -e "using Pkg; Pkg.instantiate()"
+rng = MersenneTwister(42)
+model, params = build_ude_model(rng)          # default p53–Mdm2 network
+
+t_data, _, noisy, _ = generate_data(rng; noise_σ = 0.05)
+
+result = train_ude(
+    params, noisy, t_data, [0.2, 0.1], (0.0, 20.0), model;
+    adam_iters = 100, bfgs_iters = 0, verbose = true)
+
+discovery = discover_equations(result.params, model; verbose = true)
+println(discovery.equations)
 ```
-Run End-to-End Discovery PipelineExecute the main runner script to synthesize noisy lab data, train the UDE, discover equations, and render the evaluation plots:
+
+### End-to-end script
+
+The bundled script trains on synthetic p53 data, runs discovery, and saves a verification plot (requires **Plots.jl**):
+
 ```bash
 julia --project=. scripts/run_discovery.jl
 ```
 
 ---
 
-## 5. Proved Scientific Results
-When tested against the kaotic p53-Mdm2 tumor suppressor feedback loop with highly noisy synthetic lab datasets ($\sigma = 0.05$), BioDynaX successfully achieved:
-* **System Optimization:** Dropped systemic Mean Squared Error (MSE) from arbitrary chaos down to a high-precision convergence of `0.0023` using an automated two-stage Adam to BFGS optimization pipeline.
-* **Mechanistic Discovery ($\phi_2$):** Successfully isolated and extracted the exact linear cross-interaction terms for the Mdm2 production and degradation engine from a pool of 10+ mathematical candidate functions.
-* **Surrogate Identification ($\phi_1$):** Trapped non-linear rational Hill kinetics, accurately converting the hidden biology into a high-fidelity Taylor-series polynomial representation.
+## Custom networks
+
+Build a network from `NodeSpec`, `EdgeSpec`, and `ReactionSpec`, then compile and train:
+
+```julia
+network = build_linear_test_network()   # or your own BiologicalNetwork(...)
+model, params = build_ude_model(rng, network)
+# ... generate_data(rng; network = network) or your own observations
+```
+
+Supported known kinetic families in the compiler include **mass action**, **Hill**, **competitive inhibition**, and **input-driven production**. Unknown edges map to **neural destruction** terms.
 
 ---
 
-The verification plots and loss convergence scales are automatically exported and rendered at `scripts/biodynax_discovery.png` upon running execution.
+## Development
+
+Run the test suite:
+
+```bash
+julia --project=. test/runtests.jl
+```
+
+CI (GitHub Actions) runs tests on **Windows and Linux** (Julia 1.10 and latest), **Aqua/JET** quality checks, documentation build, and an **allocation regression gate** on the linear test network RHS.
+
+Build docs locally:
+
+```bash
+julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.develop(path=".")'
+julia --project=docs docs/make.jl
+```
+
+---
+
+## Limitations (current)
+
+- Primary discovery backend is **ImplicitSINDyPI** only; full multi-trajectory discovery orchestration is partially exposed (`_collect_multi_trajectory_data` exists, public API is still largely single-trajectory oriented).
+- **GPU** support transfers experiments to device arrays; it is not a fully batched training stack.
+- **Zero-allocation** RHS is measured and gated for NN-free linear networks; Lux forward passes on the default p53 model still allocate on the hot path.
+- Synthetic data for the default network uses a **Hill-kinetics ground truth** that differs from the UDE’s neural degradation term — by design for discovery benchmarks.
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
