@@ -98,20 +98,90 @@ function evaluate_term(term::MonomialTerm, X::AbstractMatrix)
     return output
 end
 
+function evaluate_term_range!(output::AbstractVector, term::MonomialTerm,
+                              X::AbstractMatrix, sample_range)
+    length(output) == length(sample_range) ||
+        throw(DimensionMismatch("output length must match sample_range"))
+    if isempty(term.variables)
+        fill!(output, one(eltype(X)))
+        return output
+    end
+    fill!(output, one(eltype(X)))
+    @inbounds for (variable, power) in zip(term.variables, term.powers)
+        for (row, sample) in enumerate(sample_range)
+            output[row] *= X[variable, sample]^power
+        end
+    end
+    return output
+end
+
 function evaluate_library!(output::AbstractMatrix, terms::Vector{MonomialTerm},
                            X::AbstractMatrix)
+    size(output, 1) == size(X, 2) ||
+        throw(DimensionMismatch("library rows must match sample count"))
+    size(output, 2) == length(terms) ||
+        throw(DimensionMismatch("library columns must match term count"))
     for (column, term) in pairs(terms)
         output[:, column] .= evaluate_term(term, X)
     end
     return output
 end
 
-function evaluate_library(terms::Vector{MonomialTerm}, X::AbstractMatrix)
-    output = Matrix{eltype(X)}(undef, size(X, 2), length(terms))
+"""
+    evaluate_library_range!(output, terms, X, sample_range)
+
+Fill `output` (`length(sample_range) × n_terms`) for a contiguous or arbitrary
+sample index range without allocating per-term vectors.
+"""
+function evaluate_library_range!(output::AbstractMatrix, terms::Vector{MonomialTerm},
+                                 X::AbstractMatrix, sample_range)
+    size(output, 1) == length(sample_range) ||
+        throw(DimensionMismatch("output rows must match sample_range"))
+    size(output, 2) == length(terms) ||
+        throw(DimensionMismatch("output columns must match term count"))
     for (column, term) in pairs(terms)
-        output[:, column] .= evaluate_term(term, X)
+        evaluate_term_range!(@view(output[:, column]), term, X, sample_range)
     end
     return output
+end
+
+function evaluate_library(terms::Vector{MonomialTerm}, X::AbstractMatrix)
+    output = Matrix{eltype(X)}(undef, size(X, 2), length(terms))
+    return evaluate_library!(output, terms, X)
+end
+
+"""Chunked view over a monomial library for streaming evaluation."""
+struct LibraryChunks{T<:AbstractFloat,M<:AbstractMatrix{T}}
+    terms::Vector{MonomialTerm}
+    X::M
+    chunk_size::Int
+end
+
+"""
+    each_library_chunk(terms, X; chunk_size=256)
+
+Iterate `(chunk_matrix, sample_range)` pairs without materializing the full
+`n_samples × n_terms` library at once.
+"""
+function each_library_chunk(terms::Vector{MonomialTerm}, X::AbstractMatrix;
+                            chunk_size::Int = 256)
+    chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
+    return LibraryChunks{eltype(X),typeof(X)}(terms, X, chunk_size)
+end
+
+Base.eltype(::Type{<:LibraryChunks{T}}) where {T} =
+    Tuple{Matrix{T},UnitRange{Int}}
+Base.IteratorSize(::Type{<:LibraryChunks}) = Base.SizeUnknown()
+
+function Base.iterate(chunks::LibraryChunks, start::Int = 1)
+    n = size(chunks.X, 2)
+    start > n && return nothing
+    stop = min(start + chunks.chunk_size - 1, n)
+    sample_range = start:stop
+    buffer = Matrix{eltype(chunks.X)}(undef, length(sample_range),
+                                      length(chunks.terms))
+    evaluate_library_range!(buffer, chunks.terms, chunks.X, sample_range)
+    return (buffer, sample_range), stop + 1
 end
 
 candidate_count(spec::LocalBasisSpec) =

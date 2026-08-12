@@ -28,8 +28,18 @@ The default example is the **p53–Mdm2** feedback loop (`build_network()`). A s
 | **Positivity** | States read through `max(0, x)`; optional **augmented Lagrangian** soft penalties on trajectories |
 | **Parameters** | `ComponentVector` with typed `phys` / `nn` axes; compile-time `ParameterSchema` |
 | **Training** | `train_ude`, multi-experiment `train_experiments`, versioned checkpoints + `resume_training` |
-| **Discovery** | **`ImplicitSINDyPI`** backend (bootstrap support, validation hold-out). `ExplicitSTLSQ` is exported for API compatibility but is not wired into `discover_equations` yet |
+| **Discovery** | **`ImplicitSINDyPI`** (default rational backend) and **`ExplicitSTLSQ`** (polynomial explicit backend); bootstrap support and validation hold-out on implicit path |
 | **Execution** | Serial, threaded, or distributed experiment runners; optional **CUDA** extension for device arrays |
+
+## SciML integration
+
+```julia
+using BioDynaX, SciMLBase, OrdinaryDiffEq
+
+model, p = build_ude_model(MersenneTwister(0))
+prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)
+sol = solve(prob, Tsit5(); saveat = 0:0.5:10.0)
+```
 
 Training uses **`ZygoteAD`** by default (`SolverConfig(ad_policy = ZygoteAD())`). A **`ProductionAD`** policy selects the in-place RHS path for forward integration; adjoint settings remain Zygote-based today.
 
@@ -42,6 +52,8 @@ BioDynaX.jl/
 ├── src/
 │   ├── Network.jl           # BiologicalNetwork, edges, reactions
 │   ├── MechanismCompiler.jl # compile_mechanism, UDEModel, ude_system / ude_rhs!
+│   ├── SciMLInterface.jl    # ODEProblem, build_ude_function, auto_sensealg
+│   ├── Metadata.jl          # typed kinetic metadata structs
 │   ├── UDE.jl               # Lux NN builder, pack_parameters
 │   ├── ModelCache.jl        # preallocated RHS workspace
 │   ├── ParameterSchema.jl   # compile-time parameter names & defaults

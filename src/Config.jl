@@ -23,7 +23,14 @@ end
 """Compatibility AD backend using Zygote out-of-place sensitivities."""
 struct ZygoteAD <: AbstractADPolicy end
 
-"""Production AD backend; uses in-place RHS with SciMLSensitivity adjoints."""
+"""
+    ProductionAD
+
+Production forward pass using the in-place compiled RHS (`ude_rhs!`) with a
+preallocated cache when `sensealg = nothing`. Adjoint training continues to
+use the out-of-place RHS because Zygote cannot differentiate through the
+mutating cache path today.
+"""
 struct ProductionAD <: AbstractADPolicy end
 
 function sensealg(policy::ZygoteAD)
@@ -54,7 +61,7 @@ function SolverConfig(; algorithm = Tsit5(),
         maxiters, ad_policy)
 end
 
-struct TrainingConfig{T<:AbstractFloat,C<:AbstractConstraintStrategy,S}
+struct TrainingConfig{T<:AbstractFloat,C<:AbstractConstraintStrategy,S,H}
     adam_iterations::Int
     adam_learning_rate::T
     bfgs_iterations::Int
@@ -62,7 +69,53 @@ struct TrainingConfig{T<:AbstractFloat,C<:AbstractConstraintStrategy,S}
     log_every::Int
     constraint::C
     solver::S
-    horizon_schedule::Vector{T}
+    horizon_schedule::H
+end
+
+"""
+    HorizonCurriculum
+
+Typed horizon curriculum for stable long-horizon UDE training. Pass as
+`horizon_schedule` to `TrainingConfig` instead of a raw fraction vector.
+"""
+struct HorizonCurriculum{T<:AbstractFloat}
+    fractions::Vector{T}
+    min_points::Int
+    minimum_fraction::T
+end
+
+function HorizonCurriculum(;
+        fractions = [0.25, 0.5, 1.0],
+        min_points::Int = 2,
+        minimum_fraction = 0.05)
+    T = promote_type(eltype(fractions), typeof(float(minimum_fraction)))
+    return HorizonCurriculum{T}(T.(fractions), min_points, T(minimum_fraction))
+end
+
+function _horizon_fractions(schedule)
+    schedule isa HorizonCurriculum && return schedule.fractions
+    return schedule
+end
+
+function _horizon_min_points(schedule)
+    schedule isa HorizonCurriculum && return schedule.min_points
+    return 2
+end
+
+function _horizon_minimum_fraction(schedule)
+    schedule isa HorizonCurriculum && return schedule.minimum_fraction
+    return 0.05
+end
+
+"""
+    SensealgRecommendation
+
+Human-readable adjoint policy chosen by `recommend_sensealg`.
+"""
+struct SensealgRecommendation{S}
+    sensealg::S
+    name::Symbol
+    rationale::String
 end
 
 function TrainingConfig(; adam_iterations::Int = 300,
@@ -75,15 +128,19 @@ function TrainingConfig(; adam_iterations::Int = 300,
                         solver::SolverConfig = SolverConfig(),
                         horizon_schedule = [0.25, 0.5, 1.0])
     T = promote_type(typeof(float(adam_learning_rate)),
-                     typeof(float(gradient_clip)),
-                     eltype(float.(horizon_schedule)))
+                     typeof(float(gradient_clip)))
+    resolved_schedule = if horizon_schedule isa HorizonCurriculum
+        horizon_schedule
+    else
+        T.(collect(horizon_schedule))
+    end
     return TrainingConfig(
         adam_iterations, T(adam_learning_rate), bfgs_iterations,
         T(gradient_clip), log_every, constraint, solver,
-        T.(horizon_schedule))
+        resolved_schedule)
 end
 
-"""Current explicit STLSQ backend retained for compatibility."""
+"""Explicit polynomial STLSQ backend (`dx/dt = Φ(x)ξ`)."""
 Base.@kwdef struct ExplicitSTLSQ <: AbstractDiscoveryBackend
     threshold::Float64 = 1e-2
 end
@@ -103,6 +160,10 @@ Base.@kwdef struct ImplicitSINDyPI <: AbstractDiscoveryBackend
     bootstrap_samples::Int = 32
     validation_fraction::Float64 = 0.2
     denominator_floor::Float64 = 1e-8
+    """Extra orthant stress-test samples for denominator safety (`0` disables)."""
+    domain_samples::Int = 256
+    """Row-block size for streaming library / blocked STLSQ."""
+    chunk_size::Int = 256
 end
 
 struct DiscoveryConfig{B<:AbstractDiscoveryBackend}

@@ -92,6 +92,14 @@ function as_experiment_set(data, times, u0;
     return ExperimentSet([exp], collect(state_names))
 end
 
+"""Relative experiment weight from metadata (`:weight`, default `1.0`)."""
+experiment_weight(experiment::Experiment) =
+    Float64(get(experiment.metadata, :weight, 1.0))
+
+"""Observation noise scale for heteroskedastic weighting (`:noise_σ`, default `1.0`)."""
+experiment_noise_scale(experiment::Experiment) =
+    Float64(get(experiment.metadata, :noise_σ, 1.0))
+
 function experiment_batches(set::ExperimentSet, batch_size::Integer;
                             shuffle::Bool = false,
                             rng::AbstractRNG = Random.default_rng())

@@ -48,5 +48,17 @@ Candidate libraries are generated per target from graph parents, then bounded
 by derivative-correlation screening. For bounded biological indegree `k`, the
 library scales with `Σ O(k_i^d)` rather than global `O(n^d)`.
 
+Library evaluation supports streaming chunks (`each_library_chunk`,
+`evaluate_library_range!`) and blocked STLSQ so large sample counts need not
+materialize a single dense design matrix. Implicit candidates are stress-tested
+on train, validation and a deterministic biological orthant grid
+(`domain_samples`).
+
+Raw trajectories can enter discovery without a trained UDE via
+`estimate_derivatives` and `discover_equations(X, times, network)`. Recovered
+candidates export to LaTeX (`equation_to_latex`) or callable Julia RHS closures
+(`equation_to_function`, `export_rhs`). Threshold sweeps use AIC/BIC through
+`select_discovery_config`.
+
 Execution is backend-neutral (`:serial`, `:threads`, `:distributed`, `:gpu`).
 CUDA support is loaded only when CUDA.jl is present.

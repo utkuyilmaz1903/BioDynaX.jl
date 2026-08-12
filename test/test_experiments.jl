@@ -47,8 +47,8 @@ end
     result_path = tempname()
     result = TrainingResult(
         [1.0], [2.0], 2.0, 1.0, RunMetadata(seed = 1),
-        (mse = 1.0,), true, :success)
+        (mse = 1.0,), true, BioDynaX.Success)
     save_result(result_path, result)
-    @test load_result(result_path).retcode == :success
+    @test load_result(result_path).retcode == BioDynaX.Success
     rm(result_path; force = true)
 end

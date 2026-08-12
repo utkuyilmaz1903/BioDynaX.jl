@@ -13,7 +13,7 @@ struct RunMetadata
 end
 
 function RunMetadata(; seed::Integer = 0,
-                     package_version::VersionNumber = v"0.3.0",
+                     package_version::VersionNumber = PACKAGE_VERSION,
                      data_hash::AbstractString = "",
                      config = Dict{Symbol,Any}())
     return RunMetadata(UInt64(seed), now(UTC), VERSION, package_version,
@@ -25,7 +25,7 @@ end
 
 Stable, typed output contract for optimization runs.
 """
-struct TrainingResult{P,T,H,M,D}
+struct TrainingResult{P,T,H,M,D,R}
     params::P
     history::H
     initial_loss::T
@@ -33,7 +33,7 @@ struct TrainingResult{P,T,H,M,D}
     metadata::M
     diagnostics::D
     converged::Bool
-    retcode::Symbol
+    retcode::R
 end
 
 """

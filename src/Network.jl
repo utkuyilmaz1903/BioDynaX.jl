@@ -18,7 +18,7 @@ Base.@kwdef struct EdgeSpec
     known::Bool = true
     family::KineticFamily = MASS_ACTION
     max_order::Int = 2
-    metadata::Dict{Symbol,Any} = Dict{Symbol,Any}()
+    metadata::MetadataLike = EmptyMetadata()
 end
 
 """
@@ -31,7 +31,7 @@ Base.@kwdef struct ReactionSpec
     regulators::Vector{Int} = Int[]
     known::Bool = true
     family::KineticFamily = MASS_ACTION
-    metadata::Dict{Symbol,Any} = Dict{Symbol,Any}()
+    metadata::MetadataLike = EmptyMetadata()
 end
 
 struct BiologicalNetwork
@@ -66,6 +66,60 @@ function BiologicalNetwork(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec};
     return network
 end
 
+function _validate_reaction_metadata!(network::BiologicalNetwork, reaction::ReactionSpec)
+    meta = reaction.metadata
+    if reaction.family == SATURATION
+        _meta_haskey(meta, :vmax_param) ||
+            meta isa SaturationMetadata ||
+            throw(ArgumentError(
+                "reaction $(reaction.name): SATURATION requires vmax_param metadata"))
+        _meta_haskey(meta, :km_param) ||
+            meta isa SaturationMetadata ||
+            throw(ArgumentError(
+                "reaction $(reaction.name): SATURATION requires km_param metadata"))
+        length(reaction.regulators) == 1 ||
+            throw(ArgumentError(
+                "reaction $(reaction.name): SATURATION requires exactly one regulator"))
+    end
+    if reaction.family == CUSTOM_KINETIC
+        has_eval = meta isa CustomKineticMetadata && meta.evaluator !== nothing
+        has_preset = meta isa CustomKineticMetadata && meta.preset != :none
+        dict_eval = meta isa AbstractDict{Symbol} && meta[:evaluator] isa Function
+        dict_preset = meta isa AbstractDict{Symbol} && get(meta, :preset, :none) != :none
+        (has_eval || has_preset || dict_eval || dict_preset) ||
+            throw(ArgumentError(
+                "reaction $(reaction.name): CUSTOM_KINETIC requires evaluator or preset"))
+        isempty(reaction.regulators) &&
+            throw(ArgumentError(
+                "reaction $(reaction.name): CUSTOM_KINETIC requires regulators"))
+    end
+    if reaction.family == HILL && reaction.known
+        length(reaction.regulators) == 1 ||
+            throw(ArgumentError(
+                "reaction $(reaction.name): HILL requires exactly one regulator"))
+    end
+    if reaction.family == COMPETITIVE && reaction.known
+        length(reaction.regulators) == 2 ||
+            throw(ArgumentError(
+                "reaction $(reaction.name): COMPETITIVE requires two regulators"))
+    end
+    return nothing
+end
+
+function _validate_edge_metadata!(network::BiologicalNetwork, edge::EdgeSpec)
+    if edge.family == SATURATION
+        meta = edge.metadata
+        _meta_haskey(meta, :vmax_param) || meta isa SaturationMetadata ||
+            throw(ArgumentError(
+                "edge $(edge.source)→$(edge.target): SATURATION requires vmax_param"))
+    end
+    if edge.kind == UNKNOWN_NN && edge.known
+        throw(ArgumentError(
+            "edge $(edge.source)→$(edge.target): UNKNOWN_NN edges must set known=false"))
+    end
+    return nothing
+end
+
 function validate_network(network::BiologicalNetwork)
     isempty(network.nodes) && throw(ArgumentError("network cannot be empty"))
     names = getfield.(network.nodes, :name)
@@ -81,6 +135,17 @@ function validate_network(network::BiologicalNetwork)
             throw(ArgumentError("reaction $(reaction.name) has no stoichiometry"))
         all(1 ≤ i ≤ length(network.nodes) for i in keys(reaction.stoichiometry)) ||
             throw(ArgumentError("reaction $(reaction.name) references invalid node"))
+        all(1 ≤ i ≤ length(network.nodes) for i in reaction.regulators) ||
+            throw(ArgumentError("reaction $(reaction.name) references invalid regulator"))
+        for coefficient in values(reaction.stoichiometry)
+            coefficient == zero(coefficient) &&
+                throw(ArgumentError(
+                    "reaction $(reaction.name) has zero stoichiometry"))
+        end
+        _validate_reaction_metadata!(network, reaction)
+    end
+    for edge in values(network.interactions)
+        _validate_edge_metadata!(network, edge)
     end
     return network
 end
@@ -109,19 +174,20 @@ function build_network()::BiologicalNetwork
         ReactionSpec(name = :input_drives_p53,
                      stoichiometry = Dict(2 => 1.0),
                      regulators = Int[],
-                     metadata = Dict(:drive => :input,
-                                      :input_node => 1,
-                                      :rate_param => :α_p53,
-                                      :input_param => :signal)),
+                     metadata = InputDriveMetadata(
+                         input_node = 1,
+                         rate_param = :α_p53,
+                         input_param = :signal)),
         ReactionSpec(name = :p53_to_Mdm2,
                      stoichiometry = Dict(3 => 1.0), regulators = [2],
-                     metadata = Dict(:rate_param => :β_mdm2)),
+                     metadata = MassActionMetadata(rate_param = :β_mdm2)),
         ReactionSpec(name = :Mdm2_degrades_p53,
                      stoichiometry = Dict(2 => -1.0), regulators = [3],
-                     known = false, family = HILL),
+                     known = false, family = HILL,
+                     metadata = HillMetadata()),
         ReactionSpec(name = :Mdm2_linear_decay,
                      stoichiometry = Dict(3 => -1.0), regulators = Int[],
-                     metadata = Dict(:rate_param => :γ_mdm2)),
+                     metadata = LinearDecayMetadata(rate_param = :γ_mdm2)),
     ]
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
@@ -138,13 +204,13 @@ function build_linear_test_network()::BiologicalNetwork
     reactions = [
         ReactionSpec(name = :b_drives_a,
                      stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     metadata = Dict(:rate_param => :k_ba)),
+                     metadata = MassActionMetadata(rate_param = :k_ba)),
         ReactionSpec(name = :a_linear_decay,
                      stoichiometry = Dict(1 => -1.0), regulators = Int[],
-                     metadata = Dict(:rate_param => :k_a)),
+                     metadata = LinearDecayMetadata(rate_param = :k_a)),
         ReactionSpec(name = :b_linear_decay,
                      stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = Dict(:rate_param => :k_b)),
+                     metadata = LinearDecayMetadata(rate_param = :k_b)),
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end

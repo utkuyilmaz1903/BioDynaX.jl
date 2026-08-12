@@ -17,6 +17,19 @@ const BASELINE_TESTSETS = (
     "type stability and allocation gates",
     "scientific release qualification",
     "multi-topology E2E",
+    "SciMLBase ODEProblem contract",
+    "SciML forward and adjoint contracts",
+    "build_ude_function and SciML solve",
+    "typed kinetic metadata",
+    "typed metadata compiles p53 network",
+    "dict metadata backward compatibility",
+    "explicit STLSQ discovery backend",
+    "Fisher identifiability report",
+    "training retcode and gradient diagnostics",
+    "discovery uncertainty reports",
+    "multi-trajectory discovery",
+    "scientific benchmark suite",
+    "ground truth generator separation",
 )
 
 @testset "baseline gate" begin

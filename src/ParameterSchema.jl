@@ -23,6 +23,10 @@ function parameter_schema(model::UDEModel)
             for sym in (term.vmax_param, term.k_param)
                 sym ∈ seen || (push!(names, sym); push!(seen, sym))
             end
+        elseif term isa SaturationDestructionTerm || term isa SaturationProductionTerm
+            for sym in (term.vmax_param, term.km_param)
+                sym ∈ seen || (push!(names, sym); push!(seen, sym))
+            end
         elseif term isa CompetitiveDestructionTerm
             for sym in (term.vmax_param, term.km_param, term.ki_param)
                 sym ∈ seen || (push!(names, sym); push!(seen, sym))
@@ -50,7 +54,7 @@ function default_phys_parameters(schema::ParameterSchema)
     defaults = Dict{Symbol,Float64}(
         :α_p53 => 0.9, :β_mdm2 => 1.1, :γ_mdm2 => 1.5, :signal => 1.0,
         :vmax => 1.0, :km => 0.5, :ki => 0.5, :n => 4.0, :K => 0.5,
-        :γ => 1.0, :k => 0.5)
+        :γ => 1.0, :k => 0.5, :unit => 1.0)
     return (; (name => get(defaults, name, 1.0) for name in schema.phys_names)...)
 end
 

@@ -6,6 +6,8 @@
 ###############################################################################
 module BioDynaX
 
+const PACKAGE_VERSION = v"0.8.0"
+
 # -- External dependencies ----------------------------------------------------
 using Dates
 using Distributed
@@ -15,7 +17,7 @@ using Lux
 using NNlib: sigmoid, softplus
 using ComponentArrays
 using OrdinaryDiffEq
-using SciMLSensitivity
+using SciMLSensitivity: InterpolatingAdjoint, BacksolveAdjoint, ZygoteVJP
 using SciMLBase
 using Optimization
 using OptimizationOptimJL
@@ -30,17 +32,24 @@ using StaticArrays
 
 # -- Source files --------------------------------------------------------------
 include("Types.jl")
+include("ScientificCore.jl")
 include("Config.jl")
+include("Metadata.jl")
 include("Network.jl")
 include("Experiments.jl")
 include("UDE.jl")
 include("ModelCache.jl")
 include("ParameterSchema.jl")
 include("MechanismCompiler.jl")
+include("SciMLInterface.jl")
 include("DataGen.jl")
 include("Training.jl")
+include("OptimizationInterface.jl")
 include("BasisFactory.jl")
 include("Discovery.jl")
+include("Identifiability.jl")
+include("BenchmarkNetworks.jl")
+include("Bridge.jl")
 include("Execution.jl")
 include("Visualization.jl")
 include("Precompile.jl")
@@ -48,9 +57,12 @@ include("Precompile.jl")
 # -- Public API ---------------------------------------------------------------
 # Network layer
 export RunMetadata, TrainingResult, DiscoveryResult, Checkpoint,
+       TrainingRetcode, TrainingDiagnostics, ParameterUncertainty,
+       DiscoveryUncertaintyReport, IdentifiabilityReport, BenchmarkOutcome,
        data_fingerprint, save_result, load_result
 export AbstractConstraintStrategy, StructuralPositivity,
        AugmentedLagrangianConfig, SolverConfig, TrainingConfig,
+       HorizonCurriculum, SensealgRecommendation,
        AbstractDiscoveryBackend, ExplicitSTLSQ, ImplicitSINDyPI,
        DiscoveryConfig, ExecutionConfig
 export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
@@ -58,7 +70,9 @@ export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        ACTIVATION, INHIBITION, UNKNOWN_NN,
        STATE, INPUT, LATENT,
        MASS_ACTION, SATURATION, HILL, COMPETITIVE, CUSTOM_KINETIC,
-       build_network, build_linear_test_network, DEFAULT_EXAMPLE_NETWORK,
+       build_network, build_linear_test_network, build_repressilator_network,
+       build_dual_unknown_network, build_kinetic_generalization_network,
+       DEFAULT_EXAMPLE_NETWORK, benchmark_networks, run_benchmark_suite,
        describe_network, validate_network, state_nodes,
        candidate_parents
 
@@ -68,11 +82,20 @@ export UDEModel, UDEModelCache, build_ude_nn, build_ude_model, compile_network,
        ude_rhs!, allocate_cache, build_ude_rhs, parameter_schema,
        default_parameters, default_phys_parameters, ParameterSchema,
        positive_parameter, bounded_parameter
+export KineticMetadata, EmptyMetadata, InputDriveMetadata, MassActionMetadata,
+       HillMetadata, CompetitiveMetadata, LinearDecayMetadata, MetadataLike,
+       SaturationMetadata, CustomKineticMetadata
+export build_ude_nn, MultiHeadNetwork
+export SaturationDestructionTerm, SaturationProductionTerm, CustomDestructionTerm,
+       STATIC_STATE_THRESHOLD, export_mtk_system, import_sbml_network
+export build_ude_function, auto_sensealg, recommend_sensealg,
+       default_solver_config
 export AbstractADPolicy, ZygoteAD, ProductionAD, sensealg
 
 # Experiment layer
 export Experiment, DeviceExperiment, ExperimentSet, as_experiment_set,
-       experiment_fingerprint, experiment_batches
+       experiment_fingerprint, experiment_batches,
+       experiment_weight, experiment_noise_scale
 
 # Synthetic data layer
 export GroundTruthModel, ground_truth!, generate_data, generate_experiment_set,
@@ -80,13 +103,19 @@ export GroundTruthModel, ground_truth!, generate_data, generate_experiment_set,
 
 # Training layer
 export predict_ude, loss_mse, train_ude, save_checkpoint, load_checkpoint,
-       resume_training, train_experiments
+       resume_training, train_experiments, estimate_parameter_uncertainty,
+       build_optimization_problem, solve_optimization, train_via_optimization
+export assess_identifiability, fisher_information_matrix, trajectory_jacobian,
+       parameter_credible_intervals
 
 # Symbolic discovery layer
 export MonomialTerm, LocalBasisSpec, local_basis, candidate_count,
-       evaluate_library!, evaluate_library,
-       ImplicitCandidate, discover_equations, sample_learned_function,
-       format_equation
+       evaluate_library!, evaluate_library, evaluate_library_range!,
+       LibraryChunks, each_library_chunk,
+       ImplicitCandidate, ExplicitCandidate, discover_equations,
+       format_equation, equation_to_latex, equation_to_function, export_rhs,
+       estimate_derivatives, information_criterion, score_candidate,
+       select_discovery_config, uncertainty_reports
 
 # Execution layer
 export execute_experiments, gpu_available, to_device,

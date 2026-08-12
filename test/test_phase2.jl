@@ -1,0 +1,99 @@
+@testset "phase 2 saturation and custom kinetic IR" begin
+    rng = MersenneTwister(42)
+    network = build_kinetic_generalization_network()
+    compiled = compile_mechanism(network)
+    @test any(t -> t isa BioDynaX.SaturationProductionTerm, compiled.production_terms)
+    @test any(t -> t isa BioDynaX.CustomDestructionTerm, compiled.destruction_terms)
+    custom = only(filter(t -> t isa BioDynaX.CustomDestructionTerm,
+                         compiled.destruction_terms))
+    @test custom.scale ≈ 2.0
+
+    nn, nn_ps, st = build_ude_nn(rng)
+    model = compile_network(network, nn, st)
+    params = pack_parameters((vmax = 1.5, km = 0.4, k_custom = 0.8, k_s = 0.6), nn_ps)
+    x = [0.3, 0.5]
+    dx = ude_system(x, params, 0.0, model)
+    @test all(isfinite, dx)
+
+    s = x[2]
+    expected_prod = 1.5 * s / (0.4 + s)
+    reg = max(0.0, s)
+    expected_dest = 2.0 * 0.8 * reg^2
+    @test dx[1] ≈ expected_prod - expected_dest * x[1]
+end
+
+@testset "phase 2 multi-head neural unknowns" begin
+    rng = MersenneTwister(7)
+    network = build_dual_unknown_network()
+    compiled = compile_mechanism(network)
+    nn_terms = filter(t -> t isa BioDynaX.NeuralDestructionTerm,
+                      compiled.destruction_terms)
+    @test length(nn_terms) == 2
+    @test nn_terms[1].nn_index == 1
+    @test nn_terms[2].nn_index == 2
+
+    model, params = build_ude_model(rng, network)
+    @test model.nn isa MultiHeadNetwork
+    @test length(model.nn.heads) == 2
+    schema = parameter_schema(model)
+    @test schema.nn_heads == 2
+
+    dx = ude_system([0.2, 0.3, 0.4], params, 0.0, model)
+    @test all(isfinite, dx)
+end
+
+@testset "phase 2 static specialization parity" begin
+    rng = MersenneTwister(11)
+    network = build_linear_test_network()
+    model, params = build_ude_model(rng, network)
+    x = [0.25, 0.15]
+    dx_vec = ude_system(x, params, 0.0, model)
+    dx_static = Vector(BioDynaX._ude_system_static(
+        StaticArrays.SVector{2}(x[1], x[2]), params, 0.0, model))
+    @test dx_vec ≈ dx_static
+end
+
+@testset "phase 2 network validation" begin
+    @test_throws ArgumentError BiologicalNetwork(
+        [NodeSpec(name = :a), NodeSpec(name = :b)], EdgeSpec[];
+        reactions = [ReactionSpec(name = :bad_sat,
+                                  stoichiometry = Dict(1 => -1.0),
+                                  regulators = Int[], known = true,
+                                  family = SATURATION,
+                                  metadata = EmptyMetadata())])
+
+    @test_throws ArgumentError BiologicalNetwork(
+        [NodeSpec(name = :a)], EdgeSpec[];
+        reactions = [ReactionSpec(name = :bad_custom,
+                                  stoichiometry = Dict(1 => -1.0),
+                                  regulators = [1], known = true,
+                                  family = CUSTOM_KINETIC,
+                                  metadata = EmptyMetadata())])
+
+    @test_throws ArgumentError BiologicalNetwork(
+        [NodeSpec(name = :a)], EdgeSpec[];
+        reactions = [ReactionSpec(name = :zero_stoich,
+                                  stoichiometry = Dict(1 => 0.0),
+                                  regulators = Int[],
+                                  metadata = LinearDecayMetadata(rate_param = :k))])
+end
+
+@testset "phase 2 optional MTK export" begin
+    if !isdefined(Base, :get_extension) ||
+       Base.get_extension(BioDynaX, :BioDynaXModelingToolkitExt) === nothing
+        @test_throws ErrorException export_mtk_system(build_ude_model(MersenneTwister(0))[1])
+    else
+        using ModelingToolkit
+        model, _ = build_ude_model(MersenneTwister(0), build_linear_test_network())
+        sys = export_mtk_system(model)
+        @test sys isa ODESystem
+        @test length(states(sys)) == 2
+    end
+end
+
+@testset "phase 2 optional SBML import" begin
+    if !isdefined(Base, :get_extension) ||
+       Base.get_extension(BioDynaX, :BioDynaXSBMLExt) === nothing
+        @test_throws ErrorException import_sbml_network("missing.xml")
+    end
+end

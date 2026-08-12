@@ -71,3 +71,29 @@ jobs:
         run: |
           julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
           julia --project=docs docs/make.jl
+
+  compat-downgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Compat lower-bound smoke
+        run: |
+          julia --project=. -e '
+          using Pkg
+          using TOML
+          project = TOML.parsefile("Project.toml")
+          for (name, bound) in project["compat"]
+              name in ("julia", "Test") && continue
+              entry = get(project["deps"], name, nothing)
+              entry === nothing && continue
+              uuid = entry isa String ? entry : entry["uuid"]
+              Pkg.add(Pkg.PackageSpec(name=name, uuid=uuid, version=VersionNumber(string(bound))))
+          end
+          Pkg.resolve()
+          Pkg.instantiate()
+          Pkg.test()'

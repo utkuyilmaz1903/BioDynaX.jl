@@ -10,7 +10,9 @@ mutable struct LossDiagnostics
     bfgs_success::Bool
     bfgs_retcode::Symbol
     bfgs_message::String
-    LossDiagnostics() = new(NaN, NaN, NaN, NaN, false, false, :none, "")
+    gradient_norm_history::Vector{Float64}
+    gradient_failure::Bool
+    LossDiagnostics() = new(NaN, NaN, NaN, NaN, false, false, :none, "", Float64[], false)
 end
 
 @inline function _record!(d::LossDiagnostics, mse, constraint, total, residual)
@@ -29,6 +31,13 @@ end
     return nothing
 end
 
+"""Return true when the solver config requests an in-place forward pass."""
+function _forward_inplace(solver_config::SolverConfig)
+    solver_config.ad_policy isa ProductionAD || return false
+    # Zygote-based adjoints require the out-of-place RHS during differentiation.
+    return solver_config.sensealg === nothing
+end
+
 function predict_ude(p, u0, tspan, saveat, nn, st;
                      model::Union{Nothing,UDEModel} = nothing,
                      network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
@@ -36,14 +45,9 @@ function predict_ude(p, u0, tspan, saveat, nn, st;
                      cache::Union{Nothing,UDEModelCache} = nothing)
     resolved = model === nothing ?
         Zygote.@ignore(compile_network(network, nn, st)) : model
-    if solver_config.ad_policy isa ProductionAD
-        local_cache = cache === nothing ?
-            allocate_cache(resolved, eltype(u0)) : cache
-        prob = ODEProblem(build_ude_rhs(resolved, local_cache), u0, tspan, p)
-    else
-        f = (x, p_, t) -> ude_system(x, p_, t, resolved)
-        prob = ODEProblem(f, u0, tspan, p)
-    end
+    inplace = _forward_inplace(solver_config)
+    prob = SciMLBase.ODEProblem(
+        resolved, u0, tspan, p; inplace = inplace, cache = cache)
     sol  = solve(
         prob, solver_config.algorithm;
         saveat   = saveat,
@@ -147,6 +151,13 @@ function loss_mse(p, data, t_data, u0, tspan, nn, st;
     return total
 end
 
+function _training_retcode(converged::Bool, diagnostics::LossDiagnostics)
+    converged && return Success
+    diagnostics.gradient_failure && return GradientFailure
+    diagnostics.bfgs_attempted && !diagnostics.bfgs_success && return BFGSFailure
+    return NotConverged
+end
+
 function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
                          verbose, optimizer_state = nothing,
                          checkpoint_hook = nothing)
@@ -174,7 +185,12 @@ function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
             value -> loss_closure(value, nothing), params)
         gradient = only(gradients)
         all(isfinite, gradient) ||
-            throw(ErrorException("optimizer produced a non-finite gradient"))
+            begin
+                diagnostics.gradient_failure = true
+                throw(ErrorException("optimizer produced a non-finite gradient"))
+            end
+        push!(diagnostics.gradient_norm_history,
+              Float64(sqrt(sum(abs2, gradient))))
         state, params = Optimisers.update(state, params, gradient)
         callback(nothing, loss)
         checkpoint_hook === nothing ||
@@ -207,6 +223,9 @@ end
 
 function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
     adam_iterations = max(1, cld(config.adam_iterations, stages))
+    horizon = config.horizon_schedule isa HorizonCurriculum ?
+        config.horizon_schedule :
+        HorizonCurriculum(fractions = collect(_horizon_fractions(config.horizon_schedule)))
     return TrainingConfig(
         adam_iterations = adam_iterations,
         adam_learning_rate = config.adam_learning_rate,
@@ -215,7 +234,7 @@ function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
         log_every = config.log_every,
         constraint = config.constraint,
         solver = config.solver,
-        horizon_schedule = [1.0])
+        horizon_schedule = horizon)
 end
 
 function _training_converged(final_loss, initial_loss, config, diagnostics)
@@ -271,8 +290,9 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
     initial_loss = try
         full_loss(p_init, nothing)
     catch error
-        first_fraction = minimum(training_config.horizon_schedule)
-        count = clamp(round(Int, first_fraction * length(t_data)), 2,
+        first_fraction = minimum(_horizon_fractions(training_config.horizon_schedule))
+        min_pts = _horizon_min_points(training_config.horizon_schedule)
+        count = clamp(round(Int, first_fraction * length(t_data)), min_pts,
                       length(t_data))
         @warn "Full-horizon initial solve failed; starting curriculum." exception = error
         make_loss(data[:, 1:count], t_data[1:count],
@@ -316,12 +336,16 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
         training_config.constraint.outer_iterations : 1
     previous_residual = previous_residual_init
     for outer in initial_outer:outer_iterations
-        schedule = sort(unique(clamp.(training_config.horizon_schedule, 0.05, 1.0)))
+        min_frac = _horizon_minimum_fraction(training_config.horizon_schedule)
+        min_pts = _horizon_min_points(training_config.horizon_schedule)
+        schedule = sort(unique(clamp.(
+            _horizon_fractions(training_config.horizon_schedule),
+            min_frac, 1.0)))
         for (stage, fraction) in pairs(schedule)
             outer == initial_outer && stage < initial_stage && continue
             current_outer[] = outer
             current_stage[] = stage
-            count = clamp(round(Int, fraction * length(t_data)), 2,
+            count = clamp(round(Int, fraction * length(t_data)), min_pts,
                           length(t_data))
             local_times = t_data[1:count]
             local_data = data[:, 1:count]
@@ -381,13 +405,14 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
     diagnostics = (
         mse = diag.mse, constraint = diag.constraint,
         primal_residual = diag.primal_residual, dual = copy(dual), ρ = ρ,
+        final_gradient_norm = isempty(diag.gradient_norm_history) ? NaN :
+            last(diag.gradient_norm_history),
+        gradient_norm_history = copy(diag.gradient_norm_history),
         bfgs = (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
                 retcode = diag.bfgs_retcode, message = diag.bfgs_message))
     converged = _training_converged(
         final_loss, initial_loss, training_config, diag)
-    retcode = converged ? :success :
-              (diag.bfgs_attempted && !diag.bfgs_success ? :bfgs_failure :
-               :not_converged)
+    retcode = _training_retcode(converged, diag)
     return TrainingResult(params, history, initial_loss, final_loss,
                           metadata, diagnostics, converged, retcode)
 end
@@ -404,6 +429,8 @@ function loss_mse(p, data, t_data, u0, tspan, model::UDEModel; kwargs...)
 end
 
 function train_experiments(p_init, set::ExperimentSet, nn, st;
+                           model::Union{Nothing,UDEModel} = nothing,
+                           network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
                            config::TrainingConfig = TrainingConfig(),
                            execution::ExecutionConfig = ExecutionConfig(),
                            verbose::Bool = true, seed::Integer = 0)
@@ -412,18 +439,21 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
     ρ = config.constraint isa AugmentedLagrangianConfig ?
         config.constraint.initial_ρ : zero(eltype(p_init))
     function batch_loss(p, experiments)
-        weighted_losses = map(experiments) do experiment
-            observed = max(1, count(experiment.mask))
-            observed * loss_mse(
+        total = zero(eltype(p))
+        weight_sum = zero(eltype(p))
+        for experiment in experiments
+            weight = Zygote.@ignore experiment_weight(experiment)
+            scale = Zygote.@ignore experiment_noise_scale(experiment)
+            total += weight * loss_mse(
                 p, experiment.observations, experiment.times, experiment.u0,
                 (first(experiment.times), last(experiment.times)), nn, st;
+                model = model, network = network,
                 constraint = config.constraint, dual, ρ,
                 solver_config = config.solver, mask = experiment.mask,
-                diagnostics = nothing)
+                diagnostics = nothing) / (scale^2)
+            weight_sum += weight
         end
-        observed_total = sum(
-            experiment -> max(1, count(experiment.mask)), experiments)
-        return sum(weighted_losses) / observed_total
+        return total / max(weight_sum, one(eltype(p_init)))
     end
     objective = (p, _) -> batch_loss(p, set.experiments)
     initial = objective(p_init, nothing)
@@ -475,18 +505,25 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
         seed = seed, data_hash = experiment_fingerprint(set),
         config = Dict(:training => config, :experiments => length(set)))
     converged = _training_converged(final, initial, config, diag)
-    retcode = converged ? :success :
-              (diag.bfgs_attempted && !diag.bfgs_success ? :bfgs_failure :
-               :not_converged)
+    retcode = _training_retcode(converged, diag)
     return TrainingResult(
         params, history, initial, final, metadata,
         (experiment_count = length(set), dual = copy(dual), ρ = ρ,
          primal_residual =
              config.constraint isa AugmentedLagrangianConfig ?
              max(zero(ρ), previous_residual) : zero(ρ),
+         final_gradient_norm = isempty(diag.gradient_norm_history) ? NaN :
+             last(diag.gradient_norm_history),
+         gradient_norm_history = copy(diag.gradient_norm_history),
          bfgs = (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
                  retcode = diag.bfgs_retcode, message = diag.bfgs_message)),
         converged, retcode)
+end
+
+function train_experiments(p_init, set::ExperimentSet, model::UDEModel; kwargs...)
+    return train_experiments(
+        p_init, set, model.nn, model.st;
+        model = model, network = model.network, kwargs...)
 end
 
 function save_checkpoint(path::AbstractString, checkpoint::Checkpoint)
