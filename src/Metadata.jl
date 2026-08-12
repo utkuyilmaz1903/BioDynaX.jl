@@ -132,6 +132,10 @@ end
 
 @inline _meta_symbol(meta::EmptyMetadata, key::Symbol, default::Symbol) = default
 @inline _meta_int(meta::EmptyMetadata, key::Symbol, default::Int) = default
+@inline _meta_symbol(meta::KineticMetadata, key::Symbol, default::Symbol) = default
+@inline _meta_int(meta::KineticMetadata, key::Symbol, default::Int) = default
+@inline _meta_symbol(meta::MetadataLike, key::Symbol, default::Integer) =
+    _meta_symbol(meta, key, Symbol("k_", default))
 
 @inline function _meta_get(meta::MetadataLike, key::Symbol)
     meta isa AbstractDict{Symbol} && return get(meta, key, nothing)
@@ -158,6 +162,11 @@ end
     return false
 end
 
+"""
+    metadata_summary(meta) -> String
+
+Compact diagnostic label for typed kinetic metadata or a `Dict{Symbol}` payload.
+"""
 function metadata_summary(meta::MetadataLike)
     meta isa AbstractDict{Symbol} && return "Dict{Symbol}($(length(meta)) keys)"
     return string(typeof(meta))

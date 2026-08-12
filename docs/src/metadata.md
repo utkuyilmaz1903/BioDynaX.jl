@@ -34,5 +34,7 @@ MassActionMetadata
 HillMetadata
 CompetitiveMetadata
 LinearDecayMetadata
+SaturationMetadata
+CustomKineticMetadata
 metadata_summary
 ```

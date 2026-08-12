@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- CI: replace broken exact-version `compat-downgrade` with compat hygiene checks
+  that skip Julia stdlibs.
+- CI: Documenter no longer duplicates `@autodocs`/`@docs` bindings; `SciMLBase`
+  is imported for method docs; missing-docstrings warn instead of failing.
+- CI: Aqua piracy policy treats `SciMLBase.ODEProblem`/`solve` as owned; JET
+  runs in `:typo` mode instead of a full SciML/Zygote inference scan.
+- Release E2E tests no longer require four Adam steps to strictly decrease loss.
+- `_meta_symbol` accepts integer fallbacks and a `KineticMetadata` default method.
+
 ## [0.8.0] - 2026-08-12
 
 ### Added

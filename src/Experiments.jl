@@ -68,8 +68,12 @@ function ExperimentSet(experiments::AbstractVector{<:Experiment},
     all(size(experiment.observations, 1) == nstates
         for experiment in experiments) ||
         throw(DimensionMismatch("all experiments must share state dimension"))
+    stored = Vector{E}(undef, length(experiments))
+    for (index, experiment) in pairs(experiments)
+        stored[index] = experiment
+    end
     return ExperimentSet{T,E}(
-        E[experiments...], state_names, collect(units),
+        stored, copy(state_names), collect(Symbol, units),
         Dict{Symbol,Any}(metadata))
 end
 

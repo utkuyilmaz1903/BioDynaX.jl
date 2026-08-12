@@ -48,8 +48,8 @@ Use `select_discovery_config` for AIC/BIC threshold sweeps.
 
 ```@docs
 build_ude_function
-SciMLBase.ODEProblem
+SciMLBase.ODEProblem(::UDEModel, ::Any, ::Any, ::Any)
 auto_sensealg
 default_solver_config
-SciMLBase.solve
+SciMLBase.solve(::UDEModel, ::Any, ::Any, ::Any)
 ```

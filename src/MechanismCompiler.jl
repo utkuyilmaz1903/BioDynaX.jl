@@ -455,7 +455,7 @@ function _edge_production_term(edge::EdgeSpec, node_to_state::Dict{Int,Int}, sca
     haskey(node_to_state, edge.target) || return nothing
     meta = edge.metadata
     _meta_haskey(meta, :rate_param) || return nothing
-    rate_param = _meta_symbol(meta, :rate_param, edge.source)
+    rate_param = _meta_symbol(meta, :rate_param, Symbol("k_", edge.source))
     target = node_to_state[edge.target]
     if haskey(node_to_state, edge.source)
         return MassActionProductionTerm(

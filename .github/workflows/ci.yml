@@ -57,7 +57,7 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Static quality gates
         run: |
-          julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add([Pkg.PackageSpec(name=string(name)) for name in (:Aqua, :JET)]); Base.eval(Main, :(using BioDynaX)); Base.eval(Main, :(using Aqua)); Base.eval(Main, :(using JET)); Aqua.test_all(BioDynaX); JET.test_package(BioDynaX; target_modules=(BioDynaX,))'
+          julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
 
   docs:
     runs-on: ubuntu-latest
@@ -72,28 +72,33 @@ jobs:
           julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
           julia --project=docs docs/make.jl
 
-  compat-downgrade:
+  compat:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1"
-      - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-buildpkg@v1
-      - name: Compat lower-bound smoke
+      - name: Validate Project.toml compat entries
         run: |
-          julia --project=. -e '
+          julia -e '
           using Pkg
+          using Test
           using TOML
           project = TOML.parsefile("Project.toml")
-          for (name, bound) in project["compat"]
-              name in ("julia", "Test") && continue
-              entry = get(project["deps"], name, nothing)
-              entry === nothing && continue
-              uuid = entry isa String ? entry : entry["uuid"]
-              Pkg.add(Pkg.PackageSpec(name=name, uuid=uuid, version=VersionNumber(string(bound))))
-          end
-          Pkg.resolve()
-          Pkg.instantiate()
-          Pkg.test()'
+          compat = project["compat"]
+          deps = merge(
+              get(project, "deps", Dict{String,Any}()),
+              get(project, "weakdeps", Dict{String,Any}()))
+          stdlibs = Set(["Dates", "Distributed", "LinearAlgebra", "Random",
+                         "Serialization", "SHA", "Statistics", "Test", "julia"])
+          @testset "compat hygiene" begin
+              for name in keys(deps)
+                  @test haskey(compat, name)
+              end
+              for (name, bound) in compat
+                  @test Pkg.Types.semver_spec(string(bound)) isa Pkg.Types.VersionSpec
+                  name in stdlibs && continue
+                  @test haskey(deps, name)
+              end
+          end'

@@ -84,7 +84,7 @@ export UDEModel, UDEModelCache, build_ude_nn, build_ude_model, compile_network,
        positive_parameter, bounded_parameter
 export KineticMetadata, EmptyMetadata, InputDriveMetadata, MassActionMetadata,
        HillMetadata, CompetitiveMetadata, LinearDecayMetadata, MetadataLike,
-       SaturationMetadata, CustomKineticMetadata
+       SaturationMetadata, CustomKineticMetadata, metadata_summary
 export build_ude_nn, MultiHeadNetwork
 export SaturationDestructionTerm, SaturationProductionTerm, CustomDestructionTerm,
        STATIC_STATE_THRESHOLD, export_mtk_system, import_sbml_network
