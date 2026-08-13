@@ -38,12 +38,15 @@ function main(; seed::Int = 7,
         params, experiment.observations, experiment.times,
         experiment.u0, tspan, model;
         adam_iters = adam_iters, bfgs_iters = bfgs_iters, verbose = true)
-    discovery = discover_equations(
-        trained.params, model;
-        u0 = experiment.u0, tspan = tspan, n_samples = 80,
-        verbose = true, strict = true)
-    rhs = export_rhs(discovery)
-    prob = ODEProblem((u, p, t) -> rhs(u), experiment.u0, tspan)
+    X_traj = predict_ude(
+        trained.params, experiment.u0, tspan, experiment.times, model)
+    R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
+    discovery = discover_unknown_rate(
+        R, experiment.times, D; verbose = true, strict = true)
+    rhs = compose_hybrid_rhs(
+        model, trained.params, term,
+        equation_to_function(discovery.candidates[1]))
+    prob = ODEProblem(rhs, experiment.u0, tspan)
     sol = solve(prob, Tsit5(); saveat = experiment.times, sensealg = nothing)
     SciMLBase.successful_retcode(sol) ||
         error("recovered RHS failed to integrate: $(sol.retcode)")

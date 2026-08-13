@@ -7,8 +7,9 @@ CSV / time series
   → BiologicalNetwork (known kinetics + one unknown edge)
   → compile / build_ude_model
   → train_ude
-  → discover_equations
-  → export_rhs
+  → sample_unknown_destruction
+  → discover_unknown_rate
+  → compose_hybrid_rhs
   → resimulate vs data
 ```
 
@@ -83,43 +84,43 @@ will not fix an unidentified neural edge.
 
 ## 4. Discover a rational law on the unknown edge
 
-```julia
-discovery = discover_equations(
-    trained.params, model;
-    u0 = u0, tspan = tspan, n_samples = 80,
-    verbose = false, strict = true)
-rhs = export_rhs(discovery)
-```
+Discovery targets the unknown destruction rate, not the full `ẋ`. The compiler
+keeps known `P` and linear `D`; STLSQ only sees the neural edge.
 
-`discover_equations` samples the **trained UDE**, not the CSV derivatives, and
-fits `D(z)ẋ − N(z) = 0` on graph parents only (`local_basis(...; scope=:graph)`).
+```julia
+X_traj = predict_ude(trained.params, u0, tspan, times, model)
+R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
+discovery = discover_unknown_rate(R, times, D; verbose = false, strict = true)
+rhs = compose_hybrid_rhs(
+    model, trained.params, term,
+    equation_to_function(discovery.candidates[1]))
+```
 
 `strict = true` throws. With `strict = false`, check `discovery.retcode`:
 
 | `retcode` | Meaning |
 |-----------|---------|
-| `DiscoverySuccess` | support recovered; `export_rhs` is allowed |
+| `DiscoverySuccess` | support recovered; hybrid RHS is allowed |
 | `DenominatorUnsafe` | `D(z)` changed sign or hit the floor |
 | `EmptySupport` | STLSQ wiped every term |
 | `InsufficientSamples` | not enough trajectory points |
 | `SingularLibrary` | design matrix was singular |
 | `DiscoveryFailed` | anything else |
 
-`export_rhs` refuses a failed result. Do not plot a string and call it a model.
+Do not plot a string and call it a model. The recovered object is a rate that
+must resimulate.
 
 ## 5. Resimulate the recovered ODE
 
 ```julia
 using OrdinaryDiffEq, SciMLBase, Statistics
-prob = ODEProblem((u, p, t) -> rhs(u), u0, tspan)
+prob = ODEProblem(rhs, u0, tspan)
 sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
 residual = sqrt(mean(abs2, Array(sol) .- data))
 ```
 
-The recovered RHS is useful when it tracks the trained UDE (and the data) on the
-observed window. Exact Hill coefficients from a short neural fit are **not**
-guaranteed; that recovery is gated on compiled (NN-free) fixtures and on
-analytical-derivative discovery in the test suite. See
+Gates for unknown-edge Hill/MM recovery (NN fit, support F1, data residual)
+live in `RECOVERY_THRESHOLDS` and `test/test_recovery_hard.jl`. See
 [Recovery benchmarks](benchmarks.md).
 
 ## What this package is not

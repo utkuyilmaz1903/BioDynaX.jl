@@ -184,16 +184,20 @@ struct DiscoveryConfig{B<:AbstractDiscoveryBackend}
     include_interactions::Bool
     max_interaction_order::Int
     seed::UInt64
+    basis_scope::Symbol
 end
 
 function DiscoveryConfig(; backend::AbstractDiscoveryBackend = ImplicitSINDyPI(),
                          include_constant::Bool = true,
                          include_interactions::Bool = true,
                          max_interaction_order::Int = 2,
-                         seed::Integer = 42)
+                         seed::Integer = 42,
+                         basis_scope::Symbol = :graph)
+    basis_scope === :graph || basis_scope === :global ||
+        throw(ArgumentError("basis_scope must be :graph or :global, got $basis_scope"))
     return DiscoveryConfig(
         backend, include_constant, include_interactions,
-        max_interaction_order, UInt64(seed))
+        max_interaction_order, UInt64(seed), basis_scope)
 end
 
 """

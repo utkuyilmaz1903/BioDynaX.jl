@@ -77,9 +77,16 @@ export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        build_network, build_linear_test_network, build_repressilator_network,
        build_dual_unknown_network, build_kinetic_generalization_network,
        build_mm_test_network, build_hill_recovery_network,
-       build_competitive_test_network, build_distractor_network,
+       build_mm_recovery_network, build_competitive_test_network,
+       build_distractor_network, build_rate_discovery_network,
+       build_rate_ablation_network,
        DEFAULT_EXAMPLE_NETWORK, benchmark_networks, run_benchmark_suite,
-       run_recovery_suite, relative_parameter_error,
+       run_recovery_suite, relative_parameter_error, RECOVERY_THRESHOLDS,
+       term_key, active_support, support_f1, rate_rel_rmse,
+       denominator_violation_count, hill_rate_support, mm_rate_support,
+       hill_rate_truth, mm_rate_truth, sample_unknown_destruction,
+       sample_unknown_destruction_grid, discover_unknown_rate,
+       compose_hybrid_rhs, neural_destruction_terms, rate_discovery_config,
        describe_network, validate_network, state_nodes,
        candidate_parents
 
@@ -94,6 +101,7 @@ export KineticMetadata, EmptyMetadata, InputDriveMetadata, MassActionMetadata,
        SaturationMetadata, CustomKineticMetadata, metadata_summary
 export MultiHeadNetwork
 export SaturationDestructionTerm, SaturationProductionTerm, CustomDestructionTerm,
+       NeuralDestructionTerm,
        STATIC_STATE_THRESHOLD, export_mtk_system, import_sbml_network,
        import_sbmltoolkit_network
 export build_ude_function, auto_sensealg, recommend_sensealg,

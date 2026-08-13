@@ -22,6 +22,7 @@ end
 
 Recover graph-local equations from a trained UDE, several experiments, or raw
 trajectories. Failures set `DiscoveryResult.retcode`; pass `strict=true` to throw.
+The raw-data method accepts `targets` to recover a subset of state rows.
 """
 function discover_equations(p_trained, model::UDEModel; kwargs...)
     return discover_equations(
@@ -578,8 +579,20 @@ function _support_empty(candidate::ImplicitCandidate)
                     candidate.denominator_coefficients))
 end
 
+function _target_indices(X, targets)
+    targets === nothing && return collect(axes(X, 1))
+    idxs = targets isa Integer ? Int[Int(targets)] : collect(Int, targets)
+    isempty(idxs) && throw(ArgumentError("targets cannot be empty"))
+    nstates = size(X, 1)
+    for target in idxs
+        1 ≤ target ≤ nstates ||
+            throw(ArgumentError("target $target is out of bounds for $nstates states"))
+    end
+    return idxs
+end
+
 function _discover_explicit(X, derivatives, network, backend,
-                            config::DiscoveryConfig)
+                            config::DiscoveryConfig; targets = nothing)
     sample_count = size(X, 2)
     validation_count = clamp(
         round(Int, 0.2 * sample_count), 1, sample_count - 2)
@@ -589,7 +602,7 @@ function _discover_explicit(X, derivatives, network, backend,
     candidates = ExplicitCandidate[]
     chunk_size = 256
 
-    for target in axes(X, 1)
+    for target in _target_indices(X, targets)
         derivative = vec(@view derivatives[target, :])
         spec = local_basis(
             network, target;
@@ -598,7 +611,8 @@ function _discover_explicit(X, derivatives, network, backend,
             include_interactions = config.include_interactions,
             X = X,
             derivative = derivative,
-            extra_candidates = 0)
+            extra_candidates = 0,
+            scope = config.basis_scope)
         train_X = @view X[:, training_indices]
         n_train = length(training_indices)
         library = Matrix{eltype(X)}(undef, n_train, length(spec.numerator))
@@ -616,7 +630,7 @@ function _discover_explicit(X, derivatives, network, backend,
 end
 
 function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
-                            config::DiscoveryConfig)
+                            config::DiscoveryConfig; targets = nothing)
     rng = MersenneTwister(config.seed)
     sample_count = size(X, 2)
     validation_count = clamp(
@@ -632,8 +646,9 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     domain_X = _denominator_domain_grid(
         X; n = backend.domain_samples, seed = config.seed)
     candidates = ImplicitCandidate[]
+    denominator_errors = Exception[]
 
-    for target in axes(X, 1)
+    for target in _target_indices(X, targets)
         derivative = vec(@view derivatives[target, :])
         spec = local_basis(
             network, target;
@@ -642,38 +657,49 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
             include_interactions = config.include_interactions,
             X = X,
             derivative = derivative,
-            extra_candidates = backend.extra_candidates)
-        frequencies = _bootstrap_frequency(
-            rng, spec, X, derivative, training_indices, backend.threshold,
-            backend.bootstrap_samples; chunk_size = backend.chunk_size)
-        numerator, denominator = _consensus_refit(
-            spec, X, derivative, training_indices, backend.threshold,
-            frequencies; chunk_size = backend.chunk_size)
-        prediction, _ = _evaluate_candidate(
-            spec, numerator, denominator, val_X)
-        denominator_minimum = _check_denominator_safety(
-            spec, numerator, denominator, train_X, val_X, domain_X,
-            backend.denominator_floor)
-        error = mean(abs2,
-                     prediction .- derivative[validation_indices])
-        push!(candidates, ImplicitCandidate(
-            target, spec, numerator, denominator, frequencies, error,
-            denominator_minimum))
+            extra_candidates = backend.extra_candidates,
+            scope = config.basis_scope)
+        try
+            frequencies = _bootstrap_frequency(
+                rng, spec, X, derivative, training_indices, backend.threshold,
+                backend.bootstrap_samples; chunk_size = backend.chunk_size)
+            numerator, denominator = _consensus_refit(
+                spec, X, derivative, training_indices, backend.threshold,
+                frequencies; chunk_size = backend.chunk_size)
+            prediction, _ = _evaluate_candidate(
+                spec, numerator, denominator, val_X)
+            denominator_minimum = _check_denominator_safety(
+                spec, numerator, denominator, train_X, val_X, domain_X,
+                backend.denominator_floor)
+            error = mean(abs2,
+                         prediction .- derivative[validation_indices])
+            push!(candidates, ImplicitCandidate(
+                target, spec, numerator, denominator, frequencies, error,
+                denominator_minimum))
+        catch error
+            error isa DomainError || rethrow()
+            push!(denominator_errors, error)
+        end
     end
+    isempty(candidates) && !isempty(denominator_errors) &&
+        throw(first(denominator_errors))
     return candidates
 end
 
-function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfig)
+function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfig;
+                        targets = nothing)
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
     if backend isa ImplicitSINDyPI
-        candidates = _discover_implicit(X, derivatives, network, backend, config)
+        candidates = _discover_implicit(
+            X, derivatives, network, backend, config; targets = targets)
     elseif backend isa ExplicitSTLSQ || backend isa DataDrivenSparseSTLSQ
-        candidates = _discover_explicit(X, derivatives, network, backend, config)
+        candidates = _discover_explicit(
+            X, derivatives, network, backend, config; targets = targets)
     else
         throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
     end
-    all(_support_empty, candidates) &&
+    (isempty(candidates) || all(_support_empty, candidates)) &&
         throw(ArgumentError("empty support: no terms survived thresholding"))
     equation_text = join(format_equation.(candidates), "\n")
     basis = getfield.(candidates, :specification)
@@ -717,11 +743,13 @@ end
     discover_equations(X, times, network; config, ...)
 
 UDE-free discovery from observed trajectories. Derivatives are estimated by
-central finite differences unless `derivatives` is supplied.
+central finite differences unless `derivatives` is supplied. Pass `targets`
+to recover a subset of state rows (used for rate-only unknown-edge discovery).
 """
 function discover_equations(X::AbstractMatrix, times::AbstractVector,
                             network::BiologicalNetwork;
                             derivatives = nothing,
+                            targets = nothing,
                             config::DiscoveryConfig = DiscoveryConfig(),
                             verbose::Bool = true,
                             strict::Bool = false)
@@ -736,7 +764,8 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
     dX_clean = dX[:, keep]
     try
         result = _run_discovery(
-            X_clean, dX_clean, network, config.backend, config)
+            X_clean, dX_clean, network, config.backend, config;
+            targets = targets)
         verbose && println("\n[Discovery] Recovered system:\n", result.equations)
         return result
     catch error
@@ -771,7 +800,7 @@ function select_discovery_config(p_trained, model::UDEModel;
         backend = _with_threshold(config.backend, threshold)
         local_config = DiscoveryConfig(
             backend, config.include_constant, config.include_interactions,
-            config.max_interaction_order, config.seed)
+            config.max_interaction_order, config.seed, config.basis_scope)
         result = try
             _run_discovery(X, derivatives, model.network, backend, local_config)
         catch error

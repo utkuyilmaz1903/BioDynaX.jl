@@ -72,6 +72,19 @@ jobs:
           julia --project=docs docs/instantiate.jl
           julia --project=docs docs/make.jl
 
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Unknown-edge scientific recovery
+        run: julia --project=. --color=yes test/run_recovery_hard.jl
+
   compat:
     runs-on: ubuntu-latest
     steps:

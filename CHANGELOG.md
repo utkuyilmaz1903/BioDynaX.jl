@@ -5,6 +5,25 @@ All notable changes to BioDynaX.jl are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Unknown-edge recovery: `sample_unknown_destruction`, `discover_unknown_rate`,
+  `compose_hybrid_rhs`, support F1 / rate RMSE metrics, and locked
+  `RECOVERY_THRESHOLDS`.
+- Hard CI job for UDE→Hill/MM `D(z)` recovery versus **data**, plus graph vs
+  global discovery F1 on a correlated distractor.
+- UDE support gates lock recall of the true monomials; combined F1 on
+  NN-sampled rates is below the analytical-`y` 0.99 because implicit STLSQ
+  keeps lower-order terms in the same variable.
+- `build_mm_recovery_network` and `DiscoveryConfig.basis_scope`.
+
+### Changed
+
+- Golden path discovers the neural destruction rate, not the full `ẋ`.
+- Loosening `RECOVERY_THRESHOLDS` is a breaking change.
+
 ## [0.9.0] - 2026-08-13
 
 ### Added
@@ -130,6 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed dead `ExplicitSTLSQ` export stub behavior; backend is fully wired.
 
+[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.0...HEAD
 [0.9.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.6.0...v0.7.0

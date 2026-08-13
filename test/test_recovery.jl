@@ -1,3 +1,40 @@
+@testset "recovery metric helpers" begin
+    @test rate_rel_rmse([1.0, 2.0], [1.0, 2.0]) == 0
+    @test rate_rel_rmse([2.0, 2.0], [1.0, 1.0]) ≈ 1.0
+    key = ((1,), (2,))
+    @test support_f1(Set([key]), Set([key])).f1 == 1.0
+    @test support_f1(Set([((1,), (1,))]), Set([key])).f1 == 0.0
+    hill = hill_rate_support(2)
+    @test first(hill.numerator) == key
+    @test first(hill.denominator) == key
+    mm = mm_rate_support()
+    @test first(mm.numerator) == ((1,), (1,))
+    r = collect(range(0.1, 2.0; length = 50))
+    D = hill_rate_truth(r; vmax = 1.5, K = 0.5, n = 2)
+    @test rate_rel_rmse(D, D) == 0
+    spec = local_basis(build_rate_discovery_network(), 1;
+                       degree = 2, include_interactions = false)
+    @test term_key(spec.numerator[1]) == ((), ())
+    @test term_key(spec.denominator[2]) == ((1,), (2,))
+end
+
+@testset "DiscoveryConfig basis_scope plumbing" begin
+    @test DiscoveryConfig().basis_scope === :graph
+    @test DiscoveryConfig(basis_scope = :global).basis_scope === :global
+    @test_throws ArgumentError DiscoveryConfig(basis_scope = :parents)
+    net = build_rate_ablation_network()
+    local_spec = local_basis(net, 1; degree = 2, include_interactions = false,
+                             scope = :graph)
+    global_spec = local_basis(net, 1; degree = 2, include_interactions = false,
+                              scope = :global)
+    @test 1 ∈ local_spec.variables
+    @test 2 ∉ local_spec.variables
+    @test 2 ∈ global_spec.variables
+    @test candidate_count(local_spec) < candidate_count(global_spec)
+    cfg = rate_discovery_config(scope = :global)
+    @test cfg.basis_scope === :global
+end
+
 @testset "known-term IR matches export contract" begin
     linear = compile_mechanism(build_linear_test_network())
     @test any(t -> t isa BioDynaX.MassActionProductionTerm && t.param === :k_ba,
@@ -22,6 +59,19 @@
     competitive = compile_mechanism(build_competitive_test_network())
     @test any(t -> t isa BioDynaX.CompetitiveDestructionTerm,
               competitive.destruction_terms)
+end
+
+@testset "sample_unknown_destruction matches compiled neural D" begin
+    rng = MersenneTwister(1)
+    net = build_hill_recovery_network(; known = false)
+    model, p = build_ude_model(rng, net)
+    X = [0.3 0.4 0.5; 0.2 0.6 1.0]
+    R, D, term = sample_unknown_destruction(model, p, X)
+    @test size(R) == (1, 3)
+    @test size(D) == (1, 3)
+    @test term isa NeuralDestructionTerm
+    @test vec(R) == vec(X[term.regulator, :])
+    @test all(≥(0), D)
 end
 
 @testset "known linear parameter recovery" begin
@@ -65,27 +115,38 @@ end
     @test isfinite(report[:competitive].final_loss)
 end
 
-@testset "UDE to discovery executable RHS" begin
-    rng = MersenneTwister(103)
-    report = run_recovery_suite(rng;
-        ude_adam = 40, ude_bfgs = 15,
-        sections = (:ude_discovery,))
-    ude = report[:ude_discovery]
-    @test ude.retcode isa BioDynaX.DiscoveryRetcode
-    if ude.success
-        @test ude.correlation > 0.75
-    else
-        @test ude.retcode in (DenominatorUnsafe, EmptySupport, DiscoveryFailed)
-    end
+@testset "recovery metrics on analytical Hill rate" begin
+    r = collect(range(0.1, 2.0; length = 120))
+    D = hill_rate_truth(r; vmax = 1.8, K = 0.6, n = 2)
+    R = reshape(r, 1, :)
+    dX = reshape(D, 1, :)
+    times = collect(range(0.0, 1.0; length = length(r)))
+    result = discover_unknown_rate(
+        R, times, dX; config = rate_discovery_config(bootstrap = 0, seed = 1),
+        verbose = false, strict = true)
+    @test result.success
+    @test result.retcode === DiscoverySuccess
+    truth = hill_rate_support(2)
+    metrics = support_f1(result.candidates[1], truth.numerator, truth.denominator)
+    @test metrics.combined.f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean
+    d_hat = equation_to_function(result.candidates[1])
+    pred = [d_hat([rj]) for rj in r]
+    @test rate_rel_rmse(pred, D) < 0.05
+    @test denominator_violation_count(result.candidates[1], R) == 0
 end
 
-@testset "graph-local vs global library ablation" begin
-    rng = MersenneTwister(104)
-    report = run_recovery_suite(rng; sections = (:ablation,))
+@testset "graph vs global rate discovery ablation" begin
+    report = run_recovery_suite(MersenneTwister(104); sections = (:ablation,))
     ablation = report[:ablation]
     @test ablation.local_terms < ablation.global_terms
-    @test 3 ∉ ablation.local_variables
-    @test 3 ∈ ablation.global_variables
+    @test 1 ∈ ablation.local_variables
+    @test 2 ∉ ablation.local_variables
+    @test 2 ∈ ablation.global_variables
+    @test ablation.local_success
+    @test ablation.local_false_parent == false
+    @test ablation.global_false_parent == true
+    @test ablation.local_f1 > ablation.global_f1
+    @test ablation.local_denominator_violations ≤ ablation.global_denominator_violations
 end
 
 @testset "DataDrivenSparse backend requires extension" begin

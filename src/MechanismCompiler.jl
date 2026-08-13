@@ -68,6 +68,7 @@ struct CustomDestructionTerm{F} <: MechanismTerm
     evaluator::F
 end
 
+"""Unknown destruction rate compiled to a positivity-preserving neural head."""
 struct NeuralDestructionTerm <: MechanismTerm
     target::Int
     regulator::Int

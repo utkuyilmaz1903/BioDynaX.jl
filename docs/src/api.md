@@ -30,6 +30,10 @@ DiscoveryRetcode
 local_basis
 export_rhs
 equation_to_latex
+discover_unknown_rate
+sample_unknown_destruction
+compose_hybrid_rhs
+NeuralDestructionTerm
 ```
 
 ## Experiments
@@ -43,7 +47,9 @@ experiment_from_csv
 
 ```@docs
 run_recovery_suite
+RECOVERY_THRESHOLDS
 build_mm_test_network
 build_hill_recovery_network
+build_mm_recovery_network
 build_competitive_test_network
 ```

@@ -16,7 +16,7 @@ Requires **Julia ≥ 1.10**.
 1. **Define a network** — nodes, edges, and stoichiometric reactions with kinetic metadata (mass action, Hill, competitive inhibition, saturation, or neural unknowns).
 2. **Compile a UDE** — production–destruction RHS `duᵢ = Pᵢ(u,p) − Dᵢ(u,p)·uᵢ` with non-negative rates.
 3. **Train** — Adam (optional BFGS), SciMLSensitivity adjoints, optional soft constraints.
-4. **Discover** — graph-local implicit SINDy-PI (`D(z)ẋ − N(z) = 0`) or explicit STLSQ, then `export_rhs` to resimulate.
+4. **Discover** — graph-local implicit SINDy-PI on the **unknown destruction rate** `D(z)`, then `compose_hybrid_rhs` to resimulate.
 
 The default example is the **p53–Mdm2** feedback loop (`build_network()`). Fully known fixtures: `build_linear_test_network()`, `build_mm_test_network()`, `build_hill_recovery_network()`, `build_competitive_test_network()`.
 
@@ -107,7 +107,7 @@ Unknown-edge recovery (CSV → train → discover → resimulate) lives in
 - **SBML** import does not parse kinetic MathML into Hill/MM. Use SBMLToolkit for lowering; unrecognized rates become neural unknowns.
 - **Identifiability** is a practical Fisher matrix at a fit (physical parameters only), not structural identifiability.
 - **NN allocation**: zero-allocation RHS is gated for NN-free linear networks. Lux heads still allocate.
-- **Discovery** can fail (denominator sign, empty support). Check `DiscoveryResult.retcode`; pass `strict = true` to throw.
+- **Discovery** can fail (denominator sign, empty support). Check `DiscoveryResult.retcode`; pass `strict = true` to throw. Unknown-edge recovery is gated on `D(z)` support F1 and hybrid residual versus **data**, not versus UDE derivatives.
 - Target regime is **2–20 states** with a known interaction graph. This is not a general CRN or global SINDy replacement.
 
 ---
@@ -116,12 +116,15 @@ Unknown-edge recovery (CSV → train → discover → resimulate) lives in
 
 ```bash
 julia --project=. test/runtests.jl
+julia --project=. test/run_recovery_hard.jl
 julia --project=. benchmark/recovery_suite.jl
 julia --project=docs docs/instantiate.jl
 julia --project=docs docs/make.jl
 ```
 
-CI runs tests on Windows and Linux (Julia 1.10 and latest), Aqua/JET, docs, allocation gate, and recovery checks.
+CI runs the default test matrix on Windows and Linux (Julia 1.10 and latest),
+plus Aqua/JET, docs, the allocation gate, and a dedicated Ubuntu **recovery**
+job for unknown-edge Hill/MM `D(z)` gates.
 
 ---
 

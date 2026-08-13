@@ -37,6 +37,13 @@ The constant denominator coefficient is anchored to one. Numerator and
 denominator coefficients are selected jointly with QR-based STLSQ. Contiguous
 hold-out blocks and bootstrap consensus reject unstable supports.
 
+The product path (`sample_unknown_destruction` → `discover_unknown_rate`)
+applies that implicit problem to the **unknown destruction rate**, not the
+full state derivative. Known production and linear decay stay in compiled IR.
+`compose_hybrid_rhs` stitches the recovered rate back into the ODE.
+`local_basis(...; scope=:graph)` versus `scope=:global` is the same solver
+with a different library — that is the graph-prior ablation.
+
 ## Scaling
 
 Libraries are generated per target from graph parents. For bounded indegree `k`,

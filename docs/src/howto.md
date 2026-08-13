@@ -29,9 +29,12 @@ compiles to a `NeuralDestructionTerm`.
 model, params = build_ude_model(rng, network)
 trained = train_ude(params, data, times, u0, tspan, model;
                     adam_iters = 80, bfgs_iters = 20, verbose = false)
-discovery = discover_equations(trained.params, model;
-                               u0 = u0, tspan = tspan, strict = true)
-rhs = export_rhs(discovery)
+X_traj = predict_ude(trained.params, u0, tspan, times, model)
+R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
+discovery = discover_unknown_rate(R, times, D; strict = true)
+rhs = compose_hybrid_rhs(
+    model, trained.params, term,
+    equation_to_function(discovery.candidates[1]))
 ```
 
 If discovery cannot be trusted, `strict = false` returns
@@ -43,7 +46,9 @@ If discovery cannot be trusted, `strict = false` returns
 julia --project=. benchmark/recovery_suite.jl
 ```
 
-CI thresholds live in `test/test_recovery.jl`.
+CI thresholds live in `RECOVERY_THRESHOLDS` (`src/Recovery.jl`). Fast checks
+are `test/test_recovery.jl`; the closed-loop UDE job is
+`test/run_recovery_hard.jl`.
 
 ## Optional SciML backends
 

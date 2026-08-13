@@ -1,3 +1,11 @@
+# BioDynaX.jl Unreleased
+
+## Unknown-edge proof
+
+- Discovery of unknown kinetics is `D(z)`, not full `ẋ`.
+- Hard CI job gates NN–Hill/MM fit, true-monomial recall, support F1, and hybrid residual versus data.
+- Graph vs global ablation runs the same implicit solver; only `basis_scope` changes.
+
 # BioDynaX.jl 0.9.0
 
 ## Product contract
@@ -13,8 +21,8 @@
 ## User path
 
 CSV observations → network with unknown edges → `train_ude` →
-`discover_equations` → `export_rhs` → resimulate. See
-`examples/unknown_inhibition.jl`.
+`sample_unknown_destruction` → `discover_unknown_rate` → `compose_hybrid_rhs`.
+See `examples/unknown_inhibition.jl`.
 
 # BioDynaX.jl 0.8.0
 
