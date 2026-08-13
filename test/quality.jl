@@ -1,8 +1,10 @@
 using Aqua
 using BioDynaX
 using JET
-using SciMLBase
 using Test
+
+# SciMLBase is a transitive dep; Julia 1.12 requires importing it via BioDynaX.
+using BioDynaX: SciMLBase
 
 @testset "Aqua quality" begin
     Aqua.test_all(BioDynaX;

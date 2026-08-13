@@ -12,9 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI: replace broken exact-version `compat-downgrade` with compat hygiene checks
   that skip Julia stdlibs.
 - CI: Documenter no longer duplicates `@autodocs`/`@docs` bindings; `SciMLBase`
-  is imported for method docs; missing-docstrings warn instead of failing.
-- CI: Aqua piracy policy treats `SciMLBase.ODEProblem`/`solve` as owned; JET
-  runs in `:typo` mode instead of a full SciML/Zygote inference scan.
+  is a direct `docs/` dependency so Julia 1.12 can `using SciMLBase` for method
+  docs; missing-docstrings warn instead of failing.
+- CI: Aqua piracy policy treats `SciMLBase.ODEProblem`/`solve` as owned via
+  `using BioDynaX: SciMLBase` (quality CI has no direct SciMLBase dep); JET
+  runs in `:typo` mode.
 - Release E2E tests no longer require four Adam steps to strictly decrease loss.
 - `_meta_symbol` accepts integer fallbacks and a `KineticMetadata` default method.
 
