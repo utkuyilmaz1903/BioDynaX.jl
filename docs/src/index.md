@@ -1,14 +1,16 @@
 # BioDynaX.jl
 
-BioDynaX is a graph-guided Scientific Machine Learning framework for training
-universal differential equations and recovering executable rational biological
-kinetics.
+BioDynaX compiles a biological interaction graph into a positivity-preserving
+UDE and recovers graph-local rational kinetics on unknown edges.
 
 ```@contents
-Pages = ["sciml.md", "metadata.md", "architecture.md"]
+Pages = ["tutorial.md", "howto.md", "sciml.md", "metadata.md",
+         "architecture.md", "benchmarks.md", "api.md",
+         "experimental.md", "stability.md"]
 Depth = 2
 ```
 
-See [SciML Integration](sciml.md) for `ODEProblem` construction, [Metadata](metadata.md)
-for typed kinetic structs, and [Architecture](architecture.md) for the compiler
-and discovery pipeline.
+Start with the [unknown-inhibition tutorial](tutorial.md). Recipes are in
+[How-to](howto.md). SciML `ODEProblem` construction is in
+[SciML Integration](sciml.md). Recovery gates are in
+[Recovery benchmarks](benchmarks.md).

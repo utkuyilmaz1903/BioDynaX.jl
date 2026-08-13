@@ -5,20 +5,41 @@ All notable changes to BioDynaX.jl are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.0] - 2026-08-13
+
+### Added
+
+- Scientific recovery suite (`run_recovery_suite`, `benchmark/recovery_suite.jl`)
+  with CI gates for linear/MM/Hill/competitive parameter RMSE, UDE→discovery
+  executable RHS, and graph-local vs global library ablation.
+- `DiscoveryRetcode` on `DiscoveryResult`; `strict=true` rethrows instead of
+  returning a failed result.
+- CSV experiment I/O (`experiment_from_csv`, `write_experiment_csv`).
+- Golden-path example and Documenter tutorial (CSV → train → discover →
+  `export_rhs` resimulation), plus How-to and API pages.
+- Optional `DataDrivenSparseSTLSQ` backend (requires DataDrivenSparse.jl).
+- Optional `import_sbmltoolkit_network` (requires SBMLToolkit + Catalyst).
+- `local_basis(...; scope=:graph|:global)` for library ablations.
+- Recovery fixtures: `build_mm_test_network`, `build_hill_recovery_network`,
+  `build_competitive_test_network`, `build_distractor_network`.
+- `CITATION.cff` and API-stability / experimental Documenter pages.
+
+### Changed
+
+- Default synthetic data uses the **compiled mechanism**, not the Hill p53
+  fixture. Pass `generator = :hill_p53_fixture` for misspecification studies.
+- `STATIC_STATE_THRESHOLD` now dispatches `ude_system(::SVector)` through the
+  StaticArrays kernel.
+- SBML import no longer guesses Michaelis–Menten from type-name strings;
+  explicit kinetic laws compile as unknown neural edges.
+- README and architecture docs match the actual GPU/SBML/identifiability
+  surface (experimental, not product).
+- Package version is 0.9.0.
 
 ### Fixed
 
-- CI: replace broken exact-version `compat-downgrade` with compat hygiene checks
-  that skip Julia stdlibs.
-- CI: Documenter no longer duplicates `@autodocs`/`@docs` bindings; `SciMLBase`
-  is a direct `docs/` dependency so Julia 1.12 can `using SciMLBase` for method
-  docs; missing-docstrings warn instead of failing.
-- CI: Aqua piracy policy treats `SciMLBase.ODEProblem`/`solve` as owned via
-  `using BioDynaX: SciMLBase` (quality CI has no direct SciMLBase dep); JET
-  runs in `:typo` mode.
-- Release E2E tests no longer require four Adam steps to strictly decrease loss.
-- `_meta_symbol` accepts integer fallbacks and a `KineticMetadata` default method.
+- Julia 1.12 docs/quality load path: `SciMLBase` is a direct `docs/` dependency;
+  quality tests import it via `using BioDynaX: SciMLBase`.
 
 ## [0.8.0] - 2026-08-12
 
@@ -109,5 +130,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed dead `ExplicitSTLSQ` export stub behavior; backend is fully wired.
 
-[Unreleased]: https://github.com/your-org/BioDynaX.jl/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/your-org/BioDynaX.jl/releases/tag/v0.4.0
+[0.9.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/releases/tag/v0.4.0

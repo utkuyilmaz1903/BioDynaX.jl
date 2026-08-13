@@ -75,6 +75,7 @@ end
         config = DiscoveryConfig(backend = ExplicitSTLSQ()))
     @test result isa DiscoveryResult
     @test result.success
+    @test result.retcode === DiscoverySuccess
     @test !isempty(result.equations)
 end
 
@@ -88,8 +89,11 @@ end
 
 @testset "ground truth generator separation" begin
     rng = MersenneTwister(55)
-    p53_truth = GroundTruthModel(rng, DEFAULT_EXAMPLE_NETWORK)
-    @test p53_truth.generator == :hill_p53_fixture
+    p53_compiled = GroundTruthModel(rng, DEFAULT_EXAMPLE_NETWORK)
+    @test p53_compiled.generator == :compiled_mechanism
+    p53_hill = GroundTruthModel(
+        rng, DEFAULT_EXAMPLE_NETWORK; generator = :hill_p53_fixture)
+    @test p53_hill.generator == :hill_p53_fixture
     linear_truth = GroundTruthModel(rng, build_linear_test_network())
     @test linear_truth.generator == :compiled_mechanism
     tspan = (0.0, 1.0)

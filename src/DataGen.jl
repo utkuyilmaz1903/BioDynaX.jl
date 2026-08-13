@@ -11,12 +11,15 @@ struct GroundTruthModel
 end
 
 function GroundTruthModel(rng::AbstractRNG, network::BiologicalNetwork;
-                          parameters = nothing)
+                          parameters = nothing,
+                          generator::Symbol = :compiled_mechanism)
     compiled, default_params = build_ude_model(rng, network)
     params = parameters === nothing ? default_params : parameters
-    generator = network === DEFAULT_EXAMPLE_NETWORK ?
-        :hill_p53_fixture : :compiled_mechanism
-    return GroundTruthModel(network, compiled, params, generator)
+    resolved = generator
+    if generator === :hill_p53_fixture && network !== DEFAULT_EXAMPLE_NETWORK
+        throw(ArgumentError(":hill_p53_fixture is only defined for DEFAULT_EXAMPLE_NETWORK"))
+    end
+    return GroundTruthModel(network, compiled, params, resolved)
 end
 
 """
@@ -62,8 +65,7 @@ function generate_experiment_set(rng::AbstractRNG;
     end
     state_names = [node.name for node in network.nodes if node.kind != INPUT]
     set = ExperimentSet(experiments, state_names;
-        metadata = Dict(:generator => network === DEFAULT_EXAMPLE_NETWORK ?
-                                       :hill_ground_truth : :compiled_ground_truth,
+        metadata = Dict(:generator => :compiled_ground_truth,
                           :truth_parameters => truth))
     return set
 end
@@ -84,7 +86,8 @@ function generate_data(rng::AbstractRNG;
                        tspan::Tuple{Float64,Float64} = (0.0, 20.0),
                        n_points::Int = 40,
                        noise_σ::Float64 = 0.05,
-                       truth_params::Union{Nothing,NamedTuple} = nothing)
+                       truth_params::Union{Nothing,NamedTuple,ComponentVector} = nothing,
+                       generator::Symbol = :compiled_mechanism)
 
     n_points ≥ 2 || throw(ArgumentError("n_points must be ≥ 2 (got $n_points)"))
     noise_σ ≥ 0 || throw(ArgumentError("noise_σ must be ≥ 0 (got $noise_σ)"))
@@ -93,18 +96,24 @@ function generate_data(rng::AbstractRNG;
 
     t_data = collect(range(tspan[1], tspan[2]; length = n_points))
 
-    if network === DEFAULT_EXAMPLE_NETWORK
+    if generator === :hill_p53_fixture
+        network === DEFAULT_EXAMPLE_NETWORK ||
+            throw(ArgumentError(":hill_p53_fixture requires DEFAULT_EXAMPLE_NETWORK"))
         params = truth_params === nothing ? default_truth_params() : truth_params
+        params isa NamedTuple ||
+            throw(ArgumentError(":hill_p53_fixture expects NamedTuple truth_params"))
         prob = ODEProblem(ground_truth!, u0, tspan, params)
     else
+        generator === :compiled_mechanism ||
+            throw(ArgumentError("unknown generator $generator"))
         if truth_params === nothing
-            truth = GroundTruthModel(rng, network)
+            truth = GroundTruthModel(rng, network; generator = :compiled_mechanism)
         else
             nn, nn_ps, st = build_ude_nn(rng)
             model = compile_network(network, nn, st)
-            params = truth_params isa ComponentVector ?
+            params_cv = truth_params isa ComponentVector ?
                 truth_params : pack_parameters(truth_params, nn_ps)
-            truth = GroundTruthModel(network, model, params, :compiled_mechanism)
+            truth = GroundTruthModel(network, model, params_cv, :compiled_mechanism)
         end
         params = truth.parameters
         rhs = (x, p, t) -> ude_system(x, p, t, truth.model)
@@ -123,5 +132,6 @@ ground_truth!(truth::GroundTruthModel, dx, x, p, t) =
 
 function generate_data(truth::GroundTruthModel, rng::AbstractRNG; kwargs...)
     return generate_data(rng; network = truth.network,
-                       truth_params = truth.parameters, kwargs...)
+                       truth_params = truth.parameters,
+                       generator = truth.generator, kwargs...)
 end

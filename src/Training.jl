@@ -417,6 +417,12 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                           metadata, diagnostics, converged, retcode)
 end
 
+"""
+    train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
+
+Fit physical (and optional neural) parameters of a compiled UDE to one
+trajectory. Use `train_experiments` for masked multi-replicate data.
+"""
 function train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
     return train_ude(
         p_init, data, t_data, u0, tspan, model.nn, model.st;

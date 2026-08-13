@@ -1,15 +1,16 @@
 ###############################################################################
-# BioDynaX.jl — Universal Differential Biological Network Solver.
+# BioDynaX.jl — graph-guided biological UDEs with local rational discovery.
 #
 # Top-level module: brings in all submodule files (single shared namespace,
 # the standard Julia package pattern) and curates the public API.
 ###############################################################################
 module BioDynaX
 
-const PACKAGE_VERSION = v"0.8.0"
+const PACKAGE_VERSION = v"0.9.0"
 
 # -- External dependencies ----------------------------------------------------
 using Dates
+using DelimitedFiles
 using Distributed
 using Graphs
 using LinearAlgebra
@@ -49,6 +50,7 @@ include("BasisFactory.jl")
 include("Discovery.jl")
 include("Identifiability.jl")
 include("BenchmarkNetworks.jl")
+include("Recovery.jl")
 include("Bridge.jl")
 include("Execution.jl")
 include("Visualization.jl")
@@ -57,14 +59,16 @@ include("Precompile.jl")
 # -- Public API ---------------------------------------------------------------
 # Network layer
 export RunMetadata, TrainingResult, DiscoveryResult, Checkpoint,
-       TrainingRetcode, TrainingDiagnostics, ParameterUncertainty,
+       TrainingRetcode, DiscoveryRetcode, TrainingDiagnostics, ParameterUncertainty,
        DiscoveryUncertaintyReport, IdentifiabilityReport, BenchmarkOutcome,
+       DiscoverySuccess, InsufficientSamples, DenominatorUnsafe, EmptySupport,
+       SingularLibrary, DiscoveryFailed,
        data_fingerprint, save_result, load_result
 export AbstractConstraintStrategy, StructuralPositivity,
        AugmentedLagrangianConfig, SolverConfig, TrainingConfig,
        HorizonCurriculum, SensealgRecommendation,
        AbstractDiscoveryBackend, ExplicitSTLSQ, ImplicitSINDyPI,
-       DiscoveryConfig, ExecutionConfig
+       DataDrivenSparseSTLSQ, DiscoveryConfig, ExecutionConfig
 export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        EdgeKind, NodeKind, KineticFamily,
        ACTIVATION, INHIBITION, UNKNOWN_NN,
@@ -72,7 +76,10 @@ export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        MASS_ACTION, SATURATION, HILL, COMPETITIVE, CUSTOM_KINETIC,
        build_network, build_linear_test_network, build_repressilator_network,
        build_dual_unknown_network, build_kinetic_generalization_network,
+       build_mm_test_network, build_hill_recovery_network,
+       build_competitive_test_network, build_distractor_network,
        DEFAULT_EXAMPLE_NETWORK, benchmark_networks, run_benchmark_suite,
+       run_recovery_suite, relative_parameter_error,
        describe_network, validate_network, state_nodes,
        candidate_parents
 
@@ -85,9 +92,10 @@ export UDEModel, UDEModelCache, build_ude_nn, build_ude_model, compile_network,
 export KineticMetadata, EmptyMetadata, InputDriveMetadata, MassActionMetadata,
        HillMetadata, CompetitiveMetadata, LinearDecayMetadata, MetadataLike,
        SaturationMetadata, CustomKineticMetadata, metadata_summary
-export build_ude_nn, MultiHeadNetwork
+export MultiHeadNetwork
 export SaturationDestructionTerm, SaturationProductionTerm, CustomDestructionTerm,
-       STATIC_STATE_THRESHOLD, export_mtk_system, import_sbml_network
+       STATIC_STATE_THRESHOLD, export_mtk_system, import_sbml_network,
+       import_sbmltoolkit_network
 export build_ude_function, auto_sensealg, recommend_sensealg,
        default_solver_config
 export AbstractADPolicy, ZygoteAD, ProductionAD, sensealg
@@ -95,7 +103,8 @@ export AbstractADPolicy, ZygoteAD, ProductionAD, sensealg
 # Experiment layer
 export Experiment, DeviceExperiment, ExperimentSet, as_experiment_set,
        experiment_fingerprint, experiment_batches,
-       experiment_weight, experiment_noise_scale
+       experiment_weight, experiment_noise_scale,
+       experiment_from_csv, write_experiment_csv
 
 # Synthetic data layer
 export GroundTruthModel, ground_truth!, generate_data, generate_experiment_set,

@@ -34,6 +34,13 @@ Base.@kwdef struct ReactionSpec
     metadata::MetadataLike = EmptyMetadata()
 end
 
+"""
+    BiologicalNetwork
+
+Species graph (`NodeSpec`), directed interactions (`EdgeSpec`), and
+stoichiometric reactions (`ReactionSpec`). Unknown edges and reactions compile
+to neural destruction terms; known families become mechanistic IR.
+"""
 struct BiologicalNetwork
     graph::SimpleDiGraph{Int}
     nodes::Vector{NodeSpec}

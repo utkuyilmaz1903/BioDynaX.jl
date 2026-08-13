@@ -75,7 +75,7 @@ struct NeuralDestructionTerm <: MechanismTerm
     scale::Float64
 end
 
-"""Small networks (n ≤ STATIC_STATE_THRESHOLD) use StaticArrays on the hot path."""
+"""Small networks (`n ≤ STATIC_STATE_THRESHOLD`) dispatch `ude_system` through StaticArrays when the state is already an `SVector`."""
 const STATIC_STATE_THRESHOLD = 4
 
 struct CompiledMechanism{P,D}
@@ -323,12 +323,29 @@ end
     return SVector(du)
 end
 
+"""
+    ude_system(x, p, t, model::UDEModel) -> dx
+
+Evaluate the compiled production–destruction RHS. `SVector` states with
+`n ≤ STATIC_STATE_THRESHOLD` use the StaticArrays kernel.
+"""
 function ude_system(x, p, t, model::UDEModel; cache = nothing)
     if cache !== nothing
         ude_rhs!(cache.du, x, p, t, model, cache)
         return copy(cache.du)
     end
     return _ude_system_out_of_place(x, p, t, model)
+end
+
+function ude_system(x::SVector{N,T}, p, t, model::UDEModel;
+                    cache = nothing) where {N,T}
+    if cache !== nothing
+        return SVector{N,T}(ude_system(Vector(x), p, t, model; cache = cache))
+    end
+    if N ≤ STATIC_STATE_THRESHOLD && model.compiled.nstates == N
+        return _ude_system_static(x, p, t, model)
+    end
+    return SVector{N,T}(_ude_system_out_of_place(x, p, t, model))
 end
 
 function ude_system(x, p, t, nn, st)
@@ -503,6 +520,12 @@ function _edge_destruction_term(
     return nothing
 end
 
+"""
+    compile_mechanism(network) -> CompiledMechanism
+
+Lower reactions and edges to production–destruction IR
+(`duᵢ = Pᵢ − Dᵢ·uᵢ`). Unknown mechanisms become `NeuralDestructionTerm`.
+"""
 function compile_mechanism(network::BiologicalNetwork)
     state_ids = state_nodes(network)
     isempty(state_ids) &&
@@ -564,10 +587,16 @@ function compile_network(network::BiologicalNetwork, nn, st)
     unknown = [edge for edge in values(network.interactions) if !edge.known]
     isempty(unknown) &&
         !any(reaction -> !reaction.known, network.reactions) &&
-        @warn "Compiled network has no unknown mechanisms."
+        @debug "Compiled network has no unknown mechanisms."
     return UDEModel(network, nn, st, compiled, compiled.state_ids)
 end
 
+"""
+    build_ude_model(rng, network=DEFAULT_EXAMPLE_NETWORK) -> (model, params)
+
+Compile `network` into a `UDEModel` and default `ComponentVector` parameters
+(`phys` + `nn`).
+"""
 function build_ude_model(rng::AbstractRNG,
                          network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK)
     compiled = compile_mechanism(network)

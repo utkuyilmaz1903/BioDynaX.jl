@@ -20,8 +20,8 @@ end
 function gpu_execute(f, experiments::BioDynaX.ExperimentSet, config)
     CUDA.functional() ||
         throw(ErrorException("CUDA is loaded but no functional GPU is available"))
-    # Each experiment remains a dense GPU batch. Cross-experiment concurrency is
-    # delegated to CUDA streams by kernels launched from `f`.
+    # Each experiment remains a dense GPU array copy. This is not a batched
+    # GPU ODE or training stack; kernels inside `f` are the caller's job.
     return map(experiments.experiments) do experiment
         f(to_device(experiment))
     end

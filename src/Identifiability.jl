@@ -1,7 +1,10 @@
 """
     IdentifiabilityReport
 
-Fisher-information summary for compiled physical parameters at a fitted state.
+**Practical** Fisher-information summary for compiled physical parameters at a
+fitted trajectory. This is not structural identifiability
+(see StructuralIdentifiability.jl). Rank and credible intervals are local,
+finite-difference Gauss–Newton estimates.
 """
 struct IdentifiabilityReport
     parameter_names::Vector{Symbol}
@@ -71,7 +74,8 @@ end
 """
     assess_identifiability(model, p, data, t_data, u0, tspan; threshold=1e-8)
 
-Rank-based identifiability assessment from the Fisher information matrix.
+Rank-based **practical** identifiability from the Fisher information at this
+fit. Neural parameters are excluded. Not a substitute for structural analysis.
 """
 function assess_identifiability(model::UDEModel, p, data, t_data, u0, tspan;
                                 threshold::Real = 1e-8, kwargs...)

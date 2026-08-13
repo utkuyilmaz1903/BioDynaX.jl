@@ -34,6 +34,7 @@
     discovery = discover_equations(
         trained.params, model; tspan = tspan, n_samples = 40, verbose = false)
     @test discovery isa DiscoveryResult
+    @test discovery.retcode isa BioDynaX.DiscoveryRetcode
     rm(checkpoint_path; force = true)
 end
 

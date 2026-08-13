@@ -8,6 +8,8 @@ abstract type ExecutionBackend end
 struct SerialBackend <: ExecutionBackend end
 struct ThreadsBackend <: ExecutionBackend end
 struct DistributedBackend <: ExecutionBackend end
+
+"""Experimental: copies experiment arrays with `cu`. Not batched GPU ODE training."""
 struct GPUBackend <: ExecutionBackend end
 
 _resolve_backend(::Val{:serial}) = SerialBackend()

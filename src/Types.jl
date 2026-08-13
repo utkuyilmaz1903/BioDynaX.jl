@@ -37,11 +37,27 @@ struct TrainingResult{P,T,H,M,D,R}
 end
 
 """
+    DiscoveryRetcode
+
+Outcome of `discover_equations`. Failures are never silent: `DiscoveryResult.success`
+is false and `retcode` names the failure class.
+"""
+@enum DiscoveryRetcode begin
+    DiscoverySuccess
+    InsufficientSamples
+    DenominatorUnsafe
+    EmptySupport
+    SingularLibrary
+    DiscoveryFailed
+end
+
+"""
     DiscoveryResult
 
 Stable output contract shared by explicit and implicit discovery backends.
+`retcode` is a `DiscoveryRetcode`; `success` is `retcode === DiscoverySuccess`.
 """
-struct DiscoveryResult{E,B,S,C,M}
+struct DiscoveryResult{E,B,S,C,M,R}
     success::Bool
     message::String
     equations::E
@@ -49,6 +65,17 @@ struct DiscoveryResult{E,B,S,C,M}
     solution::S
     candidates::C
     metadata::M
+    retcode::R
+end
+
+function DiscoveryResult(success::Bool, message, equations, basis, solution,
+                         candidates, metadata)
+    retcode = success ? DiscoverySuccess : DiscoveryFailed
+    return DiscoveryResult{typeof(equations), typeof(basis), typeof(solution),
+                           typeof(candidates), typeof(metadata),
+                           DiscoveryRetcode}(
+        success, String(message), equations, basis, solution, candidates,
+        metadata, retcode)
 end
 
 Base.getproperty(r::DiscoveryResult, name::Symbol) =

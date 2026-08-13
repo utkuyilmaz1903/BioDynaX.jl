@@ -114,3 +114,63 @@ function experiment_batches(set::ExperimentSet, batch_size::Integer;
             for first in 1:batch_size:length(indices)
             for last in (min(first + batch_size - 1, length(indices)),)]
 end
+
+"""
+    experiment_from_csv(path; time_column=1, u0=nothing, name=:experiment,
+                        state_names=nothing, delim=',')
+
+Load a time-series table into an `Experiment`. The first numeric column is time
+unless `time_column` is set; remaining columns are states (rows of `observations`).
+"""
+function experiment_from_csv(path::AbstractString;
+                             time_column::Int = 1,
+                             u0 = nothing,
+                             name::Symbol = :experiment,
+                             state_names = nothing,
+                             delim::Char = ',',
+                             header::Bool = true)
+    raw = readdlm(path, delim, Float64; header = header)
+    if header
+        body, header_row = raw
+        names = vec(string.(header_row))
+    else
+        body = raw
+        names = ["t"; ["x$i" for i in 1:(size(body, 2) - 1)]]
+    end
+    ndims = size(body, 2)
+    1 ≤ time_column ≤ ndims ||
+        throw(ArgumentError("time_column $time_column is out of range"))
+    times = vec(body[:, time_column])
+    state_cols = [i for i in 1:ndims if i != time_column]
+    observations = permutedims(body[:, state_cols])
+    initial = u0 === nothing ? observations[:, 1] : Float64.(u0)
+    labels = if state_names === nothing
+        header ?
+            [Symbol(replace(names[i], r"[^A-Za-z0-9_]" => "_")) for i in state_cols] :
+            [Symbol("x$i") for i in eachindex(state_cols)]
+    else
+        collect(Symbol, state_names)
+    end
+    length(labels) == size(observations, 1) ||
+        throw(DimensionMismatch("state_names must match observation rows"))
+    experiment = Experiment(name, times, observations, initial)
+    return experiment, labels
+end
+
+"""Write `times` plus state rows of an `Experiment` to CSV."""
+function write_experiment_csv(path::AbstractString, experiment::Experiment;
+                              state_names = [Symbol("x$i")
+                                             for i in axes(experiment.observations, 1)],
+                              delim::Char = ',')
+    length(state_names) == size(experiment.observations, 1) ||
+        throw(DimensionMismatch("state_names must match observation rows"))
+    header = ["t"; string.(state_names)]
+    body = hcat(experiment.times, permutedims(experiment.observations))
+    open(path, "w") do io
+        println(io, join(header, delim))
+        for row in eachrow(body)
+            println(io, join(row, delim))
+        end
+    end
+    return path
+end

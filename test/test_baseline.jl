@@ -30,6 +30,11 @@ const BASELINE_TESTSETS = (
     "multi-trajectory discovery",
     "scientific benchmark suite",
     "ground truth generator separation",
+    "known linear parameter recovery",
+    "known Michaelis–Menten parameter recovery",
+    "graph-local vs global library ablation",
+    "CSV experiment roundtrip",
+    "golden path export_rhs resimulation",
 )
 
 @testset "baseline gate" begin

@@ -9,7 +9,7 @@ BioDynaX follows the SciML modeling pattern: compile a `UDEModel`, wrap it in a
 using BioDynaX, SciMLBase, OrdinaryDiffEq
 
 rng = MersenneTwister(0)
-model, params = build_ude_model(rng)
+model, params = build_ude_model(rng, build_linear_test_network())
 prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), params)
 sol = solve(prob, Tsit5(); saveat = 0:0.5:10.0)
 ```

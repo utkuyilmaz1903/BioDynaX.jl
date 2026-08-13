@@ -38,19 +38,31 @@ function screen_variables(X, derivative, candidates, max_variables)
     return sort(collect(candidates)[order[1:max_variables]])
 end
 
+"""
+    local_basis(network, target; scope=:graph, degree=3, ...)
+
+Monomial library for one target. `scope=:graph` uses graph parents (the
+product prior); `scope=:global` uses every other dynamic node (ablation).
+"""
 function local_basis(network::BiologicalNetwork, target::Int;
                      degree::Int = 3,
                      max_variables::Int = 8,
                      include_interactions::Bool = true,
                      X = nothing,
                      derivative = nothing,
-                     extra_candidates::Int = 0)
+                     extra_candidates::Int = 0,
+                     scope::Symbol = :graph)
     dynamic_nodes = state_nodes(network)
     1 ≤ target ≤ length(dynamic_nodes) ||
         throw(ArgumentError("target must index a dynamic state"))
     target_node = dynamic_nodes[target]
-    parent_nodes = filter(in(dynamic_nodes),
-                          candidate_parents(network, target_node))
+    parent_nodes = if scope === :global
+        filter(!=(target_node), dynamic_nodes)
+    elseif scope === :graph
+        filter(in(dynamic_nodes), candidate_parents(network, target_node))
+    else
+        throw(ArgumentError("scope must be :graph or :global, got $scope"))
+    end
     row_by_node = Dict(node => row for (row, node) in pairs(dynamic_nodes))
     parent_rows = Int[row_by_node[node] for node in parent_nodes]
     graph_candidates = unique([target; parent_rows])

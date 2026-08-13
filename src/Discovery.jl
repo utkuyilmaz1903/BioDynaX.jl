@@ -15,6 +15,14 @@ struct ImplicitCandidate{T}
     denominator_minimum::T
 end
 
+"""
+    discover_equations(p_trained, model::UDEModel; kwargs...)
+    discover_equations(p_trained, model, set::ExperimentSet; kwargs...)
+    discover_equations(X, times, network; kwargs...)
+
+Recover graph-local equations from a trained UDE, several experiments, or raw
+trajectories. Failures set `DiscoveryResult.retcode`; pass `strict=true` to throw.
+"""
 function discover_equations(p_trained, model::UDEModel; kwargs...)
     return discover_equations(
         p_trained, model.nn, model.st;
@@ -403,6 +411,9 @@ end
 
 """Full-state RHS `(x) -> du` assembled from discovery candidates."""
 function export_rhs(result::DiscoveryResult)
+    result.success ||
+        throw(ArgumentError(
+            "cannot export RHS from a failed discovery ($(result.retcode)): $(result.message)"))
     candidates = result.candidates
     isempty(candidates) &&
         throw(ArgumentError("DiscoveryResult has no candidates to export"))
@@ -488,6 +499,11 @@ function _with_threshold(backend::ExplicitSTLSQ, threshold)
     return ExplicitSTLSQ(threshold = float(threshold))
 end
 
+function _with_threshold(backend::DataDrivenSparseSTLSQ, threshold)
+    return DataDrivenSparseSTLSQ(
+        threshold = float(threshold), ridge = backend.ridge)
+end
+
 function _with_threshold(backend::ImplicitSINDyPI, threshold)
     return ImplicitSINDyPI(
         threshold = float(threshold),
@@ -502,7 +518,67 @@ function _with_threshold(backend::ImplicitSINDyPI, threshold)
         chunk_size = backend.chunk_size)
 end
 
-function _discover_explicit(X, derivatives, network, backend::ExplicitSTLSQ,
+function _backend_threshold(backend::ExplicitSTLSQ)
+    return backend.threshold
+end
+
+function _backend_threshold(backend::DataDrivenSparseSTLSQ)
+    return backend.threshold
+end
+
+function _fit_backend(A, y, backend::ExplicitSTLSQ; chunk_size::Int = 256)
+    return _stlsq_blocked(A, y, backend.threshold; chunk_size = chunk_size)
+end
+
+function _fit_backend(A, y, backend::DataDrivenSparseSTLSQ; chunk_size::Int = 256)
+    return _datadriven_sparse_fit(A, y, backend)
+end
+
+function _datadriven_sparse_fit(A, y, backend::DataDrivenSparseSTLSQ)
+    extension = Base.get_extension(@__MODULE__, :BioDynaXDataDrivenSparseExt)
+    extension === nothing &&
+        throw(ArgumentError(
+            "DataDrivenSparseSTLSQ requires `using DataDrivenSparse` " *
+            "(BioDynaXDataDrivenSparseExt)"))
+    return extension.sparse_coefficients(A, y, backend)
+end
+
+function _empty_candidates(backend)
+    return backend isa ImplicitSINDyPI ? ImplicitCandidate[] : ExplicitCandidate[]
+end
+
+function _discovery_retcode(error)
+    error isa DomainError && return DenominatorUnsafe
+    error isa LinearAlgebra.SingularException && return SingularLibrary
+    if error isa ArgumentError
+        msg = error.msg
+        occursin("insufficient", lowercase(msg)) && return InsufficientSamples
+        occursin("empty support", lowercase(msg)) && return EmptySupport
+    end
+    return DiscoveryFailed
+end
+
+function _failed_discovery(error, config; prefix = "Discovery failed")
+    message = prefix * ": " * sprint(showerror, error)
+    @warn message
+    return DiscoveryResult(
+        false, message, nothing, nothing, nothing,
+        _empty_candidates(config.backend),
+        RunMetadata(seed = config.seed, package_version = PACKAGE_VERSION),
+        _discovery_retcode(error))
+end
+
+function _support_empty(candidate::ExplicitCandidate)
+    return all(coefficient -> abs(coefficient) ≤ 1e-10, candidate.coefficients)
+end
+
+function _support_empty(candidate::ImplicitCandidate)
+    return all(coefficient -> abs(coefficient) ≤ 1e-10,
+               vcat(candidate.numerator_coefficients,
+                    candidate.denominator_coefficients))
+end
+
+function _discover_explicit(X, derivatives, network, backend,
                             config::DiscoveryConfig)
     sample_count = size(X, 2)
     validation_count = clamp(
@@ -527,8 +603,8 @@ function _discover_explicit(X, derivatives, network, backend::ExplicitSTLSQ,
         n_train = length(training_indices)
         library = Matrix{eltype(X)}(undef, n_train, length(spec.numerator))
         evaluate_library!(library, spec.numerator, train_X)
-        coefficients = _stlsq_blocked(
-            library, derivative[training_indices], backend.threshold;
+        coefficients = _fit_backend(
+            library, derivative[training_indices], backend;
             chunk_size = chunk_size)
         val_X = @view X[:, validation_indices]
         prediction = evaluate_library(spec.numerator, val_X) * coefficients
@@ -592,11 +668,13 @@ function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfi
         throw(ArgumentError("insufficient finite trajectory samples"))
     if backend isa ImplicitSINDyPI
         candidates = _discover_implicit(X, derivatives, network, backend, config)
-    elseif backend isa ExplicitSTLSQ
+    elseif backend isa ExplicitSTLSQ || backend isa DataDrivenSparseSTLSQ
         candidates = _discover_explicit(X, derivatives, network, backend, config)
     else
         throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
     end
+    all(_support_empty, candidates) &&
+        throw(ArgumentError("empty support: no terms survived thresholding"))
     equation_text = join(format_equation.(candidates), "\n")
     basis = getfield.(candidates, :specification)
     metadata = RunMetadata(
@@ -606,7 +684,7 @@ function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfi
         config = Dict(:backend => string(typeof(backend)),
                       :samples => size(X, 2)))
     return DiscoveryResult(true, "ok", equation_text, basis, nothing,
-                           candidates, metadata)
+                           candidates, metadata, DiscoverySuccess)
 end
 
 function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
@@ -614,6 +692,7 @@ function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
                             config::DiscoveryConfig = DiscoveryConfig(),
                             solver::SolverConfig = SolverConfig(),
                             verbose::Bool = true,
+                            strict::Bool = false,
                             kwargs...)
     isempty(set) &&
         throw(ArgumentError("ExperimentSet cannot be empty"))
@@ -628,14 +707,9 @@ function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
         verbose && println("\n[Discovery] Recovered system:\n", result.equations)
         return result
     catch error
-        message = "Multi-trajectory discovery failed: " * sprint(showerror, error)
-        @warn message
-        empty_candidates = config.backend isa ExplicitSTLSQ ?
-            ExplicitCandidate[] : ImplicitCandidate[]
-        return DiscoveryResult(false, message, nothing, nothing, nothing,
-                               empty_candidates,
-                               RunMetadata(seed = config.seed,
-                                           package_version = PACKAGE_VERSION))
+        strict && rethrow()
+        return _failed_discovery(
+            error, config; prefix = "Multi-trajectory discovery failed")
     end
 end
 
@@ -649,7 +723,8 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
                             network::BiologicalNetwork;
                             derivatives = nothing,
                             config::DiscoveryConfig = DiscoveryConfig(),
-                            verbose::Bool = true)
+                            verbose::Bool = true,
+                            strict::Bool = false)
     size(X, 2) == length(times) ||
         throw(DimensionMismatch("X columns must match times"))
     dX = derivatives === nothing ?
@@ -665,14 +740,9 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
         verbose && println("\n[Discovery] Recovered system:\n", result.equations)
         return result
     catch error
-        message = "Raw-data discovery failed: " * sprint(showerror, error)
-        @warn message
-        empty_candidates = config.backend isa ExplicitSTLSQ ?
-            ExplicitCandidate[] : ImplicitCandidate[]
-        return DiscoveryResult(false, message, nothing, nothing, nothing,
-                               empty_candidates,
-                               RunMetadata(seed = config.seed,
-                                           package_version = PACKAGE_VERSION))
+        strict && rethrow()
+        return _failed_discovery(
+            error, config; prefix = "Raw-data discovery failed")
     end
 end
 
@@ -725,14 +795,13 @@ function select_discovery_config(p_trained, model::UDEModel;
         end
     end
     if best_result === nothing
-        empty_candidates = config.backend isa ExplicitSTLSQ ?
-            ExplicitCandidate[] : ImplicitCandidate[]
         return DiscoveryResult(
             false, "no discovery configuration succeeded", nothing, nothing,
-            nothing, empty_candidates,
+            nothing, _empty_candidates(config.backend),
             RunMetadata(seed = config.seed, package_version = PACKAGE_VERSION,
                         config = Dict(:selection => score_table,
-                                      :criterion => criterion)))
+                                      :criterion => criterion)),
+            DiscoveryFailed)
     end
     metadata = RunMetadata(
         seed = config.seed,
@@ -751,7 +820,7 @@ function select_discovery_config(p_trained, model::UDEModel;
     return DiscoveryResult(
         best_result.success, best_result.message, best_result.equations,
         best_result.basis, best_result.solution, best_result.candidates,
-        metadata)
+        metadata, best_result.retcode)
 end
 
 """
@@ -775,6 +844,7 @@ function discover_equations(p_trained, nn, st;
                                 config.backend isa ImplicitSINDyPI ?
                                 config.backend.threshold : 1e-2,
                             verbose::Bool = true,
+                            strict::Bool = false,
                             kwargs...)
     n_samples ≥ 20 ||
         throw(ArgumentError("n_samples must be at least 20"))
@@ -805,13 +875,7 @@ function discover_equations(p_trained, nn, st;
         verbose && println("\n[Discovery] Recovered system:\n", result.equations)
         return result
     catch error
-        message = "Discovery failed: " * sprint(showerror, error)
-        @warn message
-        empty_candidates = config.backend isa ExplicitSTLSQ ?
-            ExplicitCandidate[] : ImplicitCandidate[]
-        return DiscoveryResult(false, message, nothing, nothing, nothing,
-                               empty_candidates,
-                               RunMetadata(seed = config.seed,
-                                           package_version = PACKAGE_VERSION))
+        strict && rethrow()
+        return _failed_discovery(error, config)
     end
 end

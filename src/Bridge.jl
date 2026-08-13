@@ -7,7 +7,15 @@ end
 
 function import_sbml_network(path::AbstractString)
     throw(ErrorException(
-        "import_sbml_network requires `using SBML` (BioDynaXSBMLExt)"))
+        "import_sbml_network requires `using SBML` (BioDynaXSBMLExt). " *
+        "The importer maps species and stoichiometry; unrecognized kinetic " *
+        "laws become unknown reactions rather than guessed Michaelis forms."))
+end
+
+function import_sbmltoolkit_network(path::AbstractString)
+    throw(ErrorException(
+        "import_sbmltoolkit_network requires `using SBMLToolkit` " *
+        "(BioDynaXSBMLToolkitExt)"))
 end
 
 """Two-state network with two independent neural unknowns (multi-head test fixture)."""

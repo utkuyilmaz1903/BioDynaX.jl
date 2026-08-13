@@ -69,7 +69,7 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Build documentation
         run: |
-          julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+          julia --project=docs docs/instantiate.jl
           julia --project=docs docs/make.jl
 
   compat:

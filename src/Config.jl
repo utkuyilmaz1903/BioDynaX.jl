@@ -146,6 +146,18 @@ Base.@kwdef struct ExplicitSTLSQ <: AbstractDiscoveryBackend
 end
 
 """
+    DataDrivenSparseSTLSQ
+
+Optional explicit discovery backend that fits coefficients with
+DataDrivenSparse.jl `STLSQ`. Requires `using DataDrivenSparse`. Graph-local
+libraries and denominator safety remain BioDynaX-owned.
+"""
+Base.@kwdef struct DataDrivenSparseSTLSQ <: AbstractDiscoveryBackend
+    threshold::Float64 = 1e-2
+    ridge::Float64 = 1e-10
+end
+
+"""
     ImplicitSINDyPI
 
 Configuration for graph-local rational discovery through the implicit identity
@@ -184,6 +196,12 @@ function DiscoveryConfig(; backend::AbstractDiscoveryBackend = ImplicitSINDyPI()
         max_interaction_order, UInt64(seed))
 end
 
+"""
+    ExecutionConfig
+
+Experiment executor. `:gpu` is **experimental array transfer only** (CUDA `cu`
+on experiment arrays). It is not a batched GPU ODE/training stack.
+"""
 Base.@kwdef struct ExecutionConfig
     backend::Symbol = :serial
     batch_size::Int = 1

@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it using these metadata.
+title: BioDynaX.jl
+abstract: >-
+  Graph-guided universal differential equations for biological networks
+  with local implicit rational discovery.
+authors:
+  - family-names: Yılmaz
+    given-names: Utku
+license: MIT
+repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
+version: 0.9.0
+date-released: "2026-08-13"

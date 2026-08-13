@@ -48,9 +48,12 @@ end
     model, params = build_ude_model(rng, network)
     x = [0.25, 0.15]
     dx_vec = ude_system(x, params, 0.0, model)
-    dx_static = Vector(BioDynaX._ude_system_static(
+    dx_static = Vector(ude_system(
         StaticArrays.SVector{2}(x[1], x[2]), params, 0.0, model))
     @test dx_vec ≈ dx_static
+    dx_explicit = Vector(BioDynaX._ude_system_static(
+        StaticArrays.SVector{2}(x[1], x[2]), params, 0.0, model))
+    @test dx_vec ≈ dx_explicit
 end
 
 @testset "phase 2 network validation" begin
@@ -84,10 +87,31 @@ end
         @test_throws ErrorException export_mtk_system(build_ude_model(MersenneTwister(0))[1])
     else
         using ModelingToolkit
-        model, _ = build_ude_model(MersenneTwister(0), build_linear_test_network())
+        model, params = build_ude_model(MersenneTwister(0), build_linear_test_network())
         sys = export_mtk_system(model)
         @test sys isa ODESystem
-        @test length(states(sys)) == 2
+        nstates = try
+            length(unknowns(sys))
+        catch
+            length(states(sys))
+        end
+        @test nstates == 2
+        param_text = join(string.(parameters(sys)), " ")
+        @test occursin("k_ba", param_text)
+        @test occursin("k_a", param_text)
+        @test occursin("k_b", param_text)
+        eq_text = join(string.(equations(sys)), " ")
+        @test occursin("k_ba", eq_text)
+        hill_model, _ = build_ude_model(
+            MersenneTwister(1), build_hill_recovery_network(; known = true))
+        hill_sys = export_mtk_system(hill_model)
+        hill_eqs = join(string.(equations(hill_sys)), " ")
+        @test occursin("vmax", hill_eqs)
+        @test occursin("K", hill_eqs) || occursin("k_param", lowercase(hill_eqs))
+        nn_model, _ = build_ude_model(
+            MersenneTwister(2), build_hill_recovery_network(; known = false))
+        nn_sys = export_mtk_system(nn_model)
+        @test occursin("nn_", join(string.(equations(nn_sys)), " "))
     end
 end
 
@@ -95,5 +119,6 @@ end
     if !isdefined(Base, :get_extension) ||
        Base.get_extension(BioDynaX, :BioDynaXSBMLExt) === nothing
         @test_throws ErrorException import_sbml_network("missing.xml")
+        @test_throws ErrorException import_sbmltoolkit_network("missing.xml")
     end
 end

@@ -14,6 +14,10 @@ function parameter_schema(model::UDEModel)
             end
         elseif term isa MassActionProductionTerm
             term.param ∈ seen || (push!(names, term.param); push!(seen, term.param))
+        elseif term isa SaturationProductionTerm
+            for sym in (term.vmax_param, term.km_param)
+                sym ∈ seen || (push!(names, sym); push!(seen, sym))
+            end
         end
     end
     for term in model.compiled.destruction_terms
