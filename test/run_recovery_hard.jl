@@ -3,6 +3,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BioDynaX
+include(joinpath(@__DIR__, "internals.jl"))
 using LinearAlgebra
 using OrdinaryDiffEq: Tsit5, solve
 using SciMLBase

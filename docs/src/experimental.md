@@ -1,54 +1,55 @@
 # Experimental APIs
 
-These entry points exist so the package can compose with SciML later. They are
-**not** the product.
+**Do not use these in a paper or a wet lab.** They are not the unique path
+and they are not a product. Names below are **not exported**; call them as
+`BioDynaX.foo` if you are extending the package.
+
+## Do not use
+
+- **GPU** — `cu` array copy only. No batched GPU ODE integrator and no GPU
+  training loop.
+- **ModelingToolkit** — known terms may emit; neural heads are placeholder
+  `nn_i(t)` variables, not differentiable MTK models.
+- **SBML** — species and stoichiometry only. MathML does not lower to
+  Hill/MM metadata. Explicit kinetic laws become `known = false`.
+- **Fisher identifiability** — a Gauss–Newton matrix at a fit over physical
+  parameters. Not structural identifiability.
 
 ## GPU (`CUDA`)
 
-`ExecutionConfig(backend = :gpu)` copies experiment arrays with `cu`. There is
-no batched GPU ODE integrator or GPU training loop. Treat this as an array
-transport helper.
+`ExecutionConfig(backend = :gpu)` copies experiment arrays with `cu`. Treat
+this as an array-transport helper, not a SciML GPU stack.
 
 ## Identifiability
 
-`assess_identifiability` builds a Gauss–Newton Fisher matrix from a
-finite-difference trajectory Jacobian over **physical** parameters at a fit.
-It is not structural identifiability.
+`BioDynaX.assess_identifiability` is experimental Fisher arithmetic.
 
-Unknown-edge recovery reports a practical `k_prod` ↔ `D(z)` scale collinearity
-(`BioDynaX.production_destruction_tradeoff`). The golden path prints that
-warning (`BioDynaX.report_production_destruction_tradeoff`). The Hill UDE
-recovery job requires `unidentifiable_edge == true`. Pinning `k_prod` with
-`TrainingConfig(frozen_phys = [:k_prod])`, normalizing sampled `D`, or
-changing the production rate does **not** remove the Jacobian collinearity;
-that is the locked finding. The flag is not a structural certificate and is
+Unknown-edge recovery reports a practical `k_prod` ↔ `D(z)` scale
+collinearity (`BioDynaX.production_destruction_tradeoff`). The golden path
+prints that warning. The Hill UDE recovery job requires
+`unidentifiable_edge == true`. Pinning `k_prod`, normalizing sampled `D`, or
+changing the production rate does **not** remove the Jacobian collinearity.
+That is the locked finding. The flag is not a structural certificate and is
 not on the freeze list.
 
 `TrainingConfig(frozen_phys = [:k_prod])` pins named physical parameters
-during Adam (gradient zeroed) and restores them after BFGS. Use it when a
-production rate is known from a separate assay. It is not a structural
-identifiability certificate.
+during Adam and restores them after BFGS. Use it when a production rate is
+known from a separate assay. It is not an identifiability certificate.
 
 ## SBML
 
-`import_sbml_network` maps species and stoichiometry. Kinetic MathML is not
-parsed into Hill/MM metadata; explicit kinetic laws become `known = false`.
-`import_sbmltoolkit_network` lowers through SBMLToolkit + Catalyst when those
-packages are loaded.
+`BioDynaX.import_sbml_network` maps species and stoichiometry.
+`BioDynaX.import_sbmltoolkit_network` lowers through SBMLToolkit + Catalyst
+when those packages are loaded. Neither is a kinetic importer.
 
 ## ModelingToolkit
 
-`export_mtk_system` emits known production/destruction terms symbolically.
-Neural heads are placeholder `nn_i(t)` variables, not differentiable MTK models.
+`BioDynaX.export_mtk_system` emits known production/destruction terms
+symbolically. Neural heads stay placeholders.
 
 ## DataDrivenSparse
 
-`DataDrivenSparseSTLSQ` swaps the explicit coefficient solver for DataDrivenSparse
-`STLSQ`. Graph-local libraries and implicit rational discovery stay in BioDynaX.
-
-```@docs
-assess_identifiability
-IdentifiabilityReport
-DataDrivenSparseSTLSQ
-GPUBackend
-```
+`BioDynaX.DataDrivenSparseSTLSQ` swaps the explicit coefficient solver.
+Graph-local libraries and implicit rational discovery stay in BioDynaX.
+This backend is never a CI dependency. A skip is not a win; frozen numbers
+live in [Recovery benchmarks](benchmarks.md).

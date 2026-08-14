@@ -1,103 +1,108 @@
 # Tutorial: unknown inhibition recovery
 
-This is the only golden path the package is built around:
+One command, one table, one warning, one thing this package does not claim.
+
+## One command
+
+```bash
+julia --project=. examples/unknown_inhibition.jl
+```
+
+That script is the protocol: **9 initial conditions**, Adam 100 / BFGS 50,
+`train_experiments`, then `sample_unknown_destruction` →
+`discover_unknown_rate` → `compose_hybrid_rhs` versus **data**.
+A shortened single-IC `train_ude` snippet is not the protocol.
 
 ```text
 CSV / time series
   → BiologicalNetwork (known kinetics + one unknown edge)
-  → compile / build_ude_model
-  → train_ude
+  → build_ude_model
+  → train_experiments
   → sample_unknown_destruction
   → discover_unknown_rate
   → compose_hybrid_rhs
   → resimulate vs data
 ```
 
-A runnable copy is `examples/unknown_inhibition.jl` at the repository root.
-It uses the same **multi-IC** protocol as the recovery CI job. SBML, GPU,
-multi-head NNs, and custom kinetics are **not** on this path.
+## One table (expected mertebe)
 
-The present claim is: correct graph parents (true-monomial **recall**) and a
-hybrid RHS that resimulates **versus data**, for **Hill-class** unknown
-destruction. Combined support F1 on a trained NN rate is **not** gated at the
-analytical Hill value; extra `1` and `r` terms can remain. Canonical Hill
-combined F1 ≥ 0.99 is gated on analytical `D` samples after Occam prune
-(`RECOVERY_THRESHOLDS.support_f1_clean`). MM unknown edges are not that claim.
+Measured Hill UDE on this protocol (seed 103, zero observation noise):
 
-## Why this example
+| quantity | mertebe | gated? |
+|----------|---------|--------|
+| hybrid residual vs data | ≈ 0.003 | yes (`data_residual`) |
+| true-monomial recall | 1.0 | yes (`support_recall`) |
+| combined support F1 | ≈ 0.57 | skeleton floor 0.50, **not** 0.99 |
+| extras that remain | `1`, `r` | reported, not removed |
+| `unidentifiable_edge` | `true` | yes |
 
-You know the interaction graph: species `S` is produced from regulator `R` and
-degraded by `R`, while `R` is produced from `S` and decays linearly. The
-**degradation law is unknown**. BioDynaX keeps the known mass-action and linear
-terms mechanistic, replaces the unknown edge with a positivity-preserving neural
-destruction term, fits the hybrid UDE, then recovers a **graph-local** rational
-expression only on that edge.
+Canonical Hill combined F1 ≥ 0.99 is gated on **analytical** `D` samples after
+Occam (`RECOVERY_THRESHOLDS.support_f1_clean`). It is not the trained-NN claim.
 
-That is the claim this package has to prove. Global SINDy on all states, or a
-bare Lux UDE with no graph, is not the product.
+## One warning
 
-## 1. Observations
+Observed concentrations leave `k_prod` and the scale of `D(z)` collinear.
+The script prints `unidentifiable_edge = true`. **Coefficients are not
+biological constants.** Freeze / `D`-normalization / production perturbation
+do not break that Jacobian tradeoff.
 
-Columns are time `t` then one column per dynamic state.
+```julia
+ident = BioDynaX.report_production_destruction_tradeoff(
+    model, trained.params, data, times, u0, tspan; term = term, verbose = true)
+```
+
+## We do not claim
+
+- Canonical Hill from a trained neural rate. Extras `1` and `r` remain.
+- A wet-lab tool for one noisy CSV and an unknown topology.
+- UDE training on missing states. Partial observation is subsampled `D` →
+  hybrid residual versus data. The biologist path (train on hidden species)
+  is closed.
+- A licensed experimental time series that matches the unique-claim protocol.
+  Absence is the result. Elowitz is a synthetic ODE fixture.
+
+## Network (public constructors)
+
+The example does **not** call a recovery fixture. Known graph, one unknown
+destruction edge:
 
 ```julia
 using BioDynaX
 
-experiment, state_names = experiment_from_csv("examples/data/unknown_inhibition.csv")
-times = experiment.times
-data = experiment.observations
-u0 = experiment.u0
+function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
+    nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
+    reactions = [
+        ReactionSpec(name = :produce_s,
+                     stoichiometry = Dict(1 => 1.0), regulators = [2],
+                     metadata = MassActionMetadata(rate_param = :k_prod)),
+        ReactionSpec(name = :hill_deg,
+                     stoichiometry = Dict(1 => -1.0), regulators = [2],
+                     known = known, family = HILL,
+                     metadata = HillMetadata(
+                         vmax_param = :vmax, k_param = :K,
+                         hill_order = hill_order)),
+        ReactionSpec(name = :produce_r,
+                     stoichiometry = Dict(2 => 1.0), regulators = [1],
+                     metadata = MassActionMetadata(rate_param = :k_rs)),
+        ReactionSpec(name = :decay_r,
+                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_r)),
+    ]
+    return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
+end
 ```
-
-`Experiment` already supports irregular grids and missing-data masks. CSV import
-is the usual entry; `generate_data` is only for fixtures.
-
-## 2. Network: known graph, one unknown edge
-
-```julia
-network = build_hill_recovery_network(; known = false, hill_order = 2)
-```
-
-Internally this is four reactions:
 
 | Reaction | Role | In the UDE |
 |----------|------|------------|
-| `R → S` production | known mass action | `MassActionProductionTerm` |
+| `R → S` production | known mass action | compiled `P` |
 | `R` degrades `S` | **unknown** | `NeuralDestructionTerm` |
-| `S → R` production | known mass action | mechanistic |
-| `R` linear decay | known | `LinearDestructionTerm` |
+| `S → R` production | known mass action | compiled `P` |
+| `R` linear decay | known | compiled linear `D` |
 
-Set `known = true` to compile the Hill edge as `HillDestructionTerm` (the
-parameter-recovery fixtures do this). The tutorial keeps it unknown.
+CSV import is `experiment_from_csv`. Multi-IC training is
+`generate_experiment_set` + `train_experiments` as in the example.
 
-## 3. Compile and train
-
-The CI protocol is multi-IC (`examples/unknown_inhibition.jl`: 9 ICs, adam
-100 / bfgs 50, `train_experiments`). The snippet below is a **single-IC
-sketch**, not that protocol.
-
-```julia
-using Random
-rng = MersenneTwister(7)
-model, params = build_ude_model(rng, network)
-tspan = (first(times), last(times))
-trained = train_ude(
-    params, data, times, u0, tspan, model;
-    adam_iters = 100, bfgs_iters = 50, verbose = false)
-```
-
-`train_ude` is Adam then optional BFGS. Adjoints are SciMLSensitivity /
-Zygote. The RHS is `duᵢ = Pᵢ − Dᵢ·uᵢ` with non-negative rates, so trajectories
-cannot leave the positive orthant through the boundary.
-
-If training diverges, shorten the horizon (`HorizonCurriculum`) or lower
-`adam_lr` before touching the discovery library. Expanding the sparse dictionary
-will not fix an unidentified neural edge.
-
-## 4. Discover a rational law on the unknown edge
-
-Discovery targets the unknown destruction rate, not the full `ẋ`. The compiler
-keeps known `P` and linear `D`; STLSQ only sees the neural edge.
+## Discover and resimulate
 
 ```julia
 X_traj = predict_ude(trained.params, u0, tspan, times, model)
@@ -106,6 +111,10 @@ discovery = discover_unknown_rate(R, times, D; verbose = false, strict = true)
 rhs = compose_hybrid_rhs(
     model, trained.params, term,
     equation_to_function(discovery.candidates[1]))
+residual = hybrid_data_residual(
+    model, trained.params, term,
+    equation_to_function(discovery.candidates[1]),
+    u0, tspan, times, data)
 ```
 
 `strict = true` throws. With `strict = false`, check `discovery.retcode`:
@@ -119,43 +128,10 @@ rhs = compose_hybrid_rhs(
 | `SingularLibrary` | design matrix was singular |
 | `DiscoveryFailed` | anything else |
 
-Do not plot a string and call it a model. The recovered object is a rate that
-must resimulate.
+The recovered object is a rate that must resimulate versus **data**.
 
-## 4b. Report the production–destruction scale warning
-
-```julia
-ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, data, times, u0, tspan; term = term, verbose = true)
-```
-
-`unidentifiable_edge` is a **practical** collinearity flag (Fisher + trajectory
-cosine), not structural identifiability. Pinning `k_prod` with
-`TrainingConfig(frozen_phys = [:k_prod])` or normalizing sampled `D` does not
-remove the Jacobian tradeoff. The recovery CI requires this flag to be `true`
-on the Hill UDE fixture.
-
-## 5. Resimulate the recovered ODE
-
-```julia
-using OrdinaryDiffEq, SciMLBase, Statistics
-prob = ODEProblem(rhs, u0, tspan)
-sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
-residual = sqrt(mean(abs2, Array(sol) .- data))
-```
-
-Gates for unknown-edge **Hill** recovery (NN fit, monomial recall, support F1
-at the UDE skeleton floor, data residual, `unidentifiable_edge`) live in
-`RECOVERY_THRESHOLDS` and `test/test_recovery_hard.jl`. MM unknown uses the
-same training/residual protocol without the Hill recall gate. A green recovery
-job is necessary, not sufficient, for v1.0. See
-[Recovery benchmarks](benchmarks.md) and [API stability](stability.md).
-
-## What this package is not
-
-Do not start here for SBML/COPASI (Catalyst + SBMLToolkit), general sparse
-regression (DataDrivenDiffEq), or structural identifiability
-(StructuralIdentifiability.jl). BioDynaX owns the graph-constrained hybrid UDE
-and local rational discovery path.
+Gates live in `RECOVERY_THRESHOLDS`. A green recovery job is necessary, not
+sufficient, for v1.0. See [Recovery benchmarks](benchmarks.md) and
+[API stability](stability.md).
 
 Next: [How-to recipes](howto.md), [SciML integration](sciml.md).

@@ -34,6 +34,8 @@ const BASELINE_TESTSETS = (
     "known Michaelis–Menten parameter recovery",
     "graph-local vs global library ablation",
     "3-state graph prior vs global distractors",
+    "6-state graph prior vs global distractors",
+    "6-state wrong-graph negative control misses the true parent",
     "k_prod vs D practical identifiability is reported",
     "partial observation mask and subsampled Hill parent",
     "competitive unknown edge is 2D D(S,I) and keeps true parents",

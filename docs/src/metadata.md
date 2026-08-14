@@ -36,5 +36,6 @@ CompetitiveMetadata
 LinearDecayMetadata
 SaturationMetadata
 CustomKineticMetadata
-metadata_summary
 ```
+
+`BioDynaX.metadata_summary` is an internal helper, not a public export.

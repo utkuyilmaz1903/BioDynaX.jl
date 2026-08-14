@@ -1,7 +1,8 @@
 # API
 
-Names on the [stability freeze](stability.md). Experimental entry points are
-documented on [Experimental](experimental.md).
+Names on the [stability freeze](stability.md) plus the golden-path verbs a
+stranger types in the [tutorial](tutorial.md). Experimental entry points are
+**not exported**; see [Experimental](experimental.md).
 
 ## Network and compile
 
@@ -15,30 +16,34 @@ build_ude_model
 UDEModel
 ude_system
 ude_rhs!
-STATIC_STATE_THRESHOLD
 ```
 
 ## Training
 
 ```@docs
 train_ude
+train_experiments
 TrainingResult
 TrainingRetcode
+TrainingConfig
+HorizonCurriculum
+predict_ude
 ```
 
 ## Discovery
 
 ```@docs
 discover_equations
+discover_unknown_rate
 DiscoveryResult
 DiscoveryRetcode
 local_basis
 export_rhs
 equation_to_latex
 equation_to_function
-discover_unknown_rate
 sample_unknown_destruction
 compose_hybrid_rhs
+hybrid_data_residual
 NeuralDestructionTerm
 ```
 
@@ -47,19 +52,30 @@ NeuralDestructionTerm
 ```@docs
 Experiment
 experiment_from_csv
+write_experiment_csv
+generate_experiment_set
 ```
 
-## Recovery fixtures (not on the freeze list)
-
-These names are CI / benchmark helpers. They are exported for
-`run_recovery_suite` but they are **not** the stability freeze. See
-[Experimental](experimental.md) for GPU, SBML, MTK, and identifiability.
+## Config and helpers
 
 ```@docs
-run_recovery_suite
-RECOVERY_THRESHOLDS
-build_mm_test_network
-build_hill_recovery_network
-build_mm_recovery_network
-build_competitive_test_network
+pack_parameters
+ParameterSchema
+ZygoteAD
+ProductionAD
+AugmentedLagrangianConfig
+ImplicitSINDyPI
+ExplicitSTLSQ
+estimate_derivatives
+candidate_parents
 ```
+
+## Contract
+
+```@docs
+RECOVERY_THRESHOLDS
+```
+
+Recovery fixtures (`run_recovery_suite`, `build_*_recovery_network`) are
+internal. Call them as `BioDynaX.run_recovery_suite` from tests and
+benchmarks. They are not on the freeze list.

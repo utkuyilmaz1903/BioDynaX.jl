@@ -391,7 +391,7 @@ function ude_system(x, p, t, nn, st)
 end
 
 function ude_system(x, p, t, nn, st, network::BiologicalNetwork)
-    model = Zygote.@ignore compile_network(network, nn, st)
+    model = ignore_derivatives(() -> compile_network(network, nn, st))
     return ude_system(x, p, t, model)
 end
 

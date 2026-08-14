@@ -45,7 +45,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - name: Benchmark smoke
         run: |
-          julia --project=. -e 'using BioDynaX, Random; rng=MersenneTwister(0); net=build_linear_test_network(); model,p=build_ude_model(rng,net); cache=allocate_cache(model,Float64); u=[0.2,0.1]; params=pack_parameters((k_ba=0.8,k_a=1.2,k_b=0.5), p.nn); for _ in 1:10; ude_rhs!(cache.du,u,params,0.0,model,cache); end; println(@allocated ude_rhs!(cache.du,u,params,0.0,model,cache))'
+          julia --project=. -e 'using BioDynaX, Random; rng=MersenneTwister(0); net=BioDynaX.build_linear_test_network(); model,p=build_ude_model(rng,net); cache=allocate_cache(model,Float64); u=[0.2,0.1]; params=pack_parameters((k_ba=0.8,k_a=1.2,k_b=0.5), p.nn); for _ in 1:10; ude_rhs!(cache.du,u,params,0.0,model,cache); end; println(@allocated ude_rhs!(cache.du,u,params,0.0,model,cache))'
 
   quality:
     runs-on: ubuntu-latest

@@ -187,6 +187,30 @@ end
     @test wrong.local_has_true_parent == false
 end
 
+@testset "6-state graph prior vs global distractors" begin
+    report = run_recovery_suite(MersenneTwister(224); sections = (:six_state,))
+    six = report[:six_state]
+    @test six.nstates == 6
+    @test 2 ∈ six.graph_parents
+    @test 3 ∉ six.graph_parents
+    @test 6 ∉ six.graph_parents
+    @test six.local_success
+    @test six.local_has_true_parent
+    @test six.local_false_parent == false
+    @test six.distractor_in_local == false
+    @test six.distractor_in_global
+end
+
+@testset "6-state wrong-graph negative control misses the true parent" begin
+    report = run_recovery_suite(MersenneTwister(234);
+                               sections = (:six_state_wrong_graph,))
+    wrong = report[:six_state_wrong_graph]
+    @test wrong.nstates == 6
+    @test 3 ∈ wrong.graph_parents
+    @test 2 ∉ wrong.graph_parents
+    @test wrong.local_has_true_parent == false
+end
+
 @testset "k_prod vs D practical identifiability is reported" begin
     report = run_recovery_suite(MersenneTwister(205); sections = (:identifiability,))
     ident = report[:identifiability]
@@ -248,6 +272,8 @@ end
     report = run_recovery_suite(MersenneTwister(207); sections = (:literature,))
     lit = report[:literature]
     @test lit.experimental_csv == false
+    @test lit.unique_claim_protocol == false
+    @test lit.licensed_experimental_series == false
     @test lit.finite_trajectory
     @test lit.nonnegative
     @test lit.nstates == 3
@@ -297,5 +323,8 @@ end
     @test occursin("bfgs_iters::Int = 50", src)
     @test occursin("production_destruction_tradeoff", src)
     @test occursin("UNKNOWN_EDGE_ICS", src)
+    @test occursin("ReactionSpec", src)
+    @test occursin("HillMetadata", src)
+    @test !occursin("build_hill_recovery_network", src)
     @test length(BioDynaX._unknown_edge_ics()) == 9
 end

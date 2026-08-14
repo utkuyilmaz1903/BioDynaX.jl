@@ -3,6 +3,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BioDynaX
+using BioDynaX: run_recovery_suite
 using Printf
 using Random
 

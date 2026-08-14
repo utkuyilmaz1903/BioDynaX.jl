@@ -1,4 +1,5 @@
 using BioDynaX
+include("internals.jl")
 using ComponentArrays
 using LinearAlgebra
 using Lux

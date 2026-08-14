@@ -2,10 +2,11 @@
 
 BioDynaX compiles a biological interaction graph into a positivity-preserving
 UDE and recovers graph-local rational kinetics on unknown edges. This is a
-**research preview**: the unique path is gated unknown-edge `D(z)` recovery
-(true-monomial recall + hybrid residual versus data on Hill-class edges), not
-canonical Hill from every trained NN, and not a general CRN or SINDy
+**research preview, not v1.0**: the unique path is gated unknown-edge `D(z)`
+recovery (true-monomial recall + hybrid residual versus data on Hill-class
+edges), not canonical Hill from a trained NN, and not a general CRN or SINDy
 replacement. Practical `k_prod`↔`D` collinearity is reported, not solved.
+There is no licensed experimental series on the unique-claim protocol.
 
 ```@contents
 Pages = ["tutorial.md", "howto.md", "sciml.md", "metadata.md",

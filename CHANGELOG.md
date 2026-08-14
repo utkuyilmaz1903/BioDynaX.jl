@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-08-14
+
+Preview polish. No new science product. Export surface shrinks; docs and
+TagBot stay honest; graph prior is measured at 6 states; UDE combined F1
+stays a skeleton claim.
+
+### Added
+
+- Six-state graph-prior fixture and wrong-graph negative control
+  (`:six_state`, `:six_state_wrong_graph`). Combined F1 is not the KPI.
+- `benchmark/recovery_seeds.jl` (analytical Occam on five seeds; optional
+  `--ude`). CI remains seed 103 / 104.
+- `benchmark/noise_grid.jl` and `benchmark/ude_f1_attempt.jl` (same library;
+  no new atoms).
+- GitHub Pages workflow that publishes the existing `gh-pages` branch once
+  Pages is enabled. Live URL is not recorded until HTTP 200.
+
+### Changed
+
+- Public `export` list is the freeze list plus golden-path verbs. Recovery
+  fixtures, Fisher, GPU/SBML/MTK, and library internals are `BioDynaX.foo`.
+- Golden-path example builds the network with `ReactionSpec` / `HillMetadata`.
+- `Zygote.@ignore` replaced by `ChainRulesCore.ignore_derivatives`.
+- Tutorial is one command, one table, one warning, one “we do not claim”.
+- Experimental page: do not use in a paper or a wet lab.
+- Locked UDE claim remains recall + residual after a same-library F1 attempt.
+- No licensed experimental time series matches the unique-claim protocol;
+  that absence is the result.
+
 ### Added
 
 - Golden-path practical `k_prod`↔`D(z)` warning
@@ -194,7 +223,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed dead `ExplicitSTLSQ` export stub behavior; backend is fully wired.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.6.0...v0.7.0

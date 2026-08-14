@@ -10,7 +10,7 @@ authors:
     given-names: Utku
 license: MIT
 repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
-version: 0.9.1
+version: 0.9.2
 date-released: "2026-08-13"
 abstract: >-
   Graph-guided universal differential equations for biological networks
@@ -20,5 +20,5 @@ authors:
     given-names: Utku
 license: MIT
 repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
-version: 0.9.1
+version: 0.9.2
 date-released: "2026-08-13"

@@ -1,15 +1,19 @@
 # BioDynaX.jl Unreleased
 
-- Golden path reports practical `k_prod`↔`D` collinearity. Freeze / normalize /
-  production perturbation do not break that scale tradeoff; the warning is the
-  finding.
-- Wrong-graph negative control and 3-state parent membership are the graph-prior
-  evidence. 2-state graph vs global F1 stays equal after Occam.
-- Unknown-edge closed loop is Hill-class. MM unknown stays NN RMSE + residual.
-- Partial observation: discovery→hybrid residual versus data is gated; UDE
-  training on missing states is not claimed.
-- README protocol matches `examples/unknown_inhibition.jl` (adam 100 / bfgs 50).
-  Multi-IC BFGS is joint; Occam scores BIC; UDE NN weights are Float64.
+# BioDynaX.jl 0.9.2
+
+- Public API is the freeze list plus golden-path verbs. Fixtures and
+  experimental GPU/SBML/MTK/Fisher names are `BioDynaX.foo`.
+- Golden path example uses `ReactionSpec` / `HillMetadata`. One command, one
+  table, one `unidentifiable_edge` warning, no canonical-Hill-from-NN claim.
+- `Zygote.@ignore` → `ChainRulesCore.ignore_derivatives`.
+- 6-state graph prior + wrong-graph are gated. Combined F1 is not the KPI.
+- Multi-seed analytical Occam and a noise grid are reported; CI stays
+  single-seed. UDE combined F1 attempt on the same library left extras;
+  the claim stays recall + residual.
+- No licensed experimental series matches the unique-claim protocol. Absence
+  is the result. Docs URL and TagBot are configured, not proven live / tagged.
+- Preview register / methods note / v1.0 remain maintainer gates.
 
 # BioDynaX.jl 0.9.1
 

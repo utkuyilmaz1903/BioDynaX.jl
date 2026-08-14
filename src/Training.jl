@@ -44,7 +44,7 @@ function predict_ude(p, u0, tspan, saveat, nn, st;
                      solver_config::SolverConfig = SolverConfig(),
                      cache::Union{Nothing,UDEModelCache} = nothing)
     resolved = model === nothing ?
-        Zygote.@ignore(compile_network(network, nn, st)) : model
+        ignore_derivatives(() -> compile_network(network, nn, st)) : model
     inplace = _forward_inplace(solver_config)
     prob = SciMLBase.ODEProblem(
         resolved, u0, tspan, p; inplace = inplace, cache = cache)
@@ -59,7 +59,9 @@ function predict_ude(p, u0, tspan, saveat, nn, st;
         save_everystep = false,
     )
     prediction = Array(sol)
-    Zygote.@ignore _validate_solution(sol, prediction, saveat, tspan)
+    ignore_derivatives() do
+        _validate_solution(sol, prediction, saveat, tspan)
+    end
     return prediction
 end
 
@@ -109,6 +111,11 @@ function _augmented_term(constraints, dual, ρ, temperature)
     return sum((projected .^ 2 .- dual .^ 2) ./ (2ρ))
 end
 
+"""
+    predict_ude(p, u0, tspan, saveat, model::UDEModel; solver_config, cache)
+
+Integrate the compiled UDE and return the state trajectory at `saveat`.
+"""
 function predict_ude(p, u0, tspan, saveat, model::UDEModel;
                      solver_config::SolverConfig = SolverConfig(),
                      cache::Union{Nothing,UDEModelCache} = nothing)
@@ -145,8 +152,9 @@ function loss_mse(p, data, t_data, u0, tspan, nn, st;
         max(zero(mse), maximum(constraints))
 
     if diagnostics !== nothing
-        Zygote.@ignore _record!(
-            diagnostics, mse, constraint_loss, total, residual)
+        ignore_derivatives() do
+            _record!(diagnostics, mse, constraint_loss, total, residual)
+        end
     end
     return total
 end
@@ -477,8 +485,8 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
         total = zero(eltype(p))
         weight_sum = zero(eltype(p))
         for experiment in experiments
-            weight = Zygote.@ignore experiment_weight(experiment)
-            scale = Zygote.@ignore experiment_noise_scale(experiment)
+            weight = ignore_derivatives(() -> experiment_weight(experiment))
+            scale = ignore_derivatives(() -> experiment_noise_scale(experiment))
             total += weight * loss_mse(
                 p, experiment.observations, experiment.times, experiment.u0,
                 (first(experiment.times), last(experiment.times)), nn, st;

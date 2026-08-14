@@ -1,0 +1,33 @@
+# Deploys the existing gh-pages branch through GitHub Pages.
+# Documenter still pushes that branch from the docs CI job on main.
+# This workflow does not invent a live URL; it only publishes the branch
+# once Pages is available to the repository.
+name: pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [gh-pages]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/gh-pages'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

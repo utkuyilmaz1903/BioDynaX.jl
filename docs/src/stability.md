@@ -2,34 +2,51 @@
 
 v0.9.x is a **research preview**. A green `recovery` CI job is **necessary, not
 sufficient** for v1.0. Green CI today proves the method skeleton (hybrid compile,
-`D(z)` discovery, graph vs global ablation), not that every printed equation is
-canonical Hill, and not that a biologist should run this on an arbitrary CSV.
+`D(z)` discovery, graph vs global ablation, 6-state prior), not that every
+printed equation is canonical Hill, and not that a biologist should run this
+on an arbitrary CSV.
+
+## Live docs and TagBot (honest)
+
+- Documenter `deploydocs` is configured and pushes `gh-pages` from `main`
+  when `CI=true`. The `gh-pages` branch exists.
+- GitHub Pages was **not live** on 2026-08-14: `https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/`
+  returned HTTP 404. A live URL is recorded here only after that endpoint
+  returns HTTP 200. Until then write “configured, `gh-pages` present, Pages
+  not proven live”.
+- TagBot and CompatHelper are **configured**. There is **no git tag**, so
+  TagBot has not been proven. The first tag after a 0.9.x preview register
+  is the proof. Do not write “TagBot ran”.
+- `DOCUMENTER_KEY` remains an optional SSH fallback. The docs job uses
+  `GITHUB_TOKEN` with `contents: write`.
 
 ## v1.0 is not cut until all of the following can fail CI
 
 - Unknown-edge UDE combined support F1 is **not** the analytical Hill gate.
-  The locked UDE claim is true-monomial recall + hybrid residual versus data
-  on **Hill-class** unknown destruction. Analytical Occam F1
-  (`support_f1_clean`) stays 0.99 on exact / 0.5% `D`. Re-opening a
+  One same-library attempt (`benchmark/ude_f1_attempt.jl`) left extras `1`
+  and `r`. The locked UDE claim is true-monomial recall + hybrid residual
+  versus data on **Hill-class** unknown destruction. Re-opening a
   “canonical Hill from a trained NN” sentence requires a new major scientific
   gate, not a README edit.
-- External graph vs global (optional DataDrivenDiffEq) baseline table is frozen
+- External graph vs global (optional DataDrivenSparse) baseline table is frozen
   in `docs/src/benchmarks.md`. Loosening a locked number is breaking. The
-  2-state F1 gap is **not** the prior: after Occam both F1s can be 1.00. The
-  locked prior is library membership of the distractor, 3-state true-parent
-  membership, and a wrong-graph negative control.
+  2-state F1 gap is **not** the prior. The locked prior is library membership
+  of the distractor, 3-state and **6-state** true-parent membership, and
+  wrong-graph negative controls.
 - Identifiability of `k_prod` vs `D(z)` is a **user-facing warning**. The Hill
-  UDE hard job requires `unidentifiable_edge == true`. Freeze / normalize /
-  production perturbation do not claim to break that Jacobian collinearity.
+  UDE hard job requires `unidentifiable_edge == true`.
 - Partial observation: subsampled `D` → hybrid residual versus data is green
   or honestly red. UDE training on missing states is **not** claimed.
-- TagBot, CompatHelper, and Documenter `gh-pages` are **configured**. They are
-  not proven live until `DOCUMENTER_KEY` exists and a `gh-pages` site URL is
-  recorded here. Until then write “configured, not deployed”.
+- No licensed experimental time series matches the unique-claim protocol
+  (known graph, ≤1 unknown destruction edge, redistributable license).
+  Absence is the result. Elowitz is a synthetic ODE fixture.
+- TagBot, CompatHelper, and Documenter `gh-pages` are configured. Live
+  Pages and a TagBot tag are proofs, not YAML files alone.
 - `]register` is a maintainer action after those gates, not a CI step.
 
-Loosening `RECOVERY_THRESHOLDS` is a breaking change. Tightening F1 toward the
-analytical gate is the scientific goal.
+Loosening `RECOVERY_THRESHOLDS` is a breaking change. Tightening UDE combined
+F1 toward `support_f1_clean` was attempted on the same library and did not
+hold. The scientific claim stays recall + residual until a new major gate.
 
 ## JOSS / register (maintainer gate, not this work)
 
@@ -37,20 +54,21 @@ All of the following must already be true, and CI must be able to go red if
 any of them regresses:
 
 1. The public claim is recall + data residual on Hill-class unknown edges
-   (this preview), **or** UDE combined F1 later reaches the analytical gate
-   and every sentence is updated.
+   (this preview). A canonical-Hill-from-NN sentence is closed until a new
+   major gate.
 2. Graph vs global (optional DataDrivenSparse) table is frozen in
-   [Recovery benchmarks](benchmarks.md). 3-state + wrong-graph are the prior
-   evidence. Loosening a locked number is breaking.
-3. Identifiability (`unidentifiable_edge`), 3-state graph-prior, wrong-graph
+   [Recovery benchmarks](benchmarks.md). 6-state + wrong-graph are the prior
+   evidence beyond the 3-state toy. Loosening a locked number is breaking.
+3. Identifiability (`unidentifiable_edge`), graph-prior, wrong-graph
    negative control, and partial-observation discovery→residual are green or
    honestly red (no silent skip).
 4. TagBot, CompatHelper, and Documenter `gh-pages` are configured. Live
-   deploy is a secret/`gh-pages` proof, not a YAML file alone.
-5. A JOSS paper, if written, is the method plus the closed-loop table. It is
-   not a general CRN/SINDy replacement. A methods note is allowed only when
-   every sentence matches a CI gate.
-6. `]register` is a maintainer action. CI does not register.
+   deploy is a Pages HTTP 200 and a tag, not a YAML file alone.
+5. A methods note is allowed only when every sentence matches a CI gate.
+   JOSS is not this preview.
+6. `]register` is a maintainer action for **0.9.x research-preview** only.
+   Do not register v1.0 against this bar. README’s first sentence stays
+   “not v1.0”.
 
 Until then this repository stays on the 0.9.x research-preview line. This
 preview does **not** cut v1.0, open JOSS, or register.
@@ -63,17 +81,22 @@ after 1.0:
 - `BiologicalNetwork`, `NodeSpec`, `EdgeSpec`, `ReactionSpec`
 - `UDEModel`, `build_ude_model`, `compile_mechanism`, `ude_system`, `ude_rhs!`
 - `SciMLBase.ODEProblem(::UDEModel, ...)`, `SciMLBase.solve(::UDEModel, ...)`
-- `train_ude`, `TrainingResult`, `TrainingRetcode`
+- `train_ude`, `train_experiments`, `TrainingResult`, `TrainingRetcode`
 - `discover_equations`, `discover_unknown_rate`, `DiscoveryResult`, `DiscoveryRetcode`
 - `export_rhs`, `compose_hybrid_rhs`, `equation_to_latex`, `local_basis`
 - `sample_unknown_destruction`, `Experiment`, `experiment_from_csv`
 
+Golden-path verbs (`generate_experiment_set`, `predict_ude`,
+`equation_to_function`, `hybrid_data_residual`, `RECOVERY_THRESHOLDS`,
+metadata types) are exported so a stranger can run the tutorial. They are
+not a promise that every helper is freeze-stable.
+
 GPU, SBML, ModelingToolkit placeholders, and Fisher identifiability are
-[experimental](experimental.md). They are not on the unique path.
+[experimental](experimental.md) and **unexported**.
 `production_destruction_tradeoff` is experimental (call as
-`BioDynaX.production_destruction_tradeoff`); it is not on this freeze list.
+`BioDynaX.production_destruction_tradeoff`).
 Recovery suite builders (`run_recovery_suite`, `build_*_recovery_network`)
-are internal fixtures, not freeze names.
+are internal fixtures.
 
 ## Registry
 
@@ -83,9 +106,7 @@ not part of CI. Do not register v1.0 against this preview bar.
 
 ## Documenter
 
-`checkdocs = :exports` with `warnonly = [:missing_docs]` because the public
-export list is a **superset** of the freeze list. Freeze-list names have
-docstrings. Do not grow the public export list to “fix” missing-docs warnings.
-`deploydocs` runs only on `main` when `CI=true`. The docs job grants
-`contents: write` so GitHub Actions can push `gh-pages` with `GITHUB_TOKEN`.
-`DOCUMENTER_KEY` remains an optional SSH fallback.
+`checkdocs = :exports` with `warnonly = [:missing_docs]`. The public export
+list is the freeze list plus golden-path verbs. Do not grow exports to
+silence missing-docs warnings. `deploydocs` runs only on `main` when
+`CI=true`.

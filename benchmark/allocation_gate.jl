@@ -3,7 +3,7 @@ using Random
 
 function allocation_gate()
     rng = MersenneTwister(0)
-    network = build_linear_test_network()
+    network = BioDynaX.build_linear_test_network()
     model, params = build_ude_model(rng, network)
     parameters = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), params.nn)
     u = [0.2, 0.1]

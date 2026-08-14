@@ -5,6 +5,11 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BioDynaX
+using BioDynaX:
+    run_recovery_suite, discover_equations, DiscoveryConfig,
+    DataDrivenSparseSTLSQ, build_rate_ablation_network, hill_rate_truth,
+    hill_rate_support, support_f1, denominator_violation_count,
+    rate_rel_rmse, equation_to_function, support_uses_variable
 using Printf
 using Random
 
@@ -42,7 +47,8 @@ X_ab, dX_ab = BioDynaX._permute_rate_samples(X_ab, dX_ab, 104)
 times_ab = collect(range(0.0, 1.0; length = length(r)))
 dd = _try_datadriven(X_ab, dX_ab, times_ab)
 if dd === nothing
-println("  DataDrivenSparse global  skipped (package not loaded; frozen as skipped, not a win)")
+println("  DataDrivenSparse global  skipped (package not loaded; not a CI dep)")
+    println("  Frozen row in docs: unavailable (DataDrivenSparse resolve conflicts with this preview; not a win)")
 else
     truth = hill_rate_support(2; variable = 1)
     cand = dd.success && !isempty(dd.result.candidates) ?

@@ -48,6 +48,12 @@ function _ground_truth_rhs_p53(x, p, t)
     return dx
 end
 
+"""
+    generate_experiment_set(rng; network, initial_conditions, tspan, n_points, ...)
+
+Build an `ExperimentSet` from the compiled mechanism (default) or an explicit
+ground-truth generator. This is the multi-IC entry used by the golden path.
+"""
 function generate_experiment_set(rng::AbstractRNG;
                                  network::BiologicalNetwork =
                                      DEFAULT_EXAMPLE_NETWORK,

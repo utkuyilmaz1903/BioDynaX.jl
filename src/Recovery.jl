@@ -19,7 +19,9 @@ end
 
 Locked scientific-recovery contract. Loosening a threshold is a breaking change.
 UDE combined F1 is not the analytical Hill gate; that gate is `support_f1_clean`
-on exact/noisy analytical `D`. The UDE claim is recall + data residual.
+on exact/noisy analytical `D`. A same-library F1 attempt
+(`benchmark/ude_f1_attempt.jl`) left extras `1` and `r`. The UDE claim is
+recall + data residual until a new major gate.
 """
 const RECOVERY_THRESHOLDS = (
     nn_correlation = 0.90,
@@ -553,6 +555,66 @@ build_wrong_graph_unknown_network(; known::Bool = false,
                                       with_distractor = with_distractor,
                                       parent = 3)
 
+"""Six dynamic states (S, R, Q, T, U, Z) with one unknown Hill edge on S.
+
+`parent` is the graph source of that edge (2 = true parent R; 3 = wrong parent Q).
+Known production/decay on the remaining states stay compiled. Combined F1 is
+not the 1D Hill analytical gate (the target state sits in `local_basis`).
+"""
+function build_six_state_unknown_network(; known::Bool = false,
+                                         parent::Int = 2)::BiologicalNetwork
+    nodes = [
+        NodeSpec(name = :S), NodeSpec(name = :R), NodeSpec(name = :Q),
+        NodeSpec(name = :T), NodeSpec(name = :U), NodeSpec(name = :Z),
+    ]
+    edges = [
+        EdgeSpec(source = parent, target = 1, kind = INHIBITION,
+                 family = HILL, known = known),
+    ]
+    reactions = [
+        ReactionSpec(name = :produce_s,
+                     stoichiometry = Dict(1 => 1.0), regulators = [2],
+                     metadata = MassActionMetadata(rate_param = :k_prod)),
+        ReactionSpec(name = :hill_deg,
+                     stoichiometry = Dict(1 => -1.0), regulators = [parent],
+                     known = known, family = HILL,
+                     metadata = HillMetadata(
+                         vmax_param = :vmax, k_param = :K, hill_order = 2)),
+        ReactionSpec(name = :produce_r,
+                     stoichiometry = Dict(2 => 1.0), regulators = [3],
+                     metadata = MassActionMetadata(rate_param = :k_rq)),
+        ReactionSpec(name = :decay_r,
+                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_r)),
+        ReactionSpec(name = :produce_q,
+                     stoichiometry = Dict(3 => 1.0), regulators = [4],
+                     metadata = MassActionMetadata(rate_param = :k_qt)),
+        ReactionSpec(name = :decay_q,
+                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_q)),
+        ReactionSpec(name = :produce_t,
+                     stoichiometry = Dict(4 => 1.0), regulators = [5],
+                     metadata = MassActionMetadata(rate_param = :k_tu)),
+        ReactionSpec(name = :decay_t,
+                     stoichiometry = Dict(4 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_t)),
+        ReactionSpec(name = :produce_u,
+                     stoichiometry = Dict(5 => 1.0), regulators = [1],
+                     metadata = MassActionMetadata(rate_param = :k_us)),
+        ReactionSpec(name = :decay_u,
+                     stoichiometry = Dict(5 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_u)),
+        ReactionSpec(name = :decay_z,
+                     stoichiometry = Dict(6 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_z)),
+    ]
+    return BiologicalNetwork(nodes, edges; reactions = reactions)
+end
+
+"""Negative control: graph claims Q→S on the 6-state fixture; sampled rate is D(R)."""
+build_six_state_wrong_graph_network(; known::Bool = false) =
+    build_six_state_unknown_network(; known = known, parent = 3)
+
 competitive_rate_truth(s, i; vmax, km, ki) =
     vmax .* s ./ (km .* (1 .+ i ./ ki) .+ s)
 
@@ -1052,6 +1114,103 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         canonical_f1_claimed = false)
     end
 
+    if :six_state in wanted
+    r = collect(range(0.1, 2.0; length = 180))
+    rng_6 = MersenneTwister(224)
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    amp = max(maximum(abs, D), eps(Float64))
+    D_noisy = D .+ 0.005 .* amp .* randn(rng_6, length(r))
+    s = fill(0.4, length(r))
+    q = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(rng_6, length(r))
+    tvals = fill(0.35, length(r))
+    uvals = fill(0.25, length(r))
+    z = r .+ 0.10 .* (maximum(r) - minimum(r)) .* randn(rng_6, length(r))
+    X6 = permutedims(hcat(s, r, q, tvals, uvals, z))
+    dX6 = vcat(reshape(D_noisy, 1, :), zeros(5, length(r)))
+    X6, dX6 = _permute_rate_samples(X6, dX6, 224)
+    times6 = collect(range(0.0, 1.0; length = length(r)))
+    net6 = build_six_state_unknown_network()
+    truth6 = hill_rate_support(2; variable = 2)
+    local_spec6 = local_basis(net6, 1; degree = 2, include_interactions = false,
+                              scope = :graph)
+    global_spec6 = local_basis(net6, 1; degree = 2, include_interactions = false,
+                               scope = :global)
+    local6 = discover_equations(
+        X6, times6, net6; derivatives = dX6, targets = 1,
+        config = rate_discovery_config(scope = :graph, bootstrap = 0, seed = 10),
+        verbose = false, strict = false)
+    global6 = discover_equations(
+        X6, times6, net6; derivatives = dX6, targets = 1,
+        config = rate_discovery_config(scope = :global, bootstrap = 0, seed = 10),
+        verbose = false, strict = false)
+    lc6 = local6.success ? local6.candidates[1] : nothing
+    gc6 = global6.success ? global6.candidates[1] : nothing
+    parents6 = candidate_parents(net6, 1)
+    report[:six_state] = (;
+        nstates = length(net6.nodes),
+        graph_parents = parents6,
+        local_variables = copy(local_spec6.variables),
+        global_variables = copy(global_spec6.variables),
+        local_success = local6.success,
+        global_success = global6.success,
+        local_f1 = lc6 === nothing ? 0.0 :
+            support_f1(lc6, truth6.numerator, truth6.denominator).combined.f1,
+        global_f1 = gc6 === nothing ? 0.0 :
+            support_f1(gc6, truth6.numerator, truth6.denominator).combined.f1,
+        local_has_true_parent = lc6 !== nothing &&
+            support_uses_variable(lc6; variable = 2),
+        local_false_parent = lc6 !== nothing &&
+            (support_uses_variable(lc6; variable = 3) ||
+             support_uses_variable(lc6; variable = 4) ||
+             support_uses_variable(lc6; variable = 5) ||
+             support_uses_variable(lc6; variable = 6)),
+        global_false_parent = gc6 !== nothing &&
+            (support_uses_variable(gc6; variable = 3) ||
+             support_uses_variable(gc6; variable = 4) ||
+             support_uses_variable(gc6; variable = 5) ||
+             support_uses_variable(gc6; variable = 6)),
+        distractor_in_local = 6 ∈ local_spec6.variables,
+        distractor_in_global = 6 ∈ global_spec6.variables)
+    end
+
+    if :six_state_wrong_graph in wanted
+    r = collect(range(0.1, 2.0; length = 180))
+    rng_6w = MersenneTwister(234)
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    amp = max(maximum(abs, D), eps(Float64))
+    D_noisy = D .+ 0.005 .* amp .* randn(rng_6w, length(r))
+    s = fill(0.4, length(r))
+    q = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(rng_6w, length(r))
+    tvals = fill(0.35, length(r))
+    uvals = fill(0.25, length(r))
+    z = r .+ 0.10 .* (maximum(r) - minimum(r)) .* randn(rng_6w, length(r))
+    X6w = permutedims(hcat(s, r, q, tvals, uvals, z))
+    dX6w = vcat(reshape(D_noisy, 1, :), zeros(5, length(r)))
+    X6w, dX6w = _permute_rate_samples(X6w, dX6w, 234)
+    times_6w = collect(range(0.0, 1.0; length = length(r)))
+    net_6w = build_six_state_wrong_graph_network()
+    truth_6w = hill_rate_support(2; variable = 2)
+    local_6w = discover_equations(
+        X6w, times_6w, net_6w; derivatives = dX6w, targets = 1,
+        config = rate_discovery_config(scope = :graph, bootstrap = 0, seed = 11),
+        verbose = false, strict = false)
+    lc6w = local_6w.success ? local_6w.candidates[1] : nothing
+    parents_6w = candidate_parents(net_6w, 1)
+    report[:six_state_wrong_graph] = (;
+        nstates = length(net_6w.nodes),
+        graph_parents = parents_6w,
+        local_success = local_6w.success,
+        local_f1 = lc6w === nothing ? 0.0 :
+            support_f1(lc6w, truth_6w.numerator, truth_6w.denominator).combined.f1,
+        local_has_true_parent = lc6w !== nothing &&
+            support_uses_variable(lc6w; variable = 2),
+        local_false_parent = lc6w !== nothing &&
+            (support_uses_variable(lc6w; variable = 3) ||
+             support_uses_variable(lc6w; variable = 4) ||
+             support_uses_variable(lc6w; variable = 5) ||
+             support_uses_variable(lc6w; variable = 6)))
+    end
+
     if :literature in wanted
     net = build_repressilator_network(; hill_order = 2)
     params = elowitz_repressilator_parameters()
@@ -1065,6 +1224,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     report[:literature] = (;
         source = "Elowitz & Leibler, Nature 403:335–338 (2000)",
         experimental_csv = false,
+        unique_claim_protocol = false,
+        licensed_experimental_series = false,
         nstates = size(clean, 1),
         finite_trajectory = all(isfinite, clean),
         nonnegative = all(≥(0), clean))

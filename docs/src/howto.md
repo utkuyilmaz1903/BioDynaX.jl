@@ -18,12 +18,35 @@ u0 = experiment.u0
 ```
 
 Write one with `write_experiment_csv`. `Experiment.mask` can hide a state or
-time subset; `train_experiments` already uses that mask.
+time subset; `train_experiments` already uses that mask. Masked **training**
+on missing states is not a claimed UDE path.
 
 ## Mark an edge as unknown
 
+Build the network with public constructors (`ReactionSpec`, `HillMetadata`).
+Do not call `BioDynaX.build_hill_recovery_network` from user code; that name
+is an internal fixture.
+
 ```julia
-network = build_hill_recovery_network(; known = false, hill_order = 2)
+network = BiologicalNetwork(
+    [NodeSpec(name = :S), NodeSpec(name = :R)],
+    EdgeSpec[];
+    reactions = [
+        ReactionSpec(name = :produce_s,
+                     stoichiometry = Dict(1 => 1.0), regulators = [2],
+                     metadata = MassActionMetadata(rate_param = :k_prod)),
+        ReactionSpec(name = :hill_deg,
+                     stoichiometry = Dict(1 => -1.0), regulators = [2],
+                     known = false, family = HILL,
+                     metadata = HillMetadata(
+                         vmax_param = :vmax, k_param = :K, hill_order = 2)),
+        ReactionSpec(name = :produce_r,
+                     stoichiometry = Dict(2 => 1.0), regulators = [1],
+                     metadata = MassActionMetadata(rate_param = :k_rs)),
+        ReactionSpec(name = :decay_r,
+                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_r)),
+    ])
 ```
 
 Known production and linear decay stay mechanistic. The Hill degradation edge
@@ -33,12 +56,11 @@ compiles to a `NeuralDestructionTerm`.
 
 Prefer `generate_experiment_set` + `train_experiments` as in the example.
 Adam may be minibatched; BFGS refines the joint loss over every IC.
-A one-trajectory sketch:
 
 ```julia
 model, params = build_ude_model(rng, network)
-trained = train_ude(params, data, times, u0, tspan, model;
-                    adam_iters = 100, bfgs_iters = 50, verbose = false)
+trained = train_experiments(params, set, model;
+    config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 50))
 X_traj = predict_ude(trained.params, u0, tspan, times, model)
 R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
 discovery = discover_unknown_rate(R, times, D; strict = true)
@@ -65,6 +87,8 @@ not identify `D(z)` scale in the Jacobian sense.
 ```bash
 julia --project=. benchmark/recovery_suite.jl
 julia --project=. benchmark/sindy_baseline.jl
+julia --project=. benchmark/recovery_seeds.jl
+julia --project=. benchmark/noise_grid.jl
 ```
 
 CI thresholds live in `RECOVERY_THRESHOLDS` (`src/Recovery.jl`). Fast checks
@@ -74,10 +98,9 @@ are `test/test_recovery.jl`; the closed-loop UDE job is
 ## Optional SciML backends
 
 ```julia
-using DataDrivenSparse   # DiscoveryConfig(backend = DataDrivenSparseSTLSQ())
-using ModelingToolkit    # export_mtk_system(model)  # known terms; NN is nn_i(t)
-using SBMLToolkit        # import_sbmltoolkit_network(path)
+using DataDrivenSparse   # BioDynaX.DataDrivenSparseSTLSQ (not exported)
+using ModelingToolkit    # BioDynaX.export_mtk_system  # known terms; NN is nn_i(t)
+using SBMLToolkit        # BioDynaX.import_sbmltoolkit_network
 ```
 
-DataDrivenSparse is never a CI dependency. The graph vs global table is
-produced by `benchmark/sindy_baseline.jl`.
+These are experimental. DataDrivenSparse is never a CI dependency.
