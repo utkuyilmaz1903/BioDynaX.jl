@@ -9,6 +9,7 @@
 - Partial observation: discovery→hybrid residual versus data is gated; UDE
   training on missing states is not claimed.
 - README protocol matches `examples/unknown_inhibition.jl` (adam 100 / bfgs 50).
+  Multi-IC BFGS is joint; Occam scores BIC; UDE NN weights are Float64.
 
 # BioDynaX.jl 0.9.1
 

@@ -86,5 +86,6 @@ not part of CI. Do not register v1.0 against this preview bar.
 `checkdocs = :exports` with `warnonly = [:missing_docs]` because the public
 export list is a **superset** of the freeze list. Freeze-list names have
 docstrings. Do not grow the public export list to “fix” missing-docs warnings.
-`deploydocs` runs only on `main` when `CI=true`. Without `DOCUMENTER_KEY` the
-docs job is **build-only**.
+`deploydocs` runs only on `main` when `CI=true`. The docs job grants
+`contents: write` so GitHub Actions can push `gh-pages` with `GITHUB_TOKEN`.
+`DOCUMENTER_KEY` remains an optional SSH fallback.

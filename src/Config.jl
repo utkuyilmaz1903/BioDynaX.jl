@@ -234,6 +234,7 @@ on experiment arrays). It is not a batched GPU ODE/training stack.
 """
 Base.@kwdef struct ExecutionConfig
     backend::Symbol = :serial
+    # Adam minibatch size. BFGS always refines the joint loss over `set`.
     batch_size::Int = 1
     deterministic::Bool = true
     checkpoint_every::Int = 50

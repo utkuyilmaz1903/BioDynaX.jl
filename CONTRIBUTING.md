@@ -13,7 +13,9 @@ julia --project=. test/run_recovery_hard.jl
 
 The default test matrix must stay fast: do not put multi-minute UDE trains in
 `test/runtests.jl`. Closed-loop unknown-edge trains belong in the dedicated
-`recovery` CI job (`test/run_recovery_hard.jl`).
+`recovery` CI job (`test/run_recovery_hard.jl`). `train_experiments` Adam may
+be minibatched; BFGS always refines the joint loss over the full set. Do not
+loosen `RECOVERY_THRESHOLDS` to paper over a training or Occam bug.
 
 ## Docs, quality, benchmarks
 

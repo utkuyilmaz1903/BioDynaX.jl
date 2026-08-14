@@ -31,8 +31,9 @@ compiles to a `NeuralDestructionTerm`.
 
 ## Train, discover, resimulate
 
-Prefer `generate_experiment_set` + `train_experiments` as in the example. A
-one-trajectory sketch:
+Prefer `generate_experiment_set` + `train_experiments` as in the example.
+Adam may be minibatched; BFGS refines the joint loss over every IC.
+A one-trajectory sketch:
 
 ```julia
 model, params = build_ude_model(rng, network)

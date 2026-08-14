@@ -31,8 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README quick start points at `examples/unknown_inhibition.jl` (adam 100 /
   bfgs 50, 9 ICs). Unknown-edge closed loop is Hill-class; MM unknown remains
   NN RMSE + data residual.
-- Documenter `deploydocs` runs only on `main`. TagBot / CompatHelper /
-  gh-pages are configured, not proven live without `DOCUMENTER_KEY`.
+- `train_experiments` BFGS refines the joint loss over every experiment.
+  Adam may still be minibatched (`batch_size = 1`); the last IC no longer
+  monopolizes the second-order step.
+- Nested Occam subset selection scores BIC on the fit set. Held-out RSS is a
+  safety filter, not the sparsity score. This keeps analytical 0.5% Hill F1
+  at the `support_f1_clean` gate across Julia 1.10 / OpenBLAS.
+- UDE NN parameters are promoted to `Float64` after `Lux.setup` so training
+  is not mixed-precision `Float32` weights × `Float64` states.
+- Documenter `deploydocs` runs only on `main`. The docs job has
+  `contents: write` so `GITHUB_TOKEN` can push `gh-pages`. `DOCUMENTER_KEY`
+  remains an optional SSH fallback.
 - Recovery fixtures in `api.md` are labeled internal (not on the freeze list).
 
 ## [0.9.1] - 2026-08-13

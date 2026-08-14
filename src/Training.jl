@@ -456,6 +456,13 @@ function loss_mse(p, data, t_data, u0, tspan, model::UDEModel; kwargs...)
                     model = model, network = model.network, kwargs...)
 end
 
+"""
+    train_experiments(p_init, set, model; config, execution, ...)
+
+Fit a UDE to an `ExperimentSet`. Adam follows `execution.batch_size`.
+BFGS always refines the joint loss over every experiment, not the last
+minibatch.
+"""
 function train_experiments(p_init, set::ExperimentSet, nn, st;
                            model::Union{Nothing,UDEModel} = nothing,
                            network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
@@ -496,12 +503,12 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
             set, min(execution.batch_size, length(set));
             shuffle = !execution.deterministic,
             rng = MersenneTwister(seed + outer - 1))
-        for (index, batch) in pairs(batches)
+        for batch in batches
             batch_objective = (p, _) -> batch_loss(p, batch)
-            final_stage = outer == outer_iterations &&
-                          index == length(batches)
+            # Adam only on this minibatch. Joint BFGS runs once after the
+            # outer loop so the last IC cannot monopolize the second-order step.
             batch_config = _stage_config(
-                config, outer_iterations * length(batches), final_stage)
+                config, outer_iterations * length(batches), false)
             params, optimizer_state = _optimize_stage(
                 params, batch_objective, batch_config, history, diag; verbose,
                 optimizer_state)
@@ -527,6 +534,14 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
             previous_residual = residual
             residual ≤ config.constraint.tolerance && break
         end
+    end
+    if config.bfgs_iterations > 0
+        polish = TrainingConfig(config;
+            adam_iterations = 0,
+            bfgs_iterations = config.bfgs_iterations)
+        params, optimizer_state = _optimize_stage(
+            params, objective, polish, history, diag; verbose,
+            optimizer_state)
     end
     final = objective(params, nothing)
     metadata = RunMetadata(

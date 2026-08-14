@@ -42,6 +42,25 @@ end
         spec, [0.0, 1.0], [-2.0], X, X[:, 1:10], X, 1e-3)
 end
 
+@testset "phase 4 small-n implicit does not empty the Occam set" begin
+    network = BiologicalNetwork([NodeSpec(name = :substrate)], EdgeSpec[])
+    x = collect(range(0.1, 2.0; length = 30))
+    X = reshape(x, 1, :)
+    dX = reshape(1.7 .* x ./ (0.55 .+ x), 1, :)
+    result = discover_equations(
+        X, collect(range(0.0, 1.0; length = length(x))), network;
+        derivatives = dX,
+        config = DiscoveryConfig(
+            backend = ImplicitSINDyPI(
+                threshold = 1e-6, max_degree = 1, max_hill_degree = 1,
+                bootstrap_samples = 0, validation_fraction = 0.2,
+                domain_samples = 16),
+            include_interactions = false, seed = 7),
+        verbose = false, strict = false)
+    @test result.success
+    @test result.retcode === DiscoverySuccess
+end
+
 @testset "phase 4 raw-data MM recovery" begin
     network = BiologicalNetwork([NodeSpec(name = :substrate)], EdgeSpec[])
     times = collect(range(0.0, 4.0; length = 200))

@@ -41,7 +41,8 @@ Fast job (`test/test_recovery.jl`):
 Hard job (`test/run_recovery_hard.jl`):
 
 - **UDE → unknown edge (Hill, zero noise)** — NN must match true `D(r)`
-  before discovery runs (`nn_rate_rmse ≤ 0.12`). Then true-monomial **recall**
+  before discovery runs (`nn_rate_rmse ≤ 0.12`). Multi-IC BFGS refines the
+  joint loss over all 9 ICs. Then true-monomial **recall**
   0.99, combined F1 at the UDE skeleton gate (`support_f1_ude = 0.50`, not
   the analytical 0.99), discovered-rate RMSE, hybrid residual **versus data**,
   and `unidentifiable_edge == true` with cosine ≥ 0.95.
@@ -53,8 +54,8 @@ Hard job (`test/run_recovery_hard.jl`):
   sampled `D` is tried on the same library; it does not promote MM to the
   Hill-class claim.
 
-Measured zero-noise Hill UDE (9 ICs, seed 103): NN RMSE ≈ 0.09, recall 1.0,
-combined F1 ≈ 0.67 (extras `1` and `r` remain), data residual ≈ 0.02,
+Measured zero-noise Hill UDE (9 ICs, seed 103): NN RMSE ≈ 0.04, recall 1.0,
+combined F1 ≈ 0.57 (extras `1` and `r` remain), data residual ≈ 0.003,
 `k_prod`↔`D` cosine ≈ 0.997. That F1 is **below** `support_f1_clean`. The
 product does not claim canonical Hill from a trained NN. Scale-normalizing
 the sampled NN rate is an extra report field (`normalized_support_f1`); it is

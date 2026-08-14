@@ -229,6 +229,9 @@ function _implicit_rss(spec, numerator, denominator, X, y)
     return mean(abs2, pred .- y), pred, denvals
 end
 
+_unsafe_denominator(dvals, floor) =
+    isempty(dvals) || any(!isfinite, dvals) || minimum(dvals) < floor
+
 function _refit_masked_implicit(spec, X, y, num_keep, den_keep, threshold)
     n = size(X, 2)
     n_num = length(spec.numerator)
@@ -272,7 +275,8 @@ function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
     numerator = copy(numerator)
     denominator = copy(denominator)
     rss0, _, denvals0 = _implicit_rss(spec, numerator, denominator, X, y)
-    (!isfinite(rss0) || minimum(denvals0) < floor) && return numerator, denominator
+    (!isfinite(rss0) || _unsafe_denominator(denvals0, floor)) &&
+        return numerator, denominator
     num_idx, den_idx = _active_term_indices(numerator, denominator)
     n_act = length(num_idx) + length(den_idx)
     n_act == 0 && return numerator, denominator
@@ -313,11 +317,17 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
             (bits & (1 << (n_num_act + j - 1))) != 0 && (keep_d[den_idx[j]] = true)
         end
         n2, d2 = _refit_masked_implicit(spec, Xtr, ytr, keep_n, keep_d, threshold)
-        rss_val, _, dvals = _implicit_rss(spec, n2, d2, Xval, yval)
-        (minimum(dvals) < floor || !isfinite(rss_val)) && continue
+        rss_fit, _, dvals_fit = _implicit_rss(spec, n2, d2, Xtr, ytr)
+        rss_val, _, dvals_val = _implicit_rss(spec, n2, d2, Xval, yval)
+        _unsafe_denominator(dvals_fit, floor) && continue
+        _unsafe_denominator(dvals_val, floor) && continue
+        (!isfinite(rss_fit) || !isfinite(rss_val)) && continue
         k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
-        score = n_val == 0 ?
-            information_criterion(n, rss_val * n, k; criterion = :bic) : rss_val
+        # BIC on the fit set is the Occam score. Raw held-out RSS has no
+        # complexity penalty and keeps extra monomials on 0.5% noise.
+        # Negative BIC * (1 + rtol) previously emptied the admissible set.
+        score = information_criterion(length(ytr), rss_fit * length(ytr), k;
+                                      criterion = :bic)
         push!(candidates, (num = n2, den = d2, score = score, k = k, rss = rss_val))
     end
     isempty(candidates) && return _refit_masked_implicit(
@@ -325,7 +335,8 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
         [i in num_idx for i in 1:n_num],
         [i in den_idx for i in 1:n_den], threshold)
     best_score = minimum(c.score for c in candidates)
-    admissible = [c for c in candidates if c.score ≤ best_score * (1 + rtol)]
+    slack = max(abs(best_score) * rtol, 1e-12)
+    admissible = [c for c in candidates if c.score ≤ best_score + slack]
     chosen = argmin(c -> (c.k, c.rss), admissible)
     keep_n = abs.(chosen.num) .> 1e-8
     keep_d = abs.(chosen.den) .> 1e-8
@@ -352,7 +363,7 @@ function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
             n2, d2 = _refit_masked_implicit(
                 spec, X, y, keep_n, den_active, threshold)
             rss, _, dvals = _implicit_rss(spec, n2, d2, X, y)
-            (minimum(dvals) < floor || rss > rss0 * (1 + rtol)) && continue
+            (_unsafe_denominator(dvals, floor) || rss > rss0 * (1 + rtol)) && continue
             k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
             a = information_criterion(n, rss * n, k; criterion = :bic)
             if a < best_bic - 1e-9
@@ -367,7 +378,7 @@ function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
             n2, d2 = _refit_masked_implicit(
                 spec, X, y, num_active, keep_d, threshold)
             rss, _, dvals = _implicit_rss(spec, n2, d2, X, y)
-            (minimum(dvals) < floor || rss > rss0 * (1 + rtol)) && continue
+            (_unsafe_denominator(dvals, floor) || rss > rss0 * (1 + rtol)) && continue
             k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
             a = information_criterion(n, rss * n, k; criterion = :bic)
             if a < best_bic - 1e-9

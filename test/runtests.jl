@@ -1,5 +1,6 @@
 using BioDynaX
 using ComponentArrays
+using LinearAlgebra
 using Lux
 using Optimization
 using OrdinaryDiffEq: Tsit5, solve
@@ -10,6 +11,8 @@ using Statistics
 using StaticArrays
 using Test
 using Zygote
+
+LinearAlgebra.BLAS.set_num_threads(1)
 
 include("test_baseline.jl")
 include("test_network.jl")

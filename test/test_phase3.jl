@@ -85,5 +85,6 @@ end
         nn, ps, st = build_ude_nn(rng; preset = preset)
         out, _ = nn([0.5], ps, st)
         @test out[1] > 0
+        @test eltype(ps.layer_1.weight) === Float64
     end
 end

@@ -51,6 +51,17 @@ function _chain_from_widths(widths, activations; input::Int = 1)
     return Lux.Chain(layers...)
 end
 
+"""Promote Lux parameter leaves to `Float64` (states and ODE solves are Float64)."""
+function _float64_param_tree(x)
+    if x isa AbstractArray
+        return eltype(x) <: AbstractFloat ? Float64.(x) : x
+    elseif x isa NamedTuple || x isa Tuple
+        return map(_float64_param_tree, x)
+    else
+        return x
+    end
+end
+
 function _single_head_chain(preset::Symbol = :medium; input::Int = 1)
     input ≥ 1 || throw(ArgumentError("NN input dimension must be ≥ 1"))
     preset == :small &&
@@ -79,14 +90,14 @@ function build_ude_nn(rng::AbstractRNG; n_heads::Int = 1, preset::Symbol = :medi
     if n_heads == 1
         model = _single_head_chain(preset; input = dims[1])
         ps, st = Lux.setup(rng, model)
-        return model, ps, st
+        return model, _float64_param_tree(ps), st
     end
     heads = ntuple(i -> _single_head_chain(preset; input = dims[i]), n_heads)
     ps_pairs = Pair{Symbol,Any}[]
     st_pairs = Pair{Symbol,Any}[]
     for i in 1:n_heads
         ps_i, st_i = Lux.setup(rng, heads[i])
-        push!(ps_pairs, Symbol("head_$i") => ps_i)
+        push!(ps_pairs, Symbol("head_$i") => _float64_param_tree(ps_i))
         push!(st_pairs, Symbol("head_$i") => st_i)
     end
     return MultiHeadNetwork(heads),
