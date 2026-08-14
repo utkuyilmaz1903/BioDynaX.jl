@@ -3,22 +3,20 @@ message: If you use this software, please cite it using these metadata.
 type: software
 title: BioDynaX.jl
 abstract: >-
-  Graph-guided universal differential equations for biological networks
-  with local implicit rational discovery.
+  Research preview (not v1.0). Graph-guided hybrid universal differential
+  equations: known kinetics stay compiled; unknown destruction D(z) is
+  recovered locally. The gated claim is true-monomial recall plus hybrid
+  residual versus data on Hill-class edges, not canonical Hill from a
+  trained neural network, and not a general CRN or SINDy replacement.
 authors:
   - family-names: Yılmaz
     given-names: Utku
 license: MIT
 repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
+url: https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
 version: 0.9.2
-date-released: "2026-08-13"
-abstract: >-
-  Graph-guided universal differential equations for biological networks
-  with local implicit rational discovery.
-authors:
-  - family-names: Yılmaz
-    given-names: Utku
-license: MIT
-repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
-version: 0.9.2
-date-released: "2026-08-13"
+date-released: "2026-08-14"
+keywords:
+  - universal-differential-equations
+  - systems-biology
+  - research-preview

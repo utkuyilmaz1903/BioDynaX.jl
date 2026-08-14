@@ -1,5 +1,8 @@
 # BioDynaX.jl Unreleased
 
+- `CITATION.cff` is a single CFF 1.2.0 record (no duplicate fields). The
+  0.9.2 preview is not yet in General.
+
 # BioDynaX.jl 0.9.2
 
 - Public API is the freeze list plus golden-path verbs. Fixtures and

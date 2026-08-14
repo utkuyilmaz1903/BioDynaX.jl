@@ -66,8 +66,35 @@ Do not use them in a paper or a wet lab.
 
 ## v1.0 / JOSS / General
 
-Do not cut v1.0, open a JOSS submission, or `]register` as 1.0. A 0.9.x
-research-preview register is a maintainer action after the gates in
-`docs/src/stability.md` can turn CI red. README’s first sentence stays
-“not v1.0”. A methods note is allowed only when every public sentence
-matches a CI gate.
+Do not cut v1.0, open a JOSS submission, or register as 1.0. README’s first
+sentence stays “not v1.0”. A methods note is allowed only when every public
+sentence matches a CI gate. The 0.9.2 preview is **not yet in General**.
+Do not write `]add BioDynaX` or “TagBot ran” until the General PR is merged
+and tag `v0.9.2` exists.
+
+### 0.9.2 preview register (maintainer)
+
+1. Confirm CI on `main` is green, including `recovery`.
+2. Install [JuliaRegistrator](https://github.com/apps/juliareistrator) on
+   `utkuyilmaz1903/BioDynaX.jl` only. Fallback:
+   [JuliaHub Registrator](https://juliahub.com/ui/Registrator).
+3. Open an issue titled exactly `TagBot trigger issue` (leave it open).
+4. On the pushed `main` HEAD **commit** page, comment:
+
+```
+@JuliaRegistrator register
+
+Release notes:
+
+Research preview 0.9.2, not v1.0. Graph-guided hybrid UDE recovery of unknown destruction D(z). The gated claim is true-monomial recall plus hybrid residual versus data on Hill-class edges, not canonical Hill from a trained NN. See CHANGELOG.md.
+```
+
+5. Do not comment on `JuliaRegistries/General`. Do not pass `branch=`.
+6. Follow the General PR. New-package AutoMerge waits ~3 days. A comment
+   without `[noblock]` blocks AutoMerge.
+7. If AutoMerge fails on compat or load: fix, commit, repeat the comment on
+   the new commit. Do not loosen `RECOVERY_THRESHOLDS` or grow exports.
+8. If the name-similarity check fails: do not rename. Explain on the PR.
+9. After merge + tag `v0.9.2` + a clean `]add BioDynaX`, record those facts
+   in README and `docs/src/stability.md`. Do not bump the version for that
+   docs commit.

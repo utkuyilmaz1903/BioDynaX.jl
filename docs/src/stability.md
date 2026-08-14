@@ -71,7 +71,10 @@ any of them regresses:
    “not v1.0”.
 
 Until then this repository stays on the 0.9.x research-preview line. This
-preview does **not** cut v1.0, open JOSS, or register.
+preview does **not** cut v1.0 or open JOSS. A 0.9.x General preview register
+is the next maintainer action and is **not yet in General**. Do not write
+`]add BioDynaX` or “TagBot ran” until the General PR is merged and tag
+`v0.9.2` exists.
 
 ## Frozen before 1.0
 
@@ -101,8 +104,9 @@ are internal fixtures.
 ## Registry
 
 `Project.toml` is General-registry ready (name, uuid, version, compat, extras,
-description). Registration is a maintainer action (`Registrator` / `Pkg.jl`),
-not part of CI. Do not register v1.0 against this preview bar.
+description). A 0.9.x preview register is a maintainer action (`Registrator`),
+not part of CI, and is **not yet done**. Do not register v1.0 against this
+preview bar.
 
 ## Documenter
 

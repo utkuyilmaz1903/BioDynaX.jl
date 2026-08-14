@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Deduplicated `CITATION.cff` and pointed it at the live `/dev/` docs URL.
+  The 0.9.2 preview is not yet in General.
+
 ## [0.9.2] - 2026-08-14
 
 Preview polish. No new science product. Export surface shrinks; docs and
