@@ -10,10 +10,10 @@ on an arbitrary CSV.
 
 - Documenter `deploydocs` is configured and pushes `gh-pages` from `main`
   when `CI=true`. The `gh-pages` branch exists.
-- GitHub Pages was **not live** on 2026-08-14: `https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/`
-  returned HTTP 404. A live URL is recorded here only after that endpoint
-  returns HTTP 200. Until then write “configured, `gh-pages` present, Pages
-  not proven live”.
+- Live docs (HTTP 200 on 2026-08-14):
+  [https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/).
+  Pages source is `gh-pages` / `(root)`. The repo-root URL without `/dev/`
+  is not the Documenter site.
 - TagBot and CompatHelper are **configured**. There is **no git tag**, so
   TagBot has not been proven. The first tag after a 0.9.x preview register
   is the proof. Do not write “TagBot ran”.
@@ -40,8 +40,8 @@ on an arbitrary CSV.
 - No licensed experimental time series matches the unique-claim protocol
   (known graph, ≤1 unknown destruction edge, redistributable license).
   Absence is the result. Elowitz is a synthetic ODE fixture.
-- TagBot, CompatHelper, and Documenter `gh-pages` are configured. Live
-  Pages and a TagBot tag are proofs, not YAML files alone.
+- TagBot and CompatHelper are configured. Live Pages is proven (HTTP 200).
+  A TagBot tag is still unproven until the first 0.9.x preview tag.
 - `]register` is a maintainer action after those gates, not a CI step.
 
 Loosening `RECOVERY_THRESHOLDS` is a breaking change. Tightening UDE combined
@@ -62,8 +62,8 @@ any of them regresses:
 3. Identifiability (`unidentifiable_edge`), graph-prior, wrong-graph
    negative control, and partial-observation discovery→residual are green or
    honestly red (no silent skip).
-4. TagBot, CompatHelper, and Documenter `gh-pages` are configured. Live
-   deploy is a Pages HTTP 200 and a tag, not a YAML file alone.
+4. TagBot and CompatHelper are configured. Live Pages is HTTP 200 on
+   `/dev/`. A TagBot tag is still required before claiming TagBot ran.
 5. A methods note is allowed only when every sentence matches a CI gate.
    JOSS is not this preview.
 6. `]register` is a maintainer action for **0.9.x research-preview** only.

@@ -12,7 +12,9 @@
   single-seed. UDE combined F1 attempt on the same library left extras;
   the claim stays recall + residual.
 - No licensed experimental series matches the unique-claim protocol. Absence
-  is the result. Docs URL and TagBot are configured, not proven live / tagged.
+  is the result. Docs are live at
+  https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/. TagBot is configured;
+  there is no tag yet.
 - Preview register / methods note / v1.0 remain maintainer gates.
 
 # BioDynaX.jl 0.9.1

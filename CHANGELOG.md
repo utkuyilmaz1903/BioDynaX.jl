@@ -21,8 +21,9 @@ stays a skeleton claim.
   `--ude`). CI remains seed 103 / 104.
 - `benchmark/noise_grid.jl` and `benchmark/ude_f1_attempt.jl` (same library;
   no new atoms).
-- GitHub Pages workflow that publishes the existing `gh-pages` branch once
-  Pages is enabled. Live URL is not recorded until HTTP 200.
+- GitHub Pages workflow that publishes the existing `gh-pages` branch.
+  Live URL recorded after HTTP 200:
+  https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
 
 ### Changed
 

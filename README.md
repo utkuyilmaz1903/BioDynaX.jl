@@ -7,11 +7,9 @@ or a global SINDy replacement.
 
 Requires **Julia ≥ 1.10**.
 
-Docs are configured (`gh-pages` branch exists). The public site was **not
-live** on 2026-08-14 (`https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/`
-returned 404). A live URL will be written here only after HTTP 200. Until
-then use [`docs/src/`](docs/src/). TagBot is configured; there is no tag, so
-it is not proven.
+Docs: [https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
+(HTTP 200 on 2026-08-14 after Pages was pointed at `gh-pages` / `(root)`).
+TagBot is configured; there is no git tag, so it is not proven.
 
 ---
 
