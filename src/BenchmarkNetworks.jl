@@ -1,7 +1,7 @@
 """
 Standard benchmark networks for scientific regression and recovery tests.
 """
-function build_repressilator_network()::BiologicalNetwork
+function build_repressilator_network(; hill_order::Int = 4)::BiologicalNetwork
     nodes = [
         NodeSpec(name = :A),
         NodeSpec(name = :B),
@@ -16,7 +16,7 @@ function build_repressilator_network()::BiologicalNetwork
                      stoichiometry = Dict(1 => -1.0), regulators = [3],
                      known = true, family = HILL,
                      metadata = HillMetadata(
-                         vmax_param = :vmax_a, k_param = :K_c, hill_order = 4)),
+                         vmax_param = :vmax_a, k_param = :K_c, hill_order = hill_order)),
         ReactionSpec(name = :basal_b,
                      stoichiometry = Dict(2 => 1.0), regulators = Int[],
                      metadata = InputDriveMetadata(
@@ -25,7 +25,7 @@ function build_repressilator_network()::BiologicalNetwork
                      stoichiometry = Dict(2 => -1.0), regulators = [1],
                      known = true, family = HILL,
                      metadata = HillMetadata(
-                         vmax_param = :vmax_b, k_param = :K_a, hill_order = 4)),
+                         vmax_param = :vmax_b, k_param = :K_a, hill_order = hill_order)),
         ReactionSpec(name = :basal_c,
                      stoichiometry = Dict(3 => 1.0), regulators = Int[],
                      metadata = InputDriveMetadata(
@@ -34,7 +34,7 @@ function build_repressilator_network()::BiologicalNetwork
                      stoichiometry = Dict(3 => -1.0), regulators = [2],
                      known = true, family = HILL,
                      metadata = HillMetadata(
-                         vmax_param = :vmax_c, k_param = :K_b, hill_order = 4)),
+                         vmax_param = :vmax_c, k_param = :K_b, hill_order = hill_order)),
         ReactionSpec(name = :decay_a,
                      stoichiometry = Dict(1 => -1.0), regulators = Int[],
                      metadata = LinearDecayMetadata(rate_param = :γ)),

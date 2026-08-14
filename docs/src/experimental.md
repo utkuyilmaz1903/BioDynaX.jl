@@ -15,6 +15,20 @@ transport helper.
 finite-difference trajectory Jacobian over **physical** parameters at a fit.
 It is not structural identifiability.
 
+Unknown-edge recovery reports a practical `k_prod` ↔ `D(z)` scale collinearity
+(`BioDynaX.production_destruction_tradeoff`). The golden path prints that
+warning (`BioDynaX.report_production_destruction_tradeoff`). The Hill UDE
+recovery job requires `unidentifiable_edge == true`. Pinning `k_prod` with
+`TrainingConfig(frozen_phys = [:k_prod])`, normalizing sampled `D`, or
+changing the production rate does **not** remove the Jacobian collinearity;
+that is the locked finding. The flag is not a structural certificate and is
+not on the freeze list.
+
+`TrainingConfig(frozen_phys = [:k_prod])` pins named physical parameters
+during Adam (gradient zeroed) and restores them after BFGS. Use it when a
+production rate is known from a separate assay. It is not a structural
+identifiability certificate.
+
 ## SBML
 
 `import_sbml_network` maps species and stoichiometry. Kinetic MathML is not

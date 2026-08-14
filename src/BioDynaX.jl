@@ -6,7 +6,7 @@
 ###############################################################################
 module BioDynaX
 
-const PACKAGE_VERSION = v"0.9.0"
+const PACKAGE_VERSION = v"0.9.1"
 
 # -- External dependencies ----------------------------------------------------
 using Dates
@@ -86,7 +86,7 @@ export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        denominator_violation_count, hill_rate_support, mm_rate_support,
        hill_rate_truth, mm_rate_truth, sample_unknown_destruction,
        sample_unknown_destruction_grid, discover_unknown_rate,
-       compose_hybrid_rhs, neural_destruction_terms, rate_discovery_config,
+       compose_hybrid_rhs, hybrid_data_residual, neural_destruction_terms, rate_discovery_config,
        describe_network, validate_network, state_nodes,
        candidate_parents
 

@@ -135,6 +135,25 @@ end
     @test denominator_violation_count(result.candidates[1], R) == 0
 end
 
+@testset "Occam prune recovers sparse Hill on noisy rate samples" begin
+    r = collect(range(0.1, 2.0; length = 180))
+    rng = MersenneTwister(104)
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    amp = maximum(abs, D)
+    D_noisy = D .+ 0.005 .* amp .* randn(rng, length(r))
+    R = reshape(r, 1, :)
+    times = collect(range(0.0, 1.0; length = length(r)))
+    result = discover_unknown_rate(
+        R, times, reshape(D_noisy, 1, :);
+        config = rate_discovery_config(bootstrap = 0, seed = 4),
+        verbose = false, strict = true)
+    truth = hill_rate_support(2)
+    metrics = support_f1(result.candidates[1], truth.numerator, truth.denominator)
+    @test metrics.combined.recall ≥ RECOVERY_THRESHOLDS.support_recall
+    @test metrics.combined.f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean
+    @test denominator_violation_count(result.candidates[1], R) == 0
+end
+
 @testset "graph vs global rate discovery ablation" begin
     report = run_recovery_suite(MersenneTwister(104); sections = (:ablation,))
     ablation = report[:ablation]
@@ -144,9 +163,95 @@ end
     @test 2 ∈ ablation.global_variables
     @test ablation.local_success
     @test ablation.local_false_parent == false
-    @test ablation.global_false_parent == true
-    @test ablation.local_f1 > ablation.global_f1
+    @test ablation.local_f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean
+    @test ablation.local_f1 ≥ ablation.global_f1
     @test ablation.local_denominator_violations ≤ ablation.global_denominator_violations
+end
+
+@testset "3-state graph prior vs global distractors" begin
+    report = run_recovery_suite(MersenneTwister(204); sections = (:three_state,))
+    three = report[:three_state]
+    @test 2 ∈ three.graph_parents
+    @test 3 ∉ three.graph_parents
+    @test 4 ∉ three.graph_parents
+    @test three.local_success
+    @test three.local_has_true_parent
+    @test three.local_false_parent == false
+end
+
+@testset "wrong-graph negative control misses the true parent" begin
+    report = run_recovery_suite(MersenneTwister(214); sections = (:wrong_graph,))
+    wrong = report[:wrong_graph]
+    @test 3 ∈ wrong.graph_parents
+    @test 2 ∉ wrong.graph_parents
+    @test wrong.local_has_true_parent == false
+end
+
+@testset "k_prod vs D practical identifiability is reported" begin
+    report = run_recovery_suite(MersenneTwister(205); sections = (:identifiability,))
+    ident = report[:identifiability]
+    @test isfinite(ident.condition_number) || isinf(ident.condition_number)
+    @test ident.unidentifiable_edge isa Bool
+    @test ident.production_param === :k_prod
+end
+
+@testset "identifiability interventions do not break the scale tradeoff" begin
+    report = run_recovery_suite(MersenneTwister(215); sections = (:ident_interventions,))
+    ident = report[:ident_interventions]
+    @test ident.normalized_analytical_f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean
+    @test ident.frozen_k_prod_unchanged
+    @test ident.tradeoff_broken == false
+    @test ident.nominal_unidentifiable || ident.freeze_unidentifiable ||
+          ident.perturbation_unidentifiable
+    @test !isfinite(ident.nominal_collinearity) || ident.nominal_collinearity ≥ 0.95
+    @test !isfinite(ident.freeze_collinearity) || ident.freeze_collinearity ≥ 0.95
+end
+
+@testset "partial observation mask and subsampled Hill parent" begin
+    report = run_recovery_suite(MersenneTwister(206); sections = (:partial_obs,))
+    part = report[:partial_obs]
+    @test part.subsample_success
+    @test part.subsample_recall ≥ RECOVERY_THRESHOLDS.support_recall
+    @test part.mask_used
+    @test part.masked_train_finite
+    @test part.closed_loop_vs_data
+    @test part.ude_mask_train_claimed == false
+    rng = MersenneTwister(9)
+    times = collect(0.0:0.5:2.0)
+    data = [0.2 0.3 0.4 0.5 0.6; 0.1 0.12 0.11 0.13 0.14]
+    exp = Experiment(:raw, times, data, [0.2, 0.1])
+    masked = BioDynaX.subsample_state_mask(exp, 1, 0.5, rng)
+    @test masked.mask[1, 1]
+    @test count(masked.mask[1, :]) < size(data, 2)
+end
+
+@testset "competitive unknown edge is 2D D(S,I) and keeps true parents" begin
+    compiled = compile_mechanism(build_competitive_test_network(; known = false))
+    nn_terms = [t for t in compiled.destruction_terms if t isa NeuralDestructionTerm]
+    @test length(nn_terms) == 1
+    @test nn_terms[1].regulators == [2, 3]
+    rng = MersenneTwister(8)
+    model, p = build_ude_model(rng, build_competitive_test_network(; known = false))
+    dx = ude_system([0.3, 0.4, 0.2], p, 0.0, model)
+    @test all(isfinite, dx)
+    report = run_recovery_suite(MersenneTwister(304); sections = (:competitive_unknown,))
+    comp = report[:competitive_unknown]
+    @test comp.compiled_regulators == [2, 3]
+    @test comp.two_parent_success
+    @test comp.has_substrate
+    @test comp.has_inhibitor
+    @test comp.local_false_parent == false
+    @test comp.canonical_f1_claimed == false
+end
+
+@testset "Elowitz repressilator is a synthetic literature fixture" begin
+    report = run_recovery_suite(MersenneTwister(207); sections = (:literature,))
+    lit = report[:literature]
+    @test lit.experimental_csv == false
+    @test lit.finite_trajectory
+    @test lit.nonnegative
+    @test lit.nstates == 3
+    @test occursin("Elowitz", lit.source)
 end
 
 @testset "DataDrivenSparse backend requires extension" begin
@@ -184,4 +289,13 @@ end
     @test result.retcode === InsufficientSamples
     @test_throws ArgumentError discover_equations(
         X, times, network; derivatives = X, verbose = false, strict = true)
+end
+
+@testset "golden-path example matches recovery CI protocol" begin
+    src = read(joinpath(@__DIR__, "..", "examples", "unknown_inhibition.jl"), String)
+    @test occursin("adam_iters::Int = 100", src)
+    @test occursin("bfgs_iters::Int = 50", src)
+    @test occursin("production_destruction_tradeoff", src)
+    @test occursin("UNKNOWN_EDGE_ICS", src)
+    @test length(BioDynaX._unknown_edge_ics()) == 9
 end

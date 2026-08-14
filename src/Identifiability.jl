@@ -153,3 +153,98 @@ function estimate_parameter_uncertainty(model::UDEModel, params, data, t_data,
     upper = Float64[intervals[name][2] for name in names]
     return ParameterUncertainty(names, estimates, lower, upper, float(level), :fisher)
 end
+
+function _simulate_trajectory(rhs, u0, tspan, times)
+    prob = SciMLBase.ODEProblem(rhs, u0, tspan)
+    sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
+    SciMLBase.successful_retcode(sol) || return nothing
+    return Array(sol)
+end
+
+"""
+    production_destruction_tradeoff(model, p, data, t_data, u0, tspan; kwargs...)
+
+Practical collinearity between a production parameter (default `k_prod`) and a
+multiplicative scale on unknown neural destruction `D(z)`. Reports Fisher
+condition number and trajectory-Jacobian cosine. This is not structural
+identifiability.
+"""
+function production_destruction_tradeoff(
+        model::UDEModel, p, data, t_data, u0, tspan;
+        production_param::Symbol = :k_prod,
+        term = nothing,
+        rel_step::Real = 1e-3,
+        collinearity_threshold::Real = 0.95,
+        condition_threshold::Real = 1e6)
+    fisher = assess_identifiability(model, p, data, t_data, u0, tspan)
+    names = fisher.parameter_names
+    prod_idx = findfirst(==(production_param), names)
+    production_correlation = if prod_idx === nothing || length(names) < 2
+        NaN
+    else
+        others = [fisher.correlation_matrix[prod_idx, j]
+                  for j in eachindex(names) if j != prod_idx]
+        maximum(abs, others; init = 0.0)
+    end
+    nn_terms = neural_destruction_terms(model)
+    chosen = term === nothing ?
+        (isempty(nn_terms) ? nothing : first(nn_terms)) : term
+    collinearity = NaN
+    if chosen isa NeuralDestructionTerm
+        δ = rel_step
+        function scaled_rhs(sign)
+            return function (u, _, t)
+                du = ude_system(u, p, t, model)
+                D = _destruction_contribution(
+                    chosen, chosen.target, u, p, model.nn, model.st)
+                du[chosen.target] -= sign * δ * D * u[chosen.target]
+                return du
+            end
+        end
+        plus = _simulate_trajectory(scaled_rhs(1.0), u0, tspan, t_data)
+        minus = _simulate_trajectory(scaled_rhs(-1.0), u0, tspan, t_data)
+        j_d = plus === nothing || minus === nothing ?
+            nothing : vec((plus .- minus) ./ (2δ))
+        j_p = nothing
+        if prod_idx !== nothing && j_d !== nothing
+            jacobian, _ = trajectory_jacobian(
+                model, p, u0, tspan, t_data; rel_step = rel_step)
+            j_p = jacobian[:, prod_idx]
+        end
+        if j_d !== nothing && j_p !== nothing
+            denom = norm(j_p) * norm(j_d)
+            collinearity = denom == 0 ? 0.0 : abs(dot(j_p, j_d)) / denom
+        end
+    end
+    unidentifiable_edge = (isfinite(fisher.condition_number) &&
+                           fisher.condition_number ≥ condition_threshold) ||
+                          (isfinite(collinearity) &&
+                           collinearity ≥ collinearity_threshold)
+    return (;
+        production_param,
+        condition_number = fisher.condition_number,
+        production_correlation,
+        collinearity,
+        unidentifiable_edge,
+        fisher)
+end
+
+"""Human-readable practical warning for `production_destruction_tradeoff` (not exported)."""
+function format_production_destruction_warning(report)
+    cosine = report.collinearity
+    cosine_str = isfinite(cosine) ? string(round(cosine; digits = 3)) : "NA"
+    if report.unidentifiable_edge
+        return "Practical warning: production ($(report.production_param)) and unknown D(z) scale are collinear (cosine=$cosine_str). Observed concentrations do not pin that scale. This is not structural identifiability."
+    end
+    return "Practical $(report.production_param)↔D collinearity cosine=$cosine_str (below threshold)."
+end
+
+"""Run `production_destruction_tradeoff` and optionally print the warning."""
+function report_production_destruction_tradeoff(
+        model::UDEModel, p, data, t_data, u0, tspan;
+        verbose::Bool = false, kwargs...)
+    report = production_destruction_tradeoff(
+        model, p, data, t_data, u0, tspan; kwargs...)
+    verbose && println(format_production_destruction_warning(report))
+    return report
+end

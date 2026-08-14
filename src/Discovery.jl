@@ -206,7 +206,182 @@ function _fit_implicit(spec::LocalBasisSpec, X, derivative, indices,
         numerator_coefficients, spec.numerator, threshold)
     enforce_hierarchy!(
         denominator_coefficients, spec.denominator, threshold)
-    return numerator_coefficients, denominator_coefficients
+    pred, _ = _evaluate_candidate(
+        spec, numerator_coefficients, denominator_coefficients, local_X)
+    if all(isfinite, pred)
+        _implicit_design!(design, num_buf, den_buf, spec, local_X, pred)
+        coefficients = _stlsq_blocked(design, y, threshold; chunk_size = chunk_size)
+        numerator_coefficients = coefficients[1:split]
+        denominator_coefficients = coefficients[(split + 1):end]
+        enforce_hierarchy!(
+            numerator_coefficients, spec.numerator, threshold)
+        enforce_hierarchy!(
+            denominator_coefficients, spec.denominator, threshold)
+    end
+    return prune_nested_implicit(
+        spec, numerator_coefficients, denominator_coefficients,
+        local_X, y, threshold)
+end
+
+function _implicit_rss(spec, numerator, denominator, X, y)
+    pred, denvals = _evaluate_candidate(spec, numerator, denominator, X)
+    any(!isfinite, pred) && return Inf, pred, denvals
+    return mean(abs2, pred .- y), pred, denvals
+end
+
+function _refit_masked_implicit(spec, X, y, num_keep, den_keep, threshold)
+    n = size(X, 2)
+    n_num = length(spec.numerator)
+    n_den = length(spec.denominator)
+    num_buf = Matrix{eltype(X)}(undef, n, n_num)
+    den_buf = Matrix{eltype(X)}(undef, n, n_den)
+    design = Matrix{eltype(X)}(undef, n, n_num + n_den)
+    _implicit_design!(design, num_buf, den_buf, spec, X, y)
+    keep = vcat(num_keep, den_keep)
+    idx = findall(keep)
+    coeffs = zeros(eltype(X), n_num + n_den)
+    if !isempty(idx)
+        coeffs[idx] .= (@view design[:, idx]) \ y
+    end
+    numerator = coeffs[1:n_num]
+    denominator = coeffs[(n_num + 1):end]
+    numerator[.!num_keep] .= 0
+    denominator[.!den_keep] .= 0
+    pred, _ = _evaluate_candidate(spec, numerator, denominator, X)
+    if !isempty(idx) && all(isfinite, pred)
+        _implicit_design!(design, num_buf, den_buf, spec, X, pred)
+        coeffs[idx] .= (@view design[:, idx]) \ y
+        numerator = coeffs[1:n_num]
+        denominator = coeffs[(n_num + 1):end]
+        numerator[.!num_keep] .= 0
+        denominator[.!den_keep] .= 0
+    end
+    enforce_hierarchy!(numerator, spec.numerator, threshold)
+    enforce_hierarchy!(denominator, spec.denominator, threshold)
+    return numerator, denominator
+end
+
+function _active_term_indices(numerator, denominator)
+    return (findall(c -> abs(c) > 1e-8, numerator),
+            findall(c -> abs(c) > 1e-8, denominator))
+end
+
+"""Drop nested monomials on the same library when held-out RSS / BIC do not suffer."""
+function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
+                               floor::Real = 1e-8, rtol::Real = 0.02)
+    numerator = copy(numerator)
+    denominator = copy(denominator)
+    rss0, _, denvals0 = _implicit_rss(spec, numerator, denominator, X, y)
+    (!isfinite(rss0) || minimum(denvals0) < floor) && return numerator, denominator
+    num_idx, den_idx = _active_term_indices(numerator, denominator)
+    n_act = length(num_idx) + length(den_idx)
+    n_act == 0 && return numerator, denominator
+    n = length(y)
+    n_val = n ≥ 40 ? max(8, round(Int, 0.2 * n)) : 0
+    if n_act ≤ 12
+        return _subset_implicit_prune(
+            spec, X, y, threshold, floor, rtol, rss0,
+            num_idx, den_idx, n_val)
+    end
+    return _greedy_implicit_prune(
+        spec, numerator, denominator, X, y, threshold, floor, rtol, rss0)
+end
+
+function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
+                                num_idx, den_idx, n_val)
+    n = length(y)
+    n_num = length(spec.numerator)
+    n_den = length(spec.denominator)
+    n_num_act = length(num_idx)
+    n_den_act = length(den_idx)
+    n_act = n_num_act + n_den_act
+    train = n_val == 0 ? (1:n) : (1:(n - n_val))
+    val = n_val == 0 ? (1:n) : ((n - n_val + 1):n)
+    Xtr = @view X[:, train]
+    ytr = @view y[train]
+    Xval = @view X[:, val]
+    yval = @view y[val]
+    candidates = NamedTuple[]
+    for bits in 1:((1 << n_act) - 1)
+        keep_n = falses(n_num)
+        keep_d = falses(n_den)
+        @inbounds for i in 1:n_num_act
+            (bits & (1 << (i - 1))) != 0 && (keep_n[num_idx[i]] = true)
+        end
+        any(keep_n) || continue
+        @inbounds for j in 1:n_den_act
+            (bits & (1 << (n_num_act + j - 1))) != 0 && (keep_d[den_idx[j]] = true)
+        end
+        n2, d2 = _refit_masked_implicit(spec, Xtr, ytr, keep_n, keep_d, threshold)
+        rss_val, _, dvals = _implicit_rss(spec, n2, d2, Xval, yval)
+        (minimum(dvals) < floor || !isfinite(rss_val)) && continue
+        k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
+        score = n_val == 0 ?
+            information_criterion(n, rss_val * n, k; criterion = :bic) : rss_val
+        push!(candidates, (num = n2, den = d2, score = score, k = k, rss = rss_val))
+    end
+    isempty(candidates) && return _refit_masked_implicit(
+        spec, X, y,
+        [i in num_idx for i in 1:n_num],
+        [i in den_idx for i in 1:n_den], threshold)
+    best_score = minimum(c.score for c in candidates)
+    admissible = [c for c in candidates if c.score ≤ best_score * (1 + rtol)]
+    chosen = argmin(c -> (c.k, c.rss), admissible)
+    keep_n = abs.(chosen.num) .> 1e-8
+    keep_d = abs.(chosen.den) .> 1e-8
+    any(keep_n) || return chosen.num, chosen.den
+    return _refit_masked_implicit(spec, X, y, keep_n, keep_d, threshold)
+end
+
+function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
+                                floor, rtol, rss0)
+    n = length(y)
+    k0 = count(c -> abs(c) > 1e-8, vcat(numerator, denominator))
+    bic0 = information_criterion(n, rss0 * n, k0; criterion = :bic)
+    for _ in 1:(length(numerator) + length(denominator))
+        num_active = abs.(numerator) .> 1e-8
+        den_active = abs.(denominator) .> 1e-8
+        best_bic = bic0
+        best_num = numerator
+        best_den = denominator
+        improved = false
+        for i in findall(num_active)
+            count(num_active) == 1 && continue
+            keep_n = copy(num_active)
+            keep_n[i] = false
+            n2, d2 = _refit_masked_implicit(
+                spec, X, y, keep_n, den_active, threshold)
+            rss, _, dvals = _implicit_rss(spec, n2, d2, X, y)
+            (minimum(dvals) < floor || rss > rss0 * (1 + rtol)) && continue
+            k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
+            a = information_criterion(n, rss * n, k; criterion = :bic)
+            if a < best_bic - 1e-9
+                best_bic = a
+                best_num, best_den = n2, d2
+                improved = true
+            end
+        end
+        for i in findall(den_active)
+            keep_d = copy(den_active)
+            keep_d[i] = false
+            n2, d2 = _refit_masked_implicit(
+                spec, X, y, num_active, keep_d, threshold)
+            rss, _, dvals = _implicit_rss(spec, n2, d2, X, y)
+            (minimum(dvals) < floor || rss > rss0 * (1 + rtol)) && continue
+            k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
+            a = information_criterion(n, rss * n, k; criterion = :bic)
+            if a < best_bic - 1e-9
+                best_bic = a
+                best_num, best_den = n2, d2
+                improved = true
+            end
+        end
+        improved || break
+        numerator, denominator = best_num, best_den
+        rss0, _, _ = _implicit_rss(spec, numerator, denominator, X, y)
+        bic0 = best_bic
+    end
+    return numerator, denominator
 end
 
 function _evaluate_candidate(spec, numerator_coefficients,
@@ -261,7 +436,9 @@ function _consensus_refit(spec, X, derivative, indices, threshold,
         numerator_coefficients, spec.numerator, threshold)
     enforce_hierarchy!(
         denominator_coefficients, spec.denominator, threshold)
-    return numerator_coefficients, denominator_coefficients
+    return prune_nested_implicit(
+        spec, numerator_coefficients, denominator_coefficients,
+        local_X, y, threshold)
 end
 
 """Deterministic orthant stress grid spanning observed data bounds."""
@@ -352,7 +529,11 @@ function format_equation(candidate::ImplicitCandidate)
     return "dx[$(candidate.target)]/dt = ($numerator) / ($denominator)"
 end
 
-"""LaTeX form of a discovered candidate equation."""
+"""
+    equation_to_latex(candidate)
+
+LaTeX form of a discovered candidate equation.
+"""
 function equation_to_latex(candidate::ExplicitCandidate)
     side = _format_side_latex(candidate.coefficients,
                               candidate.specification.numerator)
@@ -410,7 +591,13 @@ function equation_to_function(candidate::ImplicitCandidate)
     end
 end
 
-"""Full-state RHS `(x) -> du` assembled from discovery candidates."""
+"""
+    export_rhs(result::DiscoveryResult)
+
+Full-state RHS `(x) -> du` assembled from discovery candidates. Unknown-edge
+recovery should use `compose_hybrid_rhs` instead: this exports a discovered
+`ẋ`, not a compiled hybrid with known `P`.
+"""
 function export_rhs(result::DiscoveryResult)
     result.success ||
         throw(ArgumentError(

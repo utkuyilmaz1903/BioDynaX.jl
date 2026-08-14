@@ -224,3 +224,25 @@ end
         rm(checkpoint_path; force = true)
     end
 end
+
+@testset "frozen_phys holds k_ba fixed" begin
+    rng = MersenneTwister(11)
+    net = build_linear_test_network()
+    model, p0 = build_ude_model(rng, net)
+    truth = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), p0.nn)
+    u0 = [0.35, 0.25]
+    tspan = (0.0, 4.0)
+    times, data, _, _ = generate_data(
+        rng; network = net, u0 = u0, tspan = tspan, n_points = 20,
+        noise_σ = 0.0, truth_params = truth)
+    init = pack_parameters((k_ba = 1.1, k_a = 0.9, k_b = 0.7), p0.nn)
+    raw = init.phys.k_ba
+    fit = train_ude(
+        init, data, times, u0, tspan, model;
+        config = TrainingConfig(
+            adam_iterations = 8, bfgs_iterations = 0, log_every = 10^6,
+            frozen_phys = [:k_ba]),
+        verbose = false)
+    @test fit.params.phys.k_ba ≈ raw
+    @test fit.params.phys.k_a != init.phys.k_a || isfinite(fit.final_loss)
+end

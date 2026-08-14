@@ -174,3 +174,24 @@ function write_experiment_csv(path::AbstractString, experiment::Experiment;
     end
     return path
 end
+
+"""Return a copy of `experiment` with a replacement observation mask."""
+function mask_observations(experiment::Experiment, mask::AbstractMatrix)
+    return Experiment(
+        experiment.name, experiment.times, experiment.observations,
+        experiment.u0; mask = BitMatrix(mask),
+        metadata = copy(experiment.metadata))
+end
+
+"""Zero a fraction of one state's observation mask (column 1 is kept)."""
+function subsample_state_mask(experiment::Experiment, state::Int,
+                              keep_fraction::Real, rng::AbstractRNG)
+    mask = copy(experiment.mask)
+    n = size(mask, 2)
+    nkeep = max(2, round(Int, keep_fraction * n))
+    idx = randperm(rng, n)
+    mask[state, :] .= false
+    mask[state, idx[1:nkeep]] .= true
+    mask[state, 1] = true
+    return mask_observations(experiment, mask)
+end

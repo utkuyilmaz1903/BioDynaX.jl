@@ -9,20 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Unknown-edge recovery: `sample_unknown_destruction`, `discover_unknown_rate`,
-  `compose_hybrid_rhs`, support F1 / rate RMSE metrics, and locked
-  `RECOVERY_THRESHOLDS`.
-- Hard CI job for UDE→Hill/MM `D(z)` recovery versus **data**, plus graph vs
-  global discovery F1 on a correlated distractor.
-- UDE support gates lock recall of the true monomials; combined F1 on
-  NN-sampled rates is below the analytical-`y` 0.99 because implicit STLSQ
-  keeps lower-order terms in the same variable.
-- `build_mm_recovery_network` and `DiscoveryConfig.basis_scope`.
+- Golden-path practical `k_prod`↔`D(z)` warning
+  (`BioDynaX.production_destruction_tradeoff` / `report_production_destruction_tradeoff`).
+  Hill UDE recovery CI now requires `unidentifiable_edge == true` and cosine ≥ 0.95.
+- `TrainingConfig.frozen_phys` to pin known production during training. Freeze,
+  `D` normalization, and a production-rate perturbation do **not** break the
+  Jacobian scale tradeoff; that is the locked finding, not a solved
+  identifiability claim.
+- Wrong-graph negative control (`:wrong_graph`): a Q→S prior must miss true
+  parent `R`. Three-state true-parent / no-local-false-parent remains the
+  graph-prior evidence (2-state F1 stays equal after Occam).
+- Scale-normalized discovery on the same monomial library
+  (`normalize_destruction_samples`); UDE combined F1 is still not the
+  analytical Hill gate.
+- Partial-observation closed loop: subsampled `D` → hybrid residual versus
+  data. UDE training on missing states is **not** claimed
+  (`ude_mask_train_claimed = false`).
 
 ### Changed
 
-- Golden path discovers the neural destruction rate, not the full `ẋ`.
-- Loosening `RECOVERY_THRESHOLDS` is a breaking change.
+- README quick start points at `examples/unknown_inhibition.jl` (adam 100 /
+  bfgs 50, 9 ICs). Unknown-edge closed loop is Hill-class; MM unknown remains
+  NN RMSE + data residual.
+- Documenter `deploydocs` runs only on `main`. TagBot / CompatHelper /
+  gh-pages are configured, not proven live without `DOCUMENTER_KEY`.
+- Recovery fixtures in `api.md` are labeled internal (not on the freeze list).
+
+## [0.9.1] - 2026-08-13
+
+### Added
+
+- Research-preview honesty lock: golden path is
+  `sample_unknown_destruction` → `discover_unknown_rate` → `compose_hybrid_rhs`.
+- Nested Occam prune and predicted-`y` implicit refit on the **same** monomial
+  library (no new atoms). 0.5% noisy analytical Hill combined F1 is gated at
+  0.99. Trained-NN UDE combined F1 stays below that gate; the locked UDE claim
+  is true-monomial recall + hybrid residual versus data.
+- Graph vs global baseline producer `benchmark/sindy_baseline.jl` (optional
+  DataDrivenSparse; not a CI dependency).
+- Practical `k_prod`↔`D` tradeoff report, 3-state graph-prior test, partial
+  observation mask, 2-regulator competitive unknown head, and Elowitz
+  synthetic repressilator fixture (not experimental CSV).
+- TagBot, CompatHelper, Documenter `deploydocs`, and `CONTRIBUTING.md`.
+
+### Changed
+
+- `RECOVERY_THRESHOLDS.nn_rate_rmse` tightened to 0.12. UDE combined F1 stays
+  at the skeleton floor 0.50 (not the analytical 0.99). Loosening remains
+  breaking; claiming canonical Hill from a trained NN is not this release.
+- Unknown-edge training uses 9 ICs and a 50-point horizon.
+- v1.0 / JOSS / `]register` wait on scientific gates that can turn CI red.
 
 ## [0.9.0] - 2026-08-13
 

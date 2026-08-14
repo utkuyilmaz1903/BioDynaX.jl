@@ -22,3 +22,12 @@ makedocs(
     checkdocs = :exports,
     warnonly = [:missing_docs],
 )
+
+if get(ENV, "CI", "false") == "true" &&
+        get(ENV, "GITHUB_REF", "") == "refs/heads/main"
+    deploydocs(
+        repo = "github.com/utkuyilmaz1903/BioDynaX.jl.git",
+        devbranch = "main",
+        push_preview = false,
+    )
+end

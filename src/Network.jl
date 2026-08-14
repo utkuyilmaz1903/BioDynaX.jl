@@ -2,6 +2,11 @@
 @enum NodeKind STATE INPUT LATENT
 @enum KineticFamily MASS_ACTION SATURATION HILL COMPETITIVE CUSTOM_KINETIC
 
+"""
+    NodeSpec
+
+Species node: name, kind (`STATE`/`INPUT`/`LATENT`), bounds, and observation flag.
+"""
 Base.@kwdef struct NodeSpec
     name::Symbol
     kind::NodeKind = STATE
@@ -11,6 +16,12 @@ Base.@kwdef struct NodeSpec
     observed::Bool = true
 end
 
+"""
+    EdgeSpec
+
+Directed interaction. Unknown edges (`known=false` or `UNKNOWN_NN`) compile to a
+neural destruction head; known `family` values become mechanistic IR.
+"""
 Base.@kwdef struct EdgeSpec
     source::Int
     target::Int
@@ -22,6 +33,8 @@ Base.@kwdef struct EdgeSpec
 end
 
 """
+    ReactionSpec
+
 Stoichiometric reaction. `stoichiometry` maps state-node ids to signed
 coefficients; regulators affect the rate but are not necessarily consumed.
 """
@@ -110,6 +123,11 @@ function _validate_reaction_metadata!(network::BiologicalNetwork, reaction::Reac
             throw(ArgumentError(
                 "reaction $(reaction.name): COMPETITIVE requires two regulators"))
     end
+    if !reaction.known
+        1 ≤ length(reaction.regulators) ≤ 2 ||
+            throw(ArgumentError(
+                "unknown reaction $(reaction.name) requires one or two regulators"))
+    end
     return nothing
 end
 
@@ -160,6 +178,7 @@ end
 state_nodes(network::BiologicalNetwork) =
     findall(node -> node.kind != INPUT, network.nodes)
 
+"""Graph in-neighbors of `target` (the local discovery prior)."""
 candidate_parents(network::BiologicalNetwork, target::Integer) =
     collect(inneighbors(network.graph, target))
 

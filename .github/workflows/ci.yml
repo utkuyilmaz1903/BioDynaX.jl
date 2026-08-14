@@ -68,6 +68,9 @@ jobs:
           version: "1"
       - uses: julia-actions/cache@v2
       - name: Build documentation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
         run: |
           julia --project=docs docs/instantiate.jl
           julia --project=docs docs/make.jl

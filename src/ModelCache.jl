@@ -8,9 +8,13 @@ end
 
 function allocate_cache(model::UDEModel, ::Type{T}) where {T<:AbstractFloat}
     n = model.compiled.nstates
-    nn_count = count(term -> term isa NeuralDestructionTerm,
-                     model.compiled.destruction_terms)
-    nn_inputs = nn_count > 0 ? Matrix{T}(undef, 1, nn_count) : Matrix{T}(undef, 0, 0)
+    nn_terms = [term for term in model.compiled.destruction_terms
+                if term isa NeuralDestructionTerm]
+    nn_count = length(nn_terms)
+    max_in = nn_count == 0 ? 0 :
+        maximum(length(term.regulators) for term in nn_terms)
+    nn_inputs = nn_count > 0 ? Matrix{T}(undef, max_in, nn_count) :
+        Matrix{T}(undef, 0, 0)
     return UDEModelCache(
         zeros(T, n), zeros(T, n), zeros(T, n), nn_inputs)
 end

@@ -14,10 +14,16 @@ function relative_parameter_error(estimate, truth::NamedTuple)
     return sqrt(mean(squares)), rel
 end
 
-"""Locked scientific-recovery contract. Loosening a threshold is a breaking change."""
+"""
+    RECOVERY_THRESHOLDS
+
+Locked scientific-recovery contract. Loosening a threshold is a breaking change.
+UDE combined F1 is not the analytical Hill gate; that gate is `support_f1_clean`
+on exact/noisy analytical `D`. The UDE claim is recall + data residual.
+"""
 const RECOVERY_THRESHOLDS = (
     nn_correlation = 0.90,
-    nn_rate_rmse = 0.25,
+    nn_rate_rmse = 0.12,
     support_f1_clean = 0.99,
     support_f1_ude = 0.50,
     support_f1_noisy = 0.50,
@@ -128,6 +134,7 @@ function sample_unknown_destruction(model::UDEModel, p, X::AbstractMatrix;
                                     term = nothing)
     terms = neural_destruction_terms(model)
     chosen = term === nothing ? only(terms) : term
+    regs = chosen.regulators
     n = size(X, 2)
     rates = Vector{Float64}(undef, n)
     @inbounds for j in 1:n
@@ -135,7 +142,7 @@ function sample_unknown_destruction(model::UDEModel, p, X::AbstractMatrix;
         rates[j] = _destruction_contribution(
             chosen, chosen.target, x, p, model.nn, model.st)
     end
-    R = reshape(Float64.(X[chosen.regulator, :]), 1, :)
+    R = Float64.(X[regs, :])
     return R, reshape(rates, 1, :), chosen
 end
 
@@ -173,19 +180,37 @@ function _permute_rate_samples(X::AbstractMatrix, dX::AbstractMatrix, seed)
     return X[:, perm], dX[:, perm]
 end
 
+function _rate_network_from_samples(R::AbstractMatrix)
+    n = size(R, 1)
+    n ≥ 1 || throw(ArgumentError("rate samples must have at least one regulator row"))
+    nodes = [NodeSpec(name = Symbol(:r, i)) for i in 1:n]
+    edges = [EdgeSpec(source = i, target = 1, kind = INHIBITION,
+                      family = HILL, known = false) for i in 2:n]
+    return BiologicalNetwork(nodes, edges)
+end
+
 """
     discover_unknown_rate(R, times, D; network, config, ...)
 
 Discover a scalar destruction rate `D(r)` with graph-local implicit SINDy-PI.
-`R` and `D` are `1 × n` (or matching) sample matrices.
+`R` is `n_regulators × n` and `D` is `1 × n`.
 """
 function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
-                               network = build_rate_discovery_network(),
+                               network = nothing,
                                config = rate_discovery_config(),
                                verbose::Bool = false, strict::Bool = false)
-    R_perm, D_perm = _permute_rate_samples(R, D, config.seed)
+    net = network === nothing ? _rate_network_from_samples(R) : network
+    nreg = size(R, 1)
+    D_full = if size(D, 1) == nreg
+        D
+    else
+        padded = zeros(eltype(D), nreg, size(R, 2))
+        padded[1, :] .= vec(D)
+        padded
+    end
+    R_perm, D_perm = _permute_rate_samples(R, D_full, config.seed)
     return discover_equations(
-        R_perm, times, network; derivatives = D_perm, targets = 1,
+        R_perm, times, net; derivatives = D_perm, targets = 1,
         config = config, verbose = verbose, strict = strict)
 end
 
@@ -193,41 +218,63 @@ end
     compose_hybrid_rhs(model, p, term, rate_fn)
 
 ODE right-hand side that keeps compiled known terms and replaces neural
-destruction `term` with `rate_fn([regulator])`.
+destruction `term` with `rate_fn` of the regulator vector.
 """
 function compose_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm, rate_fn)
     return function (u, _, t)
         du = ude_system(u, p, t, model)
         nn_D = _destruction_contribution(
             term, term.target, u, p, model.nn, model.st)
-        hat_D = rate_fn([u[term.regulator]])
+        hat_D = rate_fn([u[r] for r in term.regulators])
         du[term.target] += (nn_D - hat_D) * u[term.target]
         return du
     end
 end
 
-function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data)
+"""Hybrid RHS residual versus observations (not versus UDE derivatives)."""
+function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
+                              mask = nothing)
     rhs = compose_hybrid_rhs(model, p, term, rate_fn)
     prob = SciMLBase.ODEProblem(rhs, u0, tspan)
     sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
     SciMLBase.successful_retcode(sol) || return Inf
     pred = Array(sol)
     size(pred) == size(data) || return Inf
-    return sqrt(mean(abs2, pred .- data))
+    if mask === nothing
+        return sqrt(mean(abs2, pred .- data))
+    end
+    size(mask) == size(data) || return Inf
+    n = count(mask)
+    n == 0 && return Inf
+    residual = ifelse.(mask, pred .- data, zero(eltype(pred)))
+    return sqrt(sum(abs2, residual) / n)
+end
+
+"""Scale a sampled destruction rate so `max|D| = 1` (same monomial library; no new atoms)."""
+function normalize_destruction_samples(D)
+    values = Float64.(D)
+    scale = max(maximum(abs, values), eps(Float64))
+    return values ./ scale, scale
 end
 
 function _unknown_edge_ics()
-    return [[0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90]]
+    return [
+        [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
+        [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20],
+    ]
 end
 
 function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
-                             adam, bfgs, noise_σ, tspan, n_points)
+                             adam, bfgs, noise_σ, tspan, n_points,
+                             frozen_phys::Vector{Symbol} = Symbol[],
+                             phys_init = nothing)
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = _unknown_edge_ics(),
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
         truth_params = truth_params)
     names = Tuple(parameter_schema(ude_model).phys_names)
-    guess = NamedTuple{names}(ntuple(_ -> 0.8, length(names)))
+    guess = phys_init === nothing ?
+        NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
     ude_init = pack_parameters(guess, ude_p0.nn)
     first_exp = first(set.experiments)
     warm = train_ude(
@@ -237,14 +284,16 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
             adam_iterations = adam,
             bfgs_iterations = 0,
             horizon_schedule = HorizonCurriculum(fractions = [0.35, 0.7, 1.0]),
-            log_every = 10^6),
+            log_every = 10^6,
+            frozen_phys = frozen_phys),
         verbose = false)
     fit = train_experiments(
         warm.params, set, ude_model;
         config = TrainingConfig(
             adam_iterations = adam,
             bfgs_iterations = bfgs,
-            log_every = 10^6),
+            log_every = 10^6,
+            frozen_phys = frozen_phys),
         verbose = false)
     return fit, set
 end
@@ -284,6 +333,8 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
             discovered_rate_rmse = Inf,
             data_residual = Inf,
             denominator_violations = typemax(Int),
+            normalized_support_f1 = 0.0,
+            normalized_support_recall = 0.0,
             discovery = nothing,
             term = term)
     end
@@ -291,6 +342,11 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     truth_support = family === :hill ? hill_rate_support(order) : mm_rate_support()
     discovery = discover_unknown_rate(
         R_grid, times, D_nn;
+        config = rate_discovery_config(bootstrap = 8, seed = 3),
+        verbose = false, strict = false)
+    D_norm, _ = normalize_destruction_samples(D_nn)
+    discovery_norm = discover_unknown_rate(
+        R_grid, times, reshape(vec(D_norm), size(D_nn));
         config = rate_discovery_config(bootstrap = 8, seed = 3),
         verbose = false, strict = false)
     f1 = 0.0
@@ -310,6 +366,14 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         den_violations = denominator_violation_count(candidate, R_grid)
         residual = data_residual_fn(d_hat)
     end
+    norm_f1 = 0.0
+    norm_recall = 0.0
+    if discovery_norm.success
+        metrics_n = support_f1(discovery_norm.candidates[1],
+                               truth_support.numerator, truth_support.denominator)
+        norm_f1 = metrics_n.combined.f1
+        norm_recall = metrics_n.combined.recall
+    end
     return (;
         nn_correlation = nn_corr,
         nn_rate_rmse = nn_rmse,
@@ -321,6 +385,8 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         discovered_rate_rmse = rate_rmse,
         data_residual = residual,
         denominator_violations = den_violations,
+        normalized_support_f1 = norm_f1,
+        normalized_support_recall = norm_recall,
         discovery = discovery,
         term = term)
 end
@@ -396,16 +462,22 @@ function build_mm_recovery_network(; known::Bool = true)::BiologicalNetwork
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
-"""Fully known competitive-inhibition destruction of enzyme `E` by inhibitor `I`."""
-function build_competitive_test_network()::BiologicalNetwork
+"""Competitive-inhibition destruction of enzyme `E` by substrate `S` and inhibitor `I`."""
+function build_competitive_test_network(; known::Bool = true)::BiologicalNetwork
     nodes = [NodeSpec(name = :E), NodeSpec(name = :S), NodeSpec(name = :I)]
+    edges = [
+        EdgeSpec(source = 2, target = 1, kind = INHIBITION,
+                 family = COMPETITIVE, known = known),
+        EdgeSpec(source = 3, target = 1, kind = INHIBITION,
+                 family = COMPETITIVE, known = known),
+    ]
     reactions = [
         ReactionSpec(name = :source,
                      stoichiometry = Dict(1 => 1.0), regulators = [2],
                      metadata = MassActionMetadata(rate_param = :k_in)),
         ReactionSpec(name = :competitive,
                      stoichiometry = Dict(1 => -1.0),
-                     regulators = [2, 3], known = true, family = COMPETITIVE,
+                     regulators = [2, 3], known = known, family = COMPETITIVE,
                      metadata = CompetitiveMetadata(
                          vmax_param = :vmax, km_param = :km, ki_param = :ki)),
         ReactionSpec(name = :substrate_decay,
@@ -415,7 +487,7 @@ function build_competitive_test_network()::BiologicalNetwork
                      stoichiometry = Dict(3 => -1.0), regulators = Int[],
                      metadata = LinearDecayMetadata(rate_param = :k_i)),
     ]
-    return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
+    return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
 
 """Chain plus a distractor node for graph-local vs global library ablation."""
@@ -431,6 +503,64 @@ function build_distractor_network()::BiologicalNetwork
     ]
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
+
+"""Three dynamic states (S, R, Q) with optional unused distractor Z and one unknown Hill edge.
+`parent` is the graph source of the S-edge (2 = true parent R; 3 = wrong parent Q)."""
+function build_three_state_unknown_network(; known::Bool = false,
+                                          with_distractor::Bool = true,
+                                          parent::Int = 2)::BiologicalNetwork
+    nodes = [NodeSpec(name = :S), NodeSpec(name = :R), NodeSpec(name = :Q)]
+    with_distractor && push!(nodes, NodeSpec(name = :Z))
+    edges = [
+        EdgeSpec(source = parent, target = 1, kind = INHIBITION,
+                 family = HILL, known = known),
+    ]
+    reactions = [
+        ReactionSpec(name = :produce_s,
+                     stoichiometry = Dict(1 => 1.0), regulators = [2],
+                     metadata = MassActionMetadata(rate_param = :k_prod)),
+        ReactionSpec(name = :hill_deg,
+                     stoichiometry = Dict(1 => -1.0), regulators = [parent],
+                     known = known, family = HILL,
+                     metadata = HillMetadata(
+                         vmax_param = :vmax, k_param = :K, hill_order = 2)),
+        ReactionSpec(name = :produce_r,
+                     stoichiometry = Dict(2 => 1.0), regulators = [3],
+                     metadata = MassActionMetadata(rate_param = :k_rq)),
+        ReactionSpec(name = :decay_r,
+                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_r)),
+        ReactionSpec(name = :produce_q,
+                     stoichiometry = Dict(3 => 1.0), regulators = [1],
+                     metadata = MassActionMetadata(rate_param = :k_qs)),
+        ReactionSpec(name = :decay_q,
+                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_q)),
+    ]
+    if with_distractor
+        push!(reactions, ReactionSpec(
+            name = :decay_z,
+            stoichiometry = Dict(4 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_z)))
+    end
+    return BiologicalNetwork(nodes, edges; reactions = reactions)
+end
+
+"""Negative control: graph claims Q→S while the sampled rate is still D(R)."""
+build_wrong_graph_unknown_network(; known::Bool = false,
+                                  with_distractor::Bool = true) =
+    build_three_state_unknown_network(; known = known,
+                                      with_distractor = with_distractor,
+                                      parent = 3)
+
+competitive_rate_truth(s, i; vmax, km, ki) =
+    vmax .* s ./ (km .* (1 .+ i ./ ki) .+ s)
+
+"""Elowitz & Leibler, Nature 403:335–338 (2000). Dimensionless synthetic fixture, not experimental CSV."""
+elowitz_repressilator_parameters() = (
+    basal = 1.0, unit = 1.0,
+    vmax_a = 216.0, vmax_b = 216.0, vmax_c = 216.0,
+    K_a = 1.0, K_b = 1.0, K_c = 1.0, γ = 1.0)
 
 function _rhs_correlation(rhs, X, dX)
     pred = reduce(hcat, (rhs(X[:, j]) for j in axes(X, 2)))
@@ -448,8 +578,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
                             linear_bfgs::Int = 20,
                             mm_adam::Int = 50,
                             mm_bfgs::Int = 25,
-                            ude_adam::Int = 80,
-                            ude_bfgs::Int = 40,
+                            ude_adam::Int = 100,
+                            ude_bfgs::Int = 50,
                             hill_adam::Int = 40,
                             hill_bfgs::Int = 20,
                             competitive_adam::Int = 40,
@@ -550,7 +680,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     ude_fit, ude_set = _train_unknown_edge(
         rng, ude_model, ude_p0, truth_net, hill_truth;
         adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
-        tspan = (0.0, 8.0), n_points = 40)
+        tspan = (0.0, 8.0), n_points = 50)
     term = only(neural_destruction_terms(ude_model))
     ref_exp = first(ude_set.experiments)
     evaled = _evaluate_unknown_rate_recovery(
@@ -562,7 +692,11 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             ude_model, ude_fit.params, term, d_hat,
             ref_exp.u0, (first(ref_exp.times), last(ref_exp.times)),
             ref_exp.times, ref_exp.observations))
-    report[:ude_discovery] = evaled
+    report[:ude_discovery] = (; evaled...,
+        identifiability = report_production_destruction_tradeoff(
+            ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
+            ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
+            term = term, verbose = false))
     end
 
     if :mm_unknown in wanted
@@ -574,7 +708,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     ude_fit, ude_set = _train_unknown_edge(
         rng, ude_model, ude_p0, truth_net, mm_truth;
         adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
-        tspan = (0.0, 8.0), n_points = 40)
+        tspan = (0.0, 8.0), n_points = 50)
     term = only(neural_destruction_terms(ude_model))
     ref_exp = first(ude_set.experiments)
     evaled = _evaluate_unknown_rate_recovery(
@@ -586,7 +720,11 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             ude_model, ude_fit.params, term, d_hat,
             ref_exp.u0, (first(ref_exp.times), last(ref_exp.times)),
             ref_exp.times, ref_exp.observations))
-    report[:mm_unknown] = evaled
+    report[:mm_unknown] = (; evaled...,
+        identifiability = report_production_destruction_tradeoff(
+            ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
+            ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
+            term = term, verbose = false))
     end
 
     if :ablation in wanted
@@ -596,7 +734,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     D = hill_rate_truth(r; vmax = vmax, K = k, n = 2)
     amp = max(maximum(abs, D), eps(Float64))
     D_noisy = D .+ 0.005 .* amp .* randn(rng_ab, length(r))
-    z = D .+ 0.15 .* amp .* randn(rng_ab, length(r))
+    # Near-alias of the true Hill monomial on a distractor channel.
+    z = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(rng_ab, length(r))
     X_ab = permutedims(hcat(r, z))
     dX_ab = vcat(reshape(D_noisy, 1, :), reshape(-0.5 .* z, 1, :))
     X_ab, dX_ab = _permute_rate_samples(X_ab, dX_ab, 104)
@@ -633,6 +772,12 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         net_ab, 1; degree = 2, include_interactions = false, scope = :graph)
     global_spec = local_basis(
         net_ab, 1; degree = 2, include_interactions = false, scope = :global)
+    local_rate_rmse = local_cand === nothing ? Inf :
+        rate_rel_rmse([equation_to_function(local_cand)(X_ab[:, j])
+                       for j in axes(X_ab, 2)], vec(dX_ab[1, :]))
+    global_rate_rmse = global_cand === nothing ? Inf :
+        rate_rel_rmse([equation_to_function(global_cand)(X_ab[:, j])
+                       for j in axes(X_ab, 2)], vec(dX_ab[1, :]))
     report[:ablation] = (;
         local_terms = candidate_count(local_spec),
         global_terms = candidate_count(global_spec),
@@ -646,8 +791,283 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         global_false_parent = global_fp,
         local_denominator_violations = local_den,
         global_denominator_violations = global_den,
+        local_rate_rmse = local_rate_rmse,
+        global_rate_rmse = global_rate_rmse,
         local_time = local_time,
         global_time = global_time)
+    end
+
+    if :three_state in wanted
+    r = collect(range(0.1, 2.0; length = 180))
+    rng_3 = MersenneTwister(204)
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    amp = max(maximum(abs, D), eps(Float64))
+    D_noisy = D .+ 0.005 .* amp .* randn(rng_3, length(r))
+    s = fill(0.4, length(r))
+    q = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(rng_3, length(r))
+    z = r .+ 0.10 .* (maximum(r) - minimum(r)) .* randn(rng_3, length(r))
+    X3 = permutedims(hcat(s, r, q, z))
+    dX3 = vcat(reshape(D_noisy, 1, :), zeros(3, length(r)))
+    X3, dX3 = _permute_rate_samples(X3, dX3, 204)
+    times3 = collect(range(0.0, 1.0; length = length(r)))
+    net3 = build_three_state_unknown_network()
+    truth3 = hill_rate_support(2; variable = 2)
+    local3 = discover_equations(
+        X3, times3, net3; derivatives = dX3, targets = 1,
+        config = rate_discovery_config(scope = :graph, bootstrap = 0, seed = 5),
+        verbose = false, strict = false)
+    global3 = discover_equations(
+        X3, times3, net3; derivatives = dX3, targets = 1,
+        config = rate_discovery_config(scope = :global, bootstrap = 0, seed = 5),
+        verbose = false, strict = false)
+    lc = local3.success ? local3.candidates[1] : nothing
+    gc = global3.success ? global3.candidates[1] : nothing
+    parents = candidate_parents(net3, 1)
+    report[:three_state] = (;
+        graph_parents = parents,
+        local_success = local3.success,
+        global_success = global3.success,
+        local_f1 = lc === nothing ? 0.0 :
+            support_f1(lc, truth3.numerator, truth3.denominator).combined.f1,
+        global_f1 = gc === nothing ? 0.0 :
+            support_f1(gc, truth3.numerator, truth3.denominator).combined.f1,
+        local_has_true_parent = lc !== nothing &&
+            support_uses_variable(lc; variable = 2),
+        local_false_parent = lc !== nothing &&
+            (support_uses_variable(lc; variable = 3) ||
+             support_uses_variable(lc; variable = 4)),
+        global_false_parent = gc !== nothing &&
+            (support_uses_variable(gc; variable = 3) ||
+             support_uses_variable(gc; variable = 4)))
+    end
+
+    if :wrong_graph in wanted
+    r = collect(range(0.1, 2.0; length = 180))
+    rng_w = MersenneTwister(214)
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    amp = max(maximum(abs, D), eps(Float64))
+    D_noisy = D .+ 0.005 .* amp .* randn(rng_w, length(r))
+    s = fill(0.4, length(r))
+    q = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(rng_w, length(r))
+    z = r .+ 0.10 .* (maximum(r) - minimum(r)) .* randn(rng_w, length(r))
+    Xw = permutedims(hcat(s, r, q, z))
+    dXw = vcat(reshape(D_noisy, 1, :), zeros(3, length(r)))
+    Xw, dXw = _permute_rate_samples(Xw, dXw, 214)
+    times_w = collect(range(0.0, 1.0; length = length(r)))
+    net_w = build_wrong_graph_unknown_network()
+    truth_w = hill_rate_support(2; variable = 2)
+    local_w = discover_equations(
+        Xw, times_w, net_w; derivatives = dXw, targets = 1,
+        config = rate_discovery_config(scope = :graph, bootstrap = 0, seed = 8),
+        verbose = false, strict = false)
+    lcw = local_w.success ? local_w.candidates[1] : nothing
+    parents_w = candidate_parents(net_w, 1)
+    report[:wrong_graph] = (;
+        graph_parents = parents_w,
+        local_success = local_w.success,
+        local_f1 = lcw === nothing ? 0.0 :
+            support_f1(lcw, truth_w.numerator, truth_w.denominator).combined.f1,
+        local_has_true_parent = lcw !== nothing &&
+            support_uses_variable(lcw; variable = 2),
+        local_false_parent = lcw !== nothing &&
+            (support_uses_variable(lcw; variable = 3) ||
+             support_uses_variable(lcw; variable = 4)))
+    end
+
+    if :identifiability in wanted
+    hill_net = build_hill_recovery_network(; known = true, hill_order = 2)
+    hill_model, hill_p0 = build_ude_model(rng, hill_net)
+    hill_truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
+    hill_p = pack_parameters(hill_truth, hill_p0.nn)
+    u0 = [0.3, 0.25]
+    tspan = (0.0, 8.0)
+    times, data, _, _ = generate_data(
+        rng; network = hill_net, u0 = u0, tspan = tspan,
+        n_points = 40, noise_σ = 0.0, truth_params = hill_p)
+    trade = production_destruction_tradeoff(
+        hill_model, hill_p, data, times, u0, tspan)
+    report[:identifiability] = trade
+    end
+
+    if :ident_interventions in wanted
+    r = collect(range(0.1, 2.0; length = 120))
+    D_h = hill_rate_truth(r; vmax = 1.8, K = 0.6, n = 2)
+    D_n, _ = normalize_destruction_samples(D_h)
+    result_n = discover_unknown_rate(
+        reshape(r, 1, :), collect(range(0.0, 1.0; length = length(r))),
+        reshape(vec(D_n), 1, :);
+        config = rate_discovery_config(bootstrap = 0, seed = 9),
+        verbose = false, strict = false)
+    truth_n = hill_rate_support(2)
+    metrics_n = result_n.success ?
+        support_f1(result_n.candidates[1], truth_n.numerator, truth_n.denominator) :
+        nothing
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    ude_model, ude_p0 = build_ude_model(rng, ude_net)
+    term = only(neural_destruction_terms(ude_model))
+    p_nom = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), ude_p0.nn)
+    u0 = [0.3, 0.25]
+    tspan = (0.0, 2.0)
+    times = collect(range(first(tspan), last(tspan); length = 20))
+    data = predict_ude(p_nom, u0, tspan, times, ude_model)
+    trade_nom = production_destruction_tradeoff(
+        ude_model, p_nom, data, times, u0, tspan; term = term)
+    k_prod_raw = p_nom.phys.k_prod
+    freeze_fit = train_ude(
+        p_nom, data, times, u0, tspan, ude_model;
+        config = TrainingConfig(
+            adam_iterations = 8, bfgs_iterations = 0, log_every = 10^6,
+            frozen_phys = [:k_prod]),
+        verbose = false)
+    trade_freeze = production_destruction_tradeoff(
+        ude_model, freeze_fit.params, data, times, u0, tspan; term = term)
+    p_hi = pack_parameters((k_prod = 1.8, k_rs = 1.0, k_r = 0.6), ude_p0.nn)
+    data_hi = predict_ude(p_hi, u0, tspan, times, ude_model)
+    trade_hi = production_destruction_tradeoff(
+        ude_model, p_hi, data_hi, times, u0, tspan; term = term)
+    report[:ident_interventions] = (;
+        normalized_analytical_f1 = metrics_n === nothing ? 0.0 : metrics_n.combined.f1,
+        normalized_analytical_recall = metrics_n === nothing ? 0.0 : metrics_n.combined.recall,
+        nominal_collinearity = trade_nom.collinearity,
+        nominal_unidentifiable = trade_nom.unidentifiable_edge,
+        frozen_k_prod_unchanged = freeze_fit.params.phys.k_prod ≈ k_prod_raw,
+        freeze_collinearity = trade_freeze.collinearity,
+        freeze_unidentifiable = trade_freeze.unidentifiable_edge,
+        perturbation_collinearity = trade_hi.collinearity,
+        perturbation_unidentifiable = trade_hi.unidentifiable_edge,
+        tradeoff_broken = false)
+    end
+
+    if :partial_obs in wanted
+    r = collect(range(0.1, 2.0; length = 180))
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    keep = trues(length(r))
+    keep[2:2:end] .= false
+    result = discover_unknown_rate(
+        reshape(r[keep], 1, :), collect(range(0.0, 1.0; length = count(keep))),
+        reshape(D[keep], 1, :);
+        config = rate_discovery_config(bootstrap = 0, seed = 6),
+        verbose = false, strict = false)
+    truth = hill_rate_support(2)
+    metrics = result.success ?
+        support_f1(result.candidates[1], truth.numerator, truth.denominator) :
+        nothing
+    linear_net = build_linear_test_network()
+    linear_model, linear_p0 = build_ude_model(rng, linear_net)
+    linear_true = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), linear_p0.nn)
+    u0 = [0.35, 0.25]
+    tspan = (0.0, 6.0)
+    times, clean, _, _ = generate_data(
+        rng; network = linear_net, u0 = u0, tspan = tspan,
+        n_points = 30, noise_σ = 0.0, truth_params = linear_true)
+    mask = trues(size(clean))
+    mask[1, 10:end] .= false
+    exp = Experiment(:masked, times, clean, u0; mask = mask)
+    masked_set = ExperimentSet([exp], [:A, :B])
+    init = pack_parameters((k_ba = 1.1, k_a = 0.9, k_b = 0.7), linear_p0.nn)
+    fit = train_experiments(
+        init, masked_set, linear_model;
+        config = TrainingConfig(adam_iterations = 25, bfgs_iterations = 0,
+                                log_every = 10^6),
+        verbose = false)
+    hill_net = build_hill_recovery_network(; known = true, hill_order = 2)
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    _, hill_p0 = build_ude_model(rng, hill_net)
+    ude_model, ude_p0 = build_ude_model(rng, ude_net)
+    hill_truth = (k_prod = 0.9, vmax = 1.7, K = 0.6, k_rs = 1.0, k_r = 0.6)
+    hill_p = pack_parameters(hill_truth, hill_p0.nn)
+    u0_h = [0.3, 0.25]
+    tspan_h = (0.0, 8.0)
+    times_h, data_h, _, _ = generate_data(
+        rng; network = hill_net, u0 = u0_h, tspan = tspan_h,
+        n_points = 40, noise_σ = 0.0, truth_params = hill_p)
+    p_hybrid = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), ude_p0.nn)
+    term = only(neural_destruction_terms(ude_model))
+    closed_residual = Inf
+    masked_residual = Inf
+    obs_mask = trues(size(data_h))
+    obs_mask[1, 2:2:end] .= false
+    if result.success
+        d_hat = equation_to_function(result.candidates[1])
+        closed_residual = hybrid_data_residual(
+            ude_model, p_hybrid, term, d_hat,
+            u0_h, tspan_h, times_h, data_h)
+        masked_residual = hybrid_data_residual(
+            ude_model, p_hybrid, term, d_hat,
+            u0_h, tspan_h, times_h, data_h; mask = obs_mask)
+    end
+    report[:partial_obs] = (;
+        subsample_success = result.success,
+        subsample_f1 = metrics === nothing ? 0.0 : metrics.combined.f1,
+        subsample_recall = metrics === nothing ? 0.0 : metrics.combined.recall,
+        mask_used = !all(exp.mask),
+        masked_train_loss = fit.final_loss,
+        masked_train_finite = isfinite(fit.final_loss),
+        closed_loop_residual = closed_residual,
+        closed_loop_masked_residual = masked_residual,
+        closed_loop_vs_data = closed_residual ≤ RECOVERY_THRESHOLDS.data_residual,
+        ude_mask_train_claimed = false)
+    end
+
+    if :competitive_unknown in wanted
+    rng_c = MersenneTwister(304)
+    ns, ni = 24, 24
+    svals = collect(range(0.15, 1.8; length = ns))
+    ivals = collect(range(0.15, 1.8; length = ni))
+    S = repeat(svals, inner = ni)
+    I = repeat(ivals, outer = ns)
+    D = competitive_rate_truth(S, I; vmax = 1.5, km = 0.4, ki = 0.6)
+    z = D .+ 0.15 .* maximum(abs, D) .* randn(rng_c, length(D))
+    R = permutedims(hcat(S, I, z))
+    dX = vcat(reshape(D, 1, :), zeros(2, length(D)))
+    R, dX = _permute_rate_samples(R, dX, 304)
+    times_c = collect(range(0.0, 1.0; length = length(D)))
+    result = discover_unknown_rate(
+        R[1:2, :], times_c, dX[1:1, :];
+        config = rate_discovery_config(bootstrap = 0, seed = 7),
+        verbose = false, strict = false)
+    net_ab = BiologicalNetwork(
+        [NodeSpec(name = :s), NodeSpec(name = :i), NodeSpec(name = :z)],
+        [EdgeSpec(source = 2, target = 1, kind = INHIBITION, family = HILL)])
+    local_c = discover_equations(
+        R, times_c, net_ab; derivatives = dX, targets = 1,
+        config = rate_discovery_config(scope = :graph, bootstrap = 0, seed = 7),
+        verbose = false, strict = false)
+    global_c = discover_equations(
+        R, times_c, net_ab; derivatives = dX, targets = 1,
+        config = rate_discovery_config(scope = :global, bootstrap = 0, seed = 7),
+        verbose = false, strict = false)
+    cand = result.success ? result.candidates[1] : nothing
+    lc = local_c.success ? local_c.candidates[1] : nothing
+    gc = global_c.success ? global_c.candidates[1] : nothing
+    compiled = compile_mechanism(build_competitive_test_network(; known = false))
+    nn_terms = [t for t in compiled.destruction_terms if t isa NeuralDestructionTerm]
+    report[:competitive_unknown] = (;
+        compiled_regulators = isempty(nn_terms) ? Int[] : first(nn_terms).regulators,
+        two_parent_success = result.success,
+        has_substrate = cand !== nothing && support_uses_variable(cand; variable = 1),
+        has_inhibitor = cand !== nothing && support_uses_variable(cand; variable = 2),
+        local_false_parent = lc !== nothing && support_uses_variable(lc; variable = 3),
+        global_false_parent = gc !== nothing && support_uses_variable(gc; variable = 3),
+        canonical_f1_claimed = false)
+    end
+
+    if :literature in wanted
+    net = build_repressilator_network(; hill_order = 2)
+    params = elowitz_repressilator_parameters()
+    model, p0 = build_ude_model(rng, net)
+    truth = pack_parameters(params, p0.nn)
+    u0 = [0.2, 0.1, 0.3]
+    tspan = (0.0, 5.0)
+    times, clean, _, _ = generate_data(
+        rng; network = net, u0 = u0, tspan = tspan,
+        n_points = 40, noise_σ = 0.0, truth_params = truth)
+    report[:literature] = (;
+        source = "Elowitz & Leibler, Nature 403:335–338 (2000)",
+        experimental_csv = false,
+        nstates = size(clean, 1),
+        finite_trajectory = all(isfinite, clean),
+        nonnegative = all(≥(0), clean))
     end
     return report
 end

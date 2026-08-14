@@ -68,13 +68,22 @@ struct CustomDestructionTerm{F} <: MechanismTerm
     evaluator::F
 end
 
-"""Unknown destruction rate compiled to a positivity-preserving neural head."""
+"""
+    NeuralDestructionTerm
+
+Unknown destruction rate compiled to a positivity-preserving neural head.
+`regulators` are the inputs; `regulator` is the first (backward compatible).
+"""
 struct NeuralDestructionTerm <: MechanismTerm
     target::Int
     regulator::Int
     nn_index::Int
     scale::Float64
+    regulators::Vector{Int}
 end
+
+NeuralDestructionTerm(target::Int, regulator::Int, nn_index::Int, scale::Float64) =
+    NeuralDestructionTerm(target, regulator, nn_index, scale, Int[regulator])
 
 """Small networks (`n ≤ STATIC_STATE_THRESHOLD`) dispatch `ude_system` through StaticArrays when the state is already an `SVector`."""
 const STATIC_STATE_THRESHOLD = 4
@@ -140,20 +149,41 @@ end
 
 @inline function _nn_scalar_output!(nn, p_nn, st, value, slot::Int, cache)
     cache.nn_inputs[1, slot] = value
+    input = @view cache.nn_inputs[1:1, slot:slot]
     if nn isa MultiHeadNetwork
         head = nn.heads[slot]
         p_h, s_h = _nn_head_params(p_nn, st, slot)
-        output, _ = head(@view(cache.nn_inputs[:, slot:slot]), p_h, s_h)
+        output, _ = head(input, p_h, s_h)
         return output[1]
     end
-    output, _ = nn(@view(cache.nn_inputs[:, slot:slot]), p_nn, st)
+    output, _ = nn(input, p_nn, st)
+    return output[1]
+end
+
+@inline function _nn_vector_output!(nn, p_nn, st, x, term::NeuralDestructionTerm, cache)
+    nin = length(term.regulators)
+    slot = term.nn_index
+    @inbounds for (i, r) in pairs(term.regulators)
+        cache.nn_inputs[i, slot] = _nonneg_state(x, r)
+    end
+    input = @view cache.nn_inputs[1:nin, slot:slot]
+    if nn isa MultiHeadNetwork
+        head = nn.heads[slot]
+        p_h, s_h = _nn_head_params(p_nn, st, slot)
+        output, _ = head(input, p_h, s_h)
+        return output[1]
+    end
+    output, _ = nn(input, p_nn, st)
     return output[1]
 end
 
 @inline function _term_destruction_value(
         term::NeuralDestructionTerm, x, p, nn, st, cache)
-    return _nn_scalar_output!(
-        nn, p.nn, st, _nonneg_state(x, term.regulator), term.nn_index, cache)
+    if length(term.regulators) == 1
+        return _nn_scalar_output!(
+            nn, p.nn, st, _nonneg_state(x, term.regulator), term.nn_index, cache)
+    end
+    return _nn_vector_output!(nn, p.nn, st, x, term, cache)
 end
 
 @inline function _accumulate_production!(P, term::InputProductionTerm, p)
@@ -203,6 +233,11 @@ end
     return nothing
 end
 
+"""
+    ude_rhs!(du, x, p, t, model, cache)
+
+In-place compiled production–destruction RHS using a preallocated cache.
+"""
 function ude_rhs!(du, x, p, _t, model::UDEModel, cache::UDEModelCache)
     cm = model.compiled
     fill!(cache.production, zero(eltype(x)))
@@ -276,14 +311,16 @@ end
 
 @inline function _destruction_contribution(term::NeuralDestructionTerm, target, x, p, nn, st)
     term.target == target || return zero(eltype(x))
-    reg = _nonneg_state(x, term.regulator)
+    input = length(term.regulators) == 1 ?
+        [_nonneg_state(x, term.regulator)] :
+        [_nonneg_state(x, r) for r in term.regulators]
     if nn isa MultiHeadNetwork
         head = nn.heads[term.nn_index]
         p_h, s_h = _nn_head_params(p.nn, st, term.nn_index)
-        nn_out, _ = head([reg], p_h, s_h)
+        nn_out, _ = head(input, p_h, s_h)
         return _scaled(nn_out[1], term.scale)
     end
-    nn_out, _ = nn([reg], p.nn, st)
+    nn_out, _ = nn(input, p.nn, st)
     return _scaled(nn_out[1], term.scale)
 end
 
@@ -426,12 +463,16 @@ function _reaction_destruction_term(
         node_to_state::Dict{Int,Int}, nn_index::Ref{Int}, scale::Float64)
     meta = reaction.metadata
     if !reaction.known
-        length(reaction.regulators) == 1 ||
+        isempty(reaction.regulators) &&
             throw(ArgumentError(
-                "unknown reaction $(reaction.name) requires one regulator"))
+                "unknown reaction $(reaction.name) requires one or two regulators"))
+        length(reaction.regulators) ≤ 2 ||
+            throw(ArgumentError(
+                "unknown reaction $(reaction.name) supports at most two regulators"))
+        regs = Int[node_to_state[r] for r in reaction.regulators]
         nn_index[] += 1
         return NeuralDestructionTerm(
-            target, node_to_state[only(reaction.regulators)], nn_index[], scale)
+            target, first(regs), nn_index[], scale, regs)
     end
     if reaction.family == HILL && length(reaction.regulators) == 1
         return HillDestructionTerm(
@@ -601,9 +642,13 @@ Compile `network` into a `UDEModel` and default `ComponentVector` parameters
 function build_ude_model(rng::AbstractRNG,
                          network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK)
     compiled = compile_mechanism(network)
-    n_heads = count(term -> term isa NeuralDestructionTerm,
-                    compiled.destruction_terms)
-    nn, nn_ps, st = build_ude_nn(rng; n_heads = max(n_heads, 1))
+    nn_terms = [term for term in compiled.destruction_terms
+                if term isa NeuralDestructionTerm]
+    sort!(nn_terms; by = term -> term.nn_index)
+    n_heads = max(length(nn_terms), 1)
+    input_dims = isempty(nn_terms) ? [1] :
+        [length(term.regulators) for term in nn_terms]
+    nn, nn_ps, st = build_ude_nn(rng; n_heads = n_heads, input_dims = input_dims)
     model = compile_network(network, nn, st)
     schema = parameter_schema(model)
     params = pack_parameters(default_phys_parameters(schema), nn_ps)

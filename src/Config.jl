@@ -61,6 +61,14 @@ function SolverConfig(; algorithm = Tsit5(),
         maxiters, ad_policy)
 end
 
+"""
+    TrainingConfig
+
+Adam then optional BFGS settings for `train_ude` / `train_experiments`.
+`frozen_phys` names physical parameters whose raw values are held fixed
+(gradient zeroed; restored after BFGS). Use this to pin a known production
+rate; it does not remove `k_prod`↔`D(z)` Jacobian collinearity.
+"""
 struct TrainingConfig{T<:AbstractFloat,C<:AbstractConstraintStrategy,S,H}
     adam_iterations::Int
     adam_learning_rate::T
@@ -70,6 +78,7 @@ struct TrainingConfig{T<:AbstractFloat,C<:AbstractConstraintStrategy,S,H}
     constraint::C
     solver::S
     horizon_schedule::H
+    frozen_phys::Vector{Symbol}
 end
 
 """
@@ -126,7 +135,8 @@ function TrainingConfig(; adam_iterations::Int = 300,
                         constraint::AbstractConstraintStrategy =
                             StructuralPositivity(),
                         solver::SolverConfig = SolverConfig(),
-                        horizon_schedule = [0.25, 0.5, 1.0])
+                        horizon_schedule = [0.25, 0.5, 1.0],
+                        frozen_phys::Vector{Symbol} = Symbol[])
     T = promote_type(typeof(float(adam_learning_rate)),
                      typeof(float(gradient_clip)))
     resolved_schedule = if horizon_schedule isa HorizonCurriculum
@@ -137,7 +147,23 @@ function TrainingConfig(; adam_iterations::Int = 300,
     return TrainingConfig(
         adam_iterations, T(adam_learning_rate), bfgs_iterations,
         T(gradient_clip), log_every, constraint, solver,
-        resolved_schedule)
+        resolved_schedule, copy(frozen_phys))
+end
+
+function TrainingConfig(base::TrainingConfig;
+                        adam_iterations = base.adam_iterations,
+                        adam_learning_rate = base.adam_learning_rate,
+                        bfgs_iterations = base.bfgs_iterations,
+                        gradient_clip = base.gradient_clip,
+                        log_every = base.log_every,
+                        constraint = base.constraint,
+                        solver = base.solver,
+                        horizon_schedule = base.horizon_schedule,
+                        frozen_phys = base.frozen_phys)
+    return TrainingConfig(;
+        adam_iterations, adam_learning_rate, bfgs_iterations, gradient_clip,
+        log_every, constraint, solver, horizon_schedule,
+        frozen_phys = copy(frozen_phys))
 end
 
 """Explicit polynomial STLSQ backend (`dx/dt = Φ(x)ξ`)."""

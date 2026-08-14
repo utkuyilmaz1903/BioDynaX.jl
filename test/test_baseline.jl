@@ -33,6 +33,12 @@ const BASELINE_TESTSETS = (
     "known linear parameter recovery",
     "known Michaelis–Menten parameter recovery",
     "graph-local vs global library ablation",
+    "3-state graph prior vs global distractors",
+    "k_prod vs D practical identifiability is reported",
+    "partial observation mask and subsampled Hill parent",
+    "competitive unknown edge is 2D D(S,I) and keeps true parents",
+    "Elowitz repressilator is a synthetic literature fixture",
+    "Occam prune recovers sparse Hill on noisy rate samples",
     "CSV experiment roundtrip",
     "golden path export_rhs resimulation",
 )

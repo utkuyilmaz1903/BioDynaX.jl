@@ -7,10 +7,14 @@ documented on [Experimental](experimental.md).
 
 ```@docs
 BiologicalNetwork
+NodeSpec
+EdgeSpec
+ReactionSpec
 compile_mechanism
 build_ude_model
 UDEModel
 ude_system
+ude_rhs!
 STATIC_STATE_THRESHOLD
 ```
 
@@ -19,6 +23,7 @@ STATIC_STATE_THRESHOLD
 ```@docs
 train_ude
 TrainingResult
+TrainingRetcode
 ```
 
 ## Discovery
@@ -30,6 +35,7 @@ DiscoveryRetcode
 local_basis
 export_rhs
 equation_to_latex
+equation_to_function
 discover_unknown_rate
 sample_unknown_destruction
 compose_hybrid_rhs
@@ -43,7 +49,11 @@ Experiment
 experiment_from_csv
 ```
 
-## Recovery
+## Recovery fixtures (not on the freeze list)
+
+These names are CI / benchmark helpers. They are exported for
+`run_recovery_suite` but they are **not** the stability freeze. See
+[Experimental](experimental.md) for GPU, SBML, MTK, and identifiability.
 
 ```@docs
 run_recovery_suite

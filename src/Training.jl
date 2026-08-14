@@ -178,6 +178,7 @@ function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
         Optimisers.ClipGrad(config.gradient_clip),
         Optimisers.Adam(config.adam_learning_rate))
     params = p_init
+    frozen_ref = p_init
     state = optimizer_state === nothing ?
         Optimisers.setup(optimizer, params) : optimizer_state
     for _ in 1:config.adam_iterations
@@ -189,6 +190,7 @@ function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
                 diagnostics.gradient_failure = true
                 throw(ErrorException("optimizer produced a non-finite gradient"))
             end
+        gradient = _zero_frozen_phys_gradient(gradient, config.frozen_phys)
         push!(diagnostics.gradient_norm_history,
               Float64(sqrt(sum(abs2, gradient))))
         state, params = Optimisers.update(state, params, gradient)
@@ -214,11 +216,43 @@ function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
             diagnostics.bfgs_attempted || _record_bfgs!(
                 diagnostics, true, false, :failure, "BFGS solve failed")
         else
-            params = bfgs_result.u
+            params = _restore_frozen_phys(
+                bfgs_result.u, frozen_ref, config.frozen_phys)
             _record_bfgs!(diagnostics, true, true, :success, "BFGS refinement completed")
         end
     end
     return params, state
+end
+
+function _zero_frozen_phys_gradient(gradient, frozen::AbstractVector{Symbol})
+    isempty(frozen) && return gradient
+    hasproperty(gradient, :phys) || return gradient
+    phys = gradient.phys
+    updates = Pair{Symbol,Any}[]
+    changed = false
+    for name in propertynames(phys)
+        value = getproperty(phys, name)
+        if name in frozen
+            push!(updates, name => zero(value))
+            changed = true
+        else
+            push!(updates, name => value)
+        end
+    end
+    changed || return gradient
+    return ComponentVector(phys = NamedTuple(updates), nn = gradient.nn)
+end
+
+function _restore_frozen_phys(params, reference, frozen::AbstractVector{Symbol})
+    isempty(frozen) && return params
+    hasproperty(params, :phys) || return params
+    updates = Pair{Symbol,Any}[]
+    for name in propertynames(params.phys)
+        value = name in frozen ?
+            getproperty(reference.phys, name) : getproperty(params.phys, name)
+        push!(updates, name => value)
+    end
+    return ComponentVector(phys = NamedTuple(updates), nn = params.nn)
 end
 
 function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
@@ -226,14 +260,9 @@ function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
     horizon = config.horizon_schedule isa HorizonCurriculum ?
         config.horizon_schedule :
         HorizonCurriculum(fractions = collect(_horizon_fractions(config.horizon_schedule)))
-    return TrainingConfig(
+    return TrainingConfig(config;
         adam_iterations = adam_iterations,
-        adam_learning_rate = config.adam_learning_rate,
         bfgs_iterations = final_stage ? config.bfgs_iterations : 0,
-        gradient_clip = config.gradient_clip,
-        log_every = config.log_every,
-        constraint = config.constraint,
-        solver = config.solver,
         horizon_schedule = horizon)
 end
 
@@ -356,17 +385,10 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                 training_config, length(schedule), final_stage)
             if outer == initial_outer && stage == initial_stage &&
                initial_stage_iteration > 0
-                stage_config = TrainingConfig(
+                stage_config = TrainingConfig(stage_config;
                     adam_iterations = max(
                         0, stage_config.adam_iterations -
-                           initial_stage_iteration),
-                    adam_learning_rate = stage_config.adam_learning_rate,
-                    bfgs_iterations = stage_config.bfgs_iterations,
-                    gradient_clip = stage_config.gradient_clip,
-                    log_every = stage_config.log_every,
-                    constraint = stage_config.constraint,
-                    solver = stage_config.solver,
-                    horizon_schedule = stage_config.horizon_schedule)
+                           initial_stage_iteration))
             else
                 current_stage_iteration[] = 0
             end
