@@ -15,7 +15,8 @@ BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_in
 
 The default test matrix must stay fast: do not put multi-minute UDE trains in
 `test/runtests.jl`. `BIODYNAX_SMOKE=1` is **1 IC / 8 points**, not the 9-IC
-recovery protocol; that 9-IC string check stays in `test/test_recovery.jl`.
+seed-103 / regulator-grid recovery protocol; that string check stays in
+`test/test_recovery.jl`.
 Closed-loop unknown-edge trains belong in the dedicated `recovery` CI job
 (`test/run_recovery_hard.jl`). `train_experiments` Adam may be minibatched;
 BFGS always refines the joint loss over the full set. Do not loosen

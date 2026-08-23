@@ -8,17 +8,20 @@ One command, one table, one warning, one thing this package does not claim.
 julia --project=. examples/unknown_inhibition.jl
 ```
 
-That script is the protocol: **9 initial conditions**, Adam 100 / BFGS 50,
-`train_experiments`, then `sample_unknown_destruction` →
-`discover_unknown_rate` → `compose_hybrid_rhs` versus **data**.
-A shortened single-IC `train_ude` snippet is not the protocol.
+That script is the protocol: **seed 103**, **9 initial conditions**, Adam 100 /
+BFGS 50, `train_experiments`, then regulator-grid
+`sample_unknown_destruction_grid` → `discover_unknown_rate` (bootstrap 8,
+seed 3) → `compose_hybrid_rhs` versus **data**. The proof is the `recovery`
+CI job plus the protocol string test in `test/test_recovery.jl`.
+`BIODYNAX_SMOKE=1` and a shortened single-IC `train_ude` snippet are not
+the protocol.
 
 ```text
 CSV / time series
   → BiologicalNetwork (known kinetics + one unknown edge)
   → build_ude_model
   → train_experiments
-  → sample_unknown_destruction
+  → sample_unknown_destruction_grid
   → discover_unknown_rate
   → compose_hybrid_rhs
   → resimulate vs data
@@ -26,7 +29,8 @@ CSV / time series
 
 ## One table (expected mertebe)
 
-Measured Hill UDE on this protocol (seed 103, zero observation noise):
+Measured Hill UDE on this protocol (the one command, seed 103, zero
+observation noise):
 
 | quantity | mertebe | gated? |
 |----------|---------|--------|

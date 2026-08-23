@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Golden-path example defaults to seed 103, shares `_unknown_edge_ics` with
+  the recovery job, and uses regulator-grid discovery
+  (`sample_unknown_destruction_grid` + `rate_discovery_config(bootstrap = 8,
+  seed = 3)`). Smoke stays 1 IC / 8 points and is not that protocol.
 - Deduplicated `.gitignore`. CompatHelper and TagBot now request the write
   scopes they need after GitHub's default read-only `GITHUB_TOKEN`.
 - Deduplicated `CITATION.cff` and pointed it at the live `/dev/` docs URL.
