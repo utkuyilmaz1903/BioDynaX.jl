@@ -1,8 +1,11 @@
 [deps]
 BioDynaX = "b10d7a4f-3e2d-4b1d-9d2e-9c7e8c5f1a6b"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [compat]
 Documenter = "1"
+OrdinaryDiffEq = "7"
 SciMLBase = "3"

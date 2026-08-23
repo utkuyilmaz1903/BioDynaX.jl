@@ -5,7 +5,7 @@ BioDynaX follows the SciML modeling pattern: compile a `UDEModel`, wrap it in a
 
 ## Basic usage
 
-```julia
+```@example sciml
 using BioDynaX, SciMLBase, OrdinaryDiffEq, Random
 
 rng = MersenneTwister(0)
@@ -26,6 +26,7 @@ network = BiologicalNetwork(
 model, params = build_ude_model(rng, network)
 prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), params)
 sol = solve(prob, Tsit5(); saveat = 0:0.5:10.0)
+length(sol.t)
 ```
 
 That snippet constructs an ODE. It is not the unique discovery path.
@@ -61,6 +62,22 @@ rhs = export_rhs(result)
 ```
 
 `BioDynaX.select_discovery_config` sweeps AIC/BIC thresholds (internal helper).
+
+## Optimization.jl hook
+
+`train_ude` already uses Optimization.jl for the BFGS refinement step. A
+one-shot SciML path is also available as an **unexported** hook so you can
+swap `LBFGS` / `Adam` without growing the freeze list:
+
+```julia
+prob, objective = BioDynaX.build_optimization_problem(
+    model, params, data, times, u0, tspan; config = TrainingConfig())
+result = BioDynaX.train_via_optimization(
+    model, params, data, times, u0, tspan; maxiters = 50)
+```
+
+This is a training alternative, not the unique discovery path. Names stay
+`BioDynaX.foo` until a 1.0 freeze decision.
 
 ```@docs
 build_ude_function

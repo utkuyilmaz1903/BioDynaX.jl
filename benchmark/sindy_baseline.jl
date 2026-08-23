@@ -30,7 +30,8 @@ end
 
 report = run_recovery_suite(MersenneTwister(104); sections = (:ablation,))
 a = report[:ablation]
-println("BioDynaX graph vs global (same y, only basis_scope differs)")
+println("Internal ablation: BioDynaX graph vs global (same y, only basis_scope differs)")
+println("F1 after Occam is not the prior; library membership of z is.")
 @printf "  %-22s %10s %10s %10s %10s %8s\n" "prior" "F1" "false_par" "den_viol" "rate_rmse" "sec"
 @printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "BioDynaX graph" a.local_f1 string(a.local_false_parent) string(a.local_denominator_violations) a.local_rate_rmse a.local_time
 @printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "BioDynaX global" a.global_f1 string(a.global_false_parent) string(a.global_denominator_violations) a.global_rate_rmse a.global_time

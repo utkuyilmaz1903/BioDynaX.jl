@@ -17,6 +17,11 @@
     ident = ude.identifiability
     @test ident.unidentifiable_edge
     @test ident.collinearity ≥ 0.95
+    kpis = ude.locked_kpis
+    @test kpis.data_residual ≤ RECOVERY_THRESHOLDS.data_residual
+    @test kpis.support_recall ≥ RECOVERY_THRESHOLDS.support_recall
+    @test kpis.unidentifiable_edge
+    @test kpis.claim === :recall_plus_data_residual
     @test occursin("collinear", BioDynaX.format_production_destruction_warning(ident))
     @test isfinite(ude.normalized_support_f1)
 end

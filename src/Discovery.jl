@@ -1,3 +1,8 @@
+"""
+    ExplicitCandidate
+
+Explicit STLSQ candidate (`ẋ = Φ(x)ξ`) for one target state.
+"""
 struct ExplicitCandidate{T}
     target::Int
     specification::LocalBasisSpec
@@ -5,6 +10,12 @@ struct ExplicitCandidate{T}
     validation_error::T
 end
 
+"""
+    ImplicitCandidate
+
+Implicit SINDy-PI candidate for a rational rate
+`D(z)ẋ − N(z) = 0` on one target.
+"""
 struct ImplicitCandidate{T}
     target::Int
     specification::LocalBasisSpec

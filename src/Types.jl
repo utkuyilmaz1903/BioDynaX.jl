@@ -51,6 +51,13 @@ is false and `retcode` names the failure class.
     DiscoveryFailed
 end
 
+@doc "Support recovered; a hybrid RHS is allowed." DiscoverySuccess
+@doc "Not enough finite trajectory samples for STLSQ." InsufficientSamples
+@doc "Discovered denominator changed sign or hit the floor." DenominatorUnsafe
+@doc "STLSQ wiped every library term." EmptySupport
+@doc "Design matrix was singular." SingularLibrary
+@doc "Discovery failed for any other reason." DiscoveryFailed
+
 """
     DiscoveryResult
 

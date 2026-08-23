@@ -5,8 +5,9 @@ Fisher identifiability are not on this path; see [Experimental](experimental.md)
 
 The golden path is the **multi-IC** protocol in
 `examples/unknown_inhibition.jl` (same ICs, horizon, and residual gate as the
-recovery CI job). A single-IC `train_ude` snippet below is a sketch, not the
-CI protocol.
+recovery CI job). `BIODYNAX_SMOKE=1` is a 1-IC / 8-point fast check and is
+not that protocol. A single-IC `train_ude` snippet below is a sketch, not
+the CI protocol.
 
 ## Load a CSV experiment
 
@@ -17,9 +18,11 @@ data = experiment.observations
 u0 = experiment.u0
 ```
 
-Write one with `write_experiment_csv`. `Experiment.mask` can hide a state or
-time subset; `train_experiments` already uses that mask. Masked **training**
-on missing states is not a claimed UDE path.
+That committed CSV is a **static demo table**. `examples/unknown_inhibition.jl`
+writes a generated copy to a temp directory and does not overwrite it.
+Write a new file with `write_experiment_csv`. `Experiment.mask` can hide a
+state or time subset; `train_experiments` already uses that mask. Masked
+**training** on missing states is not a claimed UDE path.
 
 ## Mark an edge as unknown
 

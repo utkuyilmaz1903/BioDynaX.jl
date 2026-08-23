@@ -28,6 +28,13 @@ end
 
 # Smooth, Zygote-safe non-negativity surrogate.
 @inline _nonneg(x) = max(zero(x), x)
+
+"""
+    positive_parameter(raw; floor=eps(typeof(raw)))
+
+Map an unconstrained optimizer coordinate to a strictly positive kinetic
+constant (`softplus(raw) + floor`).
+"""
 @inline positive_parameter(raw; floor = eps(typeof(raw))) =
     softplus(raw) + floor
 @inline inverse_softplus(value) =

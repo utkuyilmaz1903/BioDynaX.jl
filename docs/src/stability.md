@@ -110,7 +110,19 @@ preview bar.
 
 ## Documenter
 
-`checkdocs = :exports` with `warnonly = [:missing_docs]`. The public export
-list is the freeze list plus golden-path verbs. Do not grow exports to
-silence missing-docs warnings. `deploydocs` runs only on `main` when
-`CI=true`.
+`checkdocs = :exports` is strict (missing export docstrings fail the docs
+job). The public export list is the freeze list plus golden-path verbs. Do
+not grow exports to silence missing-docs warnings. Tutorial / SciML
+`@example` and `@repl` blocks are doctested. `deploydocs` runs only on
+`main` when `CI=true`.
+
+## SciML hardening (0.9.x, not v1.0)
+
+The README SciML snippet, the golden-path example smoke
+(`BIODYNAX_SMOKE=1`, 1 IC / 8 points, no fixture overwrite), invariant
+tests, and an isolated DataDrivenSparse resolve probe are in CI. The test
+matrix is ubuntu/windows × Julia 1.10/1 plus a **single macOS × Julia 1**
+cell (not 1.10, not the 40-minute recovery job). Coverage uploads with
+`fail_ci_if_error: false`; there is no coverage badge. None of that cuts
+v1.0 or registers the package. A 0.9.x General preview register remains a
+maintainer action.

@@ -11,12 +11,35 @@ BiologicalNetwork
 NodeSpec
 EdgeSpec
 ReactionSpec
+EdgeKind
+ACTIVATION
+INHIBITION
+UNKNOWN_NN
+NodeKind
+STATE
+INPUT
+LATENT
+KineticFamily
+MASS_ACTION
+SATURATION
+HILL
+COMPETITIVE
+CUSTOM_KINETIC
+validate_network
+state_nodes
+candidate_parents
 compile_mechanism
 build_ude_model
 UDEModel
 ude_system
 ude_rhs!
+NeuralDestructionTerm
 ```
+
+## Metadata
+
+Typed kinetic metadata, including `MetadataLike`, lives on the
+[Metadata](metadata.md) page.
 
 ## Training
 
@@ -27,6 +50,13 @@ TrainingResult
 TrainingRetcode
 TrainingConfig
 HorizonCurriculum
+SolverConfig
+StructuralPositivity
+AugmentedLagrangianConfig
+AbstractConstraintStrategy
+AbstractADPolicy
+ZygoteAD
+ProductionAD
 predict_ude
 ```
 
@@ -37,37 +67,48 @@ discover_equations
 discover_unknown_rate
 DiscoveryResult
 DiscoveryRetcode
+DiscoverySuccess
+InsufficientSamples
+DenominatorUnsafe
+EmptySupport
+SingularLibrary
+DiscoveryFailed
+DiscoveryConfig
+ImplicitSINDyPI
+ExplicitSTLSQ
+ImplicitCandidate
+ExplicitCandidate
 local_basis
 export_rhs
 equation_to_latex
 equation_to_function
+estimate_derivatives
 sample_unknown_destruction
 compose_hybrid_rhs
 hybrid_data_residual
-NeuralDestructionTerm
 ```
 
 ## Experiments
 
 ```@docs
 Experiment
+ExperimentSet
 experiment_from_csv
 write_experiment_csv
 generate_experiment_set
 ```
 
-## Config and helpers
+## Parameters and SciML
+
+`build_ude_function`, `auto_sensealg`, and `default_solver_config` are
+documented on [SciML Integration](sciml.md).
 
 ```@docs
 pack_parameters
+parameter_schema
 ParameterSchema
-ZygoteAD
-ProductionAD
-AugmentedLagrangianConfig
-ImplicitSINDyPI
-ExplicitSTLSQ
-estimate_derivatives
-candidate_parents
+allocate_cache
+positive_parameter
 ```
 
 ## Contract

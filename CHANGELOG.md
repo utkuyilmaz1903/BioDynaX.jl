@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Deduplicated `CITATION.cff` and pointed it at the live `/dev/` docs URL.
   The 0.9.2 preview is not yet in General.
+- SciML hardening (research preview, not v1.0): README/docs SciML snippet
+  and golden-path example smoke are CI-gated; export docstrings are
+  required; doctests cover the 2-node ODE and discovery retcode surface;
+  locked UDE KPIs are residual / recall / `unidentifiable_edge`; graph
+  prior booleans include `Z_in_local_library`; isolated DataDrivenSparse
+  probe is documented (skip is not a win); invariant and σ=0.05 negative
+  controls are in the fast suite; macOS×Julia 1 (not 1.10, not recovery),
+  coverage upload without a fake coverage badge, SciML formatter config,
+  ColPrac templates, and an Optimization.jl hook section.
+  `OrdinaryDiffEqTsit5` split was evaluated and deferred
+  (`SolverConfig.algorithm` still needs the full OrdinaryDiffEq escape).
+  Fast-suite smoke is 1 IC / 8 points and does not overwrite
+  `examples/data/unknown_inhibition.csv`. General register and the first
+  tag remain maintainer actions.
 
 ## [0.9.2] - 2026-08-14
 
@@ -28,20 +42,6 @@ stays a skeleton claim.
   Live URL recorded after HTTP 200:
   https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
 
-### Changed
-
-- Public `export` list is the freeze list plus golden-path verbs. Recovery
-  fixtures, Fisher, GPU/SBML/MTK, and library internals are `BioDynaX.foo`.
-- Golden-path example builds the network with `ReactionSpec` / `HillMetadata`.
-- `Zygote.@ignore` replaced by `ChainRulesCore.ignore_derivatives`.
-- Tutorial is one command, one table, one warning, one “we do not claim”.
-- Experimental page: do not use in a paper or a wet lab.
-- Locked UDE claim remains recall + residual after a same-library F1 attempt.
-- No licensed experimental time series matches the unique-claim protocol;
-  that absence is the result.
-
-### Added
-
 - Golden-path practical `k_prod`↔`D(z)` warning
   (`BioDynaX.production_destruction_tradeoff` / `report_production_destruction_tradeoff`).
   Hill UDE recovery CI now requires `unidentifiable_edge == true` and cosine ≥ 0.95.
@@ -60,6 +60,16 @@ stays a skeleton claim.
   (`ude_mask_train_claimed = false`).
 
 ### Changed
+
+- Public `export` list is the freeze list plus golden-path verbs. Recovery
+  fixtures, Fisher, GPU/SBML/MTK, and library internals are `BioDynaX.foo`.
+- Golden-path example builds the network with `ReactionSpec` / `HillMetadata`.
+- `Zygote.@ignore` replaced by `ChainRulesCore.ignore_derivatives`.
+- Tutorial is one command, one table, one warning, one “we do not claim”.
+- Experimental page: do not use in a paper or a wet lab.
+- Locked UDE claim remains recall + residual after a same-library F1 attempt.
+- No licensed experimental time series matches the unique-claim protocol;
+  that absence is the result.
 
 - README quick start points at `examples/unknown_inhibition.jl` (adam 100 /
   bfgs 50, 9 ICs). Unknown-edge closed loop is Hill-class; MM unknown remains

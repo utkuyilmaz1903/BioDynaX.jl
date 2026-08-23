@@ -41,6 +41,12 @@ function Experiment(name::Symbol, times::AbstractVector{T},
         collect(u0), Dict{Symbol,Any}(metadata))
 end
 
+"""
+    ExperimentSet
+
+A named collection of `Experiment`s that share state dimension and labels.
+This is the multi-IC training input for `train_experiments`.
+"""
 struct ExperimentSet{T<:AbstractFloat,E<:Experiment}
     experiments::Vector{E}
     state_names::Vector{Symbol}
@@ -157,7 +163,11 @@ function experiment_from_csv(path::AbstractString;
     return experiment, labels
 end
 
-"""Write `times` plus state rows of an `Experiment` to CSV."""
+"""
+    write_experiment_csv(path, experiment; state_names, delim=',')
+
+Write `times` plus one row per state of an `Experiment` to CSV.
+"""
 function write_experiment_csv(path::AbstractString, experiment::Experiment;
                               state_names = [Symbol("x$i")
                                              for i in axes(experiment.observations, 1)],

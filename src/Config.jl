@@ -1,6 +1,26 @@
+"""
+    AbstractConstraintStrategy
+
+Training constraint policy. `StructuralPositivity` relies on the compiled
+`P,D ≥ 0` form; `AugmentedLagrangianConfig` adds a smooth penalty.
+"""
 abstract type AbstractConstraintStrategy end
 abstract type AbstractDiscoveryBackend end
+
+"""
+    AbstractADPolicy
+
+Adjoint / forward-pass policy for `SolverConfig`. Public subtypes are
+`ZygoteAD` and `ProductionAD`.
+"""
 abstract type AbstractADPolicy end
+
+"""
+    StructuralPositivity
+
+Default constraint: trust the compiled production–destruction form. No extra
+penalty term is added to the training loss.
+"""
 struct StructuralPositivity <: AbstractConstraintStrategy end
 
 """
@@ -41,6 +61,12 @@ function sensealg(::ProductionAD)
     return InterpolatingAdjoint(autojacvec = ZygoteVJP(), checkpointing = true)
 end
 
+"""
+    SolverConfig(; algorithm=Tsit5(), ad_policy=ZygoteAD(), sensealg, ...)
+
+ODE integrator and adjoint settings used by `train_ude`, `predict_ude`, and
+`SciMLBase.solve(::UDEModel, ...)`.
+"""
 struct SolverConfig{A,S,T<:AbstractFloat,P<:AbstractADPolicy}
     algorithm::A
     sensealg::S
@@ -204,6 +230,12 @@ Base.@kwdef struct ImplicitSINDyPI <: AbstractDiscoveryBackend
     chunk_size::Int = 256
 end
 
+"""
+    DiscoveryConfig(; backend=ImplicitSINDyPI(), basis_scope=:graph, ...)
+
+Discovery options. `basis_scope=:graph` is the product prior; `:global` is
+the internal ablation that adds every other dynamic node to the library.
+"""
 struct DiscoveryConfig{B<:AbstractDiscoveryBackend}
     backend::B
     include_constant::Bool

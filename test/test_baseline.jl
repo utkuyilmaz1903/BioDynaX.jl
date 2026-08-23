@@ -17,6 +17,7 @@ const BASELINE_TESTSETS = (
     "type stability and allocation gates",
     "scientific release qualification",
     "multi-topology E2E",
+    "README SciML ODE snippet",
     "SciMLBase ODEProblem contract",
     "SciML forward and adjoint contracts",
     "build_ude_function and SciML solve",
@@ -43,6 +44,13 @@ const BASELINE_TESTSETS = (
     "Occam prune recovers sparse Hill on noisy rate samples",
     "CSV experiment roundtrip",
     "golden path export_rhs resimulation",
+    "locked UDE KPI names",
+    "production-destruction positivity invariant",
+    "graph-local library excludes distractor Z",
+    "discovery retcode messages",
+    "ude_rhs! vs ude_system parity",
+    "analytical Hill discovery breaks at σ = 0.05",
+    "golden-path example smoke",
 )
 
 @testset "baseline gate" begin

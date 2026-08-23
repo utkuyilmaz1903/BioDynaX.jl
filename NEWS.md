@@ -2,6 +2,11 @@
 
 - `CITATION.cff` is a single CFF 1.2.0 record (no duplicate fields). The
   0.9.2 preview is not yet in General.
+- SciML hardening without a v1.0 cut: snippet/example smoke (1 IC in the
+  fast suite; does not overwrite the howto CSV), strict export docs,
+  doctests, locked KPI order, graph-prior booleans, isolated external
+  baseline probe, invariant tests, macOS×Julia 1, coverage without a
+  fake badge, formatter config, ColPrac files. Register/tag still unproven.
 
 # BioDynaX.jl 0.9.2
 

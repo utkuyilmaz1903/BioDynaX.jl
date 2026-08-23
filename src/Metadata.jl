@@ -65,6 +65,12 @@ Base.@kwdef struct CustomKineticMetadata <: KineticMetadata
     preset::Symbol = :none
 end
 
+"""
+    MetadataLike
+
+Accepted metadata on edges and reactions: a `KineticMetadata` subtype or a
+legacy `Dict{Symbol}`.
+"""
 const MetadataLike = Union{KineticMetadata,AbstractDict{Symbol}}
 
 @inline _meta_symbol(meta::AbstractDict{Symbol}, key::Symbol, default::Symbol) =

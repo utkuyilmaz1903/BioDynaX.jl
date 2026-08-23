@@ -12,6 +12,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         julia-version: ["1.10", "1"]
+        include:
+          # Single macOS cell (Julia 1, not 1.10 and not recovery).
+          - os: macos-latest
+            julia-version: "1"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +25,52 @@ jobs:
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+        with:
+          coverage: true
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - name: SciMLFormatter config and new-file check
+        run: |
+          test -f .JuliaFormatter.toml
+          julia -e '
+          using Pkg
+          Pkg.activate(; temp=true)
+          Pkg.add(PackageSpec(name="JuliaFormatter", version="1"))
+          using JuliaFormatter
+          files = [
+              "test/test_invariants.jl",
+              "test/test_example_smoke.jl",
+              "src/Precompile.jl",
+          ]
+          ok = true
+          for file in files
+              format(file; overwrite=false) || (ok = false)
+          end
+          ok || error("JuliaFormatter would change a listed file; re-run format")
+          '
 
   allocation-gate:
     runs-on: ubuntu-latest
@@ -92,6 +142,17 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - name: Unknown-edge scientific recovery
         run: julia --project=. --color=yes test/run_recovery_hard.jl
+
+  external-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - name: Isolated DataDrivenSparse resolve probe
+        run: julia --project=. benchmark/probe_datadriven.jl
+        continue-on-error: true
 
   compat:
     runs-on: ubuntu-latest

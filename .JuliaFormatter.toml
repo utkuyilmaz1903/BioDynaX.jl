@@ -1,0 +1,5 @@
+style = "sciml"
+margin = 92
+indent = 4
+whitespace_in_kwargs = true
+remove_extra_newlines = true

@@ -28,6 +28,7 @@ ReactionSpec(
 
 ```@docs
 KineticMetadata
+MetadataLike
 EmptyMetadata
 InputDriveMetadata
 MassActionMetadata

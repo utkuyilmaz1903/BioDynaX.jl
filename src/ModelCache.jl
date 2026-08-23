@@ -6,6 +6,11 @@ mutable struct UDEModelCache{T<:AbstractFloat,M}
     nn_inputs::M
 end
 
+"""
+    allocate_cache(model, T=Float64) -> UDEModelCache
+
+Preallocate production, destruction, and `du` buffers for `ude_rhs!`.
+"""
 function allocate_cache(model::UDEModel, ::Type{T}) where {T<:AbstractFloat}
     n = model.compiled.nstates
     nn_terms = [term for term in model.compiled.destruction_terms

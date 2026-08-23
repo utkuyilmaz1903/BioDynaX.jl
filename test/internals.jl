@@ -66,4 +66,6 @@ using BioDynaX:
     select_discovery_config,
     MultiHeadNetwork,
     import_sbml_network,
-    import_sbmltoolkit_network
+    import_sbmltoolkit_network,
+    locked_ude_kpis,
+    build_six_state_unknown_network

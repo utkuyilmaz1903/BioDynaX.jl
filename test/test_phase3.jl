@@ -15,9 +15,11 @@
     @test isfinite(objective(params, nothing))
     opt = train_via_optimization(
         model, params, noisy, times, [0.2, 0.1], (0.0, 1.0);
-        config = config, maxiters = 4, verbose = false)
+        config = config, maxiters = 8, verbose = false)
     @test opt isa TrainingResult
     @test isfinite(opt.final_loss)
+    @test opt.final_loss ≤ opt.initial_loss + 1e-8
+    @test opt.diagnostics.bfgs.attempted
 end
 
 @testset "phase 3 sensealg recommendations" begin

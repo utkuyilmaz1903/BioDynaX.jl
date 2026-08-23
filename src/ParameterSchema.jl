@@ -4,6 +4,12 @@ struct ParameterSchema
     nn_heads::Int
 end
 
+"""
+    parameter_schema(model) -> ParameterSchema
+
+Physical parameter names required by the compiled mechanism, plus the number
+of neural destruction heads.
+"""
 function parameter_schema(model::UDEModel)
     names = Symbol[]
     seen = Set{Symbol}()

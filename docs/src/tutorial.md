@@ -32,9 +32,9 @@ Measured Hill UDE on this protocol (seed 103, zero observation noise):
 |----------|---------|--------|
 | hybrid residual vs data | ≈ 0.003 | yes (`data_residual`) |
 | true-monomial recall | 1.0 | yes (`support_recall`) |
+| `unidentifiable_edge` | `true` | yes |
 | combined support F1 | ≈ 0.57 | skeleton floor 0.50, **not** 0.99 |
 | extras that remain | `1`, `r` | reported, not removed |
-| `unidentifiable_edge` | `true` | yes |
 
 Canonical Hill combined F1 ≥ 0.99 is gated on **analytical** `D` samples after
 Occam (`RECOVERY_THRESHOLDS.support_f1_clean`). It is not the trained-NN claim.
@@ -61,13 +61,17 @@ ident = BioDynaX.report_production_destruction_tradeoff(
 - A licensed experimental time series that matches the unique-claim protocol.
   Absence is the result. Elowitz is a synthetic ODE fixture.
 
+The example calls that report automatically. You do not have to discover it
+as a hidden experimental API; the warning is part of the golden path.
+
 ## Network (public constructors)
 
 The example does **not** call a recovery fixture. Known graph, one unknown
 destruction edge:
 
-```julia
+```@example tutorial
 using BioDynaX
+using Random
 
 function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
@@ -90,6 +94,10 @@ function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
+
+ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
+model, params = build_ude_model(Random.MersenneTwister(0), ude_net)
+compile_mechanism(ude_net).nstates
 ```
 
 | Reaction | Role | In the UDE |
@@ -115,6 +123,13 @@ residual = hybrid_data_residual(
     model, trained.params, term,
     equation_to_function(discovery.candidates[1]),
     u0, tspan, times, data)
+```
+
+```@repl claim
+using BioDynaX
+isa(DiscoverySuccess, DiscoveryRetcode)
+RECOVERY_THRESHOLDS.data_residual
+RECOVERY_THRESHOLDS.support_recall
 ```
 
 `strict = true` throws. With `strict = false`, check `discovery.retcode`:

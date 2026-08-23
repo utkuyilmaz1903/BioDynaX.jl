@@ -23,8 +23,10 @@ Fast job (`test/test_recovery.jl`):
   1.00; the locked prior is **library membership** of `z`.
 - **3-state graph prior** — true parent `R`, no local false parent.
 - **6-state graph prior** — same protocol on six dynamic states. Combined F1
-  is not the KPI (the target state sits in `local_basis`). This is the main
-  prior evidence beyond the 3-state toy.
+  is not the KPI (the target state sits in `local_basis`). The locked
+  booleans are `local_has_true_parent`, `local_false_parent`, and
+  `Z_in_local_library`. This is the main prior evidence beyond the 3-state
+  toy.
 - **Wrong-graph negative controls** — 3-state and 6-state. Graph claims
   `Q→S` while the sampled rate is still `D(R)`. Local discovery must miss
   the true parent.
@@ -87,6 +89,10 @@ Producer: `benchmark/sindy_baseline.jl`. Same `y`; the only intended difference
 is the prior (`basis_scope=:graph` vs `:global`). DataDrivenSparse is optional
 and is **not** a CI dependency.
 
+Internal ablation (same `y`, only `basis_scope` differs). After Occam, F1
+can match; that is **not** a win. The locked prior is library membership of
+the distractor `z`.
+
 | prior | F1 | false parent | den violations | rate RMSE | time (s) |
 |-------|----|--------------|----------------|-----------|----------|
 | BioDynaX graph | 1.00 | no | 0 | 0.007 | 1.03 |
@@ -97,6 +103,8 @@ DataDrivenSparse could not be resolved against this preview
 (`DataDrivenDiffEq` requires ModelingToolkit versions that conflict with
 BioDynaX weakdep compat `ModelingToolkit = "9, 10"` and `SciMLBase = 3`).
 That is an install error, not a skip-as-win and not “we beat them”.
+Reproduce the probe with `julia --project=. benchmark/probe_datadriven.jl`.
+The pin and the conflict live in `benchmark/external_baseline.md`.
 
 Frozen from `benchmark/sindy_baseline.jl` on the 0.5% Hill + `r^2`-alias distractor
 fixture (seed 104). The locked prior difference is library membership of `z`,
@@ -122,10 +130,10 @@ Distractor `Z` is absent from the graph-local library and present globally.
 Combined F1 is **not** the KPI (measured local F1 ≈ 0.40 because the target
 state sits in `local_basis`).
 
-| prior | n | true parent R | local false parent | Z in local library | notes |
-|-------|---|---------------|--------------------|--------------------|-------|
+| prior | n | `local_has_true_parent` | `local_false_parent` | `Z_in_local_library` | notes |
+|-------|---|-------------------------|----------------------|----------------------|-------|
 | graph (R→S) | 6 | yes | no | no | gated |
-| global | 6 | reported | yes (this run) | yes | library membership is the prior |
+| global | 6 | reported | yes (this run) | yes (`Z_in_global_library`) | library membership is the prior |
 | wrong graph (Q→S) | 6 | no | — | — | negative control; must miss R |
 
 If true parent is missed or a local false parent enters, this table is red.
@@ -159,8 +167,10 @@ amplitude (same definition as the 0.5% Occam gate). Not a CI job.
 | 0.100 | 0.40 | 0.50 | 0 | **no** |
 
 Analytical Occam holds through σ = 0.02 on this grid and **breaks at σ = 0.05**.
-The UDE protocol is measured at σ = 0.00 and σ = 0.02 in the hard job. It is
-not claimed at σ ≥ 0.05.
+Raw-trajectory discovery via `estimate_derivatives` (central differences) is
+claimed only for σ ≤ 0.02. The fast suite asserts that σ = 0.05 **fails** the
+0.99 Occam gate (negative control). The UDE protocol is measured at σ = 0.00
+and σ = 0.02 in the hard job. It is not claimed at σ ≥ 0.05.
 
 ## Published / experimental series
 
@@ -197,9 +207,10 @@ julia --project=. benchmark/ude_f1_attempt.jl
 | `discovered_rate_rmse` | `D_hat` vs true rate on a grid |
 | `data_residual` | hybrid RHS vs observations (not vs UDE `ẋ`) |
 | `normalized_support_f1` | same library after `max\|D\|=1` scaling |
-| `local_f1` / `global_f1` | graph vs global discovery on the same `y` |
+| `local_f1` / `global_f1` | graph vs global discovery on the same `y` (not the prior) |
 | `local_false_parent` | whether a distractor entered the local support |
 | `local_has_true_parent` | whether the true regulator is in the support |
+| `Z_in_local_library` | whether distractor `Z` is in the graph-local monomial library |
 | `local_time` / `global_time` | wall time for the two STLSQ runs |
 | `identifiability` | practical `k_prod` vs `D` scale collinearity (not structural) |
 | `closed_loop_residual` | hybrid RHS vs data after subsampled-`D` discovery |

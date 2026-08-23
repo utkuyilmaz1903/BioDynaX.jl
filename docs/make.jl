@@ -1,6 +1,13 @@
 using BioDynaX
 using Documenter
+using OrdinaryDiffEq
+using Random
 using SciMLBase
+
+DocMeta.setdocmeta!(
+    BioDynaX, :DocTestSetup,
+    :(using BioDynaX, SciMLBase, OrdinaryDiffEq, Random);
+    recursive = true)
 
 makedocs(
     modules = [BioDynaX],
@@ -20,7 +27,7 @@ makedocs(
         "API stability" => "stability.md",
     ],
     checkdocs = :exports,
-    warnonly = [:missing_docs],
+    doctest = true,
 )
 
 if get(ENV, "CI", "false") == "true" &&

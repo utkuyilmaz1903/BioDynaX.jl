@@ -1,6 +1,41 @@
+"""
+    EdgeKind
+
+Directed-edge semantics used when an `EdgeSpec` is compiled. `ACTIVATION` and
+`INHIBITION` become mechanistic IR when `known=true`; `UNKNOWN_NN` always
+compiles to a neural destruction head.
+"""
 @enum EdgeKind ACTIVATION INHIBITION UNKNOWN_NN
+
+@doc "Source increases the target production or rate." ACTIVATION
+@doc "Source decreases the target production or rate." INHIBITION
+@doc "Unknown interaction; compiles to `NeuralDestructionTerm`." UNKNOWN_NN
+
+"""
+    NodeKind
+
+Species role in a `BiologicalNetwork`. Only `STATE` and `LATENT` nodes enter
+the compiled ODE; `INPUT` nodes are exogenous drives.
+"""
 @enum NodeKind STATE INPUT LATENT
+
+@doc "Dynamic species integrated by the compiled UDE." STATE
+@doc "Exogenous drive; not a dynamic state." INPUT
+@doc "Unobserved dynamic species (still in the ODE)." LATENT
+
+"""
+    KineticFamily
+
+Known kinetic template on an edge or reaction. Unknown mechanisms ignore the
+family and compile to a neural destruction head.
+"""
 @enum KineticFamily MASS_ACTION SATURATION HILL COMPETITIVE CUSTOM_KINETIC
+
+@doc "Mass-action production or first-order regulation." MASS_ACTION
+@doc "Michaelis–Menten saturation (single regulator)." SATURATION
+@doc "Hill-type destruction." HILL
+@doc "Competitive-inhibition destruction (two regulators)." COMPETITIVE
+@doc "User evaluator or named kinetic preset." CUSTOM_KINETIC
 
 """
     NodeSpec
@@ -145,6 +180,13 @@ function _validate_edge_metadata!(network::BiologicalNetwork, edge::EdgeSpec)
     return nothing
 end
 
+"""
+    validate_network(network) -> network
+
+Check node uniqueness, bounds, stoichiometry, and kinetic-metadata contracts.
+Called by the `BiologicalNetwork` constructor; safe to call again after
+manual edits.
+"""
 function validate_network(network::BiologicalNetwork)
     isempty(network.nodes) && throw(ArgumentError("network cannot be empty"))
     names = getfield.(network.nodes, :name)
@@ -175,6 +217,12 @@ function validate_network(network::BiologicalNetwork)
     return network
 end
 
+"""
+    state_nodes(network) -> Vector{Int}
+
+1-based node indices that are dynamic (`STATE` or `LATENT`). Input nodes are
+excluded from the compiled ODE state.
+"""
 state_nodes(network::BiologicalNetwork) =
     findall(node -> node.kind != INPUT, network.nodes)
 

@@ -1,5 +1,9 @@
 # BioDynaX.jl
 
+[![CI](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Research preview. Not v1.0.** Graph-guided hybrid UDEs: known kinetics stay
 compiled, unknown destruction rates `D(z)` are fit with a neural head and
 recovered by graph-local implicit SINDy-PI. This is not a general CRN solver
@@ -9,7 +13,8 @@ Requires **Julia ≥ 1.10**.
 
 Docs: [https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
 (HTTP 200 on 2026-08-14 after Pages was pointed at `gh-pages` / `(root)`).
-TagBot is configured; there is no git tag, so it is not proven.
+TagBot is configured; there is no git tag, so it is not proven. There is no
+version badge until the 0.9.x preview is in General.
 
 ---
 
@@ -41,11 +46,13 @@ julia --project=. examples/unknown_inhibition.jl
 |----------|---------|
 | hybrid residual vs data | ≈ 0.003 (gated) |
 | true-monomial recall | 1.0 (gated) |
+| `unidentifiable_edge` | `true` (gated) |
 | combined support F1 | ≈ 0.57 (skeleton floor 0.50, not 0.99) |
 | extras | `1`, `r` remain |
 
-**One warning:** `unidentifiable_edge == true`. Coefficients are not
-biological constants. `k_prod` and the scale of `D(z)` stay collinear.
+**One warning:** `unidentifiable_edge == true`. The example prints this
+automatically via `report_production_destruction_tradeoff`. Coefficients
+are not biological constants. `k_prod` and the scale of `D(z)` stay collinear.
 
 **We do not claim:** canonical Hill from a trained NN; a wet-lab tool for one
 noisy CSV and unknown topology; UDE training on missing states; a licensed
@@ -135,6 +142,7 @@ package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
 
 ```bash
 julia --project=. test/runtests.jl
+BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
 julia --project=. test/run_recovery_hard.jl
 julia --project=. benchmark/recovery_suite.jl
 julia --project=. benchmark/sindy_baseline.jl
@@ -154,4 +162,5 @@ See [`CITATION.cff`](CITATION.cff).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+for the ColPrac / Contributor Covenant.

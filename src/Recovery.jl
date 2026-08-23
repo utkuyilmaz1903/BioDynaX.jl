@@ -15,6 +15,28 @@ function relative_parameter_error(estimate, truth::NamedTuple)
 end
 
 """
+    locked_ude_kpis(ude)
+
+Named locked UDE claim fields: hybrid `data_residual`, true-monomial
+`support_recall`, and `unidentifiable_edge`. Combined F1 is skeleton
+context, not the claim. Not exported.
+"""
+function locked_ude_kpis(ude)
+    ident = hasproperty(ude, :identifiability) ? ude.identifiability : nothing
+    edge = ident !== nothing && hasproperty(ident, :unidentifiable_edge) ?
+           ident.unidentifiable_edge : false
+    extras = hasproperty(ude, :extras) ? getproperty(ude, :extras) : nothing
+    f1 = hasproperty(ude, :support_f1) ? ude.support_f1 : 0.0
+    return (;
+        data_residual = ude.data_residual,
+        support_recall = ude.support_recall,
+        unidentifiable_edge = edge,
+        support_f1 = f1,
+        extras,
+        claim = :recall_plus_data_residual)
+end
+
+"""
     RECOVERY_THRESHOLDS
 
 Locked scientific-recovery contract. Loosening a threshold is a breaking change.
@@ -233,7 +255,12 @@ function compose_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm, rat
     end
 end
 
-"""Hybrid RHS residual versus observations (not versus UDE derivatives)."""
+"""
+    hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data; mask)
+
+RMSE of `compose_hybrid_rhs` versus observations (not versus UDE `ẋ`).
+This is a locked UDE claim field.
+"""
 function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
                               mask = nothing)
     rhs = compose_hybrid_rhs(model, p, term, rate_fn)
@@ -754,11 +781,12 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             ude_model, ude_fit.params, term, d_hat,
             ref_exp.u0, (first(ref_exp.times), last(ref_exp.times)),
             ref_exp.times, ref_exp.observations))
-    report[:ude_discovery] = (; evaled...,
-        identifiability = report_production_destruction_tradeoff(
-            ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
-            ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
-            term = term, verbose = false))
+    ident_ude = report_production_destruction_tradeoff(
+        ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
+        ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
+        term = term, verbose = false)
+    ude_row = (; evaled..., identifiability = ident_ude)
+    report[:ude_discovery] = (; ude_row..., locked_kpis = locked_ude_kpis(ude_row))
     end
 
     if :mm_unknown in wanted
@@ -782,11 +810,12 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             ude_model, ude_fit.params, term, d_hat,
             ref_exp.u0, (first(ref_exp.times), last(ref_exp.times)),
             ref_exp.times, ref_exp.observations))
-    report[:mm_unknown] = (; evaled...,
-        identifiability = report_production_destruction_tradeoff(
-            ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
-            ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
-            term = term, verbose = false))
+    ident_mm = report_production_destruction_tradeoff(
+        ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
+        ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
+        term = term, verbose = false)
+    mm_row = (; evaled..., identifiability = ident_mm)
+    report[:mm_unknown] = (; mm_row..., locked_kpis = locked_ude_kpis(mm_row))
     end
 
     if :ablation in wanted
@@ -1170,7 +1199,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
              support_uses_variable(gc6; variable = 5) ||
              support_uses_variable(gc6; variable = 6)),
         distractor_in_local = 6 ∈ local_spec6.variables,
-        distractor_in_global = 6 ∈ global_spec6.variables)
+        distractor_in_global = 6 ∈ global_spec6.variables,
+        Z_in_local_library = 6 ∈ local_spec6.variables,
+        Z_in_global_library = 6 ∈ global_spec6.variables)
     end
 
     if :six_state_wrong_graph in wanted

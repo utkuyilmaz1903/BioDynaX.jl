@@ -14,6 +14,11 @@ using BioDynaX: SciMLBase
         persistent_tasks = false)
 end
 
+@testset "public API ambiguities" begin
+    ambs = Test.detect_ambiguities(BioDynaX)
+    @test isempty(ambs)
+end
+
 @testset "JET typos" begin
     JET.test_package(BioDynaX; target_modules = (BioDynaX,), mode = :typo)
 end

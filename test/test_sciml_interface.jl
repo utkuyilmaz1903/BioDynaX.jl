@@ -1,3 +1,27 @@
+@testset "README SciML ODE snippet" begin
+    using BioDynaX, SciMLBase, OrdinaryDiffEq, Random
+
+    network = BiologicalNetwork(
+        [NodeSpec(name = :A), NodeSpec(name = :B)],
+        EdgeSpec[];
+        reactions = [
+            ReactionSpec(name = :b_drives_a,
+                         stoichiometry = Dict(1 => 1.0), regulators = [2],
+                         metadata = MassActionMetadata(rate_param = :k_ba)),
+            ReactionSpec(name = :a_decay,
+                         stoichiometry = Dict(1 => -1.0), regulators = Int[],
+                         metadata = LinearDecayMetadata(rate_param = :k_a)),
+            ReactionSpec(name = :b_decay,
+                         stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                         metadata = LinearDecayMetadata(rate_param = :k_b)),
+        ])
+    model, p = build_ude_model(MersenneTwister(0), network)
+    prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)
+    sol = solve(prob, Tsit5(); saveat = 0:0.5:10.0)
+    @test SciMLBase.successful_retcode(sol)
+    @test size(Array(sol), 1) == 2
+end
+
 @testset "SciMLBase ODEProblem contract" begin
     rng = MersenneTwister(17)
     network = build_linear_test_network()
