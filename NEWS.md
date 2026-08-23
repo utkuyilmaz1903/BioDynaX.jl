@@ -1,8 +1,5 @@
 # BioDynaX.jl Unreleased
 
-- Deduplicated `.gitignore`. CompatHelper and TagBot request write
-  permissions so GitHub's default read-only `GITHUB_TOKEN` cannot silently
-  block compat PRs or the first tag.
 - `CITATION.cff` is a single CFF 1.2.0 record (no duplicate fields). The
   0.9.2 preview is not yet in General.
 - SciML hardening without a v1.0 cut: snippet/example smoke (1 IC in the
