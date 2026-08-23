@@ -4,10 +4,10 @@ Research-preview recipes around the [tutorial](tutorial.md). GPU, SBML, and
 Fisher identifiability are not on this path; see [Experimental](experimental.md).
 
 The golden path is the **multi-IC** protocol in
-`examples/unknown_inhibition.jl` (same ICs, horizon, and residual gate as the
-recovery CI job). `BIODYNAX_SMOKE=1` is a 1-IC / 8-point fast check and is
-not that protocol. A single-IC `train_ude` snippet below is a sketch, not
-the CI protocol.
+`examples/unknown_inhibition.jl` (seed 103, same ICs, horizon, regulator-grid
+discovery, and residual gate as the recovery CI job). `BIODYNAX_SMOKE=1` is
+a 1-IC / 8-point fast check and is not that protocol. A single-IC
+`train_ude` snippet below is a sketch, not the CI protocol.
 
 ## Load a CSV experiment
 

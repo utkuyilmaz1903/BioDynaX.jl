@@ -13,11 +13,6 @@ using Random
 using SciMLBase
 using Statistics
 
-const UNKNOWN_EDGE_ICS = [
-    [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
-    [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]
-]
-
 function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
     reactions = [
@@ -40,7 +35,7 @@ function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
-function main(; seed::Int = 7,
+function main(; seed::Int = 103,
         adam_iters::Int = 100,
         bfgs_iters::Int = 50,
         noise_σ::Float64 = 0.0,
@@ -50,7 +45,8 @@ function main(; seed::Int = 7,
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     tspan = (0.0, 8.0)
-    ics = smoke ? UNKNOWN_EDGE_ICS[1:1] : UNKNOWN_EDGE_ICS
+    ics_all = BioDynaX._unknown_edge_ics()
+    ics = smoke ? ics_all[1:1] : ics_all
     n_points = smoke ? 8 : 50
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = ics,
@@ -95,11 +91,23 @@ function main(; seed::Int = 7,
             verbose = true)
     end
 
-    X_traj = predict_ude(
-        trained.params, first_exp.u0, tspan, first_exp.times, model)
-    R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
-    discovery = discover_unknown_rate(
-        R, first_exp.times, D; verbose = !smoke, strict = !smoke)
+    if smoke
+        X_traj = predict_ude(
+            trained.params, first_exp.u0, tspan, first_exp.times, model)
+        R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
+        discovery = discover_unknown_rate(
+            R, first_exp.times, D; verbose = false, strict = false)
+    else
+        term = only(BioDynaX.neural_destruction_terms(model))
+        r_range = BioDynaX._regulator_grid(set, term)
+        R, D, term = BioDynaX.sample_unknown_destruction_grid(
+            model, trained.params, term; r_range = r_range)
+        times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
+        discovery = discover_unknown_rate(
+            R, times_grid, D;
+            config = BioDynaX.rate_discovery_config(bootstrap = 8, seed = 3),
+            verbose = true, strict = true)
+    end
     ident = BioDynaX.report_production_destruction_tradeoff(
         model, trained.params, first_exp.observations, first_exp.times,
         first_exp.u0, tspan; term = term, verbose = true)

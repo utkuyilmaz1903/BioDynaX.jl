@@ -325,14 +325,20 @@ end
 
 @testset "golden-path example matches recovery CI protocol" begin
     src = read(joinpath(@__DIR__, "..", "examples", "unknown_inhibition.jl"), String)
+    @test occursin("seed::Int = 103", src)
     @test occursin("adam_iters::Int = 100", src)
     @test occursin("bfgs_iters::Int = 50", src)
     @test occursin("production_destruction_tradeoff", src)
-    @test occursin("UNKNOWN_EDGE_ICS", src)
-    @test occursin("smoke ? UNKNOWN_EDGE_ICS[1:1]", src)
+    @test occursin("_unknown_edge_ics()", src)
+    @test occursin("smoke ? ics_all[1:1]", src)
     @test occursin("n_points = smoke ? 8", src)
+    @test occursin("sample_unknown_destruction_grid", src)
+    @test occursin("_regulator_grid", src)
+    @test occursin("rate_discovery_config(bootstrap = 8, seed = 3)", src)
     @test occursin("ReactionSpec", src)
     @test occursin("HillMetadata", src)
     @test !occursin("build_hill_recovery_network", src)
-    @test length(BioDynaX._unknown_edge_ics()) == 9
+    @test BioDynaX._unknown_edge_ics() == [
+        [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
+        [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]]
 end

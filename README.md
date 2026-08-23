@@ -34,13 +34,15 @@ attempt). MM unknown edges gate NN RMSE and data residual only.
 
 ## Quick start (15 minutes)
 
-**One command** (same protocol as the recovery CI job: 9 ICs, adam 100 / bfgs 50):
+**One command** (same protocol as the recovery CI job: seed 103, 9 ICs,
+adam 100 / bfgs 50, regulator-grid discovery). `BIODYNAX_SMOKE=1` is a
+1-IC compile check, not that protocol.
 
 ```bash
 julia --project=. examples/unknown_inhibition.jl
 ```
 
-**One table** (seed 103, zero observation noise):
+**One table** (that command, seed 103, zero observation noise):
 
 | quantity | mertebe |
 |----------|---------|
