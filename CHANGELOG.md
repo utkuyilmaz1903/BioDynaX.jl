@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Deduplicated `.gitignore`. CompatHelper and TagBot now request the write
+  scopes they need after GitHub's default read-only `GITHUB_TOKEN`.
 - Deduplicated `CITATION.cff` and pointed it at the live `/dev/` docs URL.
   The 0.9.2 preview is not yet in General.
 - SciML hardening (research preview, not v1.0): README/docs SciML snippet
