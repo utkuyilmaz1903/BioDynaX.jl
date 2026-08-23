@@ -38,8 +38,8 @@ julia --project=. benchmark/noise_grid.jl
 ```
 
 Live docs: https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
-If that 404s, check **Settings → Pages → Deploy from branch `gh-pages` / **
-`(root)`. TagBot is configured; do not claim it ran until a tag exists.
+If that 404s, check **Settings → Pages → Deploy from branch `gh-pages` / `(root)`**.
+TagBot is configured; do not claim it ran until a tag exists.
 
 ## Recovery thresholds
 
