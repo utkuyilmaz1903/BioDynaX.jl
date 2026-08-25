@@ -28,13 +28,13 @@ CSV / time series
   → protocol result (identifiability first)
 ```
 
-## Product block (expected mertebe)
+## Product block (expected values)
 
 The example prints identifiability first. Measured Hill UDE on this protocol
 (the one command, seed 103, zero observation noise):
 
-| field | mertebe | gated? |
-|-------|---------|--------|
+| field | typical value | gated? |
+|-------|---------------|--------|
 | `unidentifiable_edge` | `true` | yes |
 | `coefficients_are_biological_constants` | `false` | derived |
 | hybrid residual vs data | ≈ 0.003 | yes (`data_residual`) |

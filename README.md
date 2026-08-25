@@ -53,8 +53,8 @@ julia --project=. examples/unknown_inhibition.jl
 **Product block** (that command prints identifiability first; seed 103, zero
 observation noise):
 
-| field | mertebe |
-|-------|---------|
+| field | typical value |
+|-------|---------------|
 | `unidentifiable_edge` | `true` (gated) |
 | `coefficients_are_biological_constants` | `false` |
 | hybrid residual vs data | ≈ 0.003 (gated) |
