@@ -12,6 +12,39 @@
     @test kpis.unidentifiable_edge
 end
 
+@testset "protocol result field order is the unique-claim product" begin
+    ude = (;
+        data_residual = 0.003,
+        support_recall = 1.0,
+        support_f1 = 0.57,
+        extras = ["1", "r"],
+        identifiability = (; unidentifiable_edge = true))
+    result = build_protocol_result(ude)
+    @test Tuple(keys(result)) == (
+        :unknown_holes,
+        :unidentifiable_edge,
+        :coefficients_are_biological_constants,
+        :data_residual,
+        :support_recall,
+        :support_f1,
+        :extras,
+        :canonical_hill_from_nn,
+        :claim)
+    @test result.unknown_holes == 1
+    @test result.unidentifiable_edge
+    @test result.coefficients_are_biological_constants == false
+    @test result.data_residual == 0.003
+    @test result.support_recall == 1.0
+    @test result.extras == ["1", "r"]
+    @test result.canonical_hill_from_nn == false
+    @test result.claim === :recall_plus_data_residual
+    missing_ident = build_protocol_result((;
+        data_residual = Inf, support_recall = 0.0))
+    @test missing_ident.unidentifiable_edge == false
+    @test missing_ident.coefficients_are_biological_constants
+    @test !(:build_protocol_result in names(BioDynaX))
+end
+
 @testset "locked UDE KPIs survive early-fail rows" begin
     early = (;
         data_residual = Inf,

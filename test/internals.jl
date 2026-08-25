@@ -74,4 +74,5 @@ using BioDynaX:
     UNIQUE_CLAIM_PROTOCOL,
     unique_claim_discovery_config,
     discovered_support_extras,
-    monomial_key_label
+    monomial_key_label,
+    build_protocol_result
