@@ -131,6 +131,23 @@ const RECOVERY_THRESHOLDS = (
     data_residual = 0.30,
 )
 
+"""
+    UNIQUE_CLAIM_PROTOCOL
+
+Hyperparameters shared by `examples/unknown_inhibition.jl` and the UDE
+recovery job. Not a threshold table. Not exported.
+"""
+const UNIQUE_CLAIM_PROTOCOL = (
+    seed = 103,
+    adam_iterations = 100,
+    bfgs_iterations = 50,
+    n_points = 50,
+    smoke_n_points = 8,
+    tspan = (0.0, 8.0),
+    bootstrap = 8,
+    discovery_seed = 3,
+)
+
 term_key(term::MonomialTerm) = (Tuple(term.variables), Tuple(term.powers))
 
 function active_support(candidate::ImplicitCandidate; atol::Real = 1e-8)
@@ -277,8 +294,17 @@ build_rate_discovery_network() =
 build_rate_ablation_network() =
     BiologicalNetwork([NodeSpec(name = :r), NodeSpec(name = :z)], EdgeSpec[])
 
-function rate_discovery_config(; threshold = 1e-3, degree = 2, bootstrap = 8,
-                               scope::Symbol = :graph, seed = 3)
+function unique_claim_discovery_config(; kwargs...)
+    return rate_discovery_config(;
+        bootstrap = UNIQUE_CLAIM_PROTOCOL.bootstrap,
+        seed = UNIQUE_CLAIM_PROTOCOL.discovery_seed,
+        kwargs...)
+end
+
+function rate_discovery_config(; threshold = 1e-3, degree = 2,
+                               bootstrap = UNIQUE_CLAIM_PROTOCOL.bootstrap,
+                               scope::Symbol = :graph,
+                               seed = UNIQUE_CLAIM_PROTOCOL.discovery_seed)
     return DiscoveryConfig(
         backend = ImplicitSINDyPI(
             threshold = threshold, max_degree = degree, max_hill_degree = degree,
@@ -460,12 +486,12 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     truth_support = family === :hill ? hill_rate_support(order) : mm_rate_support()
     discovery = discover_unknown_rate(
         R_grid, times, D_nn;
-        config = rate_discovery_config(bootstrap = 8, seed = 3),
+        config = unique_claim_discovery_config(),
         verbose = false, strict = false)
     D_norm, _ = normalize_destruction_samples(D_nn)
     discovery_norm = discover_unknown_rate(
         R_grid, times, reshape(vec(D_norm), size(D_nn));
-        config = rate_discovery_config(bootstrap = 8, seed = 3),
+        config = unique_claim_discovery_config(),
         verbose = false, strict = false)
     f1 = 0.0
     recall = 0.0
@@ -756,8 +782,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
                             linear_bfgs::Int = 20,
                             mm_adam::Int = 50,
                             mm_bfgs::Int = 25,
-                            ude_adam::Int = 100,
-                            ude_bfgs::Int = 50,
+                            ude_adam::Int = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
+                            ude_bfgs::Int = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
                             hill_adam::Int = 40,
                             hill_bfgs::Int = 20,
                             competitive_adam::Int = 40,
@@ -858,7 +884,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     ude_fit, ude_set = _train_unknown_edge(
         rng, ude_model, ude_p0, truth_net, hill_truth;
         adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
-        tspan = (0.0, 8.0), n_points = 50)
+        tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
+        n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
     term = only(neural_destruction_terms(ude_model))
     ref_exp = first(ude_set.experiments)
     evaled = _evaluate_unknown_rate_recovery(
@@ -887,7 +914,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     ude_fit, ude_set = _train_unknown_edge(
         rng, ude_model, ude_p0, truth_net, mm_truth;
         adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
-        tspan = (0.0, 8.0), n_points = 50)
+        tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
+        n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
     term = only(neural_destruction_terms(ude_model))
     ref_exp = first(ude_set.experiments)
     evaled = _evaluate_unknown_rate_recovery(

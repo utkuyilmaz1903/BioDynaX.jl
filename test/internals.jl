@@ -70,4 +70,6 @@ using BioDynaX:
     locked_ude_kpis,
     build_six_state_unknown_network,
     assert_single_unknown_destruction,
-    format_protocol_result
+    format_protocol_result,
+    UNIQUE_CLAIM_PROTOCOL,
+    unique_claim_discovery_config

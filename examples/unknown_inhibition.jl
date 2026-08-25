@@ -35,19 +35,20 @@ function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
-function main(; seed::Int = 103,
-        adam_iters::Int = 100,
-        bfgs_iters::Int = 50,
+function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
+        adam_iters::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.adam_iterations,
+        bfgs_iters::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
         noise_σ::Float64 = 0.0,
         smoke::Bool = false)
+    protocol = BioDynaX.UNIQUE_CLAIM_PROTOCOL
     rng = MersenneTwister(seed)
     truth_net = unknown_inhibition_network(; known = true, hill_order = 2)
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    tspan = (0.0, 8.0)
+    tspan = protocol.tspan
     ics_all = BioDynaX._unknown_edge_ics()
     ics = smoke ? ics_all[1:1] : ics_all
-    n_points = smoke ? 8 : 50
+    n_points = smoke ? protocol.smoke_n_points : protocol.n_points
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = ics,
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
@@ -106,7 +107,7 @@ function main(; seed::Int = 103,
         times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
         discovery = discover_unknown_rate(
             R, times_grid, D;
-            config = BioDynaX.rate_discovery_config(bootstrap = 8, seed = 3),
+            config = BioDynaX.unique_claim_discovery_config(),
             verbose = true, strict = true)
     end
     ident = BioDynaX.report_production_destruction_tradeoff(
@@ -132,8 +133,8 @@ function main(; seed::Int = 103,
         n_ics = length(ics),
         adam_iters = adam_iters,
         bfgs_iters = bfgs_iters,
-        bootstrap = smoke ? nothing : 8,
-        discovery_seed = smoke ? nothing : 3,
+        bootstrap = smoke ? nothing : protocol.bootstrap,
+        discovery_seed = smoke ? nothing : protocol.discovery_seed,
         smoke = smoke))
     println("Hybrid RHS constructed: ", typeof(rhs))
     println("CSV (first IC): ", csv_path)
@@ -146,7 +147,9 @@ end
 
 if abspath(PROGRAM_FILE) == abspath(@__FILE__)
     smoke = get(ENV, "BIODYNAX_SMOKE", "0") == "1"
-    adam = parse(Int, get(ENV, "ADAM_ITERS", "100"))
-    bfgs = parse(Int, get(ENV, "BFGS_ITERS", "50"))
+    adam = parse(Int, get(ENV, "ADAM_ITERS",
+        string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.adam_iterations)))
+    bfgs = parse(Int, get(ENV, "BFGS_ITERS",
+        string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.bfgs_iterations)))
     main(; adam_iters = adam, bfgs_iters = bfgs, smoke = smoke)
 end
