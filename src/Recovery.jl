@@ -310,6 +310,12 @@ function assert_single_unknown_destruction(model::UDEModel)
     return n
 end
 
+function only_unknown_destruction(model::UDEModel)
+    assert_single_unknown_destruction(model)
+    return only(neural_destruction_terms(model))
+end
+
+
 """
     sample_unknown_destruction(model, p, X; term=nothing)
 
@@ -947,7 +953,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
         tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
         n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
-    term = only(neural_destruction_terms(ude_model))
+    term = only_unknown_destruction(ude_model)
     ref_exp = first(ude_set.experiments)
     evaled = _evaluate_unknown_rate_recovery(
         ude_model, ude_fit.params, term,
@@ -980,7 +986,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
         tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
         n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
-    term = only(neural_destruction_terms(ude_model))
+    term = only_unknown_destruction(ude_model)
     ref_exp = first(ude_set.experiments)
     evaled = _evaluate_unknown_rate_recovery(
         ude_model, ude_fit.params, term,
@@ -1179,7 +1185,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         nothing
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
-    term = only(neural_destruction_terms(ude_model))
+    term = only_unknown_destruction(ude_model)
     p_nom = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), ude_p0.nn)
     u0 = [0.3, 0.25]
     tspan = (0.0, 2.0)
@@ -1257,7 +1263,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         rng; network = hill_net, u0 = u0_h, tspan = tspan_h,
         n_points = 40, noise_σ = 0.0, truth_params = hill_p)
     p_hybrid = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), ude_p0.nn)
-    term = only(neural_destruction_terms(ude_model))
+    term = only_unknown_destruction(ude_model)
     closed_residual = Inf
     masked_residual = Inf
     obs_mask = trues(size(data_h))

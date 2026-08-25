@@ -13,6 +13,9 @@
 - `run_recovery_suite` attaches `protocol_result` on UDE and MM-unknown
   rows (`build_protocol_result`, not exported). Existing metric fields
   stay. Canonical Hill from a trained NN stays closed.
+- Unique-claim recovery paths require exactly one unknown `D(z)`
+  (`assert_single_unknown_destruction`, `only_unknown_destruction`; not
+  exported). `validate_network` is unchanged.
 - `CITATION.cff` is a single CFF 1.2.0 record (no duplicate fields). The
   0.9.2 preview is not yet in General.
 - SciML hardening without a v1.0 cut: snippet/example smoke (1 IC in the
