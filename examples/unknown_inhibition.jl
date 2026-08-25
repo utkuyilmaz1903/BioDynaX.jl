@@ -139,8 +139,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
     println("Hybrid RHS constructed: ", typeof(rhs))
     println("CSV (first IC): ", csv_path)
     if !smoke
-        residual ≤ RECOVERY_THRESHOLDS.data_residual ||
-            error("hybrid residual $(residual) exceeds RECOVERY_THRESHOLDS.data_residual")
+        BioDynaX.assert_unique_claim_residual(residual)
     end
     return discovery, residual, ident
 end

@@ -45,6 +45,33 @@ end
     @test !(:build_protocol_result in names(BioDynaX))
 end
 
+@testset "unique-claim KPI helpers encode the locked gates" begin
+    hold = locked_ude_kpis((;
+        data_residual = 0.003,
+        support_recall = 1.0,
+        identifiability = (; unidentifiable_edge = true)))
+    @test unique_claim_kpis_hold(hold)
+    @test assert_unique_claim_residual(0.003) == 0.003
+    miss_edge = locked_ude_kpis((;
+        data_residual = 0.003,
+        support_recall = 1.0,
+        identifiability = (; unidentifiable_edge = false)))
+    @test unique_claim_kpis_hold(miss_edge) == false
+    miss_residual = locked_ude_kpis((;
+        data_residual = 0.31,
+        support_recall = 1.0,
+        identifiability = (; unidentifiable_edge = true)))
+    @test unique_claim_kpis_hold(miss_residual) == false
+    miss_recall = locked_ude_kpis((;
+        data_residual = 0.003,
+        support_recall = 0.5,
+        identifiability = (; unidentifiable_edge = true)))
+    @test unique_claim_kpis_hold(miss_recall) == false
+    @test_throws ErrorException assert_unique_claim_residual(0.31)
+    @test !(:unique_claim_kpis_hold in names(BioDynaX))
+    @test !(:assert_unique_claim_residual in names(BioDynaX))
+end
+
 @testset "locked UDE KPIs survive early-fail rows" begin
     early = (;
         data_residual = Inf,

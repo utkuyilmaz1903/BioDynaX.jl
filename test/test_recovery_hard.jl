@@ -22,6 +22,7 @@
     @test kpis.support_recall ≥ RECOVERY_THRESHOLDS.support_recall
     @test kpis.unidentifiable_edge
     @test kpis.claim === :recall_plus_data_residual
+    @test unique_claim_kpis_hold(kpis)
     @test occursin("collinear", BioDynaX.format_production_destruction_warning(ident))
     @test isfinite(ude.normalized_support_f1)
 end

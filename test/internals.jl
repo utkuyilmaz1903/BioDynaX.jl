@@ -76,4 +76,6 @@ using BioDynaX:
     discovered_support_extras,
     monomial_key_label,
     build_protocol_result,
-    only_unknown_destruction
+    only_unknown_destruction,
+    unique_claim_kpis_hold,
+    assert_unique_claim_residual
