@@ -64,6 +64,7 @@ function main(; seed::Int = 103,
     @assert loaded.times ≈ first_exp.times
 
     model, params = build_ude_model(rng, ude_net)
+    BioDynaX.assert_single_unknown_destruction(model)
     phys_names = Tuple(parameter_schema(model).phys_names)
     guess = NamedTuple{phys_names}(ntuple(_ -> 0.8, length(phys_names)))
     ude_init = pack_parameters(guess, params.nn)
@@ -110,7 +111,7 @@ function main(; seed::Int = 103,
     end
     ident = BioDynaX.report_production_destruction_tradeoff(
         model, trained.params, first_exp.observations, first_exp.times,
-        first_exp.u0, tspan; term = term, verbose = true)
+        first_exp.u0, tspan; term = term, verbose = false)
     residual = Inf
     rhs = nothing
     if discovery.success && !isempty(discovery.candidates)
@@ -122,22 +123,24 @@ function main(; seed::Int = 103,
     elseif !smoke
         error("discovery failed ($(discovery.retcode)): $(discovery.message)")
     end
-    println("Recovered equations:\n", discovery.equations)
+    println(BioDynaX.format_protocol_result(ident;
+        residual = residual,
+        equations = discovery.equations,
+        extras = ("1", "r"),
+        unknown_holes = 1,
+        seed = seed,
+        n_ics = length(ics),
+        adam_iters = adam_iters,
+        bfgs_iters = bfgs_iters,
+        bootstrap = smoke ? nothing : 8,
+        discovery_seed = smoke ? nothing : 3,
+        smoke = smoke))
     println("Hybrid RHS constructed: ", typeof(rhs))
-    println("Locked UDE claim (order matters):")
-    println("  hybrid residual vs data: ", residual)
-    println("  unidentifiable_edge: ", ident.unidentifiable_edge)
-    println("  true-monomial recall is a CI gate on synthetic Hill truth")
     println("CSV (first IC): ", csv_path)
     if !smoke
         residual ≤ RECOVERY_THRESHOLDS.data_residual ||
             error("hybrid residual $(residual) exceeds RECOVERY_THRESHOLDS.data_residual")
     end
-    ident.unidentifiable_edge && println(
-        "Note: unidentifiable_edge=$(ident.unidentifiable_edge); ",
-        "coefficients are not biological constants. ",
-        "This preview does not claim canonical Hill from a trained NN. ",
-        "The example prints this warning automatically.")
     return discovery, residual, ident
 end
 

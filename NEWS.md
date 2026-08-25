@@ -1,5 +1,9 @@
 # BioDynaX.jl Unreleased
 
+- Golden-path stdout and docs treat identifiability as the product block
+  (`unidentifiable_edge`, `coefficients_are_biological_constants`). The
+  example errors unless there is exactly one unknown `D(z)`. No new
+  science claim; `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - `CITATION.cff` is a single CFF 1.2.0 record (no duplicate fields). The
   0.9.2 preview is not yet in General.
 - SciML hardening without a v1.0 cut: snippet/example smoke (1 IC in the

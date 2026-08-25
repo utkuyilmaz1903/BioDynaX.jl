@@ -5,9 +5,9 @@ Fisher identifiability are not on this path; see [Experimental](experimental.md)
 
 The golden path is the **multi-IC** protocol in
 `examples/unknown_inhibition.jl` (seed 103, same ICs, horizon, regulator-grid
-discovery, and residual gate as the recovery CI job). `BIODYNAX_SMOKE=1` is
-a 1-IC / 8-point fast check and is not that protocol. A single-IC
-`train_ude` snippet below is a sketch, not the CI protocol.
+discovery, residual gate, and identifiability as the first printed block).
+`BIODYNAX_SMOKE=1` is a 1-IC / 8-point fast check and is not that protocol.
+A single-IC `train_ude` snippet below is a sketch, not the CI protocol.
 
 ## Load a CSV experiment
 
@@ -75,11 +75,14 @@ rhs = compose_hybrid_rhs(
 If discovery cannot be trusted, `strict = false` returns
 `DiscoveryResult(success=false, retcode=...)` instead of throwing.
 
-After a fit, report the practical scale warning (not exported):
+After a fit, print the protocol block (identifiability first; not exported).
+`BioDynaX.assert_single_unknown_destruction(model)` errors unless there is
+exactly one unknown `D(z)`.
 
 ```julia
 ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, data, times, u0, tspan; term = term, verbose = true)
+    model, trained.params, data, times, u0, tspan; term = term, verbose = false)
+println(BioDynaX.format_protocol_result(ident; residual = residual))
 ```
 
 `TrainingConfig(frozen_phys = [:k_prod])` pins a known production rate. It does
