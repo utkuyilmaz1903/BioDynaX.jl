@@ -20,15 +20,10 @@ function discover_f1(D, r; seed = 103)
     metrics = result.success ?
         support_f1(result.candidates[1], truth.numerator, truth.denominator) :
         nothing
-    extras = String[]
-    if result.success
-        rec = BioDynaX.active_support(result.candidates[1])
-        truth_keys = union(truth.numerator, truth.denominator)
-        for key in union(rec.numerator, rec.denominator)
-            key in truth_keys && continue
-            push!(extras, string(key))
-        end
-    end
+    extras = result.success ?
+        BioDynaX.discovered_support_extras(
+            result.candidates[1], truth.numerator, truth.denominator) :
+        String[]
     return (;
         success = result.success,
         f1 = metrics === nothing ? 0.0 : metrics.combined.f1,

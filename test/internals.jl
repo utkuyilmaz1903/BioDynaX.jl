@@ -72,4 +72,6 @@ using BioDynaX:
     assert_single_unknown_destruction,
     format_protocol_result,
     UNIQUE_CLAIM_PROTOCOL,
-    unique_claim_discovery_config
+    unique_claim_discovery_config,
+    discovered_support_extras,
+    monomial_key_label

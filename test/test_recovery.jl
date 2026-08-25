@@ -116,6 +116,36 @@ end
     @test isfinite(report[:competitive].final_loss)
 end
 
+@testset "discovered support extras labels leftover monomials" begin
+    @test monomial_key_label(((), ())) == "1"
+    @test monomial_key_label(((1,), (1,))) == "r"
+    @test monomial_key_label(((1,), (2,))) == "r^2"
+    r = collect(range(0.1, 2.0; length = 180))
+    D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    times = collect(range(0.0, 1.0; length = length(r)))
+    truth = hill_rate_support(2)
+    clean = discover_unknown_rate(
+        reshape(r, 1, :), times, reshape(D, 1, :);
+        config = rate_discovery_config(bootstrap = 0, seed = 1),
+        verbose = false, strict = true)
+    @test clean.success
+    @test isempty(discovered_support_extras(
+        clean.candidates[1], truth.numerator, truth.denominator))
+    nn_like = D .+ 0.04 .+ 0.04 .* r
+    dirty = discover_unknown_rate(
+        reshape(r, 1, :), times, reshape(nn_like, 1, :);
+        config = rate_discovery_config(bootstrap = 0, seed = 103),
+        verbose = false, strict = false)
+    @test dirty.success
+    extras = discovered_support_extras(
+        dirty.candidates[1], truth.numerator, truth.denominator)
+    @test "1" in extras
+    @test "r" in extras
+    @test !("r^2" in extras)
+    @test !(:discovered_support_extras in names(BioDynaX))
+    @test !(:monomial_key_label in names(BioDynaX))
+end
+
 @testset "recovery metrics on analytical Hill rate" begin
     r = collect(range(0.1, 2.0; length = 120))
     D = hill_rate_truth(r; vmax = 1.8, K = 0.6, n = 2)
