@@ -1,6 +1,6 @@
 # Tutorial: unknown inhibition recovery
 
-One command, one table, one warning, one thing this package does not claim.
+One command, one product block, one thing this package does not claim.
 
 ## One command
 
@@ -25,34 +25,36 @@ CSV / time series
   → discover_unknown_rate
   → compose_hybrid_rhs
   → resimulate vs data
+  → protocol result (identifiability first)
 ```
 
-## One table (expected mertebe)
+## Product block (expected values)
 
-Measured Hill UDE on this protocol (the one command, seed 103, zero
-observation noise):
+The example prints identifiability first. Measured Hill UDE on this protocol
+(the one command, seed 103, zero observation noise):
 
-| quantity | mertebe | gated? |
-|----------|---------|--------|
+| field | typical value | gated? |
+|-------|---------------|--------|
+| `unidentifiable_edge` | `true` | yes |
+| `coefficients_are_biological_constants` | `false` | derived |
 | hybrid residual vs data | ≈ 0.003 | yes (`data_residual`) |
 | true-monomial recall | 1.0 | yes (`support_recall`) |
-| `unidentifiable_edge` | `true` | yes |
 | combined support F1 | ≈ 0.57 | skeleton floor 0.50, **not** 0.99 |
 | extras that remain | `1`, `r` | reported, not removed |
+| `canonical_hill_from_nn` | `false` | closed |
 
 Canonical Hill combined F1 ≥ 0.99 is gated on **analytical** `D` samples after
 Occam (`RECOVERY_THRESHOLDS.support_f1_clean`). It is not the trained-NN claim.
 
-## One warning
-
 Observed concentrations leave `k_prod` and the scale of `D(z)` collinear.
-The script prints `unidentifiable_edge = true`. **Coefficients are not
-biological constants.** Freeze / `D`-normalization / production perturbation
-do not break that Jacobian tradeoff.
+**Coefficients are not biological constants.** Freeze / `D`-normalization /
+production perturbation do not break that Jacobian tradeoff. Zero or
+two-or-more unknown `D(z)` holes error on the golden path.
 
 ```julia
 ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, data, times, u0, tspan; term = term, verbose = true)
+    model, trained.params, data, times, u0, tspan; term = term, verbose = false)
+println(BioDynaX.format_protocol_result(ident; residual = residual))
 ```
 
 ## We do not claim
@@ -65,8 +67,8 @@ ident = BioDynaX.report_production_destruction_tradeoff(
 - A licensed experimental time series that matches the unique-claim protocol.
   Absence is the result. Elowitz is a synthetic ODE fixture.
 
-The example calls that report automatically. You do not have to discover it
-as a hidden experimental API; the warning is part of the golden path.
+The example prints that block automatically. Identifiability is the first
+stdout section, not a footnote.
 
 ## Network (public constructors)
 

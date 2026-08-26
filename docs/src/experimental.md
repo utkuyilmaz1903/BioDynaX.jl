@@ -26,7 +26,8 @@ this as an array-transport helper, not a SciML GPU stack.
 
 Unknown-edge recovery reports a practical `k_prod` ↔ `D(z)` scale
 collinearity (`BioDynaX.production_destruction_tradeoff`). The golden path
-prints that warning. The Hill UDE recovery job requires
+prints that as the first product block (`format_protocol_result`), not a
+footnote. The Hill UDE recovery job requires
 `unidentifiable_edge == true`. Pinning `k_prod`, normalizing sampled `D`, or
 changing the production rate does **not** remove the Jacobian collinearity.
 That is the locked finding. The flag is not a structural certificate and is

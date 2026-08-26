@@ -68,4 +68,6 @@ using BioDynaX:
     import_sbml_network,
     import_sbmltoolkit_network,
     locked_ude_kpis,
-    build_six_state_unknown_network
+    build_six_state_unknown_network,
+    assert_single_unknown_destruction,
+    format_protocol_result

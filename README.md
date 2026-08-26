@@ -4,10 +4,12 @@
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Research preview. Not v1.0.** Graph-guided hybrid UDEs: known kinetics stay
-compiled, unknown destruction rates `D(z)` are fit with a neural head and
-recovered by graph-local implicit SINDy-PI. This is not a general CRN solver
-or a global SINDy replacement.
+**Research preview. Not v1.0.** One-hole instrument: known graph, compiled
+known `P` / known `D`, exactly one unknown destruction `D(z)`. The product is
+practical identifiability (`unidentifiable_edge`; coefficients are not
+biological constants) together with a gated hybrid residual versus data and
+true-monomial recall. Canonical Hill from a trained NN is closed. This is not
+a general CRN solver or a global SINDy replacement.
 
 Requires **Julia ≥ 1.10**.
 
@@ -18,17 +20,23 @@ version badge until the 0.9.x preview is in General.
 
 ---
 
-## What it does
+## Product
 
-1. **Define a network** — nodes, edges, and stoichiometric reactions with kinetic metadata (mass action, Hill, competitive inhibition, saturation, or neural unknowns).
-2. **Compile a UDE** — production–destruction RHS `duᵢ = Pᵢ(u,p) − Dᵢ(u,p)·uᵢ` with non-negative rates.
-3. **Train** — Adam (optional BFGS), SciMLSensitivity adjoints, optional soft constraints.
-4. **Discover** — graph-local implicit SINDy-PI on the **unknown destruction rate** `D(z)`, then `compose_hybrid_rhs` to resimulate versus **data**.
+1. **Scope** — known graph, compiled known kinetics, exactly one unknown
+   destruction `D(z)`. Zero or two-or-more holes are out of claim; the golden
+   path errors.
+2. **Identifiability (primary, first printed block)** —
+   `unidentifiable_edge` and `coefficients_are_biological_constants`. `k_prod`
+   and the scale of `D(z)` are not separately identifiable from observed
+   concentrations. Practical Fisher/Jacobian, not StructuralIdentifiability.jl.
+3. **Fit (gated)** — hybrid residual versus data and true-monomial recall on
+   synthetic Hill truth.
+4. **Discovery (tertiary)** — a symbolic `D(z)` string. Combined F1 is a
+   skeleton floor (0.50), not 0.99. Extras `1` and `r` remain.
+   `canonical_hill_from_nn` is false and closed.
 
-The gated UDE claim is true-monomial **recall** plus a hybrid RHS that fits
-**data**, for **Hill-class** unknown destruction. Combined F1 from a trained
-NN is not canonical Hill (extras `1` and `r` remain after a same-library
-attempt). MM unknown edges gate NN RMSE and data residual only.
+MM unknown edges gate NN RMSE and data residual only. Combined F1 from a
+trained NN is not canonical Hill.
 
 ---
 
@@ -42,19 +50,18 @@ adam 100 / bfgs 50, regulator-grid discovery). `BIODYNAX_SMOKE=1` is a
 julia --project=. examples/unknown_inhibition.jl
 ```
 
-**One table** (that command, seed 103, zero observation noise):
+**Product block** (that command prints identifiability first; seed 103, zero
+observation noise):
 
-| quantity | mertebe |
-|----------|---------|
+| field | typical value |
+|-------|---------------|
+| `unidentifiable_edge` | `true` (gated) |
+| `coefficients_are_biological_constants` | `false` |
 | hybrid residual vs data | ≈ 0.003 (gated) |
 | true-monomial recall | 1.0 (gated) |
-| `unidentifiable_edge` | `true` (gated) |
 | combined support F1 | ≈ 0.57 (skeleton floor 0.50, not 0.99) |
 | extras | `1`, `r` remain |
-
-**One warning:** `unidentifiable_edge == true`. The example prints this
-automatically via `report_production_destruction_tradeoff`. Coefficients
-are not biological constants. `k_prod` and the scale of `D(z)` stay collinear.
+| `canonical_hill_from_nn` | `false` (closed) |
 
 **We do not claim:** canonical Hill from a trained NN; a wet-lab tool for one
 noisy CSV and unknown topology; UDE training on missing states; a licensed
@@ -64,7 +71,8 @@ Tutorial: [`docs/src/tutorial.md`](docs/src/tutorial.md).
 
 ```julia
 ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, data, times, u0, tspan; term = term, verbose = true)
+    model, trained.params, data, times, u0, tspan; term = term, verbose = false)
+println(BioDynaX.format_protocol_result(ident; residual = residual))
 ```
 
 ---
@@ -132,9 +140,9 @@ package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
 
 - **GPU** copies experiment arrays with `cu`. There is no batched GPU ODE/training stack.
 - **SBML** import does not parse kinetic MathML into Hill/MM.
-- **Identifiability** is a practical warning, not a structural certificate.
+- **Identifiability** is the product (practical Fisher/Jacobian). It is not a structural certificate.
 - **Partial observation:** discovery from subsampled `D` plus hybrid residual versus data is gated. UDE training on missing states is not claimed.
-- **No licensed experimental CSV** matches the unique-claim protocol (known graph, ≤1 unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
+- **No licensed experimental CSV** matches the unique-claim protocol (known graph, exactly one unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
 - Target regime is **2–20 states** with a known interaction graph.
 - A green `recovery` CI job is **necessary, not sufficient** for v1.0. See [API stability](docs/src/stability.md).
 

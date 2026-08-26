@@ -36,6 +36,81 @@ function locked_ude_kpis(ude)
         claim = :recall_plus_data_residual)
 end
 
+function _format_protocol_value(value)
+    value === nothing && return "NA"
+    return string(value)
+end
+
+function _format_protocol_extras(extras)
+    extras === nothing && return "1, r remain after the UDE F1 attempt"
+    extras isa AbstractString && return extras
+    return join(string.(extras), ", ")
+end
+
+function _format_protocol_equations(equations)
+    equations === nothing && return "(none)"
+    return rstrip(string(equations))
+end
+
+"""
+    format_protocol_result(ident; kwargs...)
+
+Locked unique-claim stdout. Print order is the product: identifiability,
+fit, discovery, reproduction. Not exported.
+"""
+function format_protocol_result(ident;
+        residual = nothing,
+        equations = nothing,
+        extras = nothing,
+        support_f1 = nothing,
+        support_recall = nothing,
+        unknown_holes::Integer = 1,
+        seed = nothing,
+        n_ics = nothing,
+        adam_iters = nothing,
+        bfgs_iters = nothing,
+        bootstrap = nothing,
+        discovery_seed = nothing,
+        smoke::Bool = false)
+    edge = ident.unidentifiable_edge
+    production = hasproperty(ident, :production_param) ?
+                 ident.production_param : :k_prod
+    io = IOBuffer()
+    println(io, "IDENTIFIABILITY")
+    println(io, "  unknown_holes: ", unknown_holes)
+    println(io, "  unidentifiable_edge: ", edge)
+    println(io, "  coefficients_are_biological_constants: ", !edge)
+    println(io, "  production_param: ", production)
+    println(io, "  k_prod and D(z) scale are not separately identifiable")
+    println(io, "  practical Fisher/Jacobian; not StructuralIdentifiability.jl")
+    if hasproperty(ident, :collinearity) && isfinite(ident.collinearity)
+        println(io, "  collinearity: ", round(ident.collinearity; digits = 3))
+    end
+    println(io, "FIT")
+    println(io, "  hybrid_data_residual: ", _format_protocol_value(residual))
+    recall = support_recall === nothing ?
+             "CI gate on synthetic Hill truth (not scored here)" :
+             support_recall
+    println(io, "  support_recall: ", recall)
+    println(io, "DISCOVERY")
+    println(io, "  equations:")
+    println(io, _format_protocol_equations(equations))
+    println(io, "  extras: ", _format_protocol_extras(extras))
+    f1 = support_f1 === nothing ?
+         "skeleton floor 0.50; not the UDE claim" : support_f1
+    println(io, "  support_f1: ", f1)
+    println(io, "  canonical_hill_from_nn: false")
+    println(io, "REPRODUCTION")
+    println(io, "  seed: ", _format_protocol_value(seed))
+    println(io, "  n_ics: ", _format_protocol_value(n_ics))
+    println(io, "  adam_iters: ", _format_protocol_value(adam_iters))
+    println(io, "  bfgs_iters: ", _format_protocol_value(bfgs_iters))
+    println(io, "  bootstrap: ", _format_protocol_value(bootstrap))
+    println(io, "  discovery_seed: ", _format_protocol_value(discovery_seed))
+    println(io, "  smoke: ", smoke)
+    return String(take!(io))
+end
+
 """
     RECOVERY_THRESHOLDS
 
@@ -147,6 +222,20 @@ mm_rate_truth(r; vmax, km) = vmax .* r ./ (km .+ r)
 
 neural_destruction_terms(model::UDEModel) =
     [term for term in model.compiled.destruction_terms if term isa NeuralDestructionTerm]
+
+"""
+    assert_single_unknown_destruction(model) -> 1
+
+The unique-claim protocol is a single-hole instrument. Throws
+`ErrorException` unless `model` has exactly one `NeuralDestructionTerm`.
+Not exported. Does not change `validate_network`.
+"""
+function assert_single_unknown_destruction(model::UDEModel)
+    n = length(neural_destruction_terms(model))
+    n == 1 || throw(ErrorException(
+        "unique-claim protocol requires exactly one unknown destruction D(z); got $n"))
+    return n
+end
 
 """
     sample_unknown_destruction(model, p, X; term=nothing)

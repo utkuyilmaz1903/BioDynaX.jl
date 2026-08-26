@@ -329,6 +329,8 @@ end
     @test occursin("adam_iters::Int = 100", src)
     @test occursin("bfgs_iters::Int = 50", src)
     @test occursin("production_destruction_tradeoff", src)
+    @test occursin("assert_single_unknown_destruction", src)
+    @test occursin("format_protocol_result", src)
     @test occursin("_unknown_edge_ics()", src)
     @test occursin("smoke ? ics_all[1:1]", src)
     @test occursin("n_points = smoke ? 8", src)
@@ -338,7 +340,71 @@ end
     @test occursin("ReactionSpec", src)
     @test occursin("HillMetadata", src)
     @test !occursin("build_hill_recovery_network", src)
+    @test !occursin("Note:", src)
     @test BioDynaX._unknown_edge_ics() == [
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]]
+end
+
+@testset "unique-claim protocol requires exactly one unknown D" begin
+    rng = MersenneTwister(0)
+    zero_model, _ = build_ude_model(rng, build_linear_test_network())
+    @test_throws ErrorException assert_single_unknown_destruction(zero_model)
+    one_model, _ = build_ude_model(rng, build_hill_recovery_network(; known = false))
+    @test assert_single_unknown_destruction(one_model) == 1
+    two_model, _ = build_ude_model(rng, build_dual_unknown_network())
+    @test_throws ErrorException assert_single_unknown_destruction(two_model)
+end
+
+@testset "protocol formatter prints identifiability before equations" begin
+    ident = (;
+        unidentifiable_edge = true,
+        production_param = :k_prod,
+        collinearity = 0.99)
+    text = format_protocol_result(ident;
+        residual = 0.003,
+        equations = "D(z) = vmax * r^2 / (K^2 + r^2)",
+        extras = ("1", "r"),
+        support_f1 = 0.57,
+        support_recall = 1.0,
+        unknown_holes = 1,
+        seed = 103,
+        n_ics = 9,
+        adam_iters = 100,
+        bfgs_iters = 50,
+        bootstrap = 8,
+        discovery_seed = 3,
+        smoke = false)
+    ident_at = findfirst("IDENTIFIABILITY", text)
+    coeff_at = findfirst("coefficients_are_biological_constants: false", text)
+    edge_at = findfirst("unidentifiable_edge: true", text)
+    eq_at = findfirst("D(z) = vmax", text)
+    @test ident_at !== nothing
+    @test coeff_at !== nothing
+    @test eq_at !== nothing
+    @test first(ident_at) < first(coeff_at) < first(eq_at)
+    @test edge_at !== nothing && first(ident_at) < first(edge_at)
+    @test occursin("canonical_hill_from_nn: false", text)
+    @test occursin("extras: 1, r", text)
+    @test !occursin("Note:", text)
+    @test startswith(text, "IDENTIFIABILITY")
+    identifiable = format_protocol_result((; unidentifiable_edge = false);
+        equations = "D(z) = 1")
+    @test occursin("coefficients_are_biological_constants: true", identifiable)
+    @test first(findfirst("IDENTIFIABILITY", identifiable)) <
+          first(findfirst("D(z) = 1", identifiable))
+end
+
+@testset "recovery thresholds and protocol helpers stay unexported" begin
+    @test RECOVERY_THRESHOLDS == (
+        nn_correlation = 0.90,
+        nn_rate_rmse = 0.12,
+        support_f1_clean = 0.99,
+        support_f1_ude = 0.50,
+        support_f1_noisy = 0.50,
+        support_recall = 0.99,
+        discovered_rate_rmse = 0.20,
+        data_residual = 0.30)
+    @test !(:format_protocol_result in names(BioDynaX))
+    @test !(:assert_single_unknown_destruction in names(BioDynaX))
 end
