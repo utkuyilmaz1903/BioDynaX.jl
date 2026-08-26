@@ -102,10 +102,37 @@ function local_basis(network::BiologicalNetwork, target::Int;
 end
 
 function evaluate_term(term::MonomialTerm, X::AbstractMatrix)
-    isempty(term.variables) && return ones(eltype(X), size(X, 2))
-    output = ones(eltype(X), size(X, 2))
-    for (variable, power) in zip(term.variables, term.powers)
-        output .*= @view(X[variable, :]) .^ power
+    output = Vector{eltype(X)}(undef, size(X, 2))
+    return evaluate_term!(output, term, X)
+end
+
+"""
+    evaluate_term!(output, term, X)
+
+Write one monomial column into `output` (length `size(X, 2)`).
+"""
+function evaluate_term!(output::AbstractVector, term::MonomialTerm,
+                        X::AbstractMatrix)
+    length(output) == size(X, 2) ||
+        throw(DimensionMismatch("output length must match sample count"))
+    if isempty(term.variables)
+        fill!(output, one(eltype(X)))
+        return output
+    end
+    fill!(output, one(eltype(X)))
+    @inbounds for (variable, power) in zip(term.variables, term.powers)
+        col = @view X[variable, :]
+        if power == 1
+            output .*= col
+        elseif power == 2
+            for i in eachindex(output)
+                output[i] *= col[i] * col[i]
+            end
+        else
+            for i in eachindex(output)
+                output[i] *= col[i]^power
+            end
+        end
     end
     return output
 end
@@ -134,7 +161,7 @@ function evaluate_library!(output::AbstractMatrix, terms::Vector{MonomialTerm},
     size(output, 2) == length(terms) ||
         throw(DimensionMismatch("library columns must match term count"))
     for (column, term) in pairs(terms)
-        output[:, column] .= evaluate_term(term, X)
+        evaluate_term!(@view(output[:, column]), term, X)
     end
     return output
 end

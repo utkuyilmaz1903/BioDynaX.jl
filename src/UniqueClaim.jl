@@ -208,7 +208,8 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "architecture.md"),
         joinpath(root, "docs", "src", "benchmarks.md"),
         joinpath(root, "docs", "src", "experimental.md"),
-        joinpath(root, "docs", "src", "compiled-path.md"))
+        joinpath(root, "docs", "src", "compiled-path.md"),
+        joinpath(root, "docs", "src", "discovery-streaming.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""

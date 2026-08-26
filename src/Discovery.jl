@@ -135,45 +135,15 @@ design matrices need not be factored in one shot. Matches dense `_stlsq`
 thresholding semantics.
 """
 function _stlsq_blocked(A, y, threshold; max_iterations = 20, ridge = 1e-10,
-                        chunk_size::Int = 256)
+                        chunk_size::Int = 256,
+                        workspace::Union{Nothing,STLSQWorkspace} = nothing)
     n, p = size(A)
-    T = eltype(A)
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
-    scales = zeros(T, p)
-    for start in 1:chunk_size:n
-        stop = min(start + chunk_size - 1, n)
-        scales .+= vec(sum(abs2, @view(A[start:stop, :]); dims = 1))
-    end
-    scales .= sqrt.(scales)
-    scales .= max.(scales, eps(T))
-    active = trues(p)
-    coefficients = zeros(T, p)
-    for _ in 1:max_iterations
-        indices = findall(active)
-        isempty(indices) && break
-        k = length(indices)
-        G = zeros(T, k, k)
-        b = zeros(T, k)
-        local_scales = scales[indices]
-        for start in 1:chunk_size:n
-            stop = min(start + chunk_size - 1, n)
-            A_chunk = @view A[start:stop, indices]
-            y_chunk = @view y[start:stop]
-            Anorm = A_chunk ./ reshape(local_scales, 1, :)
-            G .+= Anorm' * Anorm
-            b .+= Anorm' * y_chunk
-        end
-        @inbounds for i in 1:k
-            G[i, i] += T(ridge)
-        end
-        local_coefficients = G \ b
-        coefficients .= zero(T)
-        coefficients[indices] .= local_coefficients
-        next_active = abs.(coefficients) .≥ threshold
-        next_active == active && break
-        active = next_active
-    end
-    return coefficients ./ scales
+    ws = workspace === nothing ?
+        allocate_stlsq_workspace(eltype(A), n, p, chunk_size) :
+        ensure_stlsq_workspace!(workspace, n, p, chunk_size)
+    return collect(_stlsq_blocked!(
+        ws, A, y, threshold; max_iterations = max_iterations, ridge = ridge))
 end
 
 function _block_bootstrap_indices(rng, indices, block_length)
@@ -199,39 +169,11 @@ function _implicit_design!(design, num_buf, den_buf, spec, local_X, y)
 end
 
 function _fit_implicit(spec::LocalBasisSpec, X, derivative, indices,
-                       threshold; chunk_size::Int = 256)
-    local_X = @view X[:, indices]
-    y = collect(@view derivative[indices])
-    n = length(indices)
-    n_num = length(spec.numerator)
-    n_den = length(spec.denominator)
-    num_buf = Matrix{eltype(X)}(undef, n, n_num)
-    den_buf = Matrix{eltype(X)}(undef, n, n_den)
-    design = Matrix{eltype(X)}(undef, n, n_num + n_den)
-    _implicit_design!(design, num_buf, den_buf, spec, local_X, y)
-    coefficients = _stlsq_blocked(design, y, threshold; chunk_size = chunk_size)
-    split = n_num
-    numerator_coefficients = coefficients[1:split]
-    denominator_coefficients = coefficients[(split + 1):end]
-    enforce_hierarchy!(
-        numerator_coefficients, spec.numerator, threshold)
-    enforce_hierarchy!(
-        denominator_coefficients, spec.denominator, threshold)
-    pred, _ = _evaluate_candidate(
-        spec, numerator_coefficients, denominator_coefficients, local_X)
-    if all(isfinite, pred)
-        _implicit_design!(design, num_buf, den_buf, spec, local_X, pred)
-        coefficients = _stlsq_blocked(design, y, threshold; chunk_size = chunk_size)
-        numerator_coefficients = coefficients[1:split]
-        denominator_coefficients = coefficients[(split + 1):end]
-        enforce_hierarchy!(
-            numerator_coefficients, spec.numerator, threshold)
-        enforce_hierarchy!(
-            denominator_coefficients, spec.denominator, threshold)
-    end
-    return prune_nested_implicit(
-        spec, numerator_coefficients, denominator_coefficients,
-        local_X, y, threshold)
+                       threshold; chunk_size::Int = 256,
+                       workspace::Union{Nothing,StreamingImplicitWorkspace} = nothing)
+    return _fit_implicit_stream(
+        spec, X, derivative, indices, threshold;
+        chunk_size = chunk_size, workspace = workspace)
 end
 
 function _implicit_rss(spec, numerator, denominator, X, y)
@@ -243,14 +185,25 @@ end
 _unsafe_denominator(dvals, floor) =
     isempty(dvals) || any(!isfinite, dvals) || minimum(dvals) < floor
 
-function _refit_masked_implicit(spec, X, y, num_keep, den_keep, threshold)
+function _refit_masked_implicit(spec, X, y, num_keep, den_keep, threshold;
+                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
     n = size(X, 2)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
-    num_buf = Matrix{eltype(X)}(undef, n, n_num)
-    den_buf = Matrix{eltype(X)}(undef, n, n_den)
-    design = Matrix{eltype(X)}(undef, n, n_num + n_den)
-    _implicit_design!(design, num_buf, den_buf, spec, X, y)
+    ws = workspace === nothing ?
+        allocate_implicit_workspace(eltype(X), n, n_num, n_den, 256) :
+        ensure_implicit_workspace!(workspace, n, n_num, n_den, 256)
+    return _refit_masked_implicit!(
+        ws, spec, X, y, num_keep, den_keep, threshold)
+end
+
+function _refit_masked_implicit!(ws::ImplicitLibraryWorkspace, spec, X, y,
+        num_keep, den_keep, threshold)
+    n = size(X, 2)
+    n_num = length(spec.numerator)
+    n_den = length(spec.denominator)
+    length(y) == n || throw(DimensionMismatch("y must match X columns"))
+    design = implicit_design!(ws, spec, X, y)
     keep = vcat(num_keep, den_keep)
     idx = findall(keep)
     coeffs = zeros(eltype(X), n_num + n_den)
@@ -261,9 +214,10 @@ function _refit_masked_implicit(spec, X, y, num_keep, den_keep, threshold)
     denominator = coeffs[(n_num + 1):end]
     numerator[.!num_keep] .= 0
     denominator[.!den_keep] .= 0
-    pred, _ = _evaluate_candidate(spec, numerator, denominator, X)
+    pred, _ = evaluate_candidate!(ws, spec, numerator, denominator, X)
     if !isempty(idx) && all(isfinite, pred)
-        _implicit_design!(design, num_buf, den_buf, spec, X, pred)
+        pred_vec = @view ws.pred[1:n]
+        design = implicit_design!(ws, spec, X, pred_vec)
         coeffs[idx] .= (@view design[:, idx]) \ y
         numerator = coeffs[1:n_num]
         denominator = coeffs[(n_num + 1):end]
@@ -282,7 +236,8 @@ end
 
 """Drop nested monomials on the same library when held-out RSS / BIC do not suffer."""
 function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
-                               floor::Real = 1e-8, rtol::Real = 0.02)
+                               floor::Real = 1e-8, rtol::Real = 0.02,
+                               workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
     numerator = copy(numerator)
     denominator = copy(denominator)
     rss0, _, denvals0 = _implicit_rss(spec, numerator, denominator, X, y)
@@ -293,17 +248,24 @@ function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
     n_act == 0 && return numerator, denominator
     n = length(y)
     n_val = n ≥ 40 ? max(8, round(Int, 0.2 * n)) : 0
+    ws = workspace === nothing ?
+        allocate_implicit_workspace(
+            eltype(X), n, length(spec.numerator), length(spec.denominator), 256) :
+        ensure_implicit_workspace!(
+            workspace, n, length(spec.numerator), length(spec.denominator), 256)
     if n_act ≤ 12
         return _subset_implicit_prune(
             spec, X, y, threshold, floor, rtol, rss0,
-            num_idx, den_idx, n_val)
+            num_idx, den_idx, n_val; workspace = ws)
     end
     return _greedy_implicit_prune(
-        spec, numerator, denominator, X, y, threshold, floor, rtol, rss0)
+        spec, numerator, denominator, X, y, threshold, floor, rtol, rss0;
+        workspace = ws)
 end
 
 function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
-                                num_idx, den_idx, n_val)
+                                num_idx, den_idx, n_val;
+                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
     n = length(y)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
@@ -327,7 +289,8 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
         @inbounds for j in 1:n_den_act
             (bits & (1 << (n_num_act + j - 1))) != 0 && (keep_d[den_idx[j]] = true)
         end
-        n2, d2 = _refit_masked_implicit(spec, Xtr, ytr, keep_n, keep_d, threshold)
+        n2, d2 = _refit_masked_implicit(
+            spec, Xtr, ytr, keep_n, keep_d, threshold; workspace = workspace)
         rss_fit, _, dvals_fit = _implicit_rss(spec, n2, d2, Xtr, ytr)
         rss_val, _, dvals_val = _implicit_rss(spec, n2, d2, Xval, yval)
         _unsafe_denominator(dvals_fit, floor) && continue
@@ -344,7 +307,7 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
     isempty(candidates) && return _refit_masked_implicit(
         spec, X, y,
         [i in num_idx for i in 1:n_num],
-        [i in den_idx for i in 1:n_den], threshold)
+        [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
     best_score = minimum(c.score for c in candidates)
     slack = max(abs(best_score) * rtol, 1e-12)
     admissible = [c for c in candidates if c.score ≤ best_score + slack]
@@ -352,11 +315,13 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
     keep_n = abs.(chosen.num) .> 1e-8
     keep_d = abs.(chosen.den) .> 1e-8
     any(keep_n) || return chosen.num, chosen.den
-    return _refit_masked_implicit(spec, X, y, keep_n, keep_d, threshold)
+    return _refit_masked_implicit(
+        spec, X, y, keep_n, keep_d, threshold; workspace = workspace)
 end
 
 function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
-                                floor, rtol, rss0)
+                                floor, rtol, rss0;
+                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
     n = length(y)
     k0 = count(c -> abs(c) > 1e-8, vcat(numerator, denominator))
     bic0 = information_criterion(n, rss0 * n, k0; criterion = :bic)
@@ -372,7 +337,7 @@ function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
             keep_n = copy(num_active)
             keep_n[i] = false
             n2, d2 = _refit_masked_implicit(
-                spec, X, y, keep_n, den_active, threshold)
+                spec, X, y, keep_n, den_active, threshold; workspace = workspace)
             rss, _, dvals = _implicit_rss(spec, n2, d2, X, y)
             (_unsafe_denominator(dvals, floor) || rss > rss0 * (1 + rtol)) && continue
             k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
@@ -387,7 +352,7 @@ function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
             keep_d = copy(den_active)
             keep_d[i] = false
             n2, d2 = _refit_masked_implicit(
-                spec, X, y, num_active, keep_d, threshold)
+                spec, X, y, num_active, keep_d, threshold; workspace = workspace)
             rss, _, dvals = _implicit_rss(spec, n2, d2, X, y)
             (_unsafe_denominator(dvals, floor) || rss > rss0 * (1 + rtol)) && continue
             k = count(c -> abs(c) > 1e-8, vcat(n2, d2))
@@ -418,17 +383,23 @@ end
 
 function _bootstrap_frequency(rng, spec, X, derivative, train_indices,
                               threshold, bootstrap_samples;
-                              chunk_size::Int = 256)
+                              chunk_size::Int = 256,
+                              workspace::Union{Nothing,StreamingImplicitWorkspace} = nothing)
     term_count = length(spec.numerator) + length(spec.denominator)
     selected = zeros(Float64, term_count)
     bootstrap_samples == 0 && return selected
     block_length = max(2, round(Int, sqrt(length(train_indices))))
+    n = length(train_indices)
+    ws = workspace === nothing ?
+        allocate_streaming_implicit_workspace(
+            eltype(X), n, length(spec.numerator), length(spec.denominator),
+            chunk_size) : workspace
     for _ in 1:bootstrap_samples
         indices = _block_bootstrap_indices(
             rng, train_indices, block_length)
         numerator, denominator =
             _fit_implicit(spec, X, derivative, indices, threshold;
-                          chunk_size = chunk_size)
+                          chunk_size = chunk_size, workspace = ws)
         selected .+= .!iszero.(vcat(numerator, denominator))
     end
     return selected ./ bootstrap_samples
@@ -436,16 +407,20 @@ end
 
 function _consensus_refit(spec, X, derivative, indices, threshold,
                           frequencies; minimum_frequency = 0.8,
-                          chunk_size::Int = 256)
+                          chunk_size::Int = 256,
+                          workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
     local_X = @view X[:, indices]
-    y = collect(@view derivative[indices])
     n = length(indices)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
-    num_buf = Matrix{eltype(X)}(undef, n, n_num)
-    den_buf = Matrix{eltype(X)}(undef, n, n_den)
-    design = Matrix{eltype(X)}(undef, n, n_num + n_den)
-    _implicit_design!(design, num_buf, den_buf, spec, local_X, y)
+    ws = workspace === nothing ?
+        allocate_implicit_workspace(eltype(X), n, n_num, n_den, chunk_size) :
+        ensure_implicit_workspace!(workspace, n, n_num, n_den, chunk_size)
+    y = @view ws.y[1:n]
+    @inbounds for i in 1:n
+        y[i] = derivative[indices[i]]
+    end
+    design = implicit_design!(ws, spec, local_X, y)
     support = frequencies .≥ minimum_frequency
     any(support) || return _fit_implicit(
         spec, X, derivative, indices, threshold; chunk_size = chunk_size)
@@ -460,7 +435,7 @@ function _consensus_refit(spec, X, derivative, indices, threshold,
         denominator_coefficients, spec.denominator, threshold)
     return prune_nested_implicit(
         spec, numerator_coefficients, denominator_coefficients,
-        local_X, y, threshold)
+        local_X, Vector(y), threshold; workspace = ws)
 end
 
 """Deterministic orthant stress grid spanning observed data bounds."""
@@ -809,7 +784,7 @@ function _discover_explicit(X, derivatives, network, backend,
     validation_indices =
         collect((sample_count - validation_count + 1):sample_count)
     candidates = ExplicitCandidate[]
-    chunk_size = 256
+    chunk_size = _backend_chunk_size(backend)
 
     for target in _target_indices(X, targets)
         derivative = vec(@view derivatives[target, :])

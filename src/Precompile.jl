@@ -24,5 +24,7 @@
         extras_print_label(("1", "r"))
         recovery_suite_hole_policy(:ude_discovery)
         recovery_suite_expected_holes(:linear)
+        allocate_stlsq_workspace(Float64, 16, 4, 8)
+        _backend_chunk_size(ImplicitSINDyPI(chunk_size = 32))
     end
 end
