@@ -268,7 +268,8 @@ function recovery_suite_skipped_unique_claim_trainers(sections)
             if section in plan.skipped]
 end
 
-function recovery_suite_would_train_unknown_edge(sections)
+function recovery_suite_would_train_unknown_edge(
+        sections = recovery_suite_default_sections())
     return !isempty(recovery_suite_plan(sections).train_unknown_edge)
 end
 
