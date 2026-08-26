@@ -4,8 +4,9 @@
 # Duplicate unknown reaction+edge pairs skip the edge after incrementing
 # nn_index. compile_mechanism reindexes kept NeuralDestructionTerm heads to
 # 1:n so ude_system / ude_rhs! / allocate_cache stay in bounds.
-# validate_network does not own this contract. generate_data(truth_params)
-# still builds a default 1-input NN — that path is a separate compiler hole.
+# validate_network does not own this contract. generate_data /
+# default_parameters build the compiled NN tree (multi-head and
+# multi-regulator); they are not a 1-input dummy hole.
 ###############################################################################
 
 """Source strings that prove compile_mechanism remaps kept heads."""
