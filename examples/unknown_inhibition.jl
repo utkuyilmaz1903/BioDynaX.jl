@@ -46,9 +46,8 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     tspan = protocol.tspan
-    ics_all = BioDynaX._unknown_edge_ics()
-    ics = smoke ? ics_all[1:1] : ics_all
-    n_points = smoke ? protocol.smoke_n_points : protocol.n_points
+    ics = BioDynaX.unique_claim_protocol_ics(; smoke)
+    n_points = BioDynaX.unique_claim_protocol_n_points(; smoke)
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = ics,
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
@@ -115,26 +114,30 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         first_exp.u0, tspan; term = term, verbose = false)
     residual = Inf
     rhs = nothing
+    extras = nothing
     if discovery.success && !isempty(discovery.candidates)
         rate_fn = equation_to_function(discovery.candidates[1])
         rhs = compose_hybrid_rhs(model, trained.params, term, rate_fn)
         residual = hybrid_data_residual(
             model, trained.params, term, rate_fn,
             first_exp.u0, tspan, first_exp.times, first_exp.observations)
+        extras = BioDynaX.unique_claim_discovery_extras(discovery.candidates[1])
     elseif !smoke
         error("discovery failed ($(discovery.retcode)): $(discovery.message)")
     end
     println(BioDynaX.format_protocol_result(ident;
         residual = residual,
         equations = discovery.equations,
-        extras = ("1", "r"),
-        unknown_holes = 1,
+        extras = extras,
+        unknown_holes = BioDynaX.count_unknown_destructions(model),
         seed = seed,
         n_ics = length(ics),
+        n_points = n_points,
         adam_iters = adam_iters,
         bfgs_iters = bfgs_iters,
         bootstrap = smoke ? nothing : protocol.bootstrap,
         discovery_seed = smoke ? nothing : protocol.discovery_seed,
+        protocol_kind = BioDynaX.unique_claim_protocol_kind(; smoke),
         smoke = smoke))
     println("Hybrid RHS constructed: ", typeof(rhs))
     println("CSV (first IC): ", csv_path)
