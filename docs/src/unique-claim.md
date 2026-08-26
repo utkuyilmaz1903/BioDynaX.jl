@@ -1,12 +1,11 @@
 # Unique claim
 
-Research preview. **Not v1.0. Not in General.** The unique claim is
-true-monomial recall, hybrid residual versus data, and
-`unidentifiable_edge`. Combined support F1 is a skeleton floor (0.50),
-not the UDE claim. Canonical Hill from a trained neural rate is closed.
-Coefficients are not biological constants when `unidentifiable_edge` is
-true. `BIODYNAX_SMOKE=1` (1 IC / 8 points) is not the seed-103 / 9-IC
-protocol.
+Research preview. Not v1.0. Not in General.
+Unique claim: recall, hybrid residual versus data, unidentifiable_edge.
+Combined support F1 is a skeleton floor (0.50), not the UDE claim.
+Canonical Hill from a trained neural rate is closed.
+Coefficients are not biological constants when the edge is unidentifiable.
+BIODYNAX_SMOKE=1 (1 IC / 8 points) is not the seed-103 / 9-IC protocol.
 
 Helpers on this page are **not exported**. Call them as `BioDynaX.foo`.
 They do not grow the public freeze list.
@@ -186,6 +185,101 @@ result = BioDynaX.build_protocol_result(ude)
 
 `run_recovery_suite` attaches that object on UDE and MM-unknown rows.
 It does not replace `locked_ude_kpis`.
+Unscored extras print NA; empty extras print (none); live extras are not hardcoded.
+
+```@repl claim-extras-print
+using BioDynaX
+BioDynaX.extras_print_label(nothing)
+BioDynaX.extras_print_label(String[])
+BioDynaX.extras_print_label(("1", "r"))
+```
+
+Stdout field order matches `PROTOCOL_RESULT_FIELDS`. The object stores
+`data_residual`; the printer writes `hybrid_data_residual`.
+
+```@example claim-print-order
+using BioDynaX
+ident = (; unidentifiable_edge = true, production_param = :k_prod)
+ude = (;
+    data_residual = 0.003, support_recall = 1.0, support_f1 = 0.57,
+    extras = ["1", "r"], identifiability = ident)
+result = BioDynaX.build_protocol_result(ude)
+text = BioDynaX.format_protocol_result(ident;
+    residual = result.data_residual, support_recall = result.support_recall,
+    support_f1 = result.support_f1, extras = result.extras,
+    unknown_holes = result.unknown_holes, seed = 103, n_ics = 9,
+    n_points = 50, adam_iters = 100, bfgs_iters = 50, bootstrap = 8,
+    discovery_seed = 3, smoke = false)
+(BioDynaX.format_protocol_result_field_order_holds(text),
+ BioDynaX.protocol_result_field_to_print_label(:data_residual))
+```
+
+## Typed smoke vs protocol fingerprint
+
+`unique_claim_reproduction` is a NamedTuple. `UniqueClaimFingerprint` is
+the typed object tests can fail independently. Smoke is not protocol.
+
+```@repl claim-fingerprint
+using BioDynaX
+fp = BioDynaX.unique_claim_fingerprint()
+sm = BioDynaX.unique_claim_fingerprint(; smoke = true)
+(BioDynaX.unique_claim_fingerprint_is_protocol(fp),
+ BioDynaX.unique_claim_fingerprint_is_smoke(sm),
+ sm.n_ics, sm.n_points, sm.bfgs_iterations)
+```
+
+The golden-path example reads `unique_claim_fingerprint` and passes it
+to `format_protocol_result`.
+
+## Recovery-path hole admission
+
+validate_network stays open; unique-claim recovery admits exactly one unknown D(z).
+Zero- and two-hole networks still compile.
+
+```@example claim-recovery-admit
+using BioDynaX
+zero_net = BioDynaX.build_linear_test_network()
+one_net = BioDynaX.build_hill_recovery_network(; known = false)
+two_net = BioDynaX.build_dual_unknown_network()
+(BioDynaX.unique_claim_compiler_stays_open(zero_net),
+ BioDynaX.unique_claim_compiler_stays_open(two_net),
+ BioDynaX.unique_claim_recovery_admits(zero_net),
+ BioDynaX.unique_claim_recovery_admits(one_net),
+ BioDynaX.unique_claim_recovery_admits(two_net),
+ BioDynaX.assert_unique_claim_recovery_network(one_net) === one_net)
+```
+
+`run_recovery_suite` calls `assert_unique_claim_recovery_network` before
+the 9-IC UDE train.
+
+## Compiler remapping (not a unique-claim gate)
+
+compile_mechanism reindexes kept NeuralDestructionTerm heads to 1:n.
+A skipped duplicate unknown edge no longer leaves a gapped `nn_index`.
+`validate_network` does not own that remapping. Multi-regulator `D(S,I)`
+compiles; it is not the unique-claim path.
+
+```@example claim-remap
+using BioDynaX, Random
+skipped = BioDynaX.build_skipped_duplicate_unknown_network()
+two_reg = BioDynaX.build_two_regulator_unknown_network()
+snap = BioDynaX.compile_unknown_topology(skipped; rng = MersenneTwister(13))
+two = BioDynaX.compile_unknown_topology(two_reg; rng = MersenneTwister(13))
+(snap.indices, snap.n_heads, snap.rhs.finite, snap.rhs.parity,
+ two.arities, two.rhs.cache_matches)
+```
+
+## F1 attempt probe
+
+benchmark/ude_f1_attempt.jl is a same-library probe, not the 9-IC protocol. It does not call `unique_claim_protocol_ics` and does not
+train a UDE. `support_f1_ude` stays 0.50.
+
+```@repl claim-f1-attempt
+using BioDynaX
+c = BioDynaX.unique_claim_f1_attempt_contract()
+(c.is_protocol, c.trains_ude, c.n_ics, c.new_atoms,
+ c.support_f1_ude, c.support_f1_clean)
+```
 
 ## What this page is not
 

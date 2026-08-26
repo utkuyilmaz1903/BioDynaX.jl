@@ -1,3 +1,20 @@
+@testset "extras printer does not invent F1-attempt leftovers" begin
+    @test extras_print_label(nothing) == "NA"
+    @test extras_print_label(String[]) == "(none)"
+    @test extras_print_label(("1", "r")) == "1, r"
+    @test extras_print_is_hardcoded_attempt("1, r remain after the UDE F1 attempt")
+    @test extras_print_is_hardcoded_attempt(extras_print_label(nothing)) == false
+end
+
+@testset "typed fingerprint is not smoke and is not exported" begin
+    fp = unique_claim_fingerprint()
+    @test unique_claim_fingerprint_holds(fp)
+    @test unique_claim_fingerprint_is_protocol(fp)
+    @test !(:UniqueClaimFingerprint in names(BioDynaX))
+    @test !(:UNIQUE_CLAIM_F1_ATTEMPT in names(BioDynaX))
+    @test unique_claim_f1_attempt_contract().is_protocol == false
+end
+
 @testset "locked UDE KPI names" begin
     fake = (;
         data_residual = 0.01,

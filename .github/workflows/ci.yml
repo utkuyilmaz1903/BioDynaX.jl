@@ -68,6 +68,9 @@ jobs:
               "test/test_unique_claim_product.jl",
               "test/test_protocol_fingerprint.jl",
               "test/test_docs_honesty.jl",
+              "src/CompilerContract.jl",
+              "test/test_compiler_contract.jl",
+              "test/test_protocol_surface.jl",
           ]
           ok = true
           for file in files

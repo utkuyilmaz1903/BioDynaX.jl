@@ -59,9 +59,12 @@ combined F1 ≈ 0.57 (extras `1` and `r` remain), data residual ≈ 0.003,
 `k_prod`↔`D` cosine ≈ 0.997. That F1 is **below** `support_f1_clean`.
 `benchmark/ude_f1_attempt.jl` replayed those extras on the same library
 (Occam + scale-normalization). Combined F1 stayed 0.57. That script is an
-F1 **attempt**, not the seed-103 / 9-IC recovery protocol and not a
-reason to tighten `support_f1_ude`. The product does not claim canonical
-Hill from a trained NN.
+F1 **attempt** (`UNIQUE_CLAIM_F1_ATTEMPT`: `is_protocol = false`,
+`trains_ude = false`, `n_ics = 0`, no new atoms), not the seed-103 / 9-IC
+recovery protocol and not a reason to tighten `support_f1_ude`. The
+product does not claim canonical Hill from a trained NN. Live extras on
+the recovery row print through `extras_print_label`; the attempt leftover
+pair is not hardcoded when discovery did not score.
 
 Thresholds are `RECOVERY_THRESHOLDS`. Loosening them is a breaking change.
 v1.0 is not cut until this table stays red when the claim fails.

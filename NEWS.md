@@ -1,5 +1,17 @@
 # BioDynaX.jl Unreleased
 
+- Unique-claim protocol surfaces are typed: `UniqueClaimFingerprint`
+  distinguishes the seed-103 / 9-IC job from smoke. `format_protocol_result`
+  print order is locked to `PROTOCOL_RESULT_FIELDS` (`data_residual` prints
+  as `hybrid_data_residual`; `claim` is printed). Unscored extras print
+  `NA`; empty extras print `(none)`; the F1-attempt leftover pair is not
+  invented. `run_recovery_suite` calls
+  `assert_unique_claim_recovery_network` before the UDE train;
+  `validate_network` stays open. `UNIQUE_CLAIM_F1_ATTEMPT` records that
+  `benchmark/ude_f1_attempt.jl` is a same-library probe, not the protocol.
+- Compiler remapping helpers (`assert_dense_neural_index`, skipped-edge
+  and two-regulator fixtures) lock the #11 `1:n` reindex without putting
+  a single-hole gate into `validate_network`.
 - `generate_data` / `generate_experiment_set` and `default_parameters` now
   build NN weights that match the compiled mechanism (multi-head and
   multi-regulator unknowns). A 1-input dummy chain no longer silently

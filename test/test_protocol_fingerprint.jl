@@ -94,7 +94,7 @@ end
     @test occursin("unique_claim_protocol_n_points(; smoke)", src)
     @test occursin("unique_claim_discovery_extras", src)
     @test occursin("count_unknown_destructions(model)", src)
-    @test occursin("unique_claim_protocol_kind(; smoke)", src)
+    @test occursin("unique_claim_fingerprint(; smoke)", src)
     @test !occursin("extras = (\"1\", \"r\")", src)
     @test !occursin("build_hill_recovery_network", src)
     @test !occursin("Note:", src)
@@ -131,6 +131,8 @@ end
     @test !occursin("canonical Hill from a trained NN is open", src)
     @test !occursin("support_f1_ude = 0.99", src)
     @test occursin("RECOVERY_THRESHOLDS", src)
+    @test occursin("UNIQUE_CLAIM_F1_ATTEMPT", src)
+    @test unique_claim_f1_attempt_holds()
     verdict = unique_claim_f1_attempt_verdict(;
         extras = ["1", "r"], reaches_clean = false)
     @test verdict === :extras_remain_claim_stays_recall_plus_residual

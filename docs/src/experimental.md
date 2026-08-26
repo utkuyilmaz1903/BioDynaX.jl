@@ -23,6 +23,8 @@ this as an array-transport helper, not a SciML GPU stack.
 ## Identifiability
 
 `BioDynaX.assess_identifiability` is experimental Fisher arithmetic.
+It is not `UniqueClaimFingerprint`, not `UNIQUE_CLAIM_F1_ATTEMPT`, and
+not the IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION printer.
 
 Unknown-edge recovery reports a practical `k_prod` ↔ `D(z)` scale
 collinearity (`BioDynaX.production_destruction_tradeoff`). The golden path

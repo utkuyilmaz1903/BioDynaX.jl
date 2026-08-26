@@ -9,7 +9,7 @@ using BioDynaX
 using BioDynaX:
     hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
     discover_unknown_rate, normalize_destruction_samples, RECOVERY_THRESHOLDS,
-    UNIQUE_CLAIM_PROTOCOL
+    UNIQUE_CLAIM_PROTOCOL, UNIQUE_CLAIM_F1_ATTEMPT
 using Printf
 
 function discover_f1(D, r; seed = 103)
@@ -40,6 +40,7 @@ end
 
 function main()
     proto = UNIQUE_CLAIM_PROTOCOL
+    attempt = UNIQUE_CLAIM_F1_ATTEMPT
     r = collect(range(0.1, 2.0; length = 180))
     hill = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
     # Extras that remain on the trained-NN rate (seed 103): constant and linear r.
@@ -51,6 +52,9 @@ function main()
         nn_like_normalized = discover_f1(nn_norm, r),
     )
     println("UDE combined-F1 attempt (same library; no new atoms)")
+    println("  UNIQUE_CLAIM_F1_ATTEMPT is_protocol=$(attempt.is_protocol)",
+            " trains_ude=$(attempt.trains_ude) n_ics=$(attempt.n_ics)",
+            " new_atoms=$(attempt.new_atoms)")
     println("  not the recovery protocol: seed=$(proto.seed) n_ics=$(proto.n_ics)",
             " n_points=$(proto.n_points) (smoke is $(proto.smoke_n_ics) IC / ",
             "$(proto.smoke_n_points) points)")

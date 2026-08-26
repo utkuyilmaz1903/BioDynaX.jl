@@ -39,9 +39,11 @@ end
     @test occursin("not v1.0", lowercase(text)) || occursin("Not v1.0", text)
     @test occursin("not in General", text) || occursin("Not in General", text)
     @test occursin("skeleton", lowercase(text))
-    for label in ("claim", "f1", "hill", "coefficients", "smoke", "preview")
+    for label in ("claim", "f1", "hill", "coefficients", "smoke", "preview",
+        "remap", "extras", "recovery", "f1_attempt")
         @test haskey(sentences, Symbol(label))
         @test !isempty(sentences[Symbol(label)])
+        @test occursin(sentences[Symbol(label)], text)
     end
 end
 

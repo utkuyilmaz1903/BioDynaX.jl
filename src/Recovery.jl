@@ -42,8 +42,9 @@ function _format_protocol_value(value)
 end
 
 function _format_protocol_extras(extras)
-    extras === nothing && return "1, r remain after the UDE F1 attempt"
+    extras === nothing && return "NA"
     extras isa AbstractString && return extras
+    isempty(extras) && return "(none)"
     return join(string.(extras), ", ")
 end
 
@@ -98,11 +99,12 @@ function format_protocol_result(ident;
     println(io, "DISCOVERY")
     println(io, "  equations:")
     println(io, _format_protocol_equations(equations))
-    println(io, "  extras: ", _format_protocol_extras(extras))
     f1 = support_f1 === nothing ?
          "skeleton floor 0.50; not the UDE claim" : support_f1
     println(io, "  support_f1: ", f1)
+    println(io, "  extras: ", _format_protocol_extras(extras))
     println(io, "  canonical_hill_from_nn: false")
+    println(io, "  claim: recall_plus_data_residual")
     println(io, "REPRODUCTION")
     println(io, "  seed: ", _format_protocol_value(seed))
     println(io, "  n_ics: ", _format_protocol_value(n_ics))
@@ -986,6 +988,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     if :ude_discovery in wanted
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    assert_unique_claim_recovery_network(ude_net)
     # Consume the same RNG stream as known-kinetics fixtures so UDE init stays stable.
     build_ude_model(rng, truth_net)
     hill_truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
@@ -1020,6 +1023,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     if :mm_unknown in wanted
     truth_net = build_mm_recovery_network(; known = true)
     ude_net = build_mm_recovery_network(; known = false)
+    assert_unique_claim_recovery_network(ude_net)
     build_ude_model(rng, truth_net)
     mm_truth = (k_prod = 0.9, vmax = 1.6, km = 0.45, k_rs = 1.0, k_r = 0.6)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
