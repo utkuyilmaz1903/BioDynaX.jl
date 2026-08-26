@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Denominator / domain safety splits `denominator_violation_count`
+  across train, validation, and the orthant domain grid
+  (`src/DenominatorDomain.jl`, not exported). Explicit candidates
+  count 0. Failed discovery records `typemax`. UDE extras still
+  walk the domain grid. Docs:
+  [denominator-domain](docs/src/denominator-domain.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Graph-local library rows lock `local_basis` `scope=:graph` versus
   `scope=:global` and name `local_has_true_parent_gate`
   (`src/GraphLocalLibrary.jl`, not exported). Wrong-graph parent

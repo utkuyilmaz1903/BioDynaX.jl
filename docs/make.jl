@@ -30,6 +30,7 @@ makedocs(
         "Hybrid residual versus solver" => "hybrid-residual.md",
         "Identifiability product rows" => "identifiability-product.md",
         "Graph-local library and ablation" => "graph-local-library.md",
+        "Denominator and domain safety" => "denominator-domain.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

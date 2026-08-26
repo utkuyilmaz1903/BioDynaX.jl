@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Denominator / domain safety (`src/DenominatorDomain.jl`, not
+  exported): train / validation / orthant split counts. UDE extras
+  still call `denominator_violation_count` on the domain grid.
+  Docs: [denominator-domain](docs/src/denominator-domain.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Graph-local library (`src/GraphLocalLibrary.jl`, not exported):
   `local_basis` `scope=:graph` versus `scope=:global`.
   `local_has_true_parent_gate` is the recovered-support membership

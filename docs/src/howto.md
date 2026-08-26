@@ -169,3 +169,8 @@ through `identifiability_product`.
 the ablation. `local_has_true_parent_gate` is the recovered-support
 membership check. See
 [Graph-local library and ablation](graph-local-library.md).
+
+`denominator_split_counts` walks train, validation, and the
+orthant domain grid. `ude_extras_denominator_row` still counts
+violations when extras remain. See
+[Denominator and domain safety](denominator-domain.md).

@@ -45,6 +45,7 @@ compose_hybrid_rhs with the neural destruction rate recovers ude_system.
 hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
 production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
 local_basis scope=:graph uses graph parents; scope=:global is the ablation.
+denominator_split_counts walks train, validation, and the orthant domain grid separately.
 
 ## In-place production integration
 

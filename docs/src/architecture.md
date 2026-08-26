@@ -57,6 +57,8 @@ production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiabi
 See [Identifiability product rows](identifiability-product.md).
 local_basis scope=:graph uses graph parents; scope=:global is the ablation.
 See [Graph-local library and ablation](graph-local-library.md).
+denominator_split_counts walks train, validation, and the orthant domain grid separately.
+See [Denominator and domain safety](denominator-domain.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

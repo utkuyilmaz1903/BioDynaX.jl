@@ -282,6 +282,63 @@ function denominator_violation_count(candidate::ImplicitCandidate, X;
     return count(<(floor), denominator)
 end
 
+"""Explicit candidates have no rational denominator; the count is 0."""
+function denominator_violation_count(::ExplicitCandidate, X;
+                                     floor::Real = 1e-8)
+    return 0
+end
+
+"""Failed discovery has no candidate; treat as an unbounded violation."""
+function denominator_violation_count(::Nothing, X; floor::Real = 1e-8)
+    return typemax(Int)
+end
+
+"""
+    denominator_split_counts(candidate, train_X, val_X, domain_X; floor=1e-8)
+
+Count denominator violations on the train slice, the validation slice,
+and the orthant domain grid separately. Combined F1 is not scored here.
+"""
+function denominator_split_counts(candidate, train_X, val_X, domain_X;
+                                  floor::Real = 1e-8)
+    train = denominator_violation_count(candidate, train_X; floor = floor)
+    val = denominator_violation_count(candidate, val_X; floor = floor)
+    domain = denominator_violation_count(candidate, domain_X; floor = floor)
+    return (;
+        train, val, domain,
+        total = train + val + domain,
+        any = (train + val + domain) > 0)
+end
+
+"""
+    ude_extras_denominator_row(candidate, R_grid; extras, floor, domain_samples)
+
+Apply `denominator_split_counts` on the UDE extras path. Live extras
+do not skip the train / val / orthant grid. Hardcoded F1-attempt
+extras strings stay rejected.
+"""
+function ude_extras_denominator_row(candidate, R_grid;
+        extras = String[], floor::Real = 1e-8,
+        domain_samples::Int = 32, seed::Integer = 42)
+    n = size(R_grid, 2)
+    n_val = n ≤ 2 ? 0 : clamp(round(Int, 0.2 * n), 1, n - 1)
+    train_X = n_val == 0 ? R_grid : @view R_grid[:, 1:(n - n_val)]
+    val_X = n_val == 0 ? R_grid : @view R_grid[:, (n - n_val + 1):n]
+    domain_X = _denominator_domain_grid(R_grid; n = domain_samples, seed = seed)
+    split = denominator_split_counts(
+        candidate, train_X, val_X, domain_X; floor = floor)
+    extras_label = extras_print_label(extras)
+    return merge(split, (;
+        extras,
+        extras_label,
+        extras_live = extras !== nothing && !isempty(extras),
+        hardcoded = extras_print_is_hardcoded_attempt(extras_label),
+        n_train = size(train_X, 2),
+        n_val = size(val_X, 2),
+        n_domain = size(domain_X, 2),
+        holds = extras_print_is_hardcoded_attempt(extras_label) == false))
+end
+
 function support_uses_variable(candidate; variable::Int, atol::Real = 1e-8)
     recovered = active_support(candidate; atol = atol)
     keys = union(recovered.numerator, recovered.denominator)
@@ -610,6 +667,7 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     residual = Inf
     den_violations = typemax(Int)
     extras = String[]
+    extras_denominator = nothing
     if discovery.success
         candidate = discovery.candidates[1]
         metrics = support_f1(candidate, truth_support.numerator,
@@ -622,6 +680,8 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         D_hat = [d_hat([rj]) for rj in r]
         rate_rmse = rate_rel_rmse(D_hat, D_true)
         den_violations = denominator_violation_count(candidate, R_grid)
+        extras_denominator = ude_extras_denominator_row(
+            candidate, R_grid; extras = extras)
         residual = data_residual_fn(d_hat)
     end
     norm_f1 = 0.0
@@ -646,6 +706,7 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         normalized_support_f1 = norm_f1,
         normalized_support_recall = norm_recall,
         extras,
+        extras_denominator,
         discovery = discovery,
         term = term)
 end
