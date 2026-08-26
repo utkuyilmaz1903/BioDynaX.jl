@@ -91,7 +91,9 @@ are internal fixtures.
 
 Unique-claim product helpers (`format_protocol_result`,
 `build_protocol_result`, `UNIQUE_CLAIM_PROTOCOL`,
-`assert_single_unknown_destruction`, `unique_claim_kpis_hold`) are
+`assert_single_unknown_destruction`, `unique_claim_kpis_hold`,
+`admit_recovery_suite_network`, `UniqueClaimProtocolRow`,
+`unique_claim_experiment_set`) are
 internal. They are documented on [Unique claim](unique-claim.md).
 
 ## Registry

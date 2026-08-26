@@ -70,7 +70,14 @@ must not join the [stability freeze list](docs/src/stability.md) before v1.0.
 Do not use them in a paper or a wet lab.
 
 New files should match `.JuliaFormatter.toml` (SciML style). Do not
-reformat the whole tree in a drive-by PR.
+reformat the whole tree in a drive-by PR. New Julia files that the
+format job lists (`src/DataGenContract.jl`, `src/RecoveryAdmission.jl`,
+and their tests) must stay `overwrite=false` clean.
+
+`generate_data` must keep the compiled NN tree (multi-head and
+multi-regulator). Do not restore a 1-input dummy. Unique-claim suite
+sections go through `admit_recovery_suite_network`; do not put that
+single-hole check into `validate_network`.
 
 ## v1.0 / JOSS / General
 

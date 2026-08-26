@@ -130,6 +130,7 @@ const UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN = (
     "UNIQUE_CLAIM_PROTOCOL.bfgs_iterations",
     "unique_claim_protocol_ics",
     "unique_claim_protocol_n_points",
+    "unique_claim_experiment_set",
     "unique_claim_discovery_config",
     "unique_claim_discovery_extras",
     "unique_claim_fingerprint",
@@ -260,7 +261,10 @@ unique_claim_locked_sentences() = (;
     remap = "compile_mechanism reindexes kept NeuralDestructionTerm heads to 1:n.",
     extras = "Unscored extras print NA; empty extras print (none); live extras are not hardcoded.",
     recovery = "validate_network stays open; unique-claim recovery admits exactly one unknown D(z).",
-    f1_attempt = "benchmark/ude_f1_attempt.jl is a same-library probe, not the 9-IC protocol.")
+    f1_attempt = "benchmark/ude_f1_attempt.jl is a same-library probe, not the 9-IC protocol.",
+    datagen = "generate_data uses the compiled NN tree; remapped multi-head and two-regulator D(S,I) are generated together.",
+    admission = "run_recovery_suite admits unique-claim sections through admit_recovery_suite_network; 0/2 holes fail closed without training.",
+    protocol_row = "UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result, extras_print_label, and named KPI failures.")
 
 # -- Protocol fingerprint -----------------------------------------------------
 
@@ -931,7 +935,7 @@ function recovery_suite_uses_single_hole_instrument()
     path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
     src = read(path, String)
     return occursin("only_unknown_destruction", src) &&
-           occursin("assert_unique_claim_recovery_network", src) &&
+           occursin("admit_recovery_suite_network", src) &&
            occursin("function run_recovery_suite", src)
 end
 

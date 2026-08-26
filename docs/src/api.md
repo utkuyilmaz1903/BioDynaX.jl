@@ -130,6 +130,11 @@ Unique-claim product helpers are also internal (`BioDynaX.foo`):
 `extras_print_label`, `UNIQUE_CLAIM_F1_ATTEMPT`. Compiler remapping
 helpers (`assert_dense_neural_index`,
 `build_skipped_duplicate_unknown_network`,
-`build_two_regulator_unknown_network`) live in the same unexported
-surface. They are documented with executable snippets on
+`build_two_regulator_unknown_network`,
+`build_remapped_two_regulator_network`,
+`generate_from_compiled_model`,
+`unique_claim_experiment_set`) live in the same unexported
+surface. Recovery admission (`admit_recovery_suite_network`,
+`UniqueClaimProtocolRow`, `unique_claim_kpi_failure_symbols`) is
+documented with executable snippets on
 [Unique claim](unique-claim.md). Do not export them to silence Documenter.

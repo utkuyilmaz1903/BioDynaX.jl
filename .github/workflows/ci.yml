@@ -71,6 +71,10 @@ jobs:
               "src/CompilerContract.jl",
               "test/test_compiler_contract.jl",
               "test/test_protocol_surface.jl",
+              "src/DataGenContract.jl",
+              "src/RecoveryAdmission.jl",
+              "test/test_datagen_contract.jl",
+              "test/test_recovery_admission.jl",
           ]
           ok = true
           for file in files

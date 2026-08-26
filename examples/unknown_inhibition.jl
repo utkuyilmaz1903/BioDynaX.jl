@@ -50,10 +50,12 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
     tspan = fingerprint.tspan
     ics = BioDynaX.unique_claim_protocol_ics(; smoke)
     n_points = BioDynaX.unique_claim_protocol_n_points(; smoke)
-    set = generate_experiment_set(
-        rng; network = truth_net, initial_conditions = ics,
-        tspan = tspan, n_points = n_points, noise_σ = noise_σ,
-        truth_params = truth)
+    set = BioDynaX.unique_claim_experiment_set(
+        rng, truth_net; smoke, truth_params = truth, noise_σ = noise_σ)
+    length(set.experiments) == length(ics) ||
+        error("unique_claim_experiment_set IC count must match fingerprint")
+    size(first(set.experiments).observations, 2) == n_points ||
+        error("unique_claim_experiment_set point count must match fingerprint")
 
     # Never overwrite the committed howto fixture.
     data_dir = mktempdir()

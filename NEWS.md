@@ -1,5 +1,16 @@
 # BioDynaX.jl Unreleased
 
+- `generate_from_compiled_model` integrates a stored `UDEModel`.
+  `generate_data(::GroundTruthModel)` no longer rebuilds a same-network
+  twin. Remapped multi-head unknowns and two-regulator `D(S,I)` are
+  generated together (`build_remapped_two_regulator_network`,
+  `unique_claim_experiment_set`; not exported).
+- `run_recovery_suite` admits unique-claim sections through
+  `admit_recovery_suite_network`. Zero- and two-hole networks fail closed
+  on that path without a 9-IC train; `validate_network` stays open.
+  `UniqueClaimProtocolRow` joins `UniqueClaimFingerprint`,
+  `protocol_result`, `extras_print_label`, and named KPI failures
+  (`:unidentifiable_edge`, `:data_residual`, `:support_recall`).
 - Unique-claim protocol surfaces are typed: `UniqueClaimFingerprint`
   distinguishes the seed-103 / 9-IC job from smoke. `format_protocol_result`
   print order is locked to `PROTOCOL_RESULT_FIELDS` (`data_residual` prints

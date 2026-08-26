@@ -144,7 +144,7 @@ end
     @test unique_claim_recovery_admits(model)
     @test recovery_suite_uses_single_hole_instrument()
     recovery_src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
-    @test occursin("assert_unique_claim_recovery_network", recovery_src)
+    @test occursin("admit_recovery_suite_network", recovery_src)
     @test occursin("only_unknown_destruction", recovery_src)
     suite_src = read(joinpath(pkgdir(BioDynaX), "benchmark", "recovery_suite.jl"), String)
     @test occursin("format_recovery_protocol", suite_src)
@@ -198,6 +198,7 @@ end
 @testset "example and docs lock the new protocol surfaces" begin
     src = read(unique_claim_example_path(), String)
     @test occursin("unique_claim_fingerprint", src)
+    @test occursin("unique_claim_experiment_set", src)
     @test occursin("assert_unique_claim_recovery_network", src)
     @test occursin("format_protocol_result(ident, fingerprint", src)
     violations = unique_claim_example_source_violations()

@@ -16,5 +16,9 @@
         unique_claim_fingerprint(; smoke = true)
         neural_index_is_dense(compile_mechanism(network))
         extras_print_label(nothing)
+        extras_print_label(String[])
+        admit_recovery_suite_network(:linear)
+        recovery_suite_section_kind(:ude_discovery)
+        format_unique_claim_kpi_failures(Symbol[])
     end
 end

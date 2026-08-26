@@ -43,6 +43,16 @@
     @test isfinite(ude.normalized_support_f1)
     @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
     @test UNIQUE_CLAIM_PROTOCOL.seed == 103
+    row = unique_claim_protocol_row(ude)
+    @test row.kpi_failures == Symbol[]
+    @test format_unique_claim_kpi_failures(row.kpi_failures) == "(none)"
+    @test unique_claim_kpi_failure_symbols() ==
+          (:unidentifiable_edge, :data_residual, :support_recall)
+    @test !(:support_f1 in unique_claim_kpi_failure_symbols())
+    @test assert_unique_claim_protocol_row_holds(row) === row
+    @test extras_print_label(proto.extras) == row.extras_label
+    @test unique_claim_fingerprint_is_protocol(row.fingerprint)
+    @test occursin("unidentifiable_edge: true", row.text)
 end
 
 @testset "UDE unknown-edge Hill recovery with noise" begin

@@ -12,6 +12,8 @@ end
     @test unique_claim_fingerprint_is_protocol(fp)
     @test !(:UniqueClaimFingerprint in names(BioDynaX))
     @test !(:UNIQUE_CLAIM_F1_ATTEMPT in names(BioDynaX))
+    @test !(:UniqueClaimProtocolRow in names(BioDynaX))
+    @test !(:admit_recovery_suite_network in names(BioDynaX))
     @test unique_claim_f1_attempt_contract().is_protocol == false
 end
 

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- `generate_from_compiled_model` integrates a stored compiled model;
+  remapped multi-head and two-regulator `D(S,I)` generate together.
+  `run_recovery_suite` admits unique-claim sections through
+  `admit_recovery_suite_network`. `UniqueClaimProtocolRow` names KPI
+  failures. `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Unique-claim product helpers name identifiability, fit, discovery, and
   reproduction as one contract (`src/UniqueClaim.jl`, not exported). The
   golden-path example prints live extras and reads `n_ics` from
