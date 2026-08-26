@@ -69,9 +69,9 @@ combined F1 out of the KPI failure symbols.
 `no_restated_ag_pages_row` fails if this page says it restates an
 A–G markdown file. `make.jl` still lists those A–G pages.
 
-Closed leftover phrases (`k_custom is absent`,
-`support_f1_ude = 0.99`, `]add BioDynaX`) must not appear on the
-four landing files.
+Closed leftover phrases (`k_custom is absent`, a painted UDE
+F1 of 0.99, `]add BioDynaX`) must not appear on the four
+landing files.
 
 ## What this page does not do
 

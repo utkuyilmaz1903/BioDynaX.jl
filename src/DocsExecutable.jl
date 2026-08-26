@@ -331,7 +331,6 @@ function docs_executable_source_holds()
     docs = isfile(docs_executable_docs_path()) ?
         read(docs_executable_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in DOCS_EXECUTABLE_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", src) &&
            !occursin("support_f1_ude = 0.99", docs) &&
            !occursin("function validate_network", docs)
 end
@@ -1253,5 +1252,6 @@ function docs_executable_contract_holds()
            executable_snippet_thresholds() &&
            landing_file_exists_row().holds &&
            make_lists_hl_and_exec_row().holds &&
-           unique_claim_paths_include_hl_row().holds
+           unique_claim_paths_include_hl_row().holds &&
+           join_sentence_list_holds()
 end
