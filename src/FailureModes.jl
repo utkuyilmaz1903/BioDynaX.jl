@@ -460,9 +460,10 @@ function hole_validate_row(spec::HoleValidateSpec)
     holes = count_unknown_destructions(net)
     validated = validate_network(net)
     admits = unique_claim_recovery_admits(net)
+    model, _ = build_ude_model(MersenneTwister(0), net)
     threw = false
     try
-        assert_single_unknown_destruction(net)
+        assert_single_unknown_destruction(model)
     catch
         threw = true
     end
@@ -1043,7 +1044,7 @@ function format_failure_mode_index()
     println(io, "| insufficient | 12 samples → InsufficientSamples |")
     println(io, "| boundary | 19 fail / 20 admitted |")
     println(io, "| n_samples_entry | nn/st entry throws at 19 |")
-    println(io, "| empty_support | huge threshold → EmptySupport |")
+    println(io, "| empty_support | zero derivatives → EmptySupport |")
     println(io, "| explicit_success | linear ExplicitSTLSQ |")
     println(io, "| implicit_insufficient | implicit 10 samples |")
     println(io, "| rate_insufficient | discover_unknown_rate 8 pts |")
@@ -1064,7 +1065,7 @@ function format_failure_mode_index()
     println(io, "| hill_insufficient | known Hill 12 samples |")
     println(io, "| hill_success | known Hill ExplicitSTLSQ |")
     println(io, "| mm_insufficient | known MM 11 samples |")
-    println(io, "| select_all_fail | select_discovery_config → DiscoveryFailed |")
+    println(io, "| select_all_fail | 12-sample sweep → DiscoveryFailed |")
     println(io, "| retcode_exports | six retcodes stay in LOCKED_PUBLIC_EXPORTS |")
     return String(take!(io))
 end
