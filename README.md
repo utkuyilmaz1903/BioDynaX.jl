@@ -13,10 +13,8 @@ a general CRN solver or a global SINDy replacement.
 
 Requires **Julia ≥ 1.10**.
 
-Docs: [https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
-(HTTP 200 on 2026-08-14 after Pages was pointed at `gh-pages` / `(root)`).
-TagBot is configured; there is no git tag, so it is not proven. There is no
-version badge until the 0.9.x preview is in General.
+[Documentation](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/) for the
+0.9.2 research preview.
 
 ---
 
