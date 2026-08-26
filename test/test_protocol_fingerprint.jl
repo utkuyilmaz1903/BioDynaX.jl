@@ -131,6 +131,8 @@ end
     @test !occursin("canonical Hill from a trained NN is open", src)
     @test !occursin("support_f1_ude = 0.99", src)
     @test occursin("RECOVERY_THRESHOLDS", src)
+    @test occursin("UNIQUE_CLAIM_F1_ATTEMPT", src)
+    @test unique_claim_f1_attempt_holds()
     verdict = unique_claim_f1_attempt_verdict(;
         extras = ["1", "r"], reaches_clean = false)
     @test verdict === :extras_remain_claim_stays_recall_plus_residual
