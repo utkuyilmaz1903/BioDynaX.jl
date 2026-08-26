@@ -616,12 +616,31 @@ function compile_mechanism(network::BiologicalNetwork)
     isempty(destruction_terms) &&
         throw(ArgumentError("compiled mechanism has no destruction terms"))
 
+    # Duplicate unknown reaction+edge pairs skip the edge after
+    # `_edge_destruction_term` has already incremented `nn_index`. A later
+    # kept unknown then received a gapped slot (1, 3, …). Multi-head dispatch
+    # and `allocate_cache` index by that slot, so `ude_system` / `ude_rhs!`
+    # threw BoundsError. Renumber kept heads to 1:n.
+    destruction_terms = _reindex_neural_destruction!(destruction_terms)
+
     return CompiledMechanism(
         length(state_ids),
         copy(state_ids),
         node_to_state,
         Tuple(production_terms),
         Tuple(destruction_terms))
+end
+
+function _reindex_neural_destruction!(terms::Vector{MechanismTerm})
+    nn_index = 0
+    for (i, term) in pairs(terms)
+        term isa NeuralDestructionTerm || continue
+        nn_index += 1
+        term.nn_index == nn_index && continue
+        terms[i] = NeuralDestructionTerm(
+            term.target, term.regulator, nn_index, term.scale, term.regulators)
+    end
+    return terms
 end
 
 function compile_network(network::BiologicalNetwork, nn, st)

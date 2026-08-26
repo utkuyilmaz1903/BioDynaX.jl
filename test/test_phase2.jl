@@ -42,6 +42,50 @@ end
     @test all(isfinite, dx)
 end
 
+@testset "skipped duplicate unknown edge does not gap nn_index" begin
+    # Same dual-declaration as DEFAULT_EXAMPLE_NETWORK (unknown reaction plus
+    # matching UNKNOWN_NN edge) plus a second unknown edge compiled later.
+    nodes = [NodeSpec(name = :A), NodeSpec(name = :B), NodeSpec(name = :C)]
+    reactions = [
+        ReactionSpec(name = :drive_a,
+                     stoichiometry = Dict(1 => 1.0), regulators = [3],
+                     metadata = MassActionMetadata(rate_param = :k_ca)),
+        ReactionSpec(name = :unknown_ab,
+                     stoichiometry = Dict(1 => -1.0), regulators = [2],
+                     known = false, family = HILL, metadata = HillMetadata()),
+        ReactionSpec(name = :b_decay,
+                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_b)),
+        ReactionSpec(name = :c_decay,
+                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
+                     metadata = LinearDecayMetadata(rate_param = :k_c)),
+    ]
+    edges = [
+        EdgeSpec(source = 2, target = 1, kind = UNKNOWN_NN, known = false,
+                 family = HILL),
+        EdgeSpec(source = 3, target = 1, kind = UNKNOWN_NN, known = false,
+                 family = HILL),
+    ]
+    network = BiologicalNetwork(nodes, edges; reactions = reactions)
+    compiled = compile_mechanism(network)
+    nn_terms = [t for t in compiled.destruction_terms
+                if t isa BioDynaX.NeuralDestructionTerm]
+    @test length(nn_terms) == 2
+    @test sort(getfield.(nn_terms, :nn_index)) == [1, 2]
+
+    rng = MersenneTwister(13)
+    model, params = build_ude_model(rng, network)
+    @test model.nn isa MultiHeadNetwork
+    @test length(model.nn.heads) == 2
+    x = [0.2, 0.3, 0.4]
+    dx = ude_system(x, params, 0.0, model)
+    @test all(isfinite, dx)
+    cache = allocate_cache(model, Float64)
+    ude_rhs!(cache.du, x, params, 0.0, model, cache)
+    @test all(isfinite, cache.du)
+    @test Vector(cache.du) ≈ dx
+end
+
 @testset "phase 2 static specialization parity" begin
     rng = MersenneTwister(11)
     network = build_linear_test_network()

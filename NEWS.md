@@ -1,5 +1,8 @@
 # BioDynaX.jl Unreleased
 
+- `compile_mechanism` now reindexes kept `NeuralDestructionTerm` heads to
+  `1:n`. A skipped duplicate unknown edge no longer leaves a gapped
+  `nn_index` that crashed `ude_system` / `ude_rhs!` on a later unknown.
 - Unique-claim product helpers (`src/UniqueClaim.jl`, not exported) name
   the IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION block, split KPI
   failures, live discovery extras, and the seed-103 / 9-IC fingerprint
@@ -15,7 +18,6 @@
 - Fast-suite locks: protocol fingerprint, KPI miss paths, 0/2-hole
   compile, protocol_result field order, formatter config, and the public
   export set.
-
 - README landing page links the live 0.9.2 research-preview documentation.
 - Unique-claim hyperparameters live in `UNIQUE_CLAIM_PROTOCOL` (not exported).
   The golden-path example and UDE recovery defaults read that const.
