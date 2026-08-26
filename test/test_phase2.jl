@@ -68,8 +68,8 @@ end
     ]
     network = BiologicalNetwork(nodes, edges; reactions = reactions)
     compiled = compile_mechanism(network)
-    nn_terms = filter(t -> t isa BioDynaX.NeuralDestructionTerm,
-                      compiled.destruction_terms)
+    nn_terms = [t for t in compiled.destruction_terms
+                if t isa BioDynaX.NeuralDestructionTerm]
     @test length(nn_terms) == 2
     @test sort(getfield.(nn_terms, :nn_index)) == [1, 2]
 
