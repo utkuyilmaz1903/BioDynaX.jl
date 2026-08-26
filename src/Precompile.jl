@@ -20,5 +20,9 @@
         admit_recovery_suite_network(:linear)
         recovery_suite_section_kind(:ude_discovery)
         format_unique_claim_kpi_failures(Symbol[])
+        compile_ground_truth_model(rng, network)
+        extras_print_label(("1", "r"))
+        recovery_suite_hole_policy(:ude_discovery)
+        recovery_suite_expected_holes(:linear)
     end
 end

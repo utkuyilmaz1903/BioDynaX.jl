@@ -37,12 +37,15 @@ Unscored extras print NA; they are not the F1-attempt leftover pair.
 
 `generate_data` uses the compiled NN tree. Remapped multi-head unknowns
 and two-regulator `D(S,I)` are generated together;
-`generate_from_compiled_model` integrates a stored `UDEModel`.
+`generate_from_compiled_model` integrates a stored `UDEModel` through
+`SciMLBase.ODEProblem(model, u0, tspan, p)`.
+`generate_experiment_set` compiles that model once.
 `run_recovery_suite` admits unique-claim sections through
 `admit_recovery_suite_network`. Zero- and two-hole networks fail closed
-on that path without training. `UniqueClaimProtocolRow` stores named
-KPI failures (`:unidentifiable_edge`, `:data_residual`,
-`:support_recall`).
+on that path without training. Every suite section has a hole policy;
+only unique-claim sections reject 0/2 holes. `UniqueClaimProtocolRow`
+stores named KPI failures (`:unidentifiable_edge`, `:data_residual`,
+`:support_recall`). See [Compiled experiment path](compiled-path.md).
 
 ## Positivity and constraints
 

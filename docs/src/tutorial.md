@@ -145,7 +145,11 @@ The protocol uses `sample_unknown_destruction_grid` over the nine ICs
 from `unique_claim_fingerprint()` (see the example and
 [Unique claim](unique-claim.md)). The example builds the experiment set
 with `unique_claim_experiment_set` so IC and point counts stay on that
-fingerprint. `BIODYNAX_SMOKE=1` is not that fingerprint.
+fingerprint. That helper compiles one ground-truth model
+(`compile_ground_truth_model`) and then calls
+`generate_experiment_set_from_compiled_model` so every IC shares the
+stored NN tree. `BIODYNAX_SMOKE=1` is not that fingerprint.
+See [Compiled experiment path](compiled-path.md).
 
 ```@repl claim
 using BioDynaX

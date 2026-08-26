@@ -133,8 +133,12 @@ helpers (`assert_dense_neural_index`,
 `build_two_regulator_unknown_network`,
 `build_remapped_two_regulator_network`,
 `generate_from_compiled_model`,
-`unique_claim_experiment_set`) live in the same unexported
+`unique_claim_experiment_set`,
+`compile_ground_truth_model`,
+`generate_experiment_set_from_compiled_model`) live in the same unexported
 surface. Recovery admission (`admit_recovery_suite_network`,
-`UniqueClaimProtocolRow`, `unique_claim_kpi_failure_symbols`) is
+`UniqueClaimProtocolRow`, `unique_claim_kpi_failure_symbols`,
+`recovery_suite_admission_matrix`) is
 documented with executable snippets on
-[Unique claim](unique-claim.md). Do not export them to silence Documenter.
+[Unique claim](unique-claim.md) and
+[Compiled experiment path](compiled-path.md). Do not export them to silence Documenter.

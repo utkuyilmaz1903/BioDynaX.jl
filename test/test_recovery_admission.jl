@@ -133,6 +133,10 @@ end
     @test occursin(sentences.datagen, page)
     @test occursin(sentences.admission, page)
     @test occursin(sentences.protocol_row, page)
+    @test occursin(sentences.compiled_once, page)
+    @test occursin(sentences.sciml_generate, page)
+    @test occursin(sentences.admission_matrix, page)
+    @test occursin(sentences.joint, page)
     architecture = read(
         joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
     @test occursin("generate_from_compiled_model", architecture) ||
@@ -142,4 +146,25 @@ end
     @test occursin("admit_recovery_suite_network", news)
     @test occursin("UniqueClaimProtocolRow", news)
     @test occursin("generate_from_compiled_model", news)
+    @test occursin("compile_ground_truth_model", news)
+    @test occursin("recovery_suite_admission_matrix", news)
+end
+
+@testset "admission matrix covers every suite section" begin
+    matrix = recovery_suite_admission_matrix()
+    @test matrix.holds
+    @test matrix.n_sections == 16
+    zero_dual = recovery_suite_zero_dual_matrix()
+    @test zero_dual.holds
+    @test recovery_suite_hole_policy(:ude_discovery) === :exactly_one
+    @test recovery_suite_hole_policy(:linear) === :open
+    @test recovery_suite_hole_policy(:ablation) === :library_fixture
+    @test recovery_suite_expected_holes(:six_state) == 1
+    @test recovery_suite_expected_holes(:ablation) === nothing
+    @test recovery_suite_section_compiles(:ablation) == false
+    @test recovery_suite_section_compiles(:literature)
+    ablation = recovery_suite_admission_row(:ablation)
+    @test ablation.admitted
+    @test ablation.compiles == false
+    @test ablation.unknown_holes === nothing
 end

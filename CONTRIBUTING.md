@@ -75,9 +75,13 @@ format job lists (`src/DataGenContract.jl`, `src/RecoveryAdmission.jl`,
 and their tests) must stay `overwrite=false` clean.
 
 `generate_data` must keep the compiled NN tree (multi-head and
-multi-regulator). Do not restore a 1-input dummy. Unique-claim suite
-sections go through `admit_recovery_suite_network`; do not put that
-single-hole check into `validate_network`.
+multi-regulator). Do not restore a 1-input dummy. `generate_experiment_set`
+must compile the ground-truth model once and generate every IC from that
+stored model. Unique-claim suite sections go through
+`admit_recovery_suite_network`; do not put that single-hole check into
+`validate_network`. New files that the format job lists
+(`src/CompiledPath.jl`, `test/test_compiled_path.jl`) must stay
+`overwrite=false` clean.
 
 ## v1.0 / JOSS / General
 

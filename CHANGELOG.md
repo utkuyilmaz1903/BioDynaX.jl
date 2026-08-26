@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- `generate_experiment_set` compiles the ground-truth model once;
+  `generate_from_compiled_model` uses `SciMLBase.ODEProblem(model, ...)`.
+  Suite hole policy is explicit for every section
+  (`recovery_suite_admission_matrix`). Joint compiled path is
+  `CompiledPathRow` (not exported). `RECOVERY_THRESHOLDS` and the export
+  list are unchanged.
 - `generate_from_compiled_model` integrates a stored compiled model;
   remapped multi-head and two-regulator `D(S,I)` generate together.
   `run_recovery_suite` admits unique-claim sections through

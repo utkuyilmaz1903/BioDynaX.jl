@@ -1,5 +1,19 @@
 # BioDynaX.jl Unreleased
 
+- `generate_experiment_set` compiles one `GroundTruthModel` and generates
+  every IC from that stored model (`compile_ground_truth_model`,
+  `generate_experiment_set_from_compiled_model`; not exported).
+  `generate_from_compiled_model` integrates
+  `SciMLBase.ODEProblem(model, u0, tspan, p)`. Remapped multi-head and
+  two-regulator `D(S,I)` share that SciML path.
+- Every `run_recovery_suite` section has a hole policy
+  (`recovery_suite_admission_matrix`). Only unique-claim sections reject
+  0/2 holes before training; `validate_network` stays open. `:ablation`
+  is a library fixture and does not compile.
+- `joint_compiled_path` / `CompiledPathRow` (not exported) join compiled
+  generate, remapped heads, suite admission, and `UniqueClaimProtocolRow`.
+- Docs: [compiled-path](docs/src/compiled-path.md) page with doctested
+  snippets. `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - `generate_from_compiled_model` integrates a stored `UDEModel`.
   `generate_data(::GroundTruthModel)` no longer rebuilds a same-network
   twin. Remapped multi-head unknowns and two-regulator `D(S,I)` are

@@ -32,6 +32,73 @@ const RECOVERY_SUITE_UNIQUE_CLAIM_SECTIONS = (
 const RECOVERY_SUITE_KNOWN_KINETICS_SECTIONS = (
     :linear, :mm, :hill, :competitive)
 
+"""Expected unknown-`D(z)` count of each suite fixture. `:ablation` does not compile."""
+const RECOVERY_SUITE_EXPECTED_HOLES = (
+    linear = 0,
+    mm = 0,
+    hill = 0,
+    competitive = 0,
+    ude_discovery = 1,
+    mm_unknown = 1,
+    ablation = nothing,
+    three_state = 1,
+    wrong_graph = 1,
+    six_state = 1,
+    six_state_wrong_graph = 1,
+    identifiability = 0,
+    ident_interventions = 1,
+    partial_obs = 1,
+    competitive_unknown = 1,
+    literature = 0)
+
+"""Hole policy. Only `:exactly_one` rejects 0/2 holes before training."""
+const RECOVERY_SUITE_HOLE_POLICY = (
+    linear = :open,
+    mm = :open,
+    hill = :open,
+    competitive = :open,
+    ude_discovery = :exactly_one,
+    mm_unknown = :exactly_one,
+    ablation = :library_fixture,
+    three_state = :open,
+    wrong_graph = :open,
+    six_state = :open,
+    six_state_wrong_graph = :open,
+    identifiability = :open,
+    ident_interventions = :exactly_one,
+    partial_obs = :exactly_one,
+    competitive_unknown = :open,
+    literature = :open)
+
+function recovery_suite_sections()
+    return Tuple(keys(RECOVERY_SUITE_SECTION_KINDS))
+end
+
+function recovery_suite_expected_holes(section::Symbol)
+    holes = RECOVERY_SUITE_EXPECTED_HOLES
+    hasproperty(holes, section) || throw(ArgumentError(
+        "unknown recovery suite section $section"))
+    return getproperty(holes, section)
+end
+
+function recovery_suite_hole_policy(section::Symbol)
+    policies = RECOVERY_SUITE_HOLE_POLICY
+    hasproperty(policies, section) || throw(ArgumentError(
+        "unknown recovery suite section $section"))
+    return getproperty(policies, section)
+end
+
+function recovery_suite_section_compiles(section::Symbol)
+    recovery_suite_hole_policy(section) !== :library_fixture
+end
+
+function recovery_suite_admits_hole_count(section::Symbol, n::Integer)
+    policy = recovery_suite_hole_policy(section)
+    policy === :exactly_one && return n == 1
+    policy === :library_fixture && return false
+    return true
+end
+
 function recovery_suite_section_kinds()
     return RECOVERY_SUITE_SECTION_KINDS
 end
@@ -97,9 +164,20 @@ end
 function recovery_suite_admission_row(section::Symbol,
         network::BiologicalNetwork = recovery_suite_section_network(section))
     kind = recovery_suite_section_kind(section)
-    n = count_unknown_destructions(network)
-    validate_open = unique_claim_compiler_stays_open(network)
-    requires_hole = kind === :unique_claim
+    policy = recovery_suite_hole_policy(section)
+    compiles = recovery_suite_section_compiles(section)
+    n = if compiles
+        count_unknown_destructions(network)
+    else
+        nothing
+    end
+    validate_open = try
+        validate_network(network) === network &&
+            (compiles ? unique_claim_compiler_stays_open(network) : true)
+    catch
+        false
+    end
+    requires_hole = policy === :exactly_one
     admitted = try
         admit_recovery_suite_network(section, network)
         true
@@ -109,8 +187,11 @@ function recovery_suite_admission_row(section::Symbol,
     return (;
         section,
         kind,
+        policy,
         unknown_holes = n,
+        expected_holes = recovery_suite_expected_holes(section),
         requires_single_hole = requires_hole,
+        compiles,
         validate_open,
         admitted,
         recovery_admits = n == 1,
@@ -146,6 +227,100 @@ function recovery_suite_known_kinetics_admit_zero_holes()
             row -> row.admitted && row.validate_open &&
                        row.requires_single_hole == false,
             rows))
+end
+
+"""
+    recovery_suite_admission_matrix()
+
+One row per `run_recovery_suite` section: kind, hole policy, fixture
+hole count, validate-open, admission. Does not train a UDE.
+"""
+function recovery_suite_admission_matrix()
+    rows = [recovery_suite_admission_row(section)
+            for section in recovery_suite_sections()]
+    fixture_holds = all(rows) do row
+        row.unknown_holes == row.expected_holes &&
+            row.single_hole_in_validate_network == false &&
+            (row.compiles ? row.validate_open : row.policy === :library_fixture) &&
+            (row.policy === :exactly_one ? row.admitted == (row.unknown_holes == 1) :
+             row.policy === :library_fixture ? row.admitted :
+             row.admitted)
+    end
+    return (;
+        rows,
+        n_sections = length(rows),
+        unique_claim = count(row -> row.kind === :unique_claim, rows),
+        holds = fixture_holds && length(rows) == length(RECOVERY_SUITE_SECTION_KINDS))
+end
+
+"""
+    recovery_suite_zero_dual_matrix()
+
+0-hole and 2-hole probes on every section. Unique-claim sections reject
+both without training. Open sections still admit. `validate_network`
+stays open on both probes. Ablation is a library fixture and is not
+probed with a compiled dual unknown.
+"""
+function recovery_suite_zero_dual_matrix()
+    zero = build_zero_unknown_linear_network()
+    two = build_dual_unknown_network()
+    rows = []
+    for section in recovery_suite_sections()
+        policy = recovery_suite_hole_policy(section)
+        if policy === :library_fixture
+            fixture = recovery_suite_admission_row(section)
+            push!(rows,
+                (;
+                    section,
+                    policy,
+                    zero = nothing,
+                    two = nothing,
+                    fixture,
+                    holds = fixture.admitted && fixture.compiles == false &&
+                                fixture.single_hole_in_validate_network == false))
+            continue
+        end
+        zero_row = recovery_suite_admission_row(section, zero)
+        two_row = recovery_suite_admission_row(section, two)
+        expect_admit = policy !== :exactly_one
+        push!(rows,
+            (;
+                section,
+                policy,
+                zero = zero_row,
+                two = two_row,
+                fixture = recovery_suite_admission_row(section),
+                holds = zero_row.validate_open && two_row.validate_open &&
+                            zero_row.admitted == expect_admit &&
+                            two_row.admitted == expect_admit &&
+                            zero_row.unknown_holes == 0 &&
+                            two_row.unknown_holes == 2 &&
+                            zero_row.single_hole_in_validate_network == false))
+    end
+    return (;
+        rows,
+        n_sections = length(rows),
+        holds = all(row -> row.holds, rows))
+end
+
+function recovery_suite_open_sections_admit_zero_and_dual()
+    matrix = recovery_suite_zero_dual_matrix()
+    open_rows = [row for row in matrix.rows if row.policy === :open]
+    return (;
+        rows = open_rows,
+        holds = !isempty(open_rows) && all(row -> row.holds, open_rows))
+end
+
+function recovery_suite_unique_claim_sections_reject_zero_and_dual()
+    matrix = recovery_suite_zero_dual_matrix()
+    claim_rows = [row for row in matrix.rows if row.policy === :exactly_one]
+    return (;
+        rows = claim_rows,
+        holds = length(claim_rows) == length(RECOVERY_SUITE_UNIQUE_CLAIM_SECTIONS) &&
+                all(
+            row -> row.holds && row.zero.admitted == false &&
+                       row.two.admitted == false,
+            claim_rows))
 end
 
 function recovery_suite_uses_admission_helper()

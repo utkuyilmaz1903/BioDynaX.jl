@@ -75,6 +75,8 @@ jobs:
               "src/RecoveryAdmission.jl",
               "test/test_datagen_contract.jl",
               "test/test_recovery_admission.jl",
+              "src/CompiledPath.jl",
+              "test/test_compiled_path.jl",
           ]
           ok = true
           for file in files

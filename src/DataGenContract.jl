@@ -12,10 +12,19 @@
 const DATAGEN_COMPILED_MUST_CONTAIN = (
     "function generate_data",
     "function generate_from_compiled_model",
+    "function compile_ground_truth_model",
+    "function generate_experiment_set_from_compiled_model",
     "build_ude_model",
     "pack_parameters",
     "generator === :compiled_mechanism",
-    "ude_system")
+    "SciMLBase.ODEProblem(model")
+
+"""Source strings that prove generate_experiment_set compiles once."""
+const DATAGEN_EXPERIMENT_SET_MUST_CONTAIN = (
+    "function generate_experiment_set(",
+    "compile_ground_truth_model",
+    "generate_experiment_set_from_compiled_model",
+    ":compiled_once")
 
 """Phrases that would restore the 1-input dummy hole."""
 const DATAGEN_COMPILED_MUST_NOT_CONTAIN = (
@@ -50,6 +59,54 @@ function generate_data_uses_stored_ground_truth_model()
     return occursin("generate_from_compiled_model", body) &&
            occursin("truth.model", body) &&
            !occursin("build_ude_model", body)
+end
+
+function generate_from_compiled_model_uses_sciml_odeproblem()
+    src = read(datagen_source_path(), String)
+    start = findfirst("function generate_from_compiled_model", src)
+    start === nothing && return false
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+    return occursin("SciMLBase.ODEProblem(model", body) &&
+           !occursin("ODEProblem(rhs", body)
+end
+
+function generate_experiment_set_uses_compiled_once()
+    src = read(datagen_source_path(), String)
+    start = findfirst("function generate_experiment_set(rng", src)
+    start === nothing && return false
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+    return occursin("compile_ground_truth_model", body) &&
+           occursin("generate_experiment_set_from_compiled_model", body) &&
+           !occursin("generate_data(rng;", body)
+end
+
+function datagen_experiment_set_source_holds()
+    src = read(datagen_source_path(), String)
+    return all(occursin(needle, src) for needle in DATAGEN_EXPERIMENT_SET_MUST_CONTAIN) &&
+           generate_experiment_set_uses_compiled_once() &&
+           generate_from_compiled_model_uses_sciml_odeproblem()
+end
+
+function experiment_set_shares_compiled_parameters(set::ExperimentSet)
+    isempty(set.experiments) && return false
+    first_params = first(set.experiments).metadata[:truth_parameters]
+    for exp in set.experiments
+        haskey(exp.metadata, :truth_parameters) || return false
+        exp.metadata[:truth_parameters] === first_params ||
+            exp.metadata[:truth_parameters] == first_params || return false
+    end
+    return haskey(set.metadata, :truth_parameters) &&
+           (set.metadata[:truth_parameters] === first_params ||
+            set.metadata[:truth_parameters] == first_params)
+end
+
+function experiment_set_is_compiled_once(set::ExperimentSet)
+    get(set.metadata, :compiled_once, false) === true &&
+        experiment_set_shares_compiled_parameters(set)
 end
 
 # -- Architecture readers -----------------------------------------------------
@@ -275,7 +332,8 @@ function generate_experiment_set_snapshot(rng::AbstractRNG,
         n_points = widths,
         nstates = heights,
         requested_points = n_points,
-        requested_ics = length(initial_conditions))
+        requested_ics = length(initial_conditions),
+        compiled_once = experiment_set_is_compiled_once(set))
 end
 
 # -- Unique-claim experiment helper -------------------------------------------
@@ -300,13 +358,18 @@ function unique_claim_experiment_set(rng::AbstractRNG, network::BiologicalNetwor
     length(first(ics)) == nstates || throw(ArgumentError(
         "unique-claim experiment ICs are $(length(first(ics)))-state; network has $nstates"))
     σ = noise_σ === nothing ? fp.observation_noise : noise_σ
-    return generate_experiment_set(
-        rng; network,
+    truth = compile_ground_truth_model(rng, network; truth_params = truth_params)
+    set = generate_experiment_set_from_compiled_model(
+        truth, rng;
         initial_conditions = ics,
         tspan = fp.tspan,
         n_points = fp.n_points,
-        noise_σ = σ,
-        truth_params = truth_params)
+        noise_σ = σ)
+    set.metadata[:unique_claim_fingerprint_kind] = fp.kind
+    set.metadata[:unique_claim_n_ics] = fp.n_ics
+    set.metadata[:unique_claim_n_points] = fp.n_points
+    set.metadata[:unique_claim_smoke] = fp.smoke
+    return set
 end
 
 function unique_claim_experiment_set_matches_fingerprint(set::ExperimentSet;
@@ -314,6 +377,9 @@ function unique_claim_experiment_set_matches_fingerprint(set::ExperimentSet;
     fp = unique_claim_fingerprint(; smoke)
     n = length(set.experiments)
     n == fp.n_ics || return false
+    get(set.metadata, :unique_claim_fingerprint_kind, nothing) === fp.kind ||
+        return false
+    experiment_set_is_compiled_once(set) || return false
     for exp in set.experiments
         size(exp.observations, 2) == fp.n_points || return false
         first(exp.times) == first(fp.tspan) || return false

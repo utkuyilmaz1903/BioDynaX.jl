@@ -284,6 +284,9 @@ c = BioDynaX.unique_claim_f1_attempt_contract()
 ## Compiled data generation (joint with remapping)
 
 generate_data uses the compiled NN tree; remapped multi-head and two-regulator D(S,I) are generated together.
+generate_experiment_set compiles the ground-truth model once and generates every IC from that stored model.
+generate_from_compiled_model integrates SciMLBase.ODEProblem(model, u0, tspan, p).
+The joint compiled path is generate_from_compiled_model + remapped heads + admit_recovery_suite_network + UniqueClaimProtocolRow.
 `generate_data(::GroundTruthModel)` integrates the stored model through
 `generate_from_compiled_model`. A 1-input dummy chain is not restored.
 The golden-path example reads ICs and point counts from
@@ -313,7 +316,9 @@ set = BioDynaX.unique_claim_experiment_set(
 ## Recovery-suite admission
 
 run_recovery_suite admits unique-claim sections through admit_recovery_suite_network; 0/2 holes fail closed without training.
+Every recovery-suite section has a hole policy; only unique-claim sections reject 0/2 holes before training.
 `validate_network` still returns the 0-hole and 2-hole networks.
+The full matrix is on [Compiled experiment path](compiled-path.md).
 
 ```@example claim-suite-admit
 using BioDynaX

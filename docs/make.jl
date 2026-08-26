@@ -19,6 +19,7 @@ makedocs(
         "Tutorial" => "tutorial.md",
         "How-to" => "howto.md",
         "Unique claim" => "unique-claim.md",
+        "Compiled experiment path" => "compiled-path.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",
