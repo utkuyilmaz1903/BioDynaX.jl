@@ -419,7 +419,6 @@ function fixture_safe_library_row(name::Symbol, network::BiologicalNetwork;
         packed,
         nstates,
         n_terms = candidate_count(spec),
-        holes = count_unknown_destructions(network),
         validate_open = validate_network(network) === network,
         holds = packed.holds && packed.row.total == 0 &&
                 validate_network(network) === network)
