@@ -100,35 +100,60 @@ function generate_data(rng::AbstractRNG;
     tspan[2] > tspan[1] ||
         throw(ArgumentError("tspan must be increasing (got $tspan)"))
 
-    t_data = collect(range(tspan[1], tspan[2]; length = n_points))
-
     if generator === :hill_p53_fixture
         network === DEFAULT_EXAMPLE_NETWORK ||
             throw(ArgumentError(":hill_p53_fixture requires DEFAULT_EXAMPLE_NETWORK"))
         params = truth_params === nothing ? default_truth_params() : truth_params
         params isa NamedTuple ||
             throw(ArgumentError(":hill_p53_fixture expects NamedTuple truth_params"))
+        t_data = collect(range(tspan[1], tspan[2]; length = n_points))
         prob = ODEProblem(ground_truth!, u0, tspan, params)
-    else
-        generator === :compiled_mechanism ||
-            throw(ArgumentError("unknown generator $generator"))
-        if truth_params === nothing
-            truth = GroundTruthModel(rng, network; generator = :compiled_mechanism)
-        else
-            # Same architecture as `build_ude_model`: multi-head / multi-input
-            # unknowns must not be forced through a 1×1 dummy Lux chain.
-            model, default_params = build_ude_model(rng, network)
-            params_cv = truth_params isa ComponentVector ?
-                truth_params : pack_parameters(truth_params, default_params.nn)
-            truth = GroundTruthModel(network, model, params_cv, :compiled_mechanism)
-        end
-        params = truth.parameters
-        rhs = (x, p, t) -> ude_system(x, p, t, truth.model)
-        prob = ODEProblem(rhs, u0, tspan, params)
+        sol = solve(prob, Tsit5(); saveat = t_data,
+            abstol = 1e-9, reltol = 1e-9)
+        clean_data = Array(sol)
+        noisy_data = clean_data .+ noise_σ .* randn(rng, size(clean_data))
+        return t_data, clean_data, noisy_data, params
     end
 
+    generator === :compiled_mechanism ||
+        throw(ArgumentError("unknown generator $generator"))
+    if truth_params === nothing
+        truth = GroundTruthModel(rng, network; generator = :compiled_mechanism)
+    else
+        # Same architecture as `build_ude_model`: multi-head / multi-input
+        # unknowns must not be forced through a 1×1 dummy Lux chain.
+        model, default_params = build_ude_model(rng, network)
+        params_cv = truth_params isa ComponentVector ?
+                    truth_params : pack_parameters(truth_params, default_params.nn)
+        truth = GroundTruthModel(network, model, params_cv, :compiled_mechanism)
+    end
+    return generate_from_compiled_model(
+        truth.model, truth.parameters, rng; u0, tspan, n_points, noise_σ)
+end
+
+"""
+    generate_from_compiled_model(model, params, rng; u0, tspan, n_points, noise_σ)
+
+Integrate `ude_system` on the supplied `UDEModel`. Does not rebuild the
+Lux tree. `generate_data(::GroundTruthModel)` uses this so a stored
+compiled model is the generator, not a same-network twin.
+"""
+function generate_from_compiled_model(model::UDEModel, params, rng::AbstractRNG;
+        u0::Vector{Float64} = [0.2, 0.1],
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        n_points::Int = 40,
+        noise_σ::Float64 = 0.05)
+    n_points ≥ 2 || throw(ArgumentError("n_points must be ≥ 2 (got $n_points)"))
+    noise_σ ≥ 0 || throw(ArgumentError("noise_σ must be ≥ 0 (got $noise_σ)"))
+    tspan[2] > tspan[1] ||
+        throw(ArgumentError("tspan must be increasing (got $tspan)"))
+    length(u0) == model.compiled.nstates || throw(ArgumentError(
+        "u0 length $(length(u0)) does not match compiled nstates $(model.compiled.nstates)"))
+    t_data = collect(range(tspan[1], tspan[2]; length = n_points))
+    rhs = (x, p, t) -> ude_system(x, p, t, model)
+    prob = ODEProblem(rhs, u0, tspan, params)
     sol = solve(prob, Tsit5(); saveat = t_data,
-                abstol = 1e-9, reltol = 1e-9)
+        abstol = 1e-9, reltol = 1e-9)
     clean_data = Array(sol)
     noisy_data = clean_data .+ noise_σ .* randn(rng, size(clean_data))
     return t_data, clean_data, noisy_data, params
@@ -137,8 +162,19 @@ end
 ground_truth!(truth::GroundTruthModel, dx, x, p, t) =
     _ground_truth_rhs(x, p, t, truth)
 
-function generate_data(truth::GroundTruthModel, rng::AbstractRNG; kwargs...)
-    return generate_data(rng; network = truth.network,
-                       truth_params = truth.parameters,
-                       generator = truth.generator, kwargs...)
+function generate_data(truth::GroundTruthModel, rng::AbstractRNG;
+        u0::Vector{Float64} = [0.2, 0.1],
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        n_points::Int = 40,
+        noise_σ::Float64 = 0.05,
+        kwargs...)
+    if truth.generator === :hill_p53_fixture
+        return generate_data(rng; network = truth.network,
+            truth_params = truth.parameters,
+            generator = :hill_p53_fixture, u0, tspan, n_points, noise_σ)
+    end
+    truth.generator === :compiled_mechanism ||
+        throw(ArgumentError("unknown generator $(truth.generator)"))
+    return generate_from_compiled_model(
+        truth.model, truth.parameters, rng; u0, tspan, n_points, noise_σ)
 end

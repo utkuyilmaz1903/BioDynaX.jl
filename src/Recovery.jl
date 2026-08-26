@@ -987,8 +987,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
 
     if :ude_discovery in wanted
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
-    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
-    assert_unique_claim_recovery_network(ude_net)
+    ude_net = admit_recovery_suite_network(:ude_discovery)
     # Consume the same RNG stream as known-kinetics fixtures so UDE init stays stable.
     build_ude_model(rng, truth_net)
     hill_truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
@@ -1022,8 +1021,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
 
     if :mm_unknown in wanted
     truth_net = build_mm_recovery_network(; known = true)
-    ude_net = build_mm_recovery_network(; known = false)
-    assert_unique_claim_recovery_network(ude_net)
+    ude_net = admit_recovery_suite_network(:mm_unknown)
     build_ude_model(rng, truth_net)
     mm_truth = (k_prod = 0.9, vmax = 1.6, km = 0.45, k_rs = 1.0, k_r = 0.6)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
@@ -1229,7 +1227,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     metrics_n = result_n.success ?
         support_f1(result_n.candidates[1], truth_n.numerator, truth_n.denominator) :
         nothing
-    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    ude_net = admit_recovery_suite_network(:ident_interventions)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     term = only_unknown_destruction(ude_model)
     p_nom = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), ude_p0.nn)
@@ -1298,7 +1296,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
                                 log_every = 10^6),
         verbose = false)
     hill_net = build_hill_recovery_network(; known = true, hill_order = 2)
-    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    ude_net = admit_recovery_suite_network(:partial_obs)
     _, hill_p0 = build_ude_model(rng, hill_net)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     hill_truth = (k_prod = 0.9, vmax = 1.7, K = 0.6, k_rs = 1.0, k_r = 0.6)
