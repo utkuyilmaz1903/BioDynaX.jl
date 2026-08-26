@@ -6,12 +6,17 @@ equation discovery.
 ## Data flow
 
 1. `BiologicalNetwork` defines typed nodes, interactions and reactions.
-2. `compile_network` assembles non-negative production and destruction fluxes.
-3. `ExperimentSet` carries replicates, irregular samples and observation masks.
-4. `train_ude` or `train_experiments` returns a versioned `TrainingResult`.
-5. `local_basis` derives candidate variables from each target's graph parents
+2. `compile_mechanism` lowers reactions and edges to production–destruction
+   IR. Unknown edges become `NeuralDestructionTerm`. Duplicate unknown
+   reaction+edge pairs skip the edge; kept heads are reindexed to `1:n`
+   so `ude_system` / `ude_rhs!` / `allocate_cache` stay in bounds. That
+   remapping is a compiler contract, not a unique-claim hole gate.
+3. `compile_network` wraps the IR in a `UDEModel`.
+4. `ExperimentSet` carries replicates, irregular samples and observation masks.
+5. `train_ude` or `train_experiments` returns a versioned `TrainingResult`.
+6. `local_basis` derives candidate variables from each target's graph parents
    (`scope = :graph`, or `:global` for ablations).
-6. `discover_equations` fits `D(z)ẋ-N(z)=0`, validates denominators and reports
+7. `discover_equations` fits `D(z)ẋ-N(z)=0`, validates denominators and reports
    bootstrap term-selection frequencies. Failures set `DiscoveryRetcode`.
 
 The unique-claim product is printed and stored in that same order:
@@ -27,6 +32,8 @@ The unique-claim product is printed and stored in that same order:
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
 `assert_single_unknown_destruction` on the golden path only.
+`UniqueClaimFingerprint` types smoke versus the seed-103 / 9-IC job.
+Unscored extras print NA; they are not the F1-attempt leftover pair.
 
 ## Positivity and constraints
 

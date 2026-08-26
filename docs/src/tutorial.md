@@ -140,6 +140,12 @@ residual = hybrid_data_residual(
     u0, tspan, times, data)
 ```
 
+That single-trajectory `sample_unknown_destruction` block is a sketch.
+The protocol uses `sample_unknown_destruction_grid` over the nine ICs
+from `unique_claim_fingerprint()` (see the example and
+[Unique claim](unique-claim.md)). `BIODYNAX_SMOKE=1` is not that
+fingerprint.
+
 ```@repl claim
 using BioDynaX
 isa(DiscoverySuccess, DiscoveryRetcode)

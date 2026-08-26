@@ -122,8 +122,14 @@ internal. Call them as `BioDynaX.run_recovery_suite` from tests and
 benchmarks. They are not on the freeze list.
 
 Unique-claim product helpers are also internal (`BioDynaX.foo`):
-`UNIQUE_CLAIM_PROTOCOL`, `format_protocol_result`, `build_protocol_result`,
-`assert_single_unknown_destruction`, `unique_claim_kpis_hold`,
-`unique_claim_discovery_extras`, `unique_claim_protocol_ics`. They are
-documented with executable snippets on [Unique claim](unique-claim.md).
-Do not export them to silence Documenter.
+`UNIQUE_CLAIM_PROTOCOL`, `UniqueClaimFingerprint`,
+`unique_claim_fingerprint`, `format_protocol_result`,
+`build_protocol_result`, `assert_single_unknown_destruction`,
+`assert_unique_claim_recovery_network`, `unique_claim_kpis_hold`,
+`unique_claim_discovery_extras`, `unique_claim_protocol_ics`,
+`extras_print_label`, `UNIQUE_CLAIM_F1_ATTEMPT`. Compiler remapping
+helpers (`assert_dense_neural_index`,
+`build_skipped_duplicate_unknown_network`,
+`build_two_regulator_unknown_network`) live in the same unexported
+surface. They are documented with executable snippets on
+[Unique claim](unique-claim.md). Do not export them to silence Documenter.

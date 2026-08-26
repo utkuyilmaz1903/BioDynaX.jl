@@ -67,6 +67,8 @@ trained = train_experiments(params, set, model;
 X_traj = predict_ude(trained.params, u0, tspan, times, model)
 R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
 discovery = discover_unknown_rate(R, times, D; strict = true)
+# Protocol path (seed 103 / 9 ICs): sample_unknown_destruction_grid
+# over unique_claim_fingerprint(); this snippet is not that job.
 rhs = compose_hybrid_rhs(
     model, trained.params, term,
     equation_to_function(discovery.candidates[1]))
