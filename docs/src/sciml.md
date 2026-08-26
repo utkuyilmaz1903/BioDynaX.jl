@@ -44,6 +44,7 @@ Remapped multi-head generate and train_experiments share one compiled tree; trai
 compose_hybrid_rhs with the neural destruction rate recovers ude_system.
 hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
 production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
+local_basis scope=:graph uses graph parents; scope=:global is the ablation.
 
 ## In-place production integration
 

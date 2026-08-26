@@ -217,7 +217,8 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "failure-modes.md"),
         joinpath(root, "docs", "src", "hybrid-compose.md"),
         joinpath(root, "docs", "src", "hybrid-residual.md"),
-        joinpath(root, "docs", "src", "identifiability-product.md"))
+        joinpath(root, "docs", "src", "identifiability-product.md"),
+        joinpath(root, "docs", "src", "graph-local-library.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""

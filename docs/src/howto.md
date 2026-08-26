@@ -164,3 +164,8 @@ through `identifiability_product`.
 `coefficients_are_biological_constants` is false exactly when
 `unidentifiable_edge` is true. See
 [Identifiability product rows](identifiability-product.md).
+
+`local_basis` `scope=:graph` uses graph parents; `scope=:global` is
+the ablation. `local_has_true_parent_gate` is the recovered-support
+membership check. See
+[Graph-local library and ablation](graph-local-library.md).

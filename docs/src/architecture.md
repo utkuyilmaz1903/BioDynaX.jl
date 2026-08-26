@@ -55,6 +55,8 @@ hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
 See [Hybrid residual versus solver](hybrid-residual.md).
 production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
 See [Identifiability product rows](identifiability-product.md).
+local_basis scope=:graph uses graph parents; scope=:global is the ablation.
+See [Graph-local library and ablation](graph-local-library.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

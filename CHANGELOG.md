@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Graph-local library rows lock `local_basis` `scope=:graph` versus
+  `scope=:global` and name `local_has_true_parent_gate`
+  (`src/GraphLocalLibrary.jl`, not exported). Wrong-graph parent
+  sets omit the true regulator. `run_recovery_suite` graph-prior
+  sections call that gate. Docs:
+  [graph-local-library](docs/src/graph-local-library.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Identifiability product rows join `production_destruction_tradeoff`
   to `UniqueClaimProtocolRow` through `identifiability_product`
   (`src/IdentifiabilityProduct.jl`, not exported). Collinearity

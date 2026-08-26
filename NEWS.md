@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- Graph-local library (`src/GraphLocalLibrary.jl`, not exported):
+  `local_basis` `scope=:graph` versus `scope=:global`.
+  `local_has_true_parent_gate` is the recovered-support membership
+  check. Docs:
+  [graph-local-library](docs/src/graph-local-library.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Identifiability product rows (`src/IdentifiabilityProduct.jl`,
   not exported): `production_destruction_tradeoff` joins
   `UniqueClaimProtocolRow`. Finite collinearity prints; NaN stays

@@ -288,6 +288,19 @@ function support_uses_variable(candidate; variable::Int, atol::Real = 1e-8)
     return any(key -> variable in key[1], keys)
 end
 
+"""True when a discovered candidate support contains `variable`."""
+function local_has_true_parent_gate(candidate; variable::Int, atol::Real = 1e-8)
+    candidate === nothing && return false
+    return support_uses_variable(candidate; variable = variable, atol = atol)
+end
+
+"""True when a discovered candidate support contains any of `variables`."""
+function local_has_false_parent_gate(candidate; variables, atol::Real = 1e-8)
+    candidate === nothing && return false
+    return any(v -> support_uses_variable(candidate; variable = Int(v), atol = atol),
+               variables)
+end
+
 """True implicit support for `D = vmax r^n / (K^n + r^n)` on variable `variable`."""
 function hill_rate_support(order::Int; variable::Int = 1)
     key = ((variable,), (order,))
@@ -1147,14 +1160,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             support_f1(lc, truth3.numerator, truth3.denominator).combined.f1,
         global_f1 = gc === nothing ? 0.0 :
             support_f1(gc, truth3.numerator, truth3.denominator).combined.f1,
-        local_has_true_parent = lc !== nothing &&
-            support_uses_variable(lc; variable = 2),
-        local_false_parent = lc !== nothing &&
-            (support_uses_variable(lc; variable = 3) ||
-             support_uses_variable(lc; variable = 4)),
-        global_false_parent = gc !== nothing &&
-            (support_uses_variable(gc; variable = 3) ||
-             support_uses_variable(gc; variable = 4)))
+        local_has_true_parent = local_has_true_parent_gate(lc; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lc; variables = (3, 4)),
+        global_false_parent = local_has_false_parent_gate(gc; variables = (3, 4)))
     end
 
     if :wrong_graph in wanted
@@ -1183,11 +1191,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         local_success = local_w.success,
         local_f1 = lcw === nothing ? 0.0 :
             support_f1(lcw, truth_w.numerator, truth_w.denominator).combined.f1,
-        local_has_true_parent = lcw !== nothing &&
-            support_uses_variable(lcw; variable = 2),
-        local_false_parent = lcw !== nothing &&
-            (support_uses_variable(lcw; variable = 3) ||
-             support_uses_variable(lcw; variable = 4)))
+        local_has_true_parent = local_has_true_parent_gate(lcw; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lcw; variables = (3, 4)))
     end
 
     if :identifiability in wanted
@@ -1411,18 +1416,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             support_f1(lc6, truth6.numerator, truth6.denominator).combined.f1,
         global_f1 = gc6 === nothing ? 0.0 :
             support_f1(gc6, truth6.numerator, truth6.denominator).combined.f1,
-        local_has_true_parent = lc6 !== nothing &&
-            support_uses_variable(lc6; variable = 2),
-        local_false_parent = lc6 !== nothing &&
-            (support_uses_variable(lc6; variable = 3) ||
-             support_uses_variable(lc6; variable = 4) ||
-             support_uses_variable(lc6; variable = 5) ||
-             support_uses_variable(lc6; variable = 6)),
-        global_false_parent = gc6 !== nothing &&
-            (support_uses_variable(gc6; variable = 3) ||
-             support_uses_variable(gc6; variable = 4) ||
-             support_uses_variable(gc6; variable = 5) ||
-             support_uses_variable(gc6; variable = 6)),
+        local_has_true_parent = local_has_true_parent_gate(lc6; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lc6; variables = (3, 4, 5, 6)),
+        global_false_parent = local_has_false_parent_gate(gc6; variables = (3, 4, 5, 6)),
         distractor_in_local = 6 ∈ local_spec6.variables,
         distractor_in_global = 6 ∈ global_spec6.variables,
         Z_in_local_library = 6 ∈ local_spec6.variables,
@@ -1458,13 +1454,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         local_success = local_6w.success,
         local_f1 = lc6w === nothing ? 0.0 :
             support_f1(lc6w, truth_6w.numerator, truth_6w.denominator).combined.f1,
-        local_has_true_parent = lc6w !== nothing &&
-            support_uses_variable(lc6w; variable = 2),
-        local_false_parent = lc6w !== nothing &&
-            (support_uses_variable(lc6w; variable = 3) ||
-             support_uses_variable(lc6w; variable = 4) ||
-             support_uses_variable(lc6w; variable = 5) ||
-             support_uses_variable(lc6w; variable = 6)))
+        local_has_true_parent = local_has_true_parent_gate(lc6w; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lc6w; variables = (3, 4, 5, 6)))
     end
 
     if :literature in wanted

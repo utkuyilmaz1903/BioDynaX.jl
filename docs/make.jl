@@ -29,6 +29,7 @@ makedocs(
         "Hybrid compose path" => "hybrid-compose.md",
         "Hybrid residual versus solver" => "hybrid-residual.md",
         "Identifiability product rows" => "identifiability-product.md",
+        "Graph-local library and ablation" => "graph-local-library.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",
