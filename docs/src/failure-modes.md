@@ -110,7 +110,7 @@ Thresholds stay `data_residual = 0.30`, `support_recall = 0.99`,
 Missing and empty stay distinct. A failed protocol print with
 `extras=nothing` shows `NA`. A failed two-hole print with
 `extras=String[]` shows `(none)`. Neither print contains
-`support_f1_ude = 0.99`.
+the UDE F1 0.99 paint.
 
 ## Source contract
 
