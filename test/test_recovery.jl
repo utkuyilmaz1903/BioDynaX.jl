@@ -247,6 +247,21 @@ end
     @test wrong.local_has_true_parent == false
 end
 
+@testset "unique-claim recovery requires exactly one unknown D" begin
+    rng = MersenneTwister(0)
+    zero_model, _ = build_ude_model(rng, build_linear_test_network())
+    @test_throws ErrorException assert_single_unknown_destruction(zero_model)
+    @test_throws ErrorException only_unknown_destruction(zero_model)
+    one_model, _ = build_ude_model(rng, build_hill_recovery_network(; known = false))
+    @test assert_single_unknown_destruction(one_model) == 1
+    @test only_unknown_destruction(one_model) isa NeuralDestructionTerm
+    two_model, _ = build_ude_model(rng, build_dual_unknown_network())
+    @test_throws ErrorException assert_single_unknown_destruction(two_model)
+    @test_throws ErrorException only_unknown_destruction(two_model)
+    @test !(:assert_single_unknown_destruction in names(BioDynaX))
+    @test !(:only_unknown_destruction in names(BioDynaX))
+end
+
 @testset "k_prod vs D practical identifiability is reported" begin
     report = run_recovery_suite(MersenneTwister(205); sections = (:identifiability,))
     ident = report[:identifiability]
