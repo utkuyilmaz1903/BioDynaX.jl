@@ -291,7 +291,7 @@ function recovery_suite_section_body(section::Symbol)
     start === nothing && return ""
     rest = src[first(start):end]
     nxt = findnext(r"\n    if :", rest, length(needle) + 1)
-    closing = findnext("return report", rest)
+    closing = findnext("return report", rest, 1)
     stop = if nxt === nothing
         closing === nothing ? length(rest) : first(closing) - 1
     else
