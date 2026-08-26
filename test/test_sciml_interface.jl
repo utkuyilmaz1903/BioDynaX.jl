@@ -6,14 +6,14 @@
         EdgeSpec[];
         reactions = [
             ReactionSpec(name = :b_drives_a,
-                         stoichiometry = Dict(1 => 1.0), regulators = [2],
-                         metadata = MassActionMetadata(rate_param = :k_ba)),
+                stoichiometry = Dict(1 => 1.0), regulators = [2],
+                metadata = MassActionMetadata(rate_param = :k_ba)),
             ReactionSpec(name = :a_decay,
-                         stoichiometry = Dict(1 => -1.0), regulators = Int[],
-                         metadata = LinearDecayMetadata(rate_param = :k_a)),
+                stoichiometry = Dict(1 => -1.0), regulators = Int[],
+                metadata = LinearDecayMetadata(rate_param = :k_a)),
             ReactionSpec(name = :b_decay,
-                         stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                         metadata = LinearDecayMetadata(rate_param = :k_b)),
+                stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                metadata = LinearDecayMetadata(rate_param = :k_b))
         ])
     model, p = build_ude_model(MersenneTwister(0), network)
     prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)

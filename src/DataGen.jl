@@ -6,13 +6,13 @@
 struct GroundTruthModel
     network::BiologicalNetwork
     model::UDEModel
-    parameters
+    parameters::Any
     generator::Symbol
 end
 
 function GroundTruthModel(rng::AbstractRNG, network::BiologicalNetwork;
-                          parameters = nothing,
-                          generator::Symbol = :compiled_mechanism)
+        parameters = nothing,
+        generator::Symbol = :compiled_mechanism)
     compiled, default_params = build_ude_model(rng, network)
     params = parameters === nothing ? default_params : parameters
     resolved = generator
@@ -95,12 +95,13 @@ function generate_experiment_set_from_compiled_model(truth::GroundTruthModel,
     for (index, u0) in pairs(initial_conditions)
         times, _, noisy, parameters = generate_data(
             truth, rng; u0 = Float64.(u0), tspan, n_points, noise_σ)
-        push!(experiments, Experiment(
-            Symbol("experiment_$index"), times, noisy, Float64.(u0);
-            metadata = Dict{Symbol, Any}(
-                :truth_parameters => parameters,
-                :generator => truth.generator,
-                :compiled_nstates => truth.model.compiled.nstates)))
+        push!(experiments,
+            Experiment(
+                Symbol("experiment_$index"), times, noisy, Float64.(u0);
+                metadata = Dict{Symbol, Any}(
+                    :truth_parameters => parameters,
+                    :generator => truth.generator,
+                    :compiled_nstates => truth.model.compiled.nstates)))
     end
     state_names = [node.name for node in truth.network.nodes if node.kind != INPUT]
     generator_label = truth.generator === :compiled_mechanism ?
@@ -136,25 +137,26 @@ function generate_experiment_set(rng::AbstractRNG;
         truth, rng; initial_conditions, tspan, n_points, noise_σ)
 end
 
-default_truth_params() = (
-    α_p53 = 0.9,
-    β_mdm2 = 1.1,
-    γ_mdm2 = 1.5,
-    signal = 1.0,
-    γ_p53 = 2.0,
-    K = 0.5,
-    n = 4,
-)
+function default_truth_params()
+    (
+        α_p53 = 0.9,
+        β_mdm2 = 1.1,
+        γ_mdm2 = 1.5,
+        signal = 1.0,
+        γ_p53 = 2.0,
+        K = 0.5,
+        n = 4
+    )
+end
 
 function generate_data(rng::AbstractRNG;
-                       network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
-                       u0::Vector{Float64} = [0.2, 0.1],
-                       tspan::Tuple{Float64,Float64} = (0.0, 20.0),
-                       n_points::Int = 40,
-                       noise_σ::Float64 = 0.05,
-                       truth_params::Union{Nothing,NamedTuple,ComponentVector} = nothing,
-                       generator::Symbol = :compiled_mechanism)
-
+        network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
+        u0::Vector{Float64} = [0.2, 0.1],
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        n_points::Int = 40,
+        noise_σ::Float64 = 0.05,
+        truth_params::Union{Nothing, NamedTuple, ComponentVector} = nothing,
+        generator::Symbol = :compiled_mechanism)
     n_points ≥ 2 || throw(ArgumentError("n_points must be ≥ 2 (got $n_points)"))
     noise_σ ≥ 0 || throw(ArgumentError("noise_σ must be ≥ 0 (got $noise_σ)"))
     tspan[2] > tspan[1] ||
@@ -208,8 +210,7 @@ function generate_from_compiled_model(model::UDEModel, params, rng::AbstractRNG;
     return t_data, clean_data, noisy_data, params
 end
 
-ground_truth!(truth::GroundTruthModel, dx, x, p, t) =
-    _ground_truth_rhs(x, p, t, truth)
+ground_truth!(truth::GroundTruthModel, dx, x, p, t) = _ground_truth_rhs(x, p, t, truth)
 
 function generate_data(truth::GroundTruthModel, rng::AbstractRNG;
         u0::Vector{Float64} = [0.2, 0.1],

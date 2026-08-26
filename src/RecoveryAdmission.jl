@@ -269,31 +269,33 @@ function recovery_suite_zero_dual_matrix()
         policy = recovery_suite_hole_policy(section)
         if policy === :library_fixture
             fixture = recovery_suite_admission_row(section)
-            push!(rows, (;
-                section,
-                policy,
-                zero = nothing,
-                two = nothing,
-                fixture,
-                holds = fixture.admitted && fixture.compiles == false &&
-                        fixture.single_hole_in_validate_network == false))
+            push!(rows,
+                (;
+                    section,
+                    policy,
+                    zero = nothing,
+                    two = nothing,
+                    fixture,
+                    holds = fixture.admitted && fixture.compiles == false &&
+                                fixture.single_hole_in_validate_network == false))
             continue
         end
         zero_row = recovery_suite_admission_row(section, zero)
         two_row = recovery_suite_admission_row(section, two)
         expect_admit = policy !== :exactly_one
-        push!(rows, (;
-            section,
-            policy,
-            zero = zero_row,
-            two = two_row,
-            fixture = recovery_suite_admission_row(section),
-            holds = zero_row.validate_open && two_row.validate_open &&
-                    zero_row.admitted == expect_admit &&
-                    two_row.admitted == expect_admit &&
-                    zero_row.unknown_holes == 0 &&
-                    two_row.unknown_holes == 2 &&
-                    zero_row.single_hole_in_validate_network == false))
+        push!(rows,
+            (;
+                section,
+                policy,
+                zero = zero_row,
+                two = two_row,
+                fixture = recovery_suite_admission_row(section),
+                holds = zero_row.validate_open && two_row.validate_open &&
+                            zero_row.admitted == expect_admit &&
+                            two_row.admitted == expect_admit &&
+                            zero_row.unknown_holes == 0 &&
+                            two_row.unknown_holes == 2 &&
+                            zero_row.single_hole_in_validate_network == false))
     end
     return (;
         rows,
@@ -315,8 +317,10 @@ function recovery_suite_unique_claim_sections_reject_zero_and_dual()
     return (;
         rows = claim_rows,
         holds = length(claim_rows) == length(RECOVERY_SUITE_UNIQUE_CLAIM_SECTIONS) &&
-                all(row -> row.holds && row.zero.admitted == false &&
-                           row.two.admitted == false, claim_rows))
+                all(
+            row -> row.holds && row.zero.admitted == false &&
+                       row.two.admitted == false,
+            claim_rows))
 end
 
 function recovery_suite_uses_admission_helper()

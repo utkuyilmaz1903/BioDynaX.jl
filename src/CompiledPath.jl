@@ -165,10 +165,10 @@ struct CompiledPathRow
     network::BiologicalNetwork
     truth::GroundTruthModel
     set::ExperimentSet
-    sciml
-    admission
+    sciml::Any
+    admission::Any
     protocol_row::UniqueClaimProtocolRow
-    arch
+    arch::Any
     remapped_dense::Bool
     compiled_once::Bool
     recovery_admits::Bool
@@ -473,8 +473,10 @@ function compiled_path_landing_docs_hold()
     sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
     readme = read(joinpath(pkgdir(BioDynaX), "README.md"), String)
     unique_page = read(joinpath(pkgdir(BioDynaX), "docs", "src", "unique-claim.md"), String)
-    architecture = read(joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
-    experimental = read(joinpath(pkgdir(BioDynaX), "docs", "src", "experimental.md"), String)
+    architecture = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
+    experimental = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src", "experimental.md"), String)
     return occursin("generate_experiment_set_from_compiled_model", tutorial) &&
            occursin("compile_ground_truth_model", howto) &&
            occursin("SciMLBase.ODEProblem(model", sciml) &&
