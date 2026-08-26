@@ -33,15 +33,20 @@ if haskey(report, :ablation)
     println("  wall time (s)      local=", a.local_time, " global=", a.global_time)
 end
 
-hard = run_recovery_suite(MersenneTwister(103);
+hard = run_recovery_suite(MersenneTwister(BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed);
                           sections = (:ude_discovery, :mm_unknown))
 println("BioDynaX recovery suite (unknown-edge UDE)")
+fingerprint = BioDynaX.unique_claim_fingerprint()
 for key in (:ude_discovery, :mm_unknown)
     haskey(hard, key) || continue
     u = hard[key]
+    extras = hasproperty(u, :protocol_result) ? u.protocol_result.extras :
+             (hasproperty(u, :extras) ? u.extras : nothing)
     println("  ", key, "  retcode=", u.retcode,
             "  nn_corr=", u.nn_correlation,
             "  F1=", u.support_f1,
             "  recall=", u.support_recall,
-            "  data_resid=", u.data_residual)
+            "  data_resid=", u.data_residual,
+            "  extras=", BioDynaX.extras_print_label(extras))
+    println(BioDynaX.format_recovery_protocol(u, fingerprint))
 end

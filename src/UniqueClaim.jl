@@ -132,6 +132,7 @@ const UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN = (
     "unique_claim_protocol_n_points",
     "unique_claim_discovery_config",
     "unique_claim_discovery_extras",
+    "unique_claim_fingerprint",
     "production_destruction_tradeoff",
     "assert_single_unknown_destruction",
     "format_protocol_result",
@@ -202,7 +203,10 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "index.md"),
         joinpath(root, "docs", "src", "tutorial.md"),
         joinpath(root, "docs", "src", "howto.md"),
-        joinpath(root, "docs", "src", "unique-claim.md"))
+        joinpath(root, "docs", "src", "unique-claim.md"),
+        joinpath(root, "docs", "src", "architecture.md"),
+        joinpath(root, "docs", "src", "benchmarks.md"),
+        joinpath(root, "docs", "src", "experimental.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""
@@ -252,7 +256,11 @@ unique_claim_locked_sentences() = (;
     hill = "Canonical Hill from a trained neural rate is closed.",
     coefficients = "Coefficients are not biological constants when the edge is unidentifiable.",
     smoke = "BIODYNAX_SMOKE=1 (1 IC / 8 points) is not the seed-103 / 9-IC protocol.",
-    preview = "Research preview. Not v1.0. Not in General.")
+    preview = "Research preview. Not v1.0. Not in General.",
+    remap = "compile_mechanism reindexes kept NeuralDestructionTerm heads to 1:n.",
+    extras = "Unscored extras print NA; empty extras print (none); live extras are not hardcoded.",
+    recovery = "validate_network stays open; unique-claim recovery admits exactly one unknown D(z).",
+    f1_attempt = "benchmark/ude_f1_attempt.jl is a same-library probe, not the 9-IC protocol.")
 
 # -- Protocol fingerprint -----------------------------------------------------
 
@@ -607,3 +615,398 @@ function format_recovery_protocol(ude;
         discovery_seed,
         smoke)
 end
+
+# -- Typed protocol vs smoke fingerprint --------------------------------------
+
+"""
+    UniqueClaimFingerprint
+
+Typed reproduction object. `:protocol` is seed 103 / 9 ICs / 50 points /
+Adam 100 / BFGS 50. `:smoke` is 1 IC / 8 points / BFGS 0 and is not the
+protocol. Not exported.
+"""
+struct UniqueClaimFingerprint
+    kind::Symbol
+    seed::Int
+    n_ics::Int
+    n_points::Int
+    adam_iterations::Int
+    bfgs_iterations::Int
+    tspan::Tuple{Float64, Float64}
+    bootstrap::Union{Int, Nothing}
+    discovery_seed::Union{Int, Nothing}
+    observation_noise::Float64
+    smoke::Bool
+end
+
+function unique_claim_fingerprint(; smoke::Bool = false)
+    proto = UNIQUE_CLAIM_PROTOCOL
+    if smoke
+        return UniqueClaimFingerprint(
+            :smoke,
+            proto.seed,
+            proto.smoke_n_ics,
+            proto.smoke_n_points,
+            proto.adam_iterations,
+            0,
+            proto.tspan,
+            nothing,
+            nothing,
+            proto.observation_noise,
+            true)
+    end
+    return UniqueClaimFingerprint(
+        :protocol,
+        proto.seed,
+        proto.n_ics,
+        proto.n_points,
+        proto.adam_iterations,
+        proto.bfgs_iterations,
+        proto.tspan,
+        proto.bootstrap,
+        proto.discovery_seed,
+        proto.observation_noise,
+        false)
+end
+
+unique_claim_fingerprint(kind::Symbol) =
+    kind === :smoke ? unique_claim_fingerprint(; smoke = true) :
+    kind === :protocol ? unique_claim_fingerprint() :
+    throw(ArgumentError("fingerprint kind must be :protocol or :smoke; got $kind"))
+
+function unique_claim_fingerprint_is_protocol(fp::UniqueClaimFingerprint)
+    proto = UNIQUE_CLAIM_PROTOCOL
+    return !fp.smoke &&
+           fp.kind === :protocol &&
+           fp.seed == proto.seed &&
+           fp.n_ics == proto.n_ics &&
+           fp.n_points == proto.n_points &&
+           fp.adam_iterations == proto.adam_iterations &&
+           fp.bfgs_iterations == proto.bfgs_iterations &&
+           fp.tspan == proto.tspan &&
+           fp.bootstrap == proto.bootstrap &&
+           fp.discovery_seed == proto.discovery_seed &&
+           fp.observation_noise == proto.observation_noise
+end
+
+function unique_claim_fingerprint_is_smoke(fp::UniqueClaimFingerprint)
+    proto = UNIQUE_CLAIM_PROTOCOL
+    return fp.smoke &&
+           fp.kind === :smoke &&
+           fp.n_ics == proto.smoke_n_ics &&
+           fp.n_points == proto.smoke_n_points &&
+           fp.bfgs_iterations == 0 &&
+           fp.bootstrap === nothing &&
+           fp.discovery_seed === nothing &&
+           !unique_claim_fingerprint_is_protocol(fp)
+end
+
+function unique_claim_fingerprint_holds(fp::UniqueClaimFingerprint)
+    fp.smoke && return unique_claim_fingerprint_is_smoke(fp)
+    return unique_claim_fingerprint_is_protocol(fp)
+end
+
+function unique_claim_fingerprint_namedtuple(fp::UniqueClaimFingerprint)
+    return (;
+        kind = fp.kind,
+        seed = fp.seed,
+        n_ics = fp.n_ics,
+        n_points = fp.n_points,
+        adam_iterations = fp.adam_iterations,
+        bfgs_iterations = fp.bfgs_iterations,
+        tspan = fp.tspan,
+        bootstrap = fp.bootstrap,
+        discovery_seed = fp.discovery_seed,
+        observation_noise = fp.observation_noise,
+        smoke = fp.smoke,
+        is_protocol = unique_claim_fingerprint_is_protocol(fp))
+end
+
+function format_unique_claim_fingerprint(fp::UniqueClaimFingerprint)
+    io = IOBuffer()
+    println(io, "fingerprint_kind: ", fp.kind)
+    println(io, "  seed: ", fp.seed)
+    println(io, "  n_ics: ", fp.n_ics)
+    println(io, "  n_points: ", fp.n_points)
+    println(io, "  adam_iterations: ", fp.adam_iterations)
+    println(io, "  bfgs_iterations: ", fp.bfgs_iterations)
+    println(io, "  tspan: ", fp.tspan)
+    println(io, "  bootstrap: ", _format_protocol_value(fp.bootstrap))
+    println(io, "  discovery_seed: ", _format_protocol_value(fp.discovery_seed))
+    println(io, "  observation_noise: ", fp.observation_noise)
+    println(io, "  smoke: ", fp.smoke)
+    println(io, "  is_protocol: ", unique_claim_fingerprint_is_protocol(fp))
+    return String(take!(io))
+end
+
+function format_protocol_result(ident, fingerprint::UniqueClaimFingerprint; kwargs...)
+    return format_protocol_result(ident;
+        seed = fingerprint.seed,
+        n_ics = fingerprint.n_ics,
+        n_points = fingerprint.n_points,
+        adam_iters = fingerprint.adam_iterations,
+        bfgs_iters = fingerprint.bfgs_iterations,
+        bootstrap = fingerprint.bootstrap,
+        discovery_seed = fingerprint.discovery_seed,
+        protocol_kind = fingerprint.kind,
+        smoke = fingerprint.smoke,
+        kwargs...)
+end
+
+function format_recovery_protocol(ude, fingerprint::UniqueClaimFingerprint; kwargs...)
+    return format_recovery_protocol(ude;
+        seed = fingerprint.seed,
+        n_ics = fingerprint.n_ics,
+        n_points = fingerprint.n_points,
+        adam_iters = fingerprint.adam_iterations,
+        bfgs_iters = fingerprint.bfgs_iterations,
+        bootstrap = fingerprint.bootstrap,
+        discovery_seed = fingerprint.discovery_seed,
+        smoke = fingerprint.smoke,
+        kwargs...)
+end
+
+function unique_claim_reproduction(fp::UniqueClaimFingerprint)
+    return unique_claim_reproduction(;
+        smoke = fp.smoke,
+        seed = fp.seed,
+        n_ics = fp.n_ics,
+        n_points = fp.n_points,
+        adam_iters = fp.adam_iterations,
+        bfgs_iters = fp.bfgs_iterations,
+        bootstrap = fp.bootstrap,
+        discovery_seed = fp.discovery_seed)
+end
+
+# -- protocol_result fields vs stdout print order -----------------------------
+
+"""Printed labels inside each product block, in stdout order."""
+const PROTOCOL_PRINT_FIELDS = (
+    IDENTIFIABILITY = (
+        :unknown_holes, :unidentifiable_edge, :coefficients_are_biological_constants),
+    FIT = (
+        :hybrid_data_residual, :support_recall),
+    DISCOVERY = (
+        :equations, :support_f1, :extras, :canonical_hill_from_nn, :claim),
+    REPRODUCTION = (
+        :seed, :n_ics, :n_points, :adam_iters, :bfgs_iters, :bootstrap,
+        :discovery_seed, :protocol_kind, :smoke))
+
+"""Maps `PROTOCOL_RESULT_FIELDS` to the string `format_protocol_result` prints."""
+const PROTOCOL_RESULT_PRINT_LABELS = (
+    unknown_holes = "unknown_holes",
+    unidentifiable_edge = "unidentifiable_edge",
+    coefficients_are_biological_constants = "coefficients_are_biological_constants",
+    data_residual = "hybrid_data_residual",
+    support_recall = "support_recall",
+    support_f1 = "support_f1",
+    extras = "extras",
+    canonical_hill_from_nn = "canonical_hill_from_nn",
+    claim = "claim")
+
+function protocol_print_fields()
+    return PROTOCOL_PRINT_FIELDS
+end
+
+function protocol_result_print_labels()
+    return PROTOCOL_RESULT_PRINT_LABELS
+end
+
+function protocol_result_field_to_print_label(field::Symbol)
+    labels = PROTOCOL_RESULT_PRINT_LABELS
+    hasproperty(labels, field) || throw(ArgumentError(
+        "protocol_result field $field is not in PROTOCOL_RESULT_FIELDS"))
+    return getproperty(labels, field)
+end
+
+function protocol_result_print_order()
+    labels = Symbol[]
+    for block in UNIQUE_CLAIM_PRODUCT_BLOCKS
+        append!(labels, getproperty(PROTOCOL_PRINT_FIELDS, block))
+    end
+    return Tuple(labels)
+end
+
+"""
+    extras_print_label(extras) -> String
+
+Honesty for the DISCOVERY extras line. `nothing` is unscored (`NA`).
+An empty collection is `(none)`. Live leftovers are joined. The F1
+attempt leftover pair is never invented here.
+"""
+extras_print_label(extras) = _format_protocol_extras(extras)
+
+function extras_print_is_hardcoded_attempt(label::AbstractString)
+    return occursin("1, r remain after the UDE F1 attempt", label)
+end
+
+function format_protocol_result_field_order_holds(text::AbstractString)
+    protocol_block_order_holds(text) || return false
+    labels = [string(protocol_result_field_to_print_label(field), ":")
+              for field in PROTOCOL_RESULT_FIELDS]
+    starts = Int[]
+    for label in labels
+        range = findfirst(label, text)
+        range === nothing && return false
+        push!(starts, first(range))
+    end
+    return issorted(starts)
+end
+
+function format_protocol_print_labels_hold(text::AbstractString)
+    for label in protocol_result_print_order()
+        occursin(string(label, ":"), text) || return false
+    end
+    return extras_print_is_hardcoded_attempt(text) == false
+end
+
+function assert_format_matches_protocol_result(result, text::AbstractString)
+    format_protocol_result_field_order_holds(text) || throw(ErrorException(
+        "format_protocol_result print order must follow PROTOCOL_RESULT_FIELDS"))
+    occursin("unknown_holes: $(result.unknown_holes)", text) ||
+        throw(ErrorException("printed unknown_holes does not match protocol_result"))
+    occursin("unidentifiable_edge: $(result.unidentifiable_edge)", text) ||
+        throw(ErrorException("printed unidentifiable_edge does not match protocol_result"))
+    occursin("coefficients_are_biological_constants: $(result.coefficients_are_biological_constants)",
+        text) || throw(ErrorException(
+        "printed coefficients_are_biological_constants does not match protocol_result"))
+    occursin("hybrid_data_residual: $(result.data_residual)", text) ||
+        throw(ErrorException("printed hybrid_data_residual does not match data_residual"))
+    occursin("support_recall: $(result.support_recall)", text) ||
+        throw(ErrorException("printed support_recall does not match protocol_result"))
+    occursin("support_f1: $(result.support_f1)", text) ||
+        throw(ErrorException("printed support_f1 does not match protocol_result"))
+    extras_line = extras_print_label(result.extras)
+    occursin("extras: $(extras_line)", text) || throw(ErrorException(
+        "printed extras do not match protocol_result"))
+    occursin("canonical_hill_from_nn: false", text) || throw(ErrorException(
+        "printed canonical_hill_from_nn must stay false"))
+    occursin("claim: recall_plus_data_residual", text) || throw(ErrorException(
+        "printed claim must be recall_plus_data_residual"))
+    extras_print_is_hardcoded_attempt(text) && throw(ErrorException(
+        "format_protocol_result must not invent UDE F1-attempt extras"))
+    return text
+end
+
+# -- Recovery-path hole admission (compiler stays open) -----------------------
+
+unique_claim_recovery_admits(model::UDEModel) =
+    count_unknown_destructions(model) == 1
+
+unique_claim_recovery_admits(network::BiologicalNetwork) =
+    count_unknown_destructions(network) == 1
+
+function unique_claim_compiler_stays_open(network::BiologicalNetwork)
+    validate_network(network) === network || return false
+    compiled = compile_mechanism(network)
+    return compiled isa CompiledMechanism && neural_index_is_dense(compiled)
+end
+
+"""
+    assert_unique_claim_recovery_network(network) -> network
+
+`validate_network` is called and stays a topology checker. The unique-claim
+recovery instrument then requires exactly one unknown `D(z)`.
+"""
+function assert_unique_claim_recovery_network(network::BiologicalNetwork)
+    validate_network(network)
+    n = count_unknown_destructions(network)
+    n == 1 || throw(ErrorException(
+        "unique-claim recovery requires exactly one unknown destruction D(z); got $n"))
+    return network
+end
+
+function unique_claim_recovery_admission(network::BiologicalNetwork)
+    n = count_unknown_destructions(network)
+    return (;
+        unknown_holes = n,
+        validate_open = unique_claim_compiler_stays_open(network),
+        recovery_admits = n == 1,
+        single_hole_in_validate_network = validate_network_stays_open_source() == false)
+end
+
+function recovery_suite_uses_single_hole_instrument()
+    path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    src = read(path, String)
+    return occursin("only_unknown_destruction", src) &&
+           occursin("assert_unique_claim_recovery_network", src) &&
+           occursin("function run_recovery_suite", src)
+end
+
+# -- F1 attempt probe (not the protocol) --------------------------------------
+
+"""Contract for `benchmark/ude_f1_attempt.jl`. Not a reproduction fingerprint."""
+const UNIQUE_CLAIM_F1_ATTEMPT = (
+    is_protocol = false,
+    trains_ude = false,
+    n_ics = 0,
+    uses_protocol_ics = false,
+    library = :same_monomial,
+    new_atoms = false,
+    support_f1_ude = 0.50,
+    support_f1_clean = 0.99,
+    script = "benchmark/ude_f1_attempt.jl")
+
+const UNIQUE_CLAIM_F1_ATTEMPT_MUST_CONTAIN = (
+    "same library",
+    "No new atoms",
+    "unique_claim_discovery_extras",
+    "unique_claim_f1_attempt_verdict",
+    "support_f1_clean",
+    "support_f1_ude",
+    "not the recovery protocol",
+    "UNIQUE_CLAIM_F1_ATTEMPT")
+
+const UNIQUE_CLAIM_F1_ATTEMPT_MUST_NOT_CONTAIN = (
+    "support_f1_ude = 0.99",
+    "canonical Hill from a trained NN is open",
+    "unique_claim_protocol_ics()",
+    "train_ude",
+    "train_experiments")
+
+function unique_claim_f1_attempt_contract()
+    lock = recovery_thresholds_lock()
+    return (;
+        UNIQUE_CLAIM_F1_ATTEMPT...,
+        support_f1_ude = lock.support_f1_ude,
+        support_f1_clean = lock.support_f1_clean,
+        is_protocol = false)
+end
+
+function unique_claim_f1_attempt_path()
+    joinpath(pkgdir(BioDynaX), UNIQUE_CLAIM_F1_ATTEMPT.script)
+end
+
+function unique_claim_f1_attempt_source_violations()
+    src = read(unique_claim_f1_attempt_path(), String)
+    missing = [s for s in UNIQUE_CLAIM_F1_ATTEMPT_MUST_CONTAIN if !occursin(s, src)]
+    forbidden = [s for s in UNIQUE_CLAIM_F1_ATTEMPT_MUST_NOT_CONTAIN if occursin(s, src)]
+    return (; missing, forbidden)
+end
+
+function unique_claim_f1_attempt_holds()
+    contract = unique_claim_f1_attempt_contract()
+    violations = unique_claim_f1_attempt_source_violations()
+    return contract.is_protocol == false &&
+           contract.trains_ude == false &&
+           contract.n_ics == 0 &&
+           contract.uses_protocol_ics == false &&
+           contract.new_atoms == false &&
+           contract.support_f1_ude == RECOVERY_THRESHOLDS.support_f1_ude &&
+           contract.support_f1_clean == RECOVERY_THRESHOLDS.support_f1_clean &&
+           isempty(violations.missing) &&
+           isempty(violations.forbidden)
+end
+
+function unique_claim_f1_attempt_row(; extras, f1)
+    reaches_clean = unique_claim_f1_reaches_analytical_gate(f1)
+    meets_skeleton = unique_claim_f1_meets_skeleton_floor(f1)
+    return (;
+        extras,
+        f1,
+        reaches_clean,
+        meets_skeleton,
+        is_protocol = false,
+        verdict = unique_claim_f1_attempt_verdict(; extras, reaches_clean))
+end
+

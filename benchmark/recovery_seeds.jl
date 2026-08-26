@@ -43,6 +43,8 @@ function ude_hill(seed::Int)
     report = run_recovery_suite(MersenneTwister(seed);
                                 sections = (:ude_discovery,))
     u = report[:ude_discovery]
+    extras = hasproperty(u, :protocol_result) ? u.protocol_result.extras :
+             (hasproperty(u, :extras) ? u.extras : nothing)
     return (;
         seed,
         nn_rate_rmse = u.nn_rate_rmse,
@@ -50,6 +52,10 @@ function ude_hill(seed::Int)
         support_f1 = u.support_f1,
         data_residual = u.data_residual,
         unidentifiable_edge = u.identifiability.unidentifiable_edge,
+        extras,
+        extras_label = BioDynaX.extras_print_label(extras),
+        n_ics = BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics,
+        is_protocol = seed == BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         gate = u.nn_rate_rmse ≤ RECOVERY_THRESHOLDS.nn_rate_rmse &&
             u.support_recall ≥ RECOVERY_THRESHOLDS.support_recall &&
             u.support_f1 ≥ RECOVERY_THRESHOLDS.support_f1_ude &&
@@ -91,7 +97,7 @@ function main(args = ARGS)
                (:f1, :recall))
     if "--ude" in args
         ude_rows = [ude_hill(seed) for seed in SEEDS]
-        _summarize("UDE Hill (9 ICs; not a CI job)", ude_rows,
+        _summarize("UDE Hill ($(BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics) ICs; not a CI job)", ude_rows,
                    (:nn_rate_rmse, :support_recall, :support_f1,
                     :data_residual))
     end

@@ -41,13 +41,15 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         noise_σ::Float64 = 0.0,
         smoke::Bool = false)
     protocol = BioDynaX.UNIQUE_CLAIM_PROTOCOL
+    fingerprint = BioDynaX.unique_claim_fingerprint(; smoke)
     rng = MersenneTwister(seed)
     truth_net = unknown_inhibition_network(; known = true, hill_order = 2)
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
+    BioDynaX.assert_unique_claim_recovery_network(ude_net)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    tspan = protocol.tspan
+    tspan = fingerprint.tspan
     ics = BioDynaX.unique_claim_protocol_ics(; smoke)
-    n_points = BioDynaX.unique_claim_protocol_n_points(; smoke)
+    n_points = fingerprint.n_points
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = ics,
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
@@ -125,7 +127,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
     elseif !smoke
         error("discovery failed ($(discovery.retcode)): $(discovery.message)")
     end
-    println(BioDynaX.format_protocol_result(ident;
+    println(BioDynaX.format_protocol_result(ident, fingerprint;
         residual = residual,
         equations = discovery.equations,
         extras = extras,
@@ -134,11 +136,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         n_ics = length(ics),
         n_points = n_points,
         adam_iters = adam_iters,
-        bfgs_iters = bfgs_iters,
-        bootstrap = smoke ? nothing : protocol.bootstrap,
-        discovery_seed = smoke ? nothing : protocol.discovery_seed,
-        protocol_kind = BioDynaX.unique_claim_protocol_kind(; smoke),
-        smoke = smoke))
+        bfgs_iters = smoke ? fingerprint.bfgs_iterations : bfgs_iters))
     println("Hybrid RHS constructed: ", typeof(rhs))
     println("CSV (first IC): ", csv_path)
     if !smoke
