@@ -325,22 +325,36 @@ end
 
 @testset "golden-path example matches recovery CI protocol" begin
     src = read(joinpath(@__DIR__, "..", "examples", "unknown_inhibition.jl"), String)
-    @test occursin("seed::Int = 103", src)
-    @test occursin("adam_iters::Int = 100", src)
-    @test occursin("bfgs_iters::Int = 50", src)
+    proto = UNIQUE_CLAIM_PROTOCOL
+    @test proto.seed == 103
+    @test proto.adam_iterations == 100
+    @test proto.bfgs_iterations == 50
+    @test proto.n_points == 50
+    @test proto.smoke_n_points == 8
+    @test proto.tspan == (0.0, 8.0)
+    @test proto.bootstrap == 8
+    @test proto.discovery_seed == 3
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", src)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.adam_iterations", src)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.bfgs_iterations", src)
+    @test occursin("unique_claim_discovery_config", src)
     @test occursin("production_destruction_tradeoff", src)
     @test occursin("assert_single_unknown_destruction", src)
     @test occursin("format_protocol_result", src)
     @test occursin("_unknown_edge_ics()", src)
     @test occursin("smoke ? ics_all[1:1]", src)
-    @test occursin("n_points = smoke ? 8", src)
+    @test occursin("smoke_n_points", src)
     @test occursin("sample_unknown_destruction_grid", src)
     @test occursin("_regulator_grid", src)
-    @test occursin("rate_discovery_config(bootstrap = 8, seed = 3)", src)
     @test occursin("ReactionSpec", src)
     @test occursin("HillMetadata", src)
     @test !occursin("build_hill_recovery_network", src)
     @test !occursin("Note:", src)
+    @test !(:UNIQUE_CLAIM_PROTOCOL in names(BioDynaX))
+    @test !(:unique_claim_discovery_config in names(BioDynaX))
+    cfg = unique_claim_discovery_config()
+    @test cfg.seed == proto.discovery_seed
+    @test cfg.backend.bootstrap_samples == proto.bootstrap
     @test BioDynaX._unknown_edge_ics() == [
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]]

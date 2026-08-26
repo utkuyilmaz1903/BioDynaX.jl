@@ -1,5 +1,8 @@
 # BioDynaX.jl Unreleased
 
+- Unique-claim hyperparameters live in `UNIQUE_CLAIM_PROTOCOL` (not exported).
+  The golden-path example and UDE recovery defaults read that const.
+  `RECOVERY_THRESHOLDS` is unchanged.
 - Golden-path stdout and docs treat identifiability as the product block
   (`unidentifiable_edge`, `coefficients_are_biological_constants`). The
   example errors unless there is exactly one unknown `D(z)`. No new
