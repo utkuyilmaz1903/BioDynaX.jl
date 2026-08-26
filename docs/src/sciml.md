@@ -31,6 +31,12 @@ length(sol.t)
 
 That snippet constructs an ODE. It is not the unique discovery path.
 
+`generate_from_compiled_model` uses the same entry:
+`SciMLBase.ODEProblem(model, u0, tspan, p)`. Remapped multi-head unknowns
+and two-regulator `D(S,I)` must match that problem, the in-place cache
+path, `remake`, and `SciMLBase.solve(model, ...)`. See
+[Compiled experiment path](compiled-path.md).
+
 ## In-place production integration
 
 For allocation-free forward passes, request an in-place problem and pair it

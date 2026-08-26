@@ -58,8 +58,10 @@ compiles to a `NeuralDestructionTerm`.
 ## Train, discover, resimulate
 
 Prefer `BioDynaX.unique_claim_experiment_set` + `train_experiments` as
-in the example (fingerprint ICs and point counts). A raw
-`generate_experiment_set` snippet below is a sketch.
+in the example (fingerprint ICs and point counts). That path calls
+`compile_ground_truth_model` once. A raw
+`generate_experiment_set` snippet below is a sketch; it now also
+compiles once and then uses `generate_experiment_set_from_compiled_model`.
 Adam may be minibatched; BFGS refines the joint loss over every IC.
 
 ```julia
@@ -117,3 +119,7 @@ using SBMLToolkit        # BioDynaX.import_sbmltoolkit_network
 ```
 
 These are experimental. DataDrivenSparse is never a CI dependency.
+
+`run_recovery_suite` admits unique-claim sections through
+`admit_recovery_suite_network`. Other sections have an explicit hole
+policy and stay open; see [Compiled experiment path](compiled-path.md).

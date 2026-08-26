@@ -115,6 +115,13 @@ sol = solve(prob, Tsit5(); saveat = 0:0.5:10.0)
 
 That snippet constructs an ODE. It is not the unique discovery path.
 
+Synthetic multi-IC data come from `generate_experiment_set`, which
+compiles one ground-truth model and then calls
+`generate_from_compiled_model` (the same `ODEProblem(model, u0, tspan, p)`
+path) on every initial condition. Remapped multi-head and two-regulator
+`D(S,I)` fixtures are generated together. Unique-claim suite sections
+are admitted through `admit_recovery_suite_network` before training.
+
 ---
 
 ## Installation

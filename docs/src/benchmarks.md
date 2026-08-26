@@ -66,6 +66,13 @@ product does not claim canonical Hill from a trained NN. Live extras on
 the recovery row print through `extras_print_label`; the attempt leftover
 pair is not hardcoded when discovery did not score.
 
+`run_recovery_suite` admits unique-claim sections
+(`:ude_discovery`, `:mm_unknown`, `:ident_interventions`, `:partial_obs`)
+through `admit_recovery_suite_network` before the 9-IC train. Other
+sections have an explicit open hole policy; `:ablation` is a library
+fixture and does not compile. The matrix is
+`recovery_suite_admission_matrix` (not exported).
+
 Thresholds are `RECOVERY_THRESHOLDS`. Loosening them is a breaking change.
 v1.0 is not cut until this table stays red when the claim fails.
 
