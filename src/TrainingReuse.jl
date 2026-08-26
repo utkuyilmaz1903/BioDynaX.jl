@@ -470,11 +470,13 @@ function al_constraint_passes_model_source()
     start = findfirst("function train_experiments(p_init, set::ExperimentSet, nn, st", src)
     start === nothing && return false
     rest = src[first(start):end]
-    nxt = findnext("function train_experiments(p_init, set::ExperimentSet, model::UDEModel", rest)
+    nxt = findnext(
+        "function train_experiments(p_init, set::ExperimentSet, model::UDEModel",
+        rest, 2)
     body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
     return occursin("predict_ude(", body) &&
            occursin("model = resolved_model", body) &&
-           !occursin("predict_ude(\n                    params, experiment.u0,", body)
+           occursin("session = local_session", body)
 end
 
 function train_experiments_accepts_optimizer_state_source()
