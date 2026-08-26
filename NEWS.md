@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- Hybrid residual versus solver (`src/HybridResidual.jl`, not
+  exported): `hybrid_data_residual` agrees with `SciMLBase.solve`
+  of `compose_hybrid_rhs`. Noise-0 identity residual is ~0; smoke
+  (1 IC / 8 points) is not the seed-103 / 9-IC protocol residual.
+  Docs: [hybrid-residual](docs/src/hybrid-residual.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Hybrid compose path (`src/HybridCompose.jl`, not exported):
   `compose_hybrid_rhs` with the neural destruction rate recovers
   `ude_system`. Failed `DiscoveryResult` cannot `export_rhs`.

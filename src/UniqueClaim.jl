@@ -215,7 +215,8 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "recovery-suite-skip.md"),
         joinpath(root, "docs", "src", "experiment-checkpoint.md"),
         joinpath(root, "docs", "src", "failure-modes.md"),
-        joinpath(root, "docs", "src", "hybrid-compose.md"))
+        joinpath(root, "docs", "src", "hybrid-compose.md"),
+        joinpath(root, "docs", "src", "hybrid-residual.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""

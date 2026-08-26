@@ -153,3 +153,8 @@ See [Failure modes](failure-modes.md).
 
 `compose_hybrid_rhs` with the neural destruction rate recovers
 `ude_system`. See [Hybrid compose path](hybrid-compose.md).
+
+`hybrid_data_residual` agrees with `SciMLBase.solve` of
+`compose_hybrid_rhs`. Smoke residual (1 IC / 8 points) is not the
+seed-103 / 9-IC protocol residual. See
+[Hybrid residual versus solver](hybrid-residual.md).

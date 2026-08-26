@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Hybrid residual versus solver agrees `hybrid_data_residual` with
+  `SciMLBase.solve` of `compose_hybrid_rhs` and with `predict_ude`
+  at noise 0 (`src/HybridResidual.jl`, not exported). Failed compose
+  paths return Inf or throw. Smoke residual (1 IC / 8 points) is not
+  the seed-103 / 9-IC protocol residual. Docs:
+  [hybrid-residual](docs/src/hybrid-residual.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Hybrid compose path locks `compose_hybrid_rhs` identity against
   `ude_system` and `hybrid_data_residual` against noise-0 generated
   data (`src/HybridCompose.jl`, not exported). Failed discovery

@@ -51,6 +51,8 @@ See [Failure modes](failure-modes.md).
 
 compose_hybrid_rhs with the neural destruction rate recovers ude_system.
 See [Hybrid compose path](hybrid-compose.md).
+hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
+See [Hybrid residual versus solver](hybrid-residual.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
