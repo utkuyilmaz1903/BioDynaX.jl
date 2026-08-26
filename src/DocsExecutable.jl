@@ -429,12 +429,12 @@ function hill_from_nn_closed_docs_row()
 end
 
 function validate_open_docs_row()
+    linear = build_linear_test_network()
+    dual = build_dual_unknown_network()
     return (;
         holds = validate_network_stays_open_source() &&
-                validate_network(build_linear_test_network()) ===
-                    build_linear_test_network() &&
-                validate_network(build_dual_unknown_network()) ===
-                    build_dual_unknown_network())
+                validate_network(linear) === linear &&
+                validate_network(dual) === dual)
 end
 
 # -- Catalog ------------------------------------------------------------------

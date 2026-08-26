@@ -19,8 +19,8 @@ H–L each have a locked landing sentence and a helper module. The
 tutorial still composed `hybrid_data_residual` without naming those
 five pages. howto / sciml / architecture listed them one by one
 without an executable join that can fail when a leftover phrase
-returns (`k_custom is absent`, ImplicitCandidate-only counts,
-`local_basis` target as a node id).
+returns (a missing custom kinetic name, ImplicitCandidate-only
+counts, `local_basis` target as a node id).
 
 This page is that join. It does not replace
 [Discovery streaming](discovery-streaming.md),
@@ -69,7 +69,7 @@ combined F1 out of the KPI failure symbols.
 `no_restated_ag_pages_row` fails if this page says it restates an
 A–G markdown file. `make.jl` still lists those A–G pages.
 
-Closed leftover phrases (`k_custom is absent`, a painted UDE
+Closed leftover phrases (a missing custom kinetic name, a painted UDE
 F1 of 0.99) must not appear on the four landing files.
 
 ## What this page does not do
