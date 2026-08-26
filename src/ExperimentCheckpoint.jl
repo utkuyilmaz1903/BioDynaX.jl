@@ -1130,11 +1130,11 @@ function resume_equivalence_row(; dir)
     return (;
         resume_compiles = n_resume,
         fresh_compiles = n_fresh,
-        first_loss = first_fit.loss,
+        first_loss = first_fit.final_loss,
         iteration = ckpt.iteration,
         has_state = ckpt.optimizer_state !== nothing,
         holds = n_resume == 0 && n_fresh == 0 &&
-                isfinite(first_fit.loss) &&
+                isfinite(first_fit.final_loss) &&
                 ckpt.optimizer_state !== nothing)
 end
 
