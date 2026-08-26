@@ -853,4 +853,15 @@ using BioDynaX:
     schema_vs_compiled_nn_tree_row,
     dummy_head_on_zero_hole_row,
     suite_section_schema_catalog,
-    suite_schema_catalog_holds
+    suite_schema_catalog_holds,
+    docs_executable_join_row,
+    leftover_contradiction_hits,
+    DocsExecutableRow,
+    docs_executable_contract_holds,
+    docs_executable_contract,
+    docs_executable_locked_sentences,
+    live_hl_kinetic_join_row,
+    tutorial_mentions_hl_row,
+    no_restated_ag_pages_row,
+    leftover_contradiction_row,
+    executable_snippets_row

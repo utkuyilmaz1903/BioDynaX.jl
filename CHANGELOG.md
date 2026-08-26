@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Docs executable path joins the H–L surfaces (hybrid residual,
+  identifiability product, graph-local library, denominator domain,
+  parameter schema pack) with leftover scanners on tutorial / howto /
+  sciml (`src/DocsExecutable.jl`, not exported). It does not restate
+  the A–G pages. Docs:
+  [docs-executable](docs/src/docs-executable.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Parameter schema / pack collects `CustomKineticMetadata.rate_param`
   so `:k_custom` is present (`src/ParameterSchemaPack.jl`, not
   exported). `unpack_parameters` inverts `pack_parameters`.

@@ -179,3 +179,8 @@ violations when extras remain. See
 `:k_custom` is present. `unpack_parameters` inverts
 `pack_parameters`. See
 [Parameter schema and pack](parameter-schema-pack.md).
+
+`docs_executable_join_row` joins the H–L contract sentences.
+`leftover_contradiction_hits` must be empty on tutorial / howto /
+sciml / architecture. See
+[Docs executable path](docs-executable.md).

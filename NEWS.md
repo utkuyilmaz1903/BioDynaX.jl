@@ -1,5 +1,9 @@
 # BioDynaX.jl Unreleased
 
+- Docs executable path (`src/DocsExecutable.jl`, not exported):
+  joins H–L contract sentences and scans leftover closed-hole
+  phrases. Docs: [docs-executable](docs/src/docs-executable.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Parameter schema / pack (`src/ParameterSchemaPack.jl`, not
   exported): `:k_custom` is in `parameter_schema`.
   `unpack_parameters` inverts `pack_parameters`. Docs:

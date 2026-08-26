@@ -61,6 +61,8 @@ denominator_split_counts walks train, validation, and the orthant domain grid se
 See [Denominator and domain safety](denominator-domain.md).
 parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
 See [Parameter schema and pack](parameter-schema-pack.md).
+The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
+See [Docs executable path](docs-executable.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

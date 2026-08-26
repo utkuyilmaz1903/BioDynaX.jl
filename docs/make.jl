@@ -32,6 +32,7 @@ makedocs(
         "Graph-local library and ablation" => "graph-local-library.md",
         "Denominator and domain safety" => "denominator-domain.md",
         "Parameter schema and pack" => "parameter-schema-pack.md",
+        "Docs executable path" => "docs-executable.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",
