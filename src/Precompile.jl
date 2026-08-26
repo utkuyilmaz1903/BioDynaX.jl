@@ -30,5 +30,7 @@
         training_solve_session(model, u, (0.0, 1.0), params)
         recommend_sensealg(model; n_observations = 64)
         recommend_sensealg(model; n_observations = 65)
+        recovery_suite_plan((:linear, :ablation))
+        recovery_suite_section_spec(:ude_discovery)
     end
 end

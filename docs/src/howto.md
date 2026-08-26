@@ -128,6 +128,8 @@ These are experimental. DataDrivenSparse is never a CI dependency.
 `run_recovery_suite` admits unique-claim sections through
 `admit_recovery_suite_network`. Other sections have an explicit hole
 policy and stay open; see [Compiled experiment path](compiled-path.md).
+A skipped recovery-suite section does not call `_train_unknown_edge`.
+See [Recovery suite skip](recovery-suite-skip.md).
 
 `SolveSurfaceRow` compares `ude_system`, `ODEFunction`, `ODEProblem`,
 `remake`, inplace cache, `SciMLBase.solve`, and `predict_ude` on the

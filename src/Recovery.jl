@@ -518,6 +518,7 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
                              adam, bfgs, noise_σ, tspan, n_points,
                              frozen_phys::Vector{Symbol} = Symbol[],
                              phys_init = nothing)
+    _note_train_unknown_edge()
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = _unknown_edge_ics(),
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,

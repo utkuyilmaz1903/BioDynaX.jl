@@ -23,6 +23,7 @@ makedocs(
         "Discovery streaming" => "discovery-streaming.md",
         "Training reuse" => "training-reuse.md",
         "SciML solve surface" => "sciml-solve-surface.md",
+        "Recovery suite skip" => "recovery-suite-skip.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

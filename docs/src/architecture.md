@@ -37,6 +37,9 @@ The SciML solve surface agrees `ude_system`, `ODEFunction`,
 `predict_ude`. Mechanistic models switch adjoints at 64 observations.
 See [SciML solve surface](sciml-solve-surface.md).
 
+A skipped recovery-suite section does not call _train_unknown_edge.
+See [Recovery suite skip](recovery-suite-skip.md).
+
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
 `assert_single_unknown_destruction` on the golden path only.

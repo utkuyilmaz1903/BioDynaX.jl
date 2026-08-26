@@ -1,5 +1,13 @@
 # BioDynaX.jl Unreleased
 
+- Unused recovery-suite sections do not call `_train_unknown_edge`
+  (`src/RecoverySuiteSkip.jl`, not exported).
+  `recovery_suite_plan` names trainers; the default suite still
+  includes `:ude_discovery` and `:mm_unknown`.
+  `benchmark/recovery_suite.jl` already splits fast sections from the
+  unique-claim trainers. Docs:
+  [recovery-suite-skip](docs/src/recovery-suite-skip.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - SciML solve surface (`src/SciMLSolveSurface.jl`, not exported)
   agrees `ude_system` / `ODEFunction` / `ODEProblem` / remake /
   inplace cache / `SciMLBase.solve` / `predict_ude`. The
