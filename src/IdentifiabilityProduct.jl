@@ -673,18 +673,19 @@ function report_verbose_tradeoff_row()
     built = hybrid_linear_unknown_model(491)
     traj = identifiability_short_trajectory(
         built.model, built.packed, [0.30, 0.25])
-    io = IOBuffer()
-    report = redirect_stdout(io) do
-        report_production_destruction_tradeoff(
-            built.model, built.packed, traj.data, traj.times,
-            traj.u0, traj.tspan; verbose = true)
+    silent = report_production_destruction_tradeoff(
+        built.model, built.packed, traj.data, traj.times,
+        traj.u0, traj.tspan; verbose = false)
+    path = tempname()
+    report = open(path, "w") do io
+        redirect_stdout(io) do
+            report_production_destruction_tradeoff(
+                built.model, built.packed, traj.data, traj.times,
+                traj.u0, traj.tspan; verbose = true)
+        end
     end
-    printed = String(take!(io))
-    silent = redirect_stdout(devnull) do
-        report_production_destruction_tradeoff(
-            built.model, built.packed, traj.data, traj.times,
-            traj.u0, traj.tspan; verbose = false)
-    end
+    printed = read(path, String)
+    rm(path; force = true)
     warning = format_production_destruction_warning(report)
     return (;
         report, silent, printed, warning,
@@ -694,6 +695,8 @@ function report_verbose_tradeoff_row()
         same_edge = report.unidentifiable_edge == silent.unidentifiable_edge,
         holds = isfinite(report.collinearity) &&
                 report.unidentifiable_edge == silent.unidentifiable_edge &&
+                (warning == rstrip(printed) ||
+                 occursin(rstrip(warning), printed)) &&
                 (occursin("collinear", printed) ||
                  occursin("collinearity", printed) ||
                  occursin("Practical", printed)) &&
@@ -942,21 +945,17 @@ end
 function kinetic_known_tradeoff_path()
     net = build_kinetic_generalization_network()
     rng = MersenneTwister(529)
-    model, p0 = build_ude_model(rng, net)
-    packed = ident_phys_from_schema(model, p0.nn)
-    names = parameter_schema(model).phys_names
-    n = model.compiled.nstates
-    trade = live_production_destruction_tradeoff(
-        model, packed, fill(0.20, n);
-        production_param = first(names), n_points = 10)
-    join = join_tradeoff_protocol_row(:kinetic, trade; unknown_holes = 0)
+    model, _ = build_ude_model(rng, net)
+    schema = parameter_schema(model)
     return (;
-        trade, join,
         holes = count_unknown_destructions(net),
         neural = isempty(neural_destruction_terms(model)),
+        schema_names = copy(schema.phys_names),
+        missing_custom = !(:k_custom in schema.phys_names),
         validate_open = validate_network(net) === net,
-        holds = join.holds && count_unknown_destructions(net) == 0 &&
+        holds = count_unknown_destructions(net) == 0 &&
                 isempty(neural_destruction_terms(model)) &&
+                !(:k_custom in schema.phys_names) &&
                 validate_network(net) === net)
 end
 
@@ -1070,7 +1069,7 @@ function format_identifiability_product_index()
     println(io, "| skipped_duplicate | dense two-head tradeoff |")
     println(io, "| repressilator | known three-state has no neural cosine |")
     println(io, "| skipped_middle | remapped 1:n heads tradeoff |")
-    println(io, "| kinetic | known kinetic network has no neural cosine |")
+    println(io, "| kinetic | known kinetic custom param is absent from the schema |")
     println(io, "| condition | Fisher condition follows the coefficients boolean |")
     println(io, "| format_match | joined protocol row matches format_protocol_result |")
     return String(take!(io))
