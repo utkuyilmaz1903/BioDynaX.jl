@@ -71,3 +71,15 @@ It does not loosen `RECOVERY_THRESHOLDS`. It does not put a
 single-hole gate into `validate_network`. It does not open
 Hill-from-NN. Combined support F1 stays a skeleton floor (0.50).
 It does not export `unpack_parameters`.
+
+`schema_vs_compiled_nn_tree_row` locks `schema.nn_heads` against
+compiled `NeuralDestructionTerm` count. Dummy Lux heads on 0-hole
+models do not count as neural holes.
+
+`schema_name_catalog_row` lists linear `:k_ba/:k_a/:k_b`, kinetic
+`:k_custom`, and known-Hill `:vmax`. `bounded_parameter` stays
+inside `(lower, upper)`. `pack_parameters` rejects non-positive
+phys with `DomainError`. Suite sections that compile contribute
+a schema catalog row; production-free library fixtures are
+skipped without painting recovery F1.
+
