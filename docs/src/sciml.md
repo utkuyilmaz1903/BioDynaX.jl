@@ -38,8 +38,8 @@ path, `remake`, and `SciMLBase.solve(model, ...)`. See
 [Compiled experiment path](compiled-path.md).
 
 Training reuses one compiled `UDEModel` and one `TrainingSolveSession`
-([Training reuse](training-reuse.md)). A TrainingSolveSession remakes one
-SciMLBase.ODEProblem across ICs; it does not compile_network per IC.
+([Training reuse](training-reuse.md)).
+A TrainingSolveSession remakes one SciMLBase.ODEProblem across ICs; it does not compile_network per IC.
 
 ## In-place production integration
 
