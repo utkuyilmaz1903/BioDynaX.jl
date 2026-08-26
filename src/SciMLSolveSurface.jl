@@ -989,12 +989,13 @@ function sciml_recommend_sensealg_source_holds()
 end
 
 function sciml_interface_adds_no_solver()
-    src = read(sciml_interface_source_path(), String)
-    return occursin("Tsit5", src) &&
-           !occursin("Rodas5", src) &&
-           !occursin("KenCarp4", src) &&
-           !occursin("QNDF", src) &&
-           !occursin("Vern7", src)
+    impl = read(sciml_interface_source_path(), String)
+    config = read(joinpath(pkgdir(BioDynaX), "src", "Config.jl"), String)
+    return occursin("Tsit5", config) &&
+           !occursin("Rodas5", impl) &&
+           !occursin("KenCarp4", impl) &&
+           !occursin("QNDF", impl) &&
+           !occursin("Vern7", impl)
 end
 
 function sciml_odeproblem_uses_build_ude_function()
@@ -1022,8 +1023,12 @@ end
 
 function sciml_solve_surface_source_holds()
     src = read(sciml_solve_surface_source_path(), String)
+    impl = read(sciml_interface_source_path(), String)
+    docs = isfile(sciml_solve_surface_docs_path()) ?
+        read(sciml_solve_surface_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in SCIML_SOLVE_SURFACE_MUST_CONTAIN) &&
-           !any(occursin(needle, src) for needle in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN)
+           !any(occursin(needle, impl) || occursin(needle, docs)
+                for needle in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN)
 end
 
 function sciml_solve_surface_docs_path()
@@ -1054,8 +1059,12 @@ end
 
 function sciml_solve_surface_source_violations()
     src = read(sciml_solve_surface_source_path(), String)
+    impl = read(sciml_interface_source_path(), String)
+    docs = isfile(sciml_solve_surface_docs_path()) ?
+        read(sciml_solve_surface_docs_path(), String) : ""
     missing = [s for s in SCIML_SOLVE_SURFACE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s for s in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN if occursin(s, src)]
+    forbidden = [s for s in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN
+                 if occursin(s, impl) || occursin(s, docs)]
     return (; missing, forbidden)
 end
 
