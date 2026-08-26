@@ -409,6 +409,7 @@ function skipped_unique_claim_does_not_train(sections;
         skipped_trainers = Tuple(skipped_trainers),
         counter = n.counter,
         keys = n.keys,
+        report = n.report,
         holds = n.counter == length(plan.train_unknown_edge) &&
                 issetequal(n.keys, plan.requested) &&
                 all(section -> !(section in n.keys), skipped_trainers))
