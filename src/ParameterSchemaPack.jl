@@ -1005,7 +1005,7 @@ function remapped_input_dims_row()
         arities,
         n = length(arities),
         holds = length(arities) == 2 &&
-                all(==(1), arities) &&
+                Set(arities) == Set((1, 2)) &&
                 hasproperty(packed.nn, :head_1) &&
                 hasproperty(packed.nn, :head_2))
 end
@@ -1242,5 +1242,9 @@ function parameter_schema_pack_contract_holds()
            format_schema_names_holds() &&
            pack_rejects_nonpositive_phys_row().holds &&
            validate_rejects_nonpositive_row().holds &&
-           extras_not_invented_by_schema_row().holds
+           extras_not_invented_by_schema_row().holds &&
+           format_pack_markdown_holds() &&
+           six_state_wrong_schema_row().holds &&
+           ablation_schema_or_skip_row().holds &&
+           linear_schema_names_are_mass_action_row().holds
 end
