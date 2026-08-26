@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Allocation / type-stability gates (`src/AllocationGates.jl`, not
+  exported): measured `@allocated` ceilings and workspace reuse
+  rows that can fail. Docs:
+  [allocation-gates](docs/src/allocation-gates.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Docs executable path (`src/DocsExecutable.jl`, not exported):
   joins H–L contract sentences and scans leftover closed-hole
   phrases. Docs: [docs-executable](docs/src/docs-executable.md).

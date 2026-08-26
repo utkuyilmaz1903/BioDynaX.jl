@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Allocation / type-stability gates extend `test_quality_gates.jl`
+  to the unexported workspaces (`src/AllocationGates.jl`, not
+  exported). `allocation_hot` records a warmed `@allocated`
+  ceiling that can fail. `STLSQWorkspace` reuse must not increment
+  `resize_count` on a same-shape ensure. Docs:
+  [allocation-gates](docs/src/allocation-gates.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Docs executable path joins the H–L surfaces (hybrid residual,
   identifiability product, graph-local library, denominator domain,
   parameter schema pack) with leftover scanners on tutorial / howto /

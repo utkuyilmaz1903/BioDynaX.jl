@@ -48,6 +48,8 @@ local_basis scope=:graph uses graph parents; scope=:global is the ablation.
 denominator_split_counts walks train, validation, and the orthant domain grid separately.
 parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
 The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
+Allocation gates use measured hot-path byte ceilings that can fail.
+See [Allocation and type-stability gates](allocation-gates.md).
 
 ## In-place production integration
 

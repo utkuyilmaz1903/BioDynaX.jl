@@ -63,6 +63,8 @@ parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is prese
 See [Parameter schema and pack](parameter-schema-pack.md).
 The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
 See [Docs executable path](docs-executable.md).
+Allocation gates use measured hot-path byte ceilings that can fail.
+See [Allocation and type-stability gates](allocation-gates.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

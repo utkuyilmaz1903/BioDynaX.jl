@@ -221,7 +221,8 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "graph-local-library.md"),
         joinpath(root, "docs", "src", "denominator-domain.md"),
         joinpath(root, "docs", "src", "parameter-schema-pack.md"),
-        joinpath(root, "docs", "src", "docs-executable.md"))
+        joinpath(root, "docs", "src", "docs-executable.md"),
+        joinpath(root, "docs", "src", "allocation-gates.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""

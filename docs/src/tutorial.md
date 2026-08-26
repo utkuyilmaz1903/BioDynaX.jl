@@ -176,12 +176,14 @@ sufficient, for v1.0. See [Recovery benchmarks](benchmarks.md) and
 [API stability](stability.md).
 
 The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
+`allocation_hot` records a warmed `@allocated` count that can fail.
 See [Hybrid residual versus solver](hybrid-residual.md),
 [Identifiability product rows](identifiability-product.md),
 [Graph-local library and ablation](graph-local-library.md),
 [Denominator and domain safety](denominator-domain.md),
 [Parameter schema and pack](parameter-schema-pack.md), and
-[Docs executable path](docs-executable.md).
+[Docs executable path](docs-executable.md), and
+[Allocation and type-stability gates](allocation-gates.md).
 tutorial, howto, and sciml must not restate closed H–L holes as current facts.
 Smoke (1 IC / 8 points) is not the seed-103 / 9-IC protocol.
 

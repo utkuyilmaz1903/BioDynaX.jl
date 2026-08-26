@@ -184,3 +184,8 @@ violations when extras remain. See
 `leftover_contradiction_hits` must be empty on tutorial / howto /
 sciml / architecture. See
 [Docs executable path](docs-executable.md).
+
+`allocation_hot` measures a warmed `@allocated` ceiling that can
+fail. `stlsq_workspace_reuse_row` requires `STLSQWorkspace`
+`resize_count` to stay put on a same-shape ensure. See
+[Allocation and type-stability gates](allocation-gates.md).
