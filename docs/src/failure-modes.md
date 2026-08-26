@@ -53,8 +53,9 @@ Missing versus empty was easy to collapse in a later print helper.
 `discover_equations(p, nn, st; n_samples=19)` throws even when
 `strict=false`.
 
-`empty_support_row` uses `ExplicitSTLSQ(threshold=1e6)` so every term
-is wiped. The result is `EmptySupport`.
+`empty_support_row` discovers a 32-sample linear trajectory against
+an all-zero derivative. STLSQ wipes every term. The result is
+`EmptySupport`.
 
 `explicit_success_row` recovers a support on the linear fixture. That
 is not the unique-claim Hill path.
@@ -126,7 +127,8 @@ the UDE F1 0.99 paint.
 are 0-hole known kinetics. They still hit the 20-sample floor.
 `hill_known_explicit_success_row` recovers a support on known Hill.
 `select_discovery_all_fail_row` is the configuration sweep that
-returns `DiscoveryFailed` when every threshold wipes the library.
+returns `DiscoveryFailed` when every threshold sees fewer than 20
+samples.
 
 The six retcode names stay in `LOCKED_PUBLIC_EXPORTS`. The helper
 catalog does not.

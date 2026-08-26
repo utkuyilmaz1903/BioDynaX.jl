@@ -307,10 +307,11 @@ A huge explicit threshold wipes every term. The raw-data entry returns
 """
 function empty_support_row()
     traj = failure_mode_linear_trajectory(; n_points = 32)
+    dX = zero(traj.X)
     result = discover_equations(
         traj.X, traj.times, traj.net;
-        derivatives = traj.dX,
-        config = _explicit_config(; threshold = 1e6),
+        derivatives = dX,
+        config = _explicit_config(; threshold = 1e-2),
         verbose = false, strict = false)
     return (;
         n_points = traj.n_points,
@@ -863,11 +864,11 @@ function select_discovery_all_fail_row()
     traj = failure_mode_linear_trajectory(; n_points = 24)
     result = select_discovery_config(
         traj.packed, traj.model;
-        thresholds = (1.0e6, 5.0e5),
-        n_samples = 24,
+        thresholds = (1e-2, 1e-3),
+        n_samples = 12,
         u0 = [0.22, 0.14],
         tspan = (0.0, 0.8),
-        config = _explicit_config(; threshold = 1.0e6),
+        config = _explicit_config(),
         verbose = false)
     return (;
         success = result.success,
