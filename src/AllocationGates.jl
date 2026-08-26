@@ -38,7 +38,9 @@ const ALLOCATION_GATE_LIMITS = (
     local_basis = 65536,
     graph_vs_global = 131072,
     ude_rhs_linear = 512,
-    ude_rhs_p53 = 4096)
+    ude_rhs_p53 = 4096,
+    default_phys = 4096,
+    frozen_phys = 12288)
 
 function allocation_gates_locked_sentences()
     return (;
@@ -419,7 +421,8 @@ function default_phys_allocation_row()
     fx = _linear_pack_fixture()
     schema = parameter_schema(fx.model)
     return allocation_gate_row(:defaults,
-        () -> default_phys_parameters(schema), 2048)
+        () -> default_phys_parameters(schema),
+        ALLOCATION_GATE_LIMITS.default_phys)
 end
 
 function frozen_zero_allocation_row()
@@ -427,7 +430,8 @@ function frozen_zero_allocation_row()
     g = ComponentVector(phys = (k_ba = 1.2, k_a = 0.4, k_b = 0.3),
         nn = fx.p0.nn)
     return allocation_gate_row(:frozen,
-        () -> _zero_frozen_phys_gradient(g, [:k_ba]), 4096)
+        () -> _zero_frozen_phys_gradient(g, [:k_ba]),
+        ALLOCATION_GATE_LIMITS.frozen_phys)
 end
 
 # -- Extra workspace reuse (DiscoveryWorkspace grow-only) ---------------------
