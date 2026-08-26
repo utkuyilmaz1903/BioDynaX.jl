@@ -1313,10 +1313,7 @@ function default_example_generate_train_row()
         tspan = (0.0, 0.5), n_points = 6, noise_σ = 0.0)
     rng = MersenneTwister(137)
     model, p0 = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    phys = NamedTuple{Tuple(schema.phys_names)}(
-        ntuple(i -> Float64(p0.phys[i]), length(schema.phys_names)))
-    init = pack_parameters(phys, p0.nn)
+    init = p0
     n = with_compile_network_counter() do counter
         train_experiments(init, set, model; config = _short_train_config(),
             verbose = false)
@@ -1355,14 +1352,12 @@ function mm_test_generate_train_row()
     net = build_mm_test_network()
     rng = MersenneTwister(149)
     model, p0 = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    phys = NamedTuple{Tuple(schema.phys_names)}(
-        ntuple(i -> Float64(p0.phys[i]), length(schema.phys_names)))
     set = generate_experiment_set(
         MersenneTwister(149); network = net,
         initial_conditions = [[0.30, 0.25], [0.22, 0.18]],
         tspan = (0.0, 0.5), n_points = 6, noise_σ = 0.0)
-    init = pack_parameters(phys, p0.nn)
+    init = pack_parameters(
+        (vmax = 1.6, km = 0.45, k_se = 0.8, k_s = 0.5, k_e = 0.4), p0.nn)
     n = with_compile_network_counter() do counter
         train_experiments(init, set, model; config = _short_train_config(),
             verbose = false)
