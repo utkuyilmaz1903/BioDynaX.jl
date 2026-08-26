@@ -37,5 +37,7 @@
         discovery_retcode_catalog()
         extras_print_label(nothing)
         extras_print_label(String[])
+        hybrid_compose_locked_sentences()
+        hybrid_compose_contract()
     end
 end

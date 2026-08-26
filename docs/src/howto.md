@@ -150,3 +150,6 @@ generate and `train_experiments` share one compiled tree. See
 `DiscoveryRetcode` names insufficient samples, unsafe denominators,
 empty support, a singular library, a generic failure, and success.
 See [Failure modes](failure-modes.md).
+
+`compose_hybrid_rhs` with the neural destruction rate recovers
+`ude_system`. See [Hybrid compose path](hybrid-compose.md).

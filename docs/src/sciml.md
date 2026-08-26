@@ -41,6 +41,7 @@ Training reuses one compiled `UDEModel` and one `TrainingSolveSession`
 ([Training reuse](training-reuse.md)).
 A TrainingSolveSession remakes one SciMLBase.ODEProblem across ICs; it does not compile_network per IC.
 Remapped multi-head generate and train_experiments share one compiled tree; train_experiments does not compile per IC.
+compose_hybrid_rhs with the neural destruction rate recovers ude_system.
 
 ## In-place production integration
 

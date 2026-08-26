@@ -49,6 +49,9 @@ See [Recovery suite skip](recovery-suite-skip.md).
 validate_network stays a topology checker; 0-hole and 2-hole networks still validate.
 See [Failure modes](failure-modes.md).
 
+compose_hybrid_rhs with the neural destruction rate recovers ude_system.
+See [Hybrid compose path](hybrid-compose.md).
+
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
 `assert_single_unknown_destruction` on the golden path only.

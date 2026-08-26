@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Hybrid compose path (`src/HybridCompose.jl`, not exported):
+  `compose_hybrid_rhs` with the neural destruction rate recovers
+  `ude_system`. Failed `DiscoveryResult` cannot `export_rhs`.
+  Docs: [hybrid-compose](docs/src/hybrid-compose.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Failure-mode instrument (`src/FailureModes.jl`, not exported)
   names every `DiscoveryRetcode`, keeps `validate_network` open on
   0/2-hole networks, and keeps combined F1 out of KPI failure
