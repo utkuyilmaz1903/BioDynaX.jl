@@ -174,3 +174,8 @@ membership check. See
 orthant domain grid. `ude_extras_denominator_row` still counts
 violations when extras remain. See
 [Denominator and domain safety](denominator-domain.md).
+
+`parameter_schema` collects `CustomKineticMetadata.rate_param` so
+`:k_custom` is present. `unpack_parameters` inverts
+`pack_parameters`. See
+[Parameter schema and pack](parameter-schema-pack.md).

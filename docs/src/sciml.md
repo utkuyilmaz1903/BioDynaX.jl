@@ -46,6 +46,7 @@ hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
 production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
 local_basis scope=:graph uses graph parents; scope=:global is the ablation.
 denominator_split_counts walks train, validation, and the orthant domain grid separately.
+parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
 
 ## In-place production integration
 

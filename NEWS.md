@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Parameter schema / pack (`src/ParameterSchemaPack.jl`, not
+  exported): `:k_custom` is in `parameter_schema`.
+  `unpack_parameters` inverts `pack_parameters`. Docs:
+  [parameter-schema-pack](docs/src/parameter-schema-pack.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Denominator / domain safety (`src/DenominatorDomain.jl`, not
   exported): train / validation / orthant split counts. UDE extras
   still call `denominator_violation_count` on the domain grid.

@@ -26,6 +26,21 @@ function pack_parameters(phys::NamedTuple, nn_ps)
     return ComponentVector(phys = raw_phys, nn = ComponentVector(nn_ps))
 end
 
+"""
+    unpack_parameters(p) -> NamedTuple
+
+Invert `pack_parameters`: map raw `p.phys` through `positive_parameter`
+and return `(; phys, nn)`. Not exported.
+"""
+function unpack_parameters(p)
+    hasproperty(p, :phys) ||
+        throw(ArgumentError("packed parameters need a phys block"))
+    phys = (; (name => positive_parameter(getproperty(p.phys, name))
+               for name in propertynames(p.phys))...)
+    nn = hasproperty(p, :nn) ? p.nn : nothing
+    return (; phys, nn)
+end
+
 # Smooth, Zygote-safe non-negativity surrogate.
 @inline _nonneg(x) = max(zero(x), x)
 

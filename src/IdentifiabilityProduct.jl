@@ -945,17 +945,23 @@ end
 function kinetic_known_tradeoff_path()
     net = build_kinetic_generalization_network()
     rng = MersenneTwister(529)
-    model, _ = build_ude_model(rng, net)
+    model, packed = build_ude_model(rng, net)
     schema = parameter_schema(model)
+    u0 = [0.20, 0.15]
+    tspan = (0.0, 0.6)
+    times = collect(range(0.0, 0.6; length = 8))
+    data = predict_ude(packed, u0, tspan, times, model)
     return (;
         holes = count_unknown_destructions(net),
         neural = isempty(neural_destruction_terms(model)),
         schema_names = copy(schema.phys_names),
-        missing_custom = !(:k_custom in schema.phys_names),
+        has_custom = :k_custom in schema.phys_names,
+        finite = all(isfinite, data),
         validate_open = validate_network(net) === net,
         holds = count_unknown_destructions(net) == 0 &&
                 isempty(neural_destruction_terms(model)) &&
-                !(:k_custom in schema.phys_names) &&
+                :k_custom in schema.phys_names &&
+                all(isfinite, data) &&
                 validate_network(net) === net)
 end
 

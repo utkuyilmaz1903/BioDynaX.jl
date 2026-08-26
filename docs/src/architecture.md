@@ -59,6 +59,8 @@ local_basis scope=:graph uses graph parents; scope=:global is the ablation.
 See [Graph-local library and ablation](graph-local-library.md).
 denominator_split_counts walks train, validation, and the orthant domain grid separately.
 See [Denominator and domain safety](denominator-domain.md).
+parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
+See [Parameter schema and pack](parameter-schema-pack.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

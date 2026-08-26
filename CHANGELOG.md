@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Parameter schema / pack collects `CustomKineticMetadata.rate_param`
+  so `:k_custom` is present (`src/ParameterSchemaPack.jl`, not
+  exported). `unpack_parameters` inverts `pack_parameters`.
+  Remapped multi-head pack/unpack matches the compiled NN tree.
+  Docs: [parameter-schema-pack](docs/src/parameter-schema-pack.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Denominator / domain safety splits `denominator_violation_count`
   across train, validation, and the orthant domain grid
   (`src/DenominatorDomain.jl`, not exported). Explicit candidates
