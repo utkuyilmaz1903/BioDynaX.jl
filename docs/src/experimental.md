@@ -31,7 +31,8 @@ footnote. The Hill UDE recovery job requires
 `unidentifiable_edge == true`. Pinning `k_prod`, normalizing sampled `D`, or
 changing the production rate does **not** remove the Jacobian collinearity.
 That is the locked finding. The flag is not a structural certificate and is
-not on the freeze list.
+not on the freeze list. The product-block helpers live on
+[Unique claim](unique-claim.md).
 
 `TrainingConfig(frozen_phys = [:k_prod])` pins named physical parameters
 during Adam and restores them after BFGS. Use it when a production rate is

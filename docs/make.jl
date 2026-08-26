@@ -18,6 +18,7 @@ makedocs(
         "Home" => "index.md",
         "Tutorial" => "tutorial.md",
         "How-to" => "howto.md",
+        "Unique claim" => "unique-claim.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

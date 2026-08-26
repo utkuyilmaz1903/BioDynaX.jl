@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Unique-claim product helpers name identifiability, fit, discovery, and
+  reproduction as one contract (`src/UniqueClaim.jl`, not exported). The
+  golden-path example prints live extras and reads `n_ics` from
+  `UNIQUE_CLAIM_PROTOCOL`. `validate_network` is unchanged.
 - Golden-path example defaults to seed 103, shares `_unknown_edge_ics` with
   the recovery job, and uses regulator-grid discovery
   (`sample_unknown_destruction_grid` + `rate_discovery_config(bootstrap = 8,

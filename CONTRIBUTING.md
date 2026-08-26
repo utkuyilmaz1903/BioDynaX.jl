@@ -39,8 +39,7 @@ julia --project=. benchmark/noise_grid.jl
 ```
 
 Live docs: https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
-If that 404s, check **Settings → Pages → Deploy from branch `gh-pages` / `(root)`**.
-TagBot is configured; do not claim it ran until a tag exists.
+TagBot is configured; do not claim a release tag until one exists.
 
 ## Recovery thresholds
 
@@ -78,8 +77,8 @@ reformat the whole tree in a drive-by PR.
 Do not cut v1.0, open a JOSS submission, or register as 1.0. README’s first
 sentence stays “not v1.0”. A methods note is allowed only when every public
 sentence matches a CI gate. The 0.9.2 preview is **not yet in General**.
-Do not write `]add BioDynaX` or “TagBot ran” until the General PR is merged
-and tag `v0.9.2` exists.
+Do not write a General-registry install command until the General PR is
+merged and tag `v0.9.2` exists.
 
 Code-side register prerequisites from the SciML hardening pass (strict
 `checkdocs`, doctests, example smoke, export docstrings, ColPrac files)

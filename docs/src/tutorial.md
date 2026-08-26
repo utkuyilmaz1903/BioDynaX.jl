@@ -68,7 +68,16 @@ println(BioDynaX.format_protocol_result(ident; residual = residual))
   Absence is the result. Elowitz is a synthetic ODE fixture.
 
 The example prints that block automatically. Identifiability is the first
-stdout section, not a footnote.
+stdout section, not a footnote. The same helpers, including smoke versus
+the seed-103 / 9-IC fingerprint, are on [Unique claim](unique-claim.md).
+
+```@repl claim-protocol
+using BioDynaX
+BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed
+BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics
+BioDynaX.unique_claim_is_protocol()
+BioDynaX.unique_claim_is_protocol(; smoke = true)
+```
 
 ## Network (public constructors)
 

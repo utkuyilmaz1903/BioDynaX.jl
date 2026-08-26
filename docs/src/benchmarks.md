@@ -58,8 +58,10 @@ Measured zero-noise Hill UDE (9 ICs, seed 103): NN RMSE ≈ 0.04, recall 1.0,
 combined F1 ≈ 0.57 (extras `1` and `r` remain), data residual ≈ 0.003,
 `k_prod`↔`D` cosine ≈ 0.997. That F1 is **below** `support_f1_clean`.
 `benchmark/ude_f1_attempt.jl` replayed those extras on the same library
-(Occam + scale-normalization). Combined F1 stayed 0.57. The product does
-not claim canonical Hill from a trained NN.
+(Occam + scale-normalization). Combined F1 stayed 0.57. That script is an
+F1 **attempt**, not the seed-103 / 9-IC recovery protocol and not a
+reason to tighten `support_f1_ude`. The product does not claim canonical
+Hill from a trained NN.
 
 Thresholds are `RECOVERY_THRESHOLDS`. Loosening them is a breaking change.
 v1.0 is not cut until this table stays red when the claim fails.

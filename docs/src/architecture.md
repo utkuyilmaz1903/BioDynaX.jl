@@ -14,6 +14,20 @@ equation discovery.
 6. `discover_equations` fits `D(z)ẋ-N(z)=0`, validates denominators and reports
    bootstrap term-selection frequencies. Failures set `DiscoveryRetcode`.
 
+The unique-claim product is printed and stored in that same order:
+
+1. **IDENTIFIABILITY** — `unidentifiable_edge` and
+   `coefficients_are_biological_constants`. Practical Fisher/Jacobian.
+2. **FIT** — hybrid residual versus data and true-monomial recall.
+3. **DISCOVERY** — symbolic `D(z)`, live extras, skeleton combined F1.
+   `canonical_hill_from_nn` stays false.
+4. **REPRODUCTION** — seed 103, 9 ICs, 50 points. Smoke is labeled
+   separately and is not this fingerprint.
+
+See [Unique claim](unique-claim.md). `validate_network` stays a
+topology/metadata checker; the single-hole instrument is
+`assert_single_unknown_destruction` on the golden path only.
+
 ## Positivity and constraints
 
 The default UDE uses
