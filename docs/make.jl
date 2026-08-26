@@ -28,6 +28,7 @@ makedocs(
         "Failure modes" => "failure-modes.md",
         "Hybrid compose path" => "hybrid-compose.md",
         "Hybrid residual versus solver" => "hybrid-residual.md",
+        "Identifiability product rows" => "identifiability-product.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

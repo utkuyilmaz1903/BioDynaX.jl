@@ -53,6 +53,8 @@ compose_hybrid_rhs with the neural destruction rate recovers ude_system.
 See [Hybrid compose path](hybrid-compose.md).
 hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
 See [Hybrid residual versus solver](hybrid-residual.md).
+production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
+See [Identifiability product rows](identifiability-product.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

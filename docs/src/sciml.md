@@ -43,6 +43,7 @@ A TrainingSolveSession remakes one SciMLBase.ODEProblem across ICs; it does not 
 Remapped multi-head generate and train_experiments share one compiled tree; train_experiments does not compile per IC.
 compose_hybrid_rhs with the neural destruction rate recovers ude_system.
 hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
+production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
 
 ## In-place production integration
 

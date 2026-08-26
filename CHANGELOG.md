@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Identifiability product rows join `production_destruction_tradeoff`
+  to `UniqueClaimProtocolRow` through `identifiability_product`
+  (`src/IdentifiabilityProduct.jl`, not exported). Collinearity
+  prints only when the cosine is finite.
+  `coefficients_are_biological_constants` follows
+  `unidentifiable_edge`. Docs:
+  [identifiability-product](docs/src/identifiability-product.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Hybrid residual versus solver agrees `hybrid_data_residual` with
   `SciMLBase.solve` of `compose_hybrid_rhs` and with `predict_ude`
   at noise 0 (`src/HybridResidual.jl`, not exported). Failed compose

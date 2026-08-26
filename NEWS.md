@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- Identifiability product rows (`src/IdentifiabilityProduct.jl`,
+  not exported): `production_destruction_tradeoff` joins
+  `UniqueClaimProtocolRow`. Finite collinearity prints; NaN stays
+  silent. Docs:
+  [identifiability-product](docs/src/identifiability-product.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Hybrid residual versus solver (`src/HybridResidual.jl`, not
   exported): `hybrid_data_residual` agrees with `SciMLBase.solve`
   of `compose_hybrid_rhs`. Noise-0 identity residual is ~0; smoke

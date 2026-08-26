@@ -158,3 +158,9 @@ See [Failure modes](failure-modes.md).
 `compose_hybrid_rhs`. Smoke residual (1 IC / 8 points) is not the
 seed-103 / 9-IC protocol residual. See
 [Hybrid residual versus solver](hybrid-residual.md).
+
+`production_destruction_tradeoff` joins `UniqueClaimProtocolRow`
+through `identifiability_product`.
+`coefficients_are_biological_constants` is false exactly when
+`unidentifiable_edge` is true. See
+[Identifiability product rows](identifiability-product.md).
