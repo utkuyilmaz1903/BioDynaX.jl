@@ -58,7 +58,11 @@ function sciml_compiled_generate_agreement(model::UDEModel, params, u0;
     sciml_sol = SciMLBase.solve(
         model, Float64.(u0), tspan, params;
         saveat = times,
-        solver_config = SolverConfig(algorithm = Tsit5(), sensealg = nothing))
+        solver_config = SolverConfig(
+            algorithm = Tsit5(),
+            sensealg = nothing,
+            abstol = 1e-9,
+            reltol = 1e-9))
     sciml_arr = Array(sciml_sol)
     arch = compiled_nn_architecture(model, params)
     return (;
