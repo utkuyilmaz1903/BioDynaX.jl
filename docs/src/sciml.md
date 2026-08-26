@@ -37,6 +37,10 @@ and two-regulator `D(S,I)` must match that problem, the in-place cache
 path, `remake`, and `SciMLBase.solve(model, ...)`. See
 [Compiled experiment path](compiled-path.md).
 
+Training reuses one compiled `UDEModel` and one `TrainingSolveSession`
+([Training reuse](training-reuse.md)). A TrainingSolveSession remakes one
+SciMLBase.ODEProblem across ICs; it does not compile_network per IC.
+
 ## In-place production integration
 
 For allocation-free forward passes, request an in-place problem and pair it

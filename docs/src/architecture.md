@@ -14,6 +14,9 @@ equation discovery.
 3. `compile_network` wraps the IR in a `UDEModel`.
 4. `ExperimentSet` carries replicates, irregular samples and observation masks.
 5. `train_ude` or `train_experiments` returns a versioned `TrainingResult`.
+   A `TrainingSolveSession` remakes one `ODEProblem` across ICs and does
+   not call `compile_network` per IC. First-IC warmup hands Optimisers
+   state to the multi-IC stage. See [Training reuse](training-reuse.md).
 6. `local_basis` derives candidate variables from each target's graph parents
    (`scope = :graph`, or `:global` for ablations).
 7. `discover_equations` fits `D(z)ẋ-N(z)=0`, validates denominators and reports

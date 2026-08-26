@@ -526,24 +526,14 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
     guess = phys_init === nothing ?
         NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
     ude_init = pack_parameters(guess, ude_p0.nn)
-    first_exp = first(set.experiments)
-    warm = train_ude(
-        ude_init, first_exp.observations, first_exp.times, first_exp.u0,
-        (first(first_exp.times), last(first_exp.times)), ude_model;
-        config = TrainingConfig(
-            adam_iterations = adam,
-            bfgs_iterations = 0,
-            horizon_schedule = HorizonCurriculum(fractions = [0.35, 0.7, 1.0]),
-            log_every = 10^6,
-            frozen_phys = frozen_phys),
-        verbose = false)
-    fit = train_experiments(
-        warm.params, set, ude_model;
-        config = TrainingConfig(
-            adam_iterations = adam,
-            bfgs_iterations = bfgs,
-            log_every = 10^6,
-            frozen_phys = frozen_phys),
+    config = unique_claim_training_config(
+        model = ude_model,
+        adam_iterations = adam,
+        bfgs_iterations = bfgs,
+        frozen_phys = frozen_phys)
+    fit = train_experiments_with_warmup(
+        ude_init, set, ude_model;
+        config = lock_training_config(ude_model, config),
         verbose = false)
     return fit, set
 end

@@ -1,5 +1,12 @@
 # BioDynaX.jl Unreleased
 
+- Training reuses one compiled `UDEModel` and one
+  `TrainingSolveSession` across ICs (`src/TrainingReuse.jl`, not
+  exported). `_train_unknown_edge` calls `train_experiments_with_warmup`
+  so the first-IC Adam state is not discarded. Neural holes lock
+  `InterpolatingAdjoint` with ZygoteVJP. Docs:
+  [training-reuse](docs/src/training-reuse.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Discovery library evaluation reuses grow-only workspaces
   (`STLSQWorkspace`, `StreamingImplicitWorkspace`; not exported).
   `evaluate_library!` writes in place. `_fit_implicit` streams implicit

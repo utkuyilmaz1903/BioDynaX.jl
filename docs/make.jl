@@ -21,6 +21,7 @@ makedocs(
         "Unique claim" => "unique-claim.md",
         "Compiled experiment path" => "compiled-path.md",
         "Discovery streaming" => "discovery-streaming.md",
+        "Training reuse" => "training-reuse.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

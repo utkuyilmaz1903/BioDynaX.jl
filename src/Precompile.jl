@@ -26,5 +26,7 @@
         recovery_suite_expected_holes(:linear)
         allocate_stlsq_workspace(Float64, 16, 4, 8)
         _backend_chunk_size(ImplicitSINDyPI(chunk_size = 32))
+        lock_training_solver(model)
+        training_solve_session(model, u, (0.0, 1.0), params)
     end
 end

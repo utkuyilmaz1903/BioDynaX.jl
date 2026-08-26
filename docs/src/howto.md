@@ -128,3 +128,9 @@ These are experimental. DataDrivenSparse is never a CI dependency.
 `run_recovery_suite` admits unique-claim sections through
 `admit_recovery_suite_network`. Other sections have an explicit hole
 policy and stay open; see [Compiled experiment path](compiled-path.md).
+
+`TrainingSolveSession` remakes one `ODEProblem` across ICs. Unique-claim
+training (`_train_unknown_edge`) calls `train_experiments_with_warmup` so
+the first-IC Adam state is not discarded. See
+[Training reuse](training-reuse.md). The AD constraint `predict_ude`
+call must pass the compiled model.
