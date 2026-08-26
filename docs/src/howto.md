@@ -57,7 +57,9 @@ compiles to a `NeuralDestructionTerm`.
 
 ## Train, discover, resimulate
 
-Prefer `generate_experiment_set` + `train_experiments` as in the example.
+Prefer `BioDynaX.unique_claim_experiment_set` + `train_experiments` as
+in the example (fingerprint ICs and point counts). A raw
+`generate_experiment_set` snippet below is a sketch.
 Adam may be minibatched; BFGS refines the joint loss over every IC.
 
 ```julia

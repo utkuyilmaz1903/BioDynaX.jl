@@ -281,6 +281,70 @@ c = BioDynaX.unique_claim_f1_attempt_contract()
  c.support_f1_ude, c.support_f1_clean)
 ```
 
+## Compiled data generation (joint with remapping)
+
+generate_data uses the compiled NN tree; remapped multi-head and two-regulator D(S,I) are generated together.
+`generate_data(::GroundTruthModel)` integrates the stored model through
+`generate_from_compiled_model`. A 1-input dummy chain is not restored.
+The golden-path example reads ICs and point counts from
+`unique_claim_experiment_set`.
+
+```@example claim-datagen-joint
+using BioDynaX, Random
+net = BioDynaX.build_remapped_two_regulator_network()
+row = BioDynaX.joint_datagen_compiler_row(
+    net; rng = MersenneTwister(13),
+    u0 = BioDynaX.remapped_two_regulator_state(),
+    truth_params = BioDynaX.remapped_two_regulator_phys_truth())
+(row.joint_holds, row.arities, row.packed_dims, row.recovery_admits,
+ row.validate_open)
+```
+
+```@repl claim-datagen-fp
+using BioDynaX, Random
+net = BioDynaX.build_hill_recovery_network(; known = true)
+set = BioDynaX.unique_claim_experiment_set(
+    MersenneTwister(103), net; smoke = true,
+    truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6))
+(length(set.experiments),
+ BioDynaX.unique_claim_experiment_set_matches_fingerprint(set; smoke = true))
+```
+
+## Recovery-suite admission
+
+run_recovery_suite admits unique-claim sections through admit_recovery_suite_network; 0/2 holes fail closed without training.
+`validate_network` still returns the 0-hole and 2-hole networks.
+
+```@example claim-suite-admit
+using BioDynaX
+closed = BioDynaX.recovery_suite_rejects_zero_and_dual_holes(:ude_discovery)
+(closed.holds, closed.zero.admitted, closed.two.admitted, closed.one.admitted,
+ BioDynaX.recovery_suite_section_kind(:ude_discovery),
+ BioDynaX.recovery_suite_section_kind(:linear))
+```
+
+## Protocol row and named KPI failures
+
+UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result, extras_print_label, and named KPI failures.
+The named symbols are `:unidentifiable_edge`, `:data_residual`, and
+`:support_recall`. Combined F1 is not a failure symbol.
+
+```@repl claim-protocol-row
+using BioDynaX
+row = BioDynaX.unique_claim_protocol_row_from_fields()
+(row.extras_label, row.kpi_failures,
+ BioDynaX.format_unique_claim_kpi_failures(row.kpi_failures),
+ BioDynaX.unique_claim_kpi_failure_symbols())
+```
+
+```@example claim-protocol-row-miss
+using BioDynaX
+miss = BioDynaX.unique_claim_protocol_row_from_fields(;
+    unidentifiable_edge = false, data_residual = 0.31)
+(miss.kpi_failures,
+ BioDynaX.unique_claim_kpi_failure_message(miss.kpi_failures))
+```
+
 ## What this page is not
 
 - A wet-lab protocol for one noisy CSV and unknown topology.

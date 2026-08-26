@@ -35,6 +35,15 @@ topology/metadata checker; the single-hole instrument is
 `UniqueClaimFingerprint` types smoke versus the seed-103 / 9-IC job.
 Unscored extras print NA; they are not the F1-attempt leftover pair.
 
+`generate_data` uses the compiled NN tree. Remapped multi-head unknowns
+and two-regulator `D(S,I)` are generated together;
+`generate_from_compiled_model` integrates a stored `UDEModel`.
+`run_recovery_suite` admits unique-claim sections through
+`admit_recovery_suite_network`. Zero- and two-hole networks fail closed
+on that path without training. `UniqueClaimProtocolRow` stores named
+KPI failures (`:unidentifiable_edge`, `:data_residual`,
+`:support_recall`).
+
 ## Positivity and constraints
 
 The default UDE uses
