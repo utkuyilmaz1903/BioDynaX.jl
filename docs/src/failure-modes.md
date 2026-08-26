@@ -73,7 +73,8 @@ no candidates and no `0.99` F1 string.
 - `validate_network(net) === net`
 - `count_unknown_destructions` is the compiled head count
 - `unique_claim_recovery_admits` is true only when that count is 1
-- `assert_single_unknown_destruction` throws unless the count is 1
+- `assert_single_unknown_destruction(model)` throws unless the
+  compiled `UDEModel` has exactly one `NeuralDestructionTerm`
 
 0-hole and 2-hole (and 3-hole skipped-middle) networks still validate.
 Unique-claim recovery still rejects them. Discovery on a 0-hole or
