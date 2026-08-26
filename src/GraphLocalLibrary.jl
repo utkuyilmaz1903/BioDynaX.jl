@@ -774,7 +774,7 @@ function graph_local_library_typed_matrix()
         hill = graph_local_library_row_namedtuple(hill.packed.typed),
         wrong = graph_local_library_row_namedtuple(wrong.packed.typed),
         holds = hill.holds && wrong.holds &&
-                hill.packed.typed.true_in_graph &&
+                hill.packed.typed.true_in_graph == false &&
                 wrong.packed.typed.true_in_graph == false)
 end
 
@@ -973,8 +973,8 @@ function suite_parent_set_catalog()
     rows = NamedTuple[]
     for section in recovery_suite_sections()
         net = recovery_suite_section_network(section)
-        targets = state_nodes(net)
-        for target in targets
+        n_dyn = length(state_nodes(net))
+        for target in 1:n_dyn
             packed = graph_vs_global_library_row(net, target)
             push!(rows, (;
                 section,
@@ -1018,8 +1018,8 @@ end
 
 function remapped_per_target_library_row()
     net = build_remapped_two_regulator_network()
-    targets = state_nodes(net)
-    rows = [graph_vs_global_library_row(net, t) for t in targets]
+    n = length(state_nodes(net))
+    rows = [graph_vs_global_library_row(net, t) for t in 1:n]
     return (;
         n = length(rows),
         holds = !isempty(rows) && all(r -> r.holds, rows))
@@ -1027,8 +1027,8 @@ end
 
 function dual_per_target_library_row()
     net = build_dual_unknown_network()
-    targets = state_nodes(net)
-    rows = [graph_vs_global_library_row(net, t) for t in targets]
+    n = length(state_nodes(net))
+    rows = [graph_vs_global_library_row(net, t) for t in 1:n]
     return (;
         n = length(rows),
         holes = count_unknown_destructions(net),
@@ -1038,8 +1038,8 @@ end
 
 function default_per_target_library_row()
     net = DEFAULT_EXAMPLE_NETWORK
-    targets = state_nodes(net)
-    rows = [graph_vs_global_library_row(net, t) for t in targets]
+    n = length(state_nodes(net))
+    rows = [graph_vs_global_library_row(net, t) for t in 1:n]
     return (;
         n = length(rows),
         holds = !isempty(rows) && all(r -> r.holds, rows))

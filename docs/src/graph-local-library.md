@@ -61,8 +61,11 @@ the seed-103 / 9-IC protocol.
 
 ## Fixtures
 
-3-state / 6-state true graphs contain R. Wrong-graph variants omit
-R. Two-regulator `D(S,I)` has two graph parents. Remapped and dual
+3-state / 6-state true graphs contain R because those fixtures
+declare `EdgeSpec`s. Wrong-graph variants omit R. The Hill / MM
+recovery networks and two-regulator `D(S,I)` are reaction-only:
+`candidate_parents` is empty even though the unknown reaction has
+regulators. Remapped and dual
 unknowns still expose a graph library per target; unique-claim
 recovery does not admit 2 holes. `validate_network` stays open.
 
