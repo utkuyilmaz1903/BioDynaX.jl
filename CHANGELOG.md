@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_train_unknown_edge` (`recovery_suite_plan`,
   `with_train_unknown_edge_counter`; not exported). The default suite
   still runs `:ude_discovery` and `:mm_unknown`. Skip does not drop
-  protocol ICs. `RECOVERY_THRESHOLDS` and the export list are unchanged.
+  protocol ICs. `benchmark/recovery_suite.jl` keeps the fast block
+  separate from the unique-claim trainers.
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - SciML solve surface agrees `ude_system`, `ODEFunction`,
   `ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and
   `predict_ude` (`SolveSurfaceRow`; not exported). Mechanistic
