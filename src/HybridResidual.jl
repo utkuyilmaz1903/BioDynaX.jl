@@ -969,7 +969,9 @@ end
 
 function hybrid_residual_sciml_solve_source_holds()
     src = read(hybrid_residual_source_path(), String)
-    start = findfirst("function hybrid_residual_sciml_solve", src)
+    start = findfirst(
+        "function hybrid_residual_sciml_solve(model, p, term, rate_fn, u0, tspan, times, data)",
+        src)
     start === nothing && return false
     rest = src[first(start):end]
     nxt = findnext(r"\nfunction ", rest, 2)
@@ -982,7 +984,9 @@ end
 
 function hybrid_residual_model_solve_source_holds()
     src = read(hybrid_residual_source_path(), String)
-    start = findfirst("function hybrid_residual_model_solve", src)
+    start = findfirst(
+        "function hybrid_residual_model_solve(model::UDEModel, p, u0, tspan, times, data)",
+        src)
     start === nothing && return false
     rest = src[first(start):end]
     nxt = findnext(r"\nfunction ", rest, 2)
