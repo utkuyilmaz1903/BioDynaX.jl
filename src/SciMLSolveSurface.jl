@@ -406,7 +406,8 @@ function sensealg_boundary_matrix()
                 competitive.mechanistic && competitive.crossing &&
                 zero.mechanistic &&
                 hill.neural && remap.neural && six.neural && dual.neural &&
-                !hill.crossing)
+                hill.n64.zygote_name === :interpolating_neural &&
+                hill.n65.zygote_name === :interpolating_neural)
 end
 
 # -- Failed / invalid solves --------------------------------------------------
