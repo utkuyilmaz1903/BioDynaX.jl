@@ -58,7 +58,14 @@ function library_contains_variable(spec::LocalBasisSpec, variable::Int)
 end
 
 function graph_parent_set(network::BiologicalNetwork, target::Int)
-    return Set(candidate_parents(network, target))
+    # `target` is a local_basis index into state_nodes, not a node id.
+    # INPUT parents are dropped because they are not dynamic states.
+    nodes = state_nodes(network)
+    1 ≤ target ≤ length(nodes) ||
+        throw(ArgumentError("target must index a dynamic state"))
+    parent_nodes = candidate_parents(network, nodes[target])
+    row_by_node = Dict(node => row for (row, node) in pairs(nodes))
+    return Set(Int[row_by_node[n] for n in parent_nodes if haskey(row_by_node, n)])
 end
 
 function graph_library_variables(network::BiologicalNetwork, target::Int;
