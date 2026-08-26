@@ -331,7 +331,7 @@ function recovery_suite_section_source_row(section::Symbol)
         !occursin("generate_experiment_set(", body)
     holds = gated &&
             trains_unknown == spec.trains_unknown_edge &&
-            (spec.trains_ude ? trains_ude : !trains_unknown) &&
+            trains_ude == spec.trains_ude &&
             uses_admit == spec.uses_admit &&
             generate_ok
     return (;
