@@ -41,7 +41,8 @@ end
     @test occursin("skeleton", lowercase(text))
     for label in ("claim", "f1", "hill", "coefficients", "smoke", "preview",
         "remap", "extras", "recovery", "f1_attempt", "datagen", "admission",
-        "protocol_row")
+        "protocol_row", "compiled_once", "sciml_generate", "admission_matrix",
+        "joint")
         @test haskey(sentences, Symbol(label))
         @test !isempty(sentences[Symbol(label)])
         @test occursin(sentences[Symbol(label)], text)
@@ -109,8 +110,10 @@ end
 @testset "docs make.jl lists the unique-claim page" begin
     make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
     @test occursin("unique-claim.md", make)
+    @test occursin("compiled-path.md", make)
     index = read(joinpath(pkgdir(BioDynaX), "docs", "src", "index.md"), String)
     @test occursin("unique-claim.md", index)
+    @test occursin("compiled-path.md", index)
     news = read(joinpath(pkgdir(BioDynaX), "NEWS.md"), String)
     @test occursin("Unreleased", news)
     @test occursin("UNIQUE_CLAIM_PROTOCOL", news) || occursin("unique-claim", news)

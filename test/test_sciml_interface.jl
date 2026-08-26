@@ -92,3 +92,25 @@ end
     sol = SciMLBase.solve(model, u0, tspan, params; saveat = times)
     @test all(isfinite, Array(sol))
 end
+
+@testset "SciML ODEProblem on remapped multi-head and two-regulator D(S,I)" begin
+    remap = remapped_two_regulator_compiled_path()
+    @test remap.holds
+    @test remap.row.sciml.matches_odeproblem
+    @test remap.row.sciml.matches_inplace
+    @test remap.row.sciml.matches_remake
+    @test remap.row.arch.n_heads == 2
+    @test remap.row.arch.arities == [1, 2]
+    two = two_regulator_sciml_path()
+    @test two.holds
+    skipped = skipped_duplicate_sciml_path()
+    @test skipped.holds
+    linear = build_linear_test_network()
+    model, params = build_ude_model(MersenneTwister(0), linear)
+    times, clean, _, used = generate_from_compiled_model(
+        model, params, MersenneTwister(0);
+        u0 = [0.2, 0.1], tspan = (0.0, 0.5), n_points = 5, noise_σ = 0.0)
+    prob = SciMLBase.ODEProblem(model, [0.2, 0.1], (0.0, 0.5), used)
+    sol = solve(prob, Tsit5(); saveat = times, abstol = 1e-9, reltol = 1e-9)
+    @test clean ≈ Array(sol)
+end

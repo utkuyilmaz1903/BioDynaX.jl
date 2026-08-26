@@ -4,13 +4,20 @@
     @test isempty(violations.missing)
     @test isempty(violations.forbidden)
     @test generate_data_uses_stored_ground_truth_model()
+    @test generate_from_compiled_model_uses_sciml_odeproblem()
+    @test generate_experiment_set_uses_compiled_once()
+    @test datagen_experiment_set_source_holds()
     src = read(datagen_source_path(), String)
     @test occursin("function generate_from_compiled_model", src)
+    @test occursin("function compile_ground_truth_model", src)
+    @test occursin("SciMLBase.ODEProblem(model", src)
     @test occursin("build_ude_model", src)
     @test !occursin("Lux.Dense(1 => 1", src)
     @test !(:generate_from_compiled_model in names(BioDynaX))
     @test !(:unique_claim_experiment_set in names(BioDynaX))
     @test !(:build_remapped_two_regulator_network in names(BioDynaX))
+    @test !(:compile_ground_truth_model in names(BioDynaX))
+    @test !(:generate_experiment_set_from_compiled_model in names(BioDynaX))
 end
 
 @testset "GroundTruthModel integrates the stored compiled model" begin
