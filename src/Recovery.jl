@@ -237,6 +237,37 @@ end
 hill_rate_truth(r; vmax, K, n) = vmax .* (r .^ n) ./ (K^n .+ r .^ n)
 mm_rate_truth(r; vmax, km) = vmax .* r ./ (km .+ r)
 
+"""Human label for an implicit monomial key `((vars,), (powers,))`."""
+function monomial_key_label(key)
+    vars, powers = key
+    isempty(vars) && return "1"
+    parts = String[]
+    for (variable, power) in zip(vars, powers)
+        name = variable == 1 ? "r" : string("x", variable)
+        push!(parts, power == 1 ? name : string(name, "^", power))
+    end
+    return join(parts, "*")
+end
+
+"""
+    discovered_support_extras(candidate, truth_num, truth_den; atol=1e-8)
+
+Monomial keys present in `candidate` but not in the true Hill/MM support.
+Labels match the locked UDE extras (`1`, `r`). Not exported.
+"""
+function discovered_support_extras(candidate, truth_num, truth_den;
+                                   atol::Real = 1e-8)
+    recovered = active_support(candidate; atol = atol)
+    truth_keys = union(truth_num, truth_den)
+    extras = String[]
+    for key in sort!(collect(union(recovered.numerator, recovered.denominator));
+                     by = string)
+        key in truth_keys && continue
+        push!(extras, monomial_key_label(key))
+    end
+    return extras
+end
+
 neural_destruction_terms(model::UDEModel) =
     [term for term in model.compiled.destruction_terms if term isa NeuralDestructionTerm]
 
@@ -479,6 +510,7 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
             denominator_violations = typemax(Int),
             normalized_support_f1 = 0.0,
             normalized_support_recall = 0.0,
+            extras = String[],
             discovery = nothing,
             term = term)
     end
@@ -498,12 +530,15 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     rate_rmse = Inf
     residual = Inf
     den_violations = typemax(Int)
+    extras = String[]
     if discovery.success
         candidate = discovery.candidates[1]
         metrics = support_f1(candidate, truth_support.numerator,
                              truth_support.denominator)
         f1 = metrics.combined.f1
         recall = metrics.combined.recall
+        extras = discovered_support_extras(
+            candidate, truth_support.numerator, truth_support.denominator)
         d_hat = equation_to_function(candidate)
         D_hat = [d_hat([rj]) for rj in r]
         rate_rmse = rate_rel_rmse(D_hat, D_true)
@@ -531,6 +566,7 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         denominator_violations = den_violations,
         normalized_support_f1 = norm_f1,
         normalized_support_recall = norm_recall,
+        extras,
         discovery = discovery,
         term = term)
 end
