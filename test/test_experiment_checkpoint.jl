@@ -183,6 +183,6 @@ end
     @test occursin("experiment_fingerprint", howto)
     landing = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
     @test occursin(BioDynaX.experiment_checkpoint_contract(), landing)
-    @test occursin("experiment-checkpoint", join(unique_claim_user_doc_paths(), " "))
+    @test occursin("experiment-checkpoint", join(BioDynaX.unique_claim_user_doc_paths(), " "))
     @test BioDynaX.experiment_checkpoint_contract_holds()
 end

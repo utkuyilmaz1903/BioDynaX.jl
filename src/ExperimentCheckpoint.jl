@@ -241,7 +241,7 @@ function checkpoint_resume_row(p_init, data, times, u0, tspan, model; dir)
     path = joinpath(dir, "joint.ckpt")
     config = TrainingConfig(
         adam_iterations = 2, bfgs_iterations = 0, log_every = 10^6)
-    first = train_ude(
+    trained = train_ude(
         p_init, data, times, u0, tspan, model;
         config = config, verbose = false, checkpoint_path = path,
         checkpoint_every = 1, seed = 5)
@@ -255,10 +255,10 @@ function checkpoint_resume_row(p_init, data, times, u0, tspan, model; dir)
             verbose = false)
         counter[]
     end
-    from_diag = optimizer_state_from_result(first)
+    from_diag = optimizer_state_from_result(trained)
     n_diag = with_compile_network_counter() do counter
         train_ude(
-            first.params, data, times, u0, tspan, model;
+            trained.params, data, times, u0, tspan, model;
             config = TrainingConfig(
                 adam_iterations = 1, bfgs_iterations = 0, log_every = 10^6),
             optimizer_state = from_diag, verbose = false)
@@ -522,13 +522,13 @@ function linear_checkpoint_fixture_row(; dir)
     resume = checkpoint_resume_row(
         init, exp.observations, exp.times, exp.u0,
         (first(exp.times), last(exp.times)), model; dir = dir)
-    first = train_ude(
+    trained = train_ude(
         init, exp.observations, exp.times, exp.u0,
         (first(exp.times), last(exp.times)), model;
         config = TrainingConfig(
             adam_iterations = 1, bfgs_iterations = 0, log_every = 10^6),
         verbose = false)
-    artifact = artifact_roundtrip_row(first; dir = dir)
+    artifact = artifact_roundtrip_row(trained; dir = dir)
     schema = checkpoint_schema_row()
     return (;
         resume, artifact, schema,
