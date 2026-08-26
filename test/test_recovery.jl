@@ -386,6 +386,7 @@ end
     @test occursin("production_destruction_tradeoff", src)
     @test occursin("assert_single_unknown_destruction", src)
     @test occursin("format_protocol_result", src)
+    @test occursin("assert_unique_claim_residual", src)
     @test occursin("_unknown_edge_ics()", src)
     @test occursin("smoke ? ics_all[1:1]", src)
     @test occursin("smoke_n_points", src)

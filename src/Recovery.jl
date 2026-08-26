@@ -137,6 +137,32 @@ function build_protocol_result(ude)
 end
 
 """
+    unique_claim_kpis_hold(kpis) -> Bool
+
+True when the locked UDE claim holds: `unidentifiable_edge`, hybrid residual
+versus data, and true-monomial recall. Combined F1 is not a claim gate.
+Not exported.
+"""
+function unique_claim_kpis_hold(kpis)
+    return kpis.unidentifiable_edge === true &&
+           kpis.data_residual ≤ RECOVERY_THRESHOLDS.data_residual &&
+           kpis.support_recall ≥ RECOVERY_THRESHOLDS.support_recall
+end
+
+"""
+    assert_unique_claim_residual(residual)
+
+Golden-path residual gate. Same number as `RECOVERY_THRESHOLDS.data_residual`.
+Not exported.
+"""
+function assert_unique_claim_residual(residual)
+    residual ≤ RECOVERY_THRESHOLDS.data_residual ||
+        throw(ErrorException(
+            "hybrid residual $(residual) exceeds RECOVERY_THRESHOLDS.data_residual"))
+    return residual
+end
+
+"""
     RECOVERY_THRESHOLDS
 
 Locked scientific-recovery contract. Loosening a threshold is a breaking change.

@@ -16,6 +16,9 @@
 - Unique-claim recovery paths require exactly one unknown `D(z)`
   (`assert_single_unknown_destruction`, `only_unknown_destruction`; not
   exported). `validate_network` is unchanged.
+- Unique-claim residual and KPI checks are helpers
+  (`assert_unique_claim_residual`, `unique_claim_kpis_hold`; not exported).
+  Threshold numbers are unchanged.
 - `CITATION.cff` is a single CFF 1.2.0 record (no duplicate fields). The
   0.9.2 preview is not yet in General.
 - SciML hardening without a v1.0 cut: snippet/example smoke (1 IC in the
