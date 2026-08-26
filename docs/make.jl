@@ -25,6 +25,7 @@ makedocs(
         "SciML solve surface" => "sciml-solve-surface.md",
         "Recovery suite skip" => "recovery-suite-skip.md",
         "Experiment fingerprint and checkpoint" => "experiment-checkpoint.md",
+        "Failure modes" => "failure-modes.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

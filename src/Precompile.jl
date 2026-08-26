@@ -34,5 +34,8 @@
         recovery_suite_section_spec(:ude_discovery)
         experiment_checkpoint_locked_sentences()
         experiment_checkpoint_contract()
+        discovery_retcode_catalog()
+        extras_print_label(nothing)
+        extras_print_label(String[])
     end
 end

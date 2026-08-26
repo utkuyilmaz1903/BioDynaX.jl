@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Failure-mode instrument locks `DiscoveryRetcode` maps, the 20-sample
+  discovery floor, 0/2-hole `validate_network` openness, KPI failure
+  symbols without combined F1, and extras `NA` / `(none)` / live
+  leftovers (`src/FailureModes.jl`, not exported). Docs:
+  [failure-modes](docs/src/failure-modes.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Experiment fingerprints ignore metadata; batches cover every IC
   without padding; `resume_training` reuses the compiled `UDEModel`
   (`src/ExperimentCheckpoint.jl`, not exported). Remapped multi-head

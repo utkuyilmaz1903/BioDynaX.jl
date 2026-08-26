@@ -46,6 +46,9 @@ See [Recovery suite skip](recovery-suite-skip.md).
 `train_experiments` share one compiled tree. See
 [Experiment fingerprint and checkpoint](experiment-checkpoint.md).
 
+validate_network stays a topology checker; 0-hole and 2-hole networks still validate.
+See [Failure modes](failure-modes.md).
+
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
 `assert_single_unknown_destruction` on the golden path only.

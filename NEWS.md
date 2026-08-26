@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Failure-mode instrument (`src/FailureModes.jl`, not exported)
+  names every `DiscoveryRetcode`, keeps `validate_network` open on
+  0/2-hole networks, and keeps combined F1 out of KPI failure
+  symbols. Docs: [failure-modes](docs/src/failure-modes.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Experiment fingerprints, batches, and checkpoint resume stay on one
   compiled tree (`src/ExperimentCheckpoint.jl`, not exported).
   Remapped multi-head generate and `train_experiments` do not

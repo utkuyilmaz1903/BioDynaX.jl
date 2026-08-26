@@ -146,3 +146,7 @@ Metadata is not identity. `experiment_batches` covers every IC.
 `resume_training` reuses the compiled `UDEModel`. Remapped multi-head
 generate and `train_experiments` share one compiled tree. See
 [Experiment fingerprint and checkpoint](experiment-checkpoint.md).
+
+`DiscoveryRetcode` names insufficient samples, unsafe denominators,
+empty support, a singular library, a generic failure, and success.
+See [Failure modes](failure-modes.md).
