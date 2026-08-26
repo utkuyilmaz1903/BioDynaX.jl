@@ -32,6 +32,11 @@ The unique-claim product is printed and stored in that same order:
 4. **REPRODUCTION** — seed 103, 9 ICs, 50 points. Smoke is labeled
    separately and is not this fingerprint.
 
+The SciML solve surface agrees `ude_system`, `ODEFunction`,
+`ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and
+`predict_ude`. Mechanistic models switch adjoints at 64 observations.
+See [SciML solve surface](sciml-solve-surface.md).
+
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
 `assert_single_unknown_destruction` on the golden path only.

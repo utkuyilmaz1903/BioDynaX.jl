@@ -28,5 +28,7 @@
         _backend_chunk_size(ImplicitSINDyPI(chunk_size = 32))
         lock_training_solver(model)
         training_solve_session(model, u, (0.0, 1.0), params)
+        recommend_sensealg(model; n_observations = 64)
+        recommend_sensealg(model; n_observations = 65)
     end
 end

@@ -129,6 +129,10 @@ These are experimental. DataDrivenSparse is never a CI dependency.
 `admit_recovery_suite_network`. Other sections have an explicit hole
 policy and stay open; see [Compiled experiment path](compiled-path.md).
 
+`SolveSurfaceRow` compares `ude_system`, `ODEFunction`, `ODEProblem`,
+`remake`, inplace cache, `SciMLBase.solve`, and `predict_ude` on the
+same fixtures. See [SciML solve surface](sciml-solve-surface.md).
+
 `TrainingSolveSession` remakes one `ODEProblem` across ICs. Unique-claim
 training (`_train_unknown_edge`) calls `train_experiments_with_warmup` so
 the first-IC Adam state is not discarded. See

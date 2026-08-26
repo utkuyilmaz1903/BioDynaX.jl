@@ -54,6 +54,9 @@ prediction = predict_ude(params, u0, tspan, times, model;
                          solver_config = solver_config, cache = cache)
 ```
 
+The SciML solve surface agrees ude_system, ODEFunction, ODEProblem, remake, inplace cache, SciMLBase.solve, and predict_ude.
+See [SciML solve surface](sciml-solve-surface.md). Mechanistic models switch from BacksolveAdjoint to InterpolatingAdjoint when n_observations exceeds 64.
+
 ## Adjoints
 
 `auto_sensealg(model)` recommends a SciMLSensitivity adjoint. Neural unknowns

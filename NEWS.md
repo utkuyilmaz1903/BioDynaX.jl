@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- SciML solve surface (`src/SciMLSolveSurface.jl`, not exported)
+  agrees `ude_system` / `ODEFunction` / `ODEProblem` / remake /
+  inplace cache / `SciMLBase.solve` / `predict_ude`. The
+  `recommend_sensealg` 64/65 observation boundary is locked.
+  Docs: [sciml-solve-surface](docs/src/sciml-solve-surface.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Training reuses one compiled `UDEModel` and one
   `TrainingSolveSession` across ICs (`src/TrainingReuse.jl`, not
   exported). `_train_unknown_edge` calls `train_experiments_with_warmup`

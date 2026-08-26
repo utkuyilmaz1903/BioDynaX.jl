@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- SciML solve surface agrees `ude_system`, `ODEFunction`,
+  `ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and
+  `predict_ude` (`SolveSurfaceRow`; not exported). Mechanistic
+  models switch from `BacksolveAdjoint` to `InterpolatingAdjoint`
+  when `n_observations` exceeds 64. No new solver. `RECOVERY_THRESHOLDS`
+  and the export list are unchanged.
 - Training reuses one compiled `UDEModel` across ICs
   (`TrainingSolveSession`, `train_experiments_with_warmup`; not
   exported). The Augmented-Lagrangian constraint path passes the
