@@ -112,6 +112,31 @@ function format_protocol_result(ident;
 end
 
 """
+    build_protocol_result(ude)
+
+Locked unique-claim product object. Field order is the claim: identifiability
+first, then fit, then discovery. Not exported. Does not replace
+`locked_ude_kpis` or existing `ude_discovery` fields.
+"""
+function build_protocol_result(ude)
+    ident = hasproperty(ude, :identifiability) ? ude.identifiability : nothing
+    edge = ident !== nothing && hasproperty(ident, :unidentifiable_edge) ?
+           ident.unidentifiable_edge : false
+    extras = hasproperty(ude, :extras) ? getproperty(ude, :extras) : nothing
+    f1 = hasproperty(ude, :support_f1) ? ude.support_f1 : 0.0
+    return (;
+        unknown_holes = 1,
+        unidentifiable_edge = edge,
+        coefficients_are_biological_constants = !edge,
+        data_residual = ude.data_residual,
+        support_recall = ude.support_recall,
+        support_f1 = f1,
+        extras,
+        canonical_hill_from_nn = false,
+        claim = :recall_plus_data_residual)
+end
+
+"""
     RECOVERY_THRESHOLDS
 
 Locked scientific-recovery contract. Loosening a threshold is a breaking change.
@@ -938,7 +963,10 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
     ude_row = (; evaled..., identifiability = ident_ude)
-    report[:ude_discovery] = (; ude_row..., locked_kpis = locked_ude_kpis(ude_row))
+    report[:ude_discovery] = (;
+        ude_row...,
+        locked_kpis = locked_ude_kpis(ude_row),
+        protocol_result = build_protocol_result(ude_row))
     end
 
     if :mm_unknown in wanted
@@ -968,7 +996,10 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
     mm_row = (; evaled..., identifiability = ident_mm)
-    report[:mm_unknown] = (; mm_row..., locked_kpis = locked_ude_kpis(mm_row))
+    report[:mm_unknown] = (;
+        mm_row...,
+        locked_kpis = locked_ude_kpis(mm_row),
+        protocol_result = build_protocol_result(mm_row))
     end
 
     if :ablation in wanted
