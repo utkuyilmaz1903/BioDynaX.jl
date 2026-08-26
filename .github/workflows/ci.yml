@@ -64,6 +64,10 @@ jobs:
               "test/test_invariants.jl",
               "test/test_example_smoke.jl",
               "src/Precompile.jl",
+              "src/UniqueClaim.jl",
+              "test/test_unique_claim_product.jl",
+              "test/test_protocol_fingerprint.jl",
+              "test/test_docs_honesty.jl",
           ]
           ok = true
           for file in files

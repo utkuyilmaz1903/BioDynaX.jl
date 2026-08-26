@@ -23,8 +23,26 @@
     @test kpis.unidentifiable_edge
     @test kpis.claim === :recall_plus_data_residual
     @test unique_claim_kpis_hold(kpis)
+    @test isempty(unique_claim_kpi_failures(kpis))
+    @test assert_unique_claim_kpis(kpis) === kpis
+    proto = ude.protocol_result
+    @test assert_protocol_result_fields(proto) === proto
+    @test proto.coefficients_are_biological_constants == false
+    @test proto.canonical_hill_from_nn == false
+    @test proto.unknown_holes == 1
+    @test proto.claim === :recall_plus_data_residual
+    @test proto.data_residual == ude.data_residual
+    @test proto.support_recall == ude.support_recall
+    @test ude.support_f1 < RECOVERY_THRESHOLDS.support_f1_clean
+    @test unique_claim_f1_reaches_analytical_gate(ude.support_f1) == false
+    @test unique_claim_f1_meets_skeleton_floor(ude.support_f1)
+    extras = proto.extras
+    @test extras !== nothing
+    @test "1" in extras || "r" in extras || !isempty(extras)
     @test occursin("collinear", BioDynaX.format_production_destruction_warning(ident))
     @test isfinite(ude.normalized_support_f1)
+    @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
+    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
 end
 
 @testset "UDE unknown-edge Hill recovery with noise" begin
