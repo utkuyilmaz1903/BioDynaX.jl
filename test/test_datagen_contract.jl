@@ -153,8 +153,9 @@ end
         model, _ = build_ude_model(rng, net)
         params = default_parameters(model; rng = MersenneTwister(32))
         @test default_parameters_match_compiled(model, params)
-        @test all(isfinite, ude_system(
-            fill(0.2, model.compiled.nstates), params, 0.0, model))
+        @test all(
+            isfinite, ude_system(
+                fill(0.2, model.compiled.nstates), params, 0.0, model))
     end
     dual = build_dual_unknown_network()
     dual_model, _ = build_ude_model(rng, dual)

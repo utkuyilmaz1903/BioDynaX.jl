@@ -142,8 +142,10 @@ function recovery_suite_known_kinetics_admit_zero_holes()
             for section in RECOVERY_SUITE_KNOWN_KINETICS_SECTIONS]
     return (;
         rows,
-        holds = all(row -> row.admitted && row.validate_open &&
-                           row.requires_single_hole == false, rows))
+        holds = all(
+            row -> row.admitted && row.validate_open &&
+                       row.requires_single_hole == false,
+            rows))
 end
 
 function recovery_suite_uses_admission_helper()
@@ -316,12 +318,14 @@ function unique_claim_protocol_row_from_fields(;
         support_f1,
         extras,
         identifiability = ident,
-        protocol_result = build_protocol_result((;
-            data_residual,
-            support_recall,
-            support_f1,
-            extras,
-            identifiability = ident); unknown_holes),
+        protocol_result = build_protocol_result(
+            (;
+                data_residual,
+                support_recall,
+                support_f1,
+                extras,
+                identifiability = ident);
+            unknown_holes),
         locked_kpis = locked_ude_kpis((;
             data_residual,
             support_recall,

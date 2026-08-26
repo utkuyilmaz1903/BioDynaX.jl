@@ -163,7 +163,7 @@ function build_remapped_two_regulator_network()::BiologicalNetwork
     ]
     edges = [
         EdgeSpec(source = 2, target = 1, kind = UNKNOWN_NN, known = false,
-            family = HILL)
+        family = HILL)
     ]
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
