@@ -70,8 +70,7 @@ combined F1 out of the KPI failure symbols.
 A–G markdown file. `make.jl` still lists those A–G pages.
 
 Closed leftover phrases (`k_custom is absent`, a painted UDE
-F1 of 0.99, `]add BioDynaX`) must not appear on the four
-landing files.
+F1 of 0.99) must not appear on the four landing files.
 
 ## What this page does not do
 
