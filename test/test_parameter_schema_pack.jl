@@ -94,6 +94,14 @@ end
     ics = BioDynaX.unique_claim_not_faster_by_dropping_ics_schema_row()
     @test ics.holds
     @test ics.n_ics == 9
+    @test BioDynaX.bounded_parameter_row().holds
+    @test BioDynaX.two_regulator_input_dim_row().holds
+    @test BioDynaX.remapped_input_dims_row().holds
+    @test BioDynaX.schema_name_catalog_row().holds
+    @test BioDynaX.format_pack_markdown_holds()
+    @test BioDynaX.linear_schema_names_are_mass_action_row().holds
+    @test BioDynaX.pack_rejects_nonpositive_phys_row().holds
+    @test BioDynaX.validate_rejects_nonpositive_row().holds
 end
 
 @testset "module include and docs page exist" begin
