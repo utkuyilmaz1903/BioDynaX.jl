@@ -240,6 +240,10 @@ function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
     numerator = copy(numerator)
     denominator = copy(denominator)
+    # Bootstrap index views are not dense. Workspace mul! / design fills
+    # assume contiguous sample columns.
+    X = X isa Matrix ? X : Matrix(X)
+    y = y isa Vector ? y : collect(y)
     rss0, _, denvals0 = _implicit_rss(spec, numerator, denominator, X, y)
     (!isfinite(rss0) || _unsafe_denominator(denvals0, floor)) &&
         return numerator, denominator
@@ -308,9 +312,18 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
         spec, X, y,
         [i in num_idx for i in 1:n_num],
         [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
-    best_score = minimum(c.score for c in candidates)
+    finite_candidates = [c for c in candidates if isfinite(c.score) && isfinite(c.rss)]
+    isempty(finite_candidates) && return _refit_masked_implicit(
+        spec, X, y,
+        [i in num_idx for i in 1:n_num],
+        [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
+    best_score = minimum(c.score for c in finite_candidates)
     slack = max(abs(best_score) * rtol, 1e-12)
-    admissible = [c for c in candidates if c.score ≤ best_score + slack]
+    admissible = [c for c in finite_candidates if c.score ≤ best_score + slack]
+    isempty(admissible) && return _refit_masked_implicit(
+        spec, X, y,
+        [i in num_idx for i in 1:n_num],
+        [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
     chosen = argmin(c -> (c.k, c.rss), admissible)
     keep_n = abs.(chosen.num) .> 1e-8
     keep_d = abs.(chosen.den) .> 1e-8

@@ -979,8 +979,13 @@ end
 
 function discovery_workspace_source_holds()
     src = read(discovery_workspace_source_path(), String)
+    impl = read(discovery_jl_source_path(), String) *
+           read(basis_factory_source_path(), String)
+    docs = isfile(discovery_streaming_docs_path()) ?
+        read(discovery_streaming_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in DISCOVERY_WORKSPACE_MUST_CONTAIN) &&
-           !any(occursin(needle, src) for needle in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN)
+           !any(occursin(needle, impl) || occursin(needle, docs)
+                for needle in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN)
 end
 
 function discovery_jl_uses_workspace()
@@ -1040,7 +1045,12 @@ end
 
 function discovery_workspace_source_violations()
     src = read(discovery_workspace_source_path(), String)
+    impl = read(discovery_jl_source_path(), String) *
+           read(basis_factory_source_path(), String)
+    docs = isfile(discovery_streaming_docs_path()) ?
+        read(discovery_streaming_docs_path(), String) : ""
     missing = [s for s in DISCOVERY_WORKSPACE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s for s in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN if occursin(s, src)]
+    forbidden = [s for s in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN
+                 if occursin(s, impl) || occursin(s, docs)]
     return (; missing, forbidden)
 end
