@@ -208,7 +208,8 @@ end
     for label in keys(sentences)
         @test occursin(sentences[label], page)
     end
-    architecture = read(joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
+    architecture = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
     @test occursin("reindexed to `1:n`", architecture) ||
           occursin("reindexes kept", architecture)
     @test occursin("IDENTIFIABILITY", architecture)
@@ -218,7 +219,8 @@ end
     @test occursin("unique_claim_fingerprint", tutorial)
     howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
     @test occursin("unique_claim_fingerprint", howto)
-    experimental = read(joinpath(pkgdir(BioDynaX), "docs", "src", "experimental.md"), String)
+    experimental = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src", "experimental.md"), String)
     @test occursin("UniqueClaimFingerprint", experimental)
     @test occursin("UNIQUE_CLAIM_F1_ATTEMPT", experimental)
     benchmarks = read(joinpath(pkgdir(BioDynaX), "docs", "src", "benchmarks.md"), String)

@@ -49,7 +49,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     tspan = fingerprint.tspan
     ics = BioDynaX.unique_claim_protocol_ics(; smoke)
-    n_points = fingerprint.n_points
+    n_points = BioDynaX.unique_claim_protocol_n_points(; smoke)
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = ics,
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,

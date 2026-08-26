@@ -94,7 +94,7 @@ end
     @test occursin("unique_claim_protocol_n_points(; smoke)", src)
     @test occursin("unique_claim_discovery_extras", src)
     @test occursin("count_unknown_destructions(model)", src)
-    @test occursin("unique_claim_protocol_kind(; smoke)", src)
+    @test occursin("unique_claim_fingerprint(; smoke)", src)
     @test !occursin("extras = (\"1\", \"r\")", src)
     @test !occursin("build_hill_recovery_network", src)
     @test !occursin("Note:", src)

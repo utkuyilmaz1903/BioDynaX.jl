@@ -19,19 +19,23 @@ const COMPILER_REINDEX_MUST_NOT_CONTAIN = (
     "assert_single_unknown_destruction",
     "unique-claim protocol requires exactly one")
 
-neural_destruction_terms(compiled::CompiledMechanism) =
+function neural_destruction_terms(compiled::CompiledMechanism)
     [term for term in compiled.destruction_terms if term isa NeuralDestructionTerm]
+end
 
-neural_destruction_terms(network::BiologicalNetwork) =
+function neural_destruction_terms(network::BiologicalNetwork)
     neural_destruction_terms(compile_mechanism(network))
+end
 
-neural_nn_indices(compiled::CompiledMechanism) =
+function neural_nn_indices(compiled::CompiledMechanism)
     Int[term.nn_index for term in neural_destruction_terms(compiled)]
+end
 
 neural_nn_indices(model::UDEModel) = neural_nn_indices(model.compiled)
 
-neural_nn_indices(network::BiologicalNetwork) =
+function neural_nn_indices(network::BiologicalNetwork)
     neural_nn_indices(compile_mechanism(network))
+end
 
 function neural_regulator_arities(compiled::CompiledMechanism)
     return Int[length(term.regulators) for term in neural_destruction_terms(compiled)]
@@ -43,8 +47,9 @@ neural_head_count(compiled::CompiledMechanism) = length(neural_destruction_terms
 
 neural_head_count(model::UDEModel) = neural_head_count(model.compiled)
 
-neural_head_count(network::BiologicalNetwork) =
+function neural_head_count(network::BiologicalNetwork)
     neural_head_count(compile_mechanism(network))
+end
 
 """True when kept `nn_index` values are exactly `1:n` in some order."""
 function neural_index_is_dense(compiled::CompiledMechanism)
@@ -54,8 +59,9 @@ end
 
 neural_index_is_dense(model::UDEModel) = neural_index_is_dense(model.compiled)
 
-neural_index_is_dense(network::BiologicalNetwork) =
+function neural_index_is_dense(network::BiologicalNetwork)
     neural_index_is_dense(compile_mechanism(network))
+end
 
 function assert_dense_neural_index(compiled::CompiledMechanism)
     neural_index_is_dense(compiled) || throw(ErrorException(
@@ -149,13 +155,13 @@ function build_skipped_duplicate_unknown_network()::BiologicalNetwork
             metadata = LinearDecayMetadata(rate_param = :k_b)),
         ReactionSpec(name = :c_decay,
             stoichiometry = Dict(3 => -1.0), regulators = Int[],
-            metadata = LinearDecayMetadata(rate_param = :k_c)),
+            metadata = LinearDecayMetadata(rate_param = :k_c))
     ]
     edges = [
         EdgeSpec(source = 2, target = 1, kind = UNKNOWN_NN, known = false,
             family = HILL),
         EdgeSpec(source = 3, target = 1, kind = UNKNOWN_NN, known = false,
-            family = HILL),
+            family = HILL)
     ]
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
@@ -171,7 +177,7 @@ function build_skipped_middle_unknown_network()::BiologicalNetwork
         NodeSpec(name = :A),
         NodeSpec(name = :B),
         NodeSpec(name = :C),
-        NodeSpec(name = :D),
+        NodeSpec(name = :D)
     ]
     reactions = [
         ReactionSpec(name = :drive_a,
@@ -188,11 +194,11 @@ function build_skipped_middle_unknown_network()::BiologicalNetwork
             known = false, family = HILL, metadata = HillMetadata()),
         ReactionSpec(name = :d_decay,
             stoichiometry = Dict(4 => -1.0), regulators = Int[],
-            metadata = LinearDecayMetadata(rate_param = :k_d)),
+            metadata = LinearDecayMetadata(rate_param = :k_d))
     ]
     edges = [
         EdgeSpec(source = 3, target = 2, kind = UNKNOWN_NN, known = false,
-            family = HILL),
+        family = HILL)
     ]
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
@@ -217,7 +223,7 @@ function build_two_regulator_unknown_network()::BiologicalNetwork
             metadata = LinearDecayMetadata(rate_param = :k_i)),
         ReactionSpec(name = :e_decay,
             stoichiometry = Dict(3 => -1.0), regulators = Int[],
-            metadata = LinearDecayMetadata(rate_param = :k_e)),
+            metadata = LinearDecayMetadata(rate_param = :k_e))
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end

@@ -669,10 +669,11 @@ function unique_claim_fingerprint(; smoke::Bool = false)
         false)
 end
 
-unique_claim_fingerprint(kind::Symbol) =
+function unique_claim_fingerprint(kind::Symbol)
     kind === :smoke ? unique_claim_fingerprint(; smoke = true) :
     kind === :protocol ? unique_claim_fingerprint() :
     throw(ArgumentError("fingerprint kind must be :protocol or :smoke; got $kind"))
+end
 
 function unique_claim_fingerprint_is_protocol(fp::UniqueClaimFingerprint)
     proto = UNIQUE_CLAIM_PROTOCOL
@@ -867,7 +868,8 @@ function assert_format_matches_protocol_result(result, text::AbstractString)
         throw(ErrorException("printed unknown_holes does not match protocol_result"))
     occursin("unidentifiable_edge: $(result.unidentifiable_edge)", text) ||
         throw(ErrorException("printed unidentifiable_edge does not match protocol_result"))
-    occursin("coefficients_are_biological_constants: $(result.coefficients_are_biological_constants)",
+    occursin(
+        "coefficients_are_biological_constants: $(result.coefficients_are_biological_constants)",
         text) || throw(ErrorException(
         "printed coefficients_are_biological_constants does not match protocol_result"))
     occursin("hybrid_data_residual: $(result.data_residual)", text) ||
@@ -890,11 +892,11 @@ end
 
 # -- Recovery-path hole admission (compiler stays open) -----------------------
 
-unique_claim_recovery_admits(model::UDEModel) =
-    count_unknown_destructions(model) == 1
+unique_claim_recovery_admits(model::UDEModel) = count_unknown_destructions(model) == 1
 
-unique_claim_recovery_admits(network::BiologicalNetwork) =
+function unique_claim_recovery_admits(network::BiologicalNetwork)
     count_unknown_destructions(network) == 1
+end
 
 function unique_claim_compiler_stays_open(network::BiologicalNetwork)
     validate_network(network) === network || return false
@@ -1009,4 +1011,3 @@ function unique_claim_f1_attempt_row(; extras, f1)
         is_protocol = false,
         verdict = unique_claim_f1_attempt_verdict(; extras, reaches_clean))
 end
-

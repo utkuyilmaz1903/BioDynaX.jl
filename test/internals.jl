@@ -118,6 +118,7 @@ using BioDynaX:
     julia_formatter_toml_holds,
     unique_claim_docs_forbidden_hits,
     unique_claim_example_source_violations,
+    unique_claim_example_path,
     validate_network_stays_open_source,
     unique_claim_locked_sentences,
     compile_mechanism_reindexes_source,
