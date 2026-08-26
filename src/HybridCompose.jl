@@ -150,7 +150,7 @@ function hybrid_identity_residual_row(model::UDEModel, p, u0;
             holds = counter[] == 0 && isfinite(residual) &&
                     residual < 1e-6 && isfinite(zeroed) && zeroed > residual)
     end
-    return merge(n, (; n_points = traj.n_points, nstates = size(traj.data, 1)))
+    return merge(n, (; n_points = size(traj.data, 2), nstates = size(traj.data, 1)))
 end
 
 function hybrid_predict_ude_agreement_row(model::UDEModel, p, u0;
