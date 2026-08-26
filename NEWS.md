@@ -1,5 +1,6 @@
 # BioDynaX.jl Unreleased
 
+- README landing page links the live 0.9.2 research-preview documentation.
 - Unique-claim hyperparameters live in `UNIQUE_CLAIM_PROTOCOL` (not exported).
   The golden-path example and UDE recovery defaults read that const.
   `RECOVERY_THRESHOLDS` is unchanged.
