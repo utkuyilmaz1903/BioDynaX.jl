@@ -40,6 +40,12 @@ See [SciML solve surface](sciml-solve-surface.md).
 A skipped recovery-suite section does not call _train_unknown_edge.
 See [Recovery suite skip](recovery-suite-skip.md).
 
+`experiment_fingerprint` hashes times, observations, mask, and `u0`.
+`resume_training` reuses the compiled `UDEModel` and does not call
+`compile_network`. Remapped multi-head generate and
+`train_experiments` share one compiled tree. See
+[Experiment fingerprint and checkpoint](experiment-checkpoint.md).
+
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is
 `assert_single_unknown_destruction` on the golden path only.

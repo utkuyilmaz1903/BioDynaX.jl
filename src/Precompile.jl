@@ -32,5 +32,7 @@
         recommend_sensealg(model; n_observations = 65)
         recovery_suite_plan((:linear, :ablation))
         recovery_suite_section_spec(:ude_discovery)
+        experiment_checkpoint_locked_sentences()
+        experiment_checkpoint_contract()
     end
 end

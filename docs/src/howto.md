@@ -140,3 +140,9 @@ training (`_train_unknown_edge`) calls `train_experiments_with_warmup` so
 the first-IC Adam state is not discarded. See
 [Training reuse](training-reuse.md). The AD constraint `predict_ude`
 call must pass the compiled model.
+
+`experiment_fingerprint` hashes times, observations, mask, and `u0`.
+Metadata is not identity. `experiment_batches` covers every IC.
+`resume_training` reuses the compiled `UDEModel`. Remapped multi-head
+generate and `train_experiments` share one compiled tree. See
+[Experiment fingerprint and checkpoint](experiment-checkpoint.md).

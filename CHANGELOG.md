@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Experiment fingerprints ignore metadata; batches cover every IC
+  without padding; `resume_training` reuses the compiled `UDEModel`
+  (`src/ExperimentCheckpoint.jl`, not exported). Remapped multi-head
+  generate and `train_experiments` / `train_experiments_with_warmup`
+  share one compiled tree. Checkpoints stay Julia `serialize`
+  payloads. Docs:
+  [experiment-checkpoint](docs/src/experiment-checkpoint.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Unused `run_recovery_suite` sections do not call
   `_train_unknown_edge` (`recovery_suite_plan`,
   `with_train_unknown_edge_counter`; not exported). The default suite

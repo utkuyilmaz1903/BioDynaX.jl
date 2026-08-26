@@ -24,6 +24,7 @@ makedocs(
         "Training reuse" => "training-reuse.md",
         "SciML solve surface" => "sciml-solve-surface.md",
         "Recovery suite skip" => "recovery-suite-skip.md",
+        "Experiment fingerprint and checkpoint" => "experiment-checkpoint.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

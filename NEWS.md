@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- Experiment fingerprints, batches, and checkpoint resume stay on one
+  compiled tree (`src/ExperimentCheckpoint.jl`, not exported).
+  Remapped multi-head generate and `train_experiments` do not
+  `compile_network` per IC. Docs:
+  [experiment-checkpoint](docs/src/experiment-checkpoint.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Unused recovery-suite sections do not call `_train_unknown_edge`
   (`src/RecoverySuiteSkip.jl`, not exported).
   `recovery_suite_plan` names trainers; the default suite still
