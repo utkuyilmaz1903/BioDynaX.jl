@@ -120,3 +120,10 @@ RECOVERY_THRESHOLDS
 Recovery fixtures (`run_recovery_suite`, `build_*_recovery_network`) are
 internal. Call them as `BioDynaX.run_recovery_suite` from tests and
 benchmarks. They are not on the freeze list.
+
+Unique-claim product helpers are also internal (`BioDynaX.foo`):
+`UNIQUE_CLAIM_PROTOCOL`, `format_protocol_result`, `build_protocol_result`,
+`assert_single_unknown_destruction`, `unique_claim_kpis_hold`,
+`unique_claim_discovery_extras`, `unique_claim_protocol_ics`. They are
+documented with executable snippets on [Unique claim](unique-claim.md).
+Do not export them to silence Documenter.

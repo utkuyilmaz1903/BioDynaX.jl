@@ -76,8 +76,11 @@ If discovery cannot be trusted, `strict = false` returns
 `DiscoveryResult(success=false, retcode=...)` instead of throwing.
 
 After a fit, print the protocol block (identifiability first; not exported).
-`BioDynaX.assert_single_unknown_destruction(model)` errors unless there is
-exactly one unknown `D(z)`.
+`unidentifiable_edge` is the product warning: coefficients are not
+biological constants. `BioDynaX.assert_single_unknown_destruction(model)`
+errors unless there is exactly one unknown `D(z)`. `validate_network`
+does not enforce that single hole; zero- and two-hole networks still
+compile. See [Unique claim](unique-claim.md).
 
 ```julia
 ident = BioDynaX.report_production_destruction_tradeoff(

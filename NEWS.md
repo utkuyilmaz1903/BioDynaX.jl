@@ -1,5 +1,21 @@
 # BioDynaX.jl Unreleased
 
+- Unique-claim product helpers (`src/UniqueClaim.jl`, not exported) name
+  the IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION block, split KPI
+  failures, live discovery extras, and the seed-103 / 9-IC fingerprint
+  versus smoke. `validate_network` stays open. `RECOVERY_THRESHOLDS` and
+  the public export list are unchanged.
+- `UNIQUE_CLAIM_PROTOCOL` now includes `n_ics`, `smoke_n_ics`, and
+  `observation_noise`. The golden-path example reads
+  `unique_claim_protocol_ics` / `unique_claim_protocol_n_points` and
+  prints live extras instead of a hardcoded `("1", "r")` pair.
+- Docs: [unique-claim](docs/src/unique-claim.md) page with doctested
+  snippets; stability/CONTRIBUTING drop HTTP/Pages lab notes; landing
+  docs stay honest about preview / not in General.
+- Fast-suite locks: protocol fingerprint, KPI miss paths, 0/2-hole
+  compile, protocol_result field order, formatter config, and the public
+  export set.
+
 - README landing page links the live 0.9.2 research-preview documentation.
 - Unique-claim hyperparameters live in `UNIQUE_CLAIM_PROTOCOL` (not exported).
   The golden-path example and UDE recovery defaults read that const.

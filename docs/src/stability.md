@@ -6,19 +6,10 @@ sufficient** for v1.0. Green CI today proves the method skeleton (hybrid compile
 printed equation is canonical Hill, and not that a biologist should run this
 on an arbitrary CSV.
 
-## Live docs and TagBot (honest)
-
-- Documenter `deploydocs` is configured and pushes `gh-pages` from `main`
-  when `CI=true`. The `gh-pages` branch exists.
-- Live docs (HTTP 200 on 2026-08-14):
-  [https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/).
-  Pages source is `gh-pages` / `(root)`. The repo-root URL without `/dev/`
-  is not the Documenter site.
-- TagBot and CompatHelper are **configured**. There is **no git tag**, so
-  TagBot has not been proven. The first tag after a 0.9.x preview register
-  is the proof. Do not write “TagBot ran”.
-- `DOCUMENTER_KEY` remains an optional SSH fallback. The docs job uses
-  `GITHUB_TOKEN` with `contents: write`.
+Documentation for this preview is published at
+[https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/).
+The package is **not in General**. TagBot and CompatHelper are configured;
+there is no git tag, so that bot has not been proven.
 
 ## v1.0 is not cut until all of the following can fail CI
 
@@ -40,9 +31,8 @@ on an arbitrary CSV.
 - No licensed experimental time series matches the unique-claim protocol
   (known graph, ≤1 unknown destruction edge, redistributable license).
   Absence is the result. Elowitz is a synthetic ODE fixture.
-- TagBot and CompatHelper are configured. Live Pages is proven (HTTP 200).
-  A TagBot tag is still unproven until the first 0.9.x preview tag.
-- `]register` is a maintainer action after those gates, not a CI step.
+- A 0.9.x preview register, the first tag, and a clean General install are
+  maintainer actions. They are not proven.
 
 Loosening `RECOVERY_THRESHOLDS` is a breaking change. Tightening UDE combined
 F1 toward `support_f1_clean` was attempted on the same library and did not
@@ -62,19 +52,17 @@ any of them regresses:
 3. Identifiability (`unidentifiable_edge`), graph-prior, wrong-graph
    negative control, and partial-observation discovery→residual are green or
    honestly red (no silent skip).
-4. TagBot and CompatHelper are configured. Live Pages is HTTP 200 on
-   `/dev/`. A TagBot tag is still required before claiming TagBot ran.
+4. Live `/dev/` docs exist. A TagBot tag is still required before claiming
+   that the bot produced a release.
 5. A methods note is allowed only when every sentence matches a CI gate.
    JOSS is not this preview.
-6. `]register` is a maintainer action for **0.9.x research-preview** only.
-   Do not register v1.0 against this bar. README’s first sentence stays
-   “not v1.0”.
+6. A 0.9.x preview register is a maintainer action. Do not register v1.0
+   against this bar. README’s first sentence stays “not v1.0”.
 
 Until then this repository stays on the 0.9.x research-preview line. This
-preview does **not** cut v1.0 or open JOSS. A 0.9.x General preview register
-is the next maintainer action and is **not yet in General**. Do not write
-`]add BioDynaX` or “TagBot ran” until the General PR is merged and tag
-`v0.9.2` exists.
+preview does **not** cut v1.0 or open JOSS. The 0.9.2 preview is **not yet
+in General**. Do not write an install-from-General command until that PR
+merges and tag `v0.9.2` exists.
 
 ## Frozen before 1.0
 
@@ -101,6 +89,11 @@ GPU, SBML, ModelingToolkit placeholders, and Fisher identifiability are
 Recovery suite builders (`run_recovery_suite`, `build_*_recovery_network`)
 are internal fixtures.
 
+Unique-claim product helpers (`format_protocol_result`,
+`build_protocol_result`, `UNIQUE_CLAIM_PROTOCOL`,
+`assert_single_unknown_destruction`, `unique_claim_kpis_hold`) are
+internal. They are documented on [Unique claim](unique-claim.md).
+
 ## Registry
 
 `Project.toml` is General-registry ready (name, uuid, version, compat, extras,
@@ -112,9 +105,9 @@ preview bar.
 
 `checkdocs = :exports` is strict (missing export docstrings fail the docs
 job). The public export list is the freeze list plus golden-path verbs. Do
-not grow exports to silence missing-docs warnings. Tutorial / SciML
-`@example` and `@repl` blocks are doctested. `deploydocs` runs only on
-`main` when `CI=true`.
+not grow exports to silence missing-docs warnings. Tutorial / SciML /
+unique-claim `@example` and `@repl` blocks are doctested. `deploydocs` runs
+only on `main` when `CI=true`.
 
 ## SciML hardening (0.9.x, not v1.0)
 

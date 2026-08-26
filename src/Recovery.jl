@@ -71,10 +71,13 @@ function format_protocol_result(ident;
         bfgs_iters = nothing,
         bootstrap = nothing,
         discovery_seed = nothing,
+        n_points = nothing,
+        protocol_kind = nothing,
         smoke::Bool = false)
     edge = ident.unidentifiable_edge
     production = hasproperty(ident, :production_param) ?
                  ident.production_param : :k_prod
+    kind = protocol_kind === nothing ? (smoke ? :smoke : :protocol) : protocol_kind
     io = IOBuffer()
     println(io, "IDENTIFIABILITY")
     println(io, "  unknown_holes: ", unknown_holes)
@@ -103,10 +106,12 @@ function format_protocol_result(ident;
     println(io, "REPRODUCTION")
     println(io, "  seed: ", _format_protocol_value(seed))
     println(io, "  n_ics: ", _format_protocol_value(n_ics))
+    println(io, "  n_points: ", _format_protocol_value(n_points))
     println(io, "  adam_iters: ", _format_protocol_value(adam_iters))
     println(io, "  bfgs_iters: ", _format_protocol_value(bfgs_iters))
     println(io, "  bootstrap: ", _format_protocol_value(bootstrap))
     println(io, "  discovery_seed: ", _format_protocol_value(discovery_seed))
+    println(io, "  protocol_kind: ", kind)
     println(io, "  smoke: ", smoke)
     return String(take!(io))
 end
@@ -118,14 +123,15 @@ Locked unique-claim product object. Field order is the claim: identifiability
 first, then fit, then discovery. Not exported. Does not replace
 `locked_ude_kpis` or existing `ude_discovery` fields.
 """
-function build_protocol_result(ude)
+function build_protocol_result(ude; unknown_holes::Integer = 1)
     ident = hasproperty(ude, :identifiability) ? ude.identifiability : nothing
     edge = ident !== nothing && hasproperty(ident, :unidentifiable_edge) ?
            ident.unidentifiable_edge : false
     extras = hasproperty(ude, :extras) ? getproperty(ude, :extras) : nothing
     f1 = hasproperty(ude, :support_f1) ? ude.support_f1 : 0.0
+    holes = unknown_holes
     return (;
-        unknown_holes = 1,
+        unknown_holes = holes,
         unidentifiable_edge = edge,
         coefficients_are_biological_constants = !edge,
         data_residual = ude.data_residual,
@@ -187,6 +193,10 @@ const RECOVERY_THRESHOLDS = (
 
 Hyperparameters shared by `examples/unknown_inhibition.jl` and the UDE
 recovery job. Not a threshold table. Not exported.
+
+Reproduction fingerprint: seed 103, `n_ics = 9`, `n_points = 50`.
+Smoke is a different object (`smoke_n_ics = 1`, `smoke_n_points = 8`)
+and is not this protocol.
 """
 const UNIQUE_CLAIM_PROTOCOL = (
     seed = 103,
@@ -197,6 +207,9 @@ const UNIQUE_CLAIM_PROTOCOL = (
     tspan = (0.0, 8.0),
     bootstrap = 8,
     discovery_seed = 3,
+    n_ics = 9,
+    smoke_n_ics = 1,
+    observation_noise = 0.0,
 )
 
 term_key(term::MonomialTerm) = (Tuple(term.variables), Tuple(term.powers))
@@ -490,10 +503,13 @@ function normalize_destruction_samples(D)
 end
 
 function _unknown_edge_ics()
-    return [
+    ics = [
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20],
     ]
+    length(ics) == UNIQUE_CLAIM_PROTOCOL.n_ics || throw(ErrorException(
+        "unique-claim IC table must have $(UNIQUE_CLAIM_PROTOCOL.n_ics) rows; got $(length(ics))"))
+    return ics
 end
 
 function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;

@@ -379,17 +379,21 @@ end
     @test proto.tspan == (0.0, 8.0)
     @test proto.bootstrap == 8
     @test proto.discovery_seed == 3
+    @test proto.n_ics == 9
+    @test proto.smoke_n_ics == 1
+    @test proto.observation_noise == 0.0
     @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", src)
     @test occursin("UNIQUE_CLAIM_PROTOCOL.adam_iterations", src)
     @test occursin("UNIQUE_CLAIM_PROTOCOL.bfgs_iterations", src)
     @test occursin("unique_claim_discovery_config", src)
+    @test occursin("unique_claim_protocol_ics", src)
+    @test occursin("unique_claim_protocol_n_points", src)
+    @test occursin("unique_claim_discovery_extras", src)
     @test occursin("production_destruction_tradeoff", src)
     @test occursin("assert_single_unknown_destruction", src)
     @test occursin("format_protocol_result", src)
     @test occursin("assert_unique_claim_residual", src)
-    @test occursin("_unknown_edge_ics()", src)
-    @test occursin("smoke ? ics_all[1:1]", src)
-    @test occursin("smoke_n_points", src)
+    @test !occursin("smoke ? ics_all[1:1]", src)
     @test occursin("sample_unknown_destruction_grid", src)
     @test occursin("_regulator_grid", src)
     @test occursin("ReactionSpec", src)
@@ -434,6 +438,7 @@ end
         bfgs_iters = 50,
         bootstrap = 8,
         discovery_seed = 3,
+        n_points = 50,
         smoke = false)
     ident_at = findfirst("IDENTIFIABILITY", text)
     coeff_at = findfirst("coefficients_are_biological_constants: false", text)
@@ -446,6 +451,8 @@ end
     @test edge_at !== nothing && first(ident_at) < first(edge_at)
     @test occursin("canonical_hill_from_nn: false", text)
     @test occursin("extras: 1, r", text)
+    @test occursin("n_points: 50", text)
+    @test occursin("protocol_kind: protocol", text)
     @test !occursin("Note:", text)
     @test startswith(text, "IDENTIFIABILITY")
     identifiable = format_protocol_result((; unidentifiable_edge = false);
