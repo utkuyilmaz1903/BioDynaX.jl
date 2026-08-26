@@ -247,13 +247,15 @@ function joint_compiled_path(network::BiologicalNetwork;
 end
 
 function joint_compiled_path_holds(row::CompiledPathRow)
+    arch_ok = row.arch.n_heads == 0 ? row.arch.dense :
+              (row.arch.matches && row.arch.dense)
     return row.compiled_once &&
            row.remapped_dense &&
            row.sciml.holds &&
            row.validate_open &&
            experiment_set_shares_compiled_parameters(row.set) &&
            assert_unique_claim_protocol_row(row.protocol_row) === row.protocol_row &&
-           row.arch.matches
+           arch_ok
 end
 
 function remapped_two_regulator_compiled_path()
