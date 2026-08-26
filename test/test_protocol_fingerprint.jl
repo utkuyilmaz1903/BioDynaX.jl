@@ -124,7 +124,7 @@ end
     src = read(path, String)
     @test occursin("same library", src)
     @test occursin("No new atoms", src)
-    @test occursin("discovered_support_extras", src)
+    @test occursin("unique_claim_discovery_extras", src)
     @test occursin("support_f1_clean", src)
     @test occursin("extras remain", lowercase(src)) ||
           occursin("RESULT:", src)
