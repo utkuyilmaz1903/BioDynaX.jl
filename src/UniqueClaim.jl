@@ -207,7 +207,8 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "unique-claim.md"),
         joinpath(root, "docs", "src", "architecture.md"),
         joinpath(root, "docs", "src", "benchmarks.md"),
-        joinpath(root, "docs", "src", "experimental.md"))
+        joinpath(root, "docs", "src", "experimental.md"),
+        joinpath(root, "docs", "src", "compiled-path.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""
@@ -264,7 +265,11 @@ unique_claim_locked_sentences() = (;
     f1_attempt = "benchmark/ude_f1_attempt.jl is a same-library probe, not the 9-IC protocol.",
     datagen = "generate_data uses the compiled NN tree; remapped multi-head and two-regulator D(S,I) are generated together.",
     admission = "run_recovery_suite admits unique-claim sections through admit_recovery_suite_network; 0/2 holes fail closed without training.",
-    protocol_row = "UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result, extras_print_label, and named KPI failures.")
+    protocol_row = "UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result, extras_print_label, and named KPI failures.",
+    compiled_once = "generate_experiment_set compiles the ground-truth model once and generates every IC from that stored model.",
+    sciml_generate = "generate_from_compiled_model integrates SciMLBase.ODEProblem(model, u0, tspan, p).",
+    admission_matrix = "Every recovery-suite section has a hole policy; only unique-claim sections reject 0/2 holes before training.",
+    joint = "The joint compiled path is generate_from_compiled_model + remapped heads + admit_recovery_suite_network + UniqueClaimProtocolRow.")
 
 # -- Protocol fingerprint -----------------------------------------------------
 

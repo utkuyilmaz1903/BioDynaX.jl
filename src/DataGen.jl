@@ -49,31 +49,91 @@ function _ground_truth_rhs_p53(x, p, t)
 end
 
 """
-    generate_experiment_set(rng; network, initial_conditions, tspan, n_points, ...)
+    compile_ground_truth_model(rng, network; truth_params, generator)
 
-Build an `ExperimentSet` from the compiled mechanism (default) or an explicit
-ground-truth generator. This is the multi-IC entry used by the golden path.
+Build one `GroundTruthModel`. Multi-IC generation must call this once so
+every trajectory shares the same compiled NN tree.
 """
-function generate_experiment_set(rng::AbstractRNG;
-                                 network::BiologicalNetwork =
-                                     DEFAULT_EXAMPLE_NETWORK,
-                                 initial_conditions = [[0.2, 0.1]],
-                                 kwargs...)
+function compile_ground_truth_model(rng::AbstractRNG, network::BiologicalNetwork;
+        truth_params::Union{Nothing, NamedTuple, ComponentVector} = nothing,
+        generator::Symbol = :compiled_mechanism)
+    if generator === :hill_p53_fixture
+        network === DEFAULT_EXAMPLE_NETWORK ||
+            throw(ArgumentError(":hill_p53_fixture requires DEFAULT_EXAMPLE_NETWORK"))
+        params = truth_params === nothing ? default_truth_params() : truth_params
+        params isa NamedTuple ||
+            throw(ArgumentError(":hill_p53_fixture expects NamedTuple truth_params"))
+        model, _ = build_ude_model(rng, network)
+        return GroundTruthModel(network, model, params, :hill_p53_fixture)
+    end
+    generator === :compiled_mechanism ||
+        throw(ArgumentError("unknown generator $generator"))
+    if truth_params === nothing
+        return GroundTruthModel(rng, network; generator = :compiled_mechanism)
+    end
+    model, default_params = build_ude_model(rng, network)
+    params_cv = truth_params isa ComponentVector ?
+                truth_params : pack_parameters(truth_params, default_params.nn)
+    return GroundTruthModel(network, model, params_cv, :compiled_mechanism)
+end
+
+"""
+    generate_experiment_set_from_compiled_model(truth, rng; initial_conditions, ...)
+
+Integrate each IC on the stored `GroundTruthModel`. Does not call
+`build_ude_model` again.
+"""
+function generate_experiment_set_from_compiled_model(truth::GroundTruthModel,
+        rng::AbstractRNG;
+        initial_conditions,
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        n_points::Int = 40,
+        noise_σ::Float64 = 0.05)
+    isempty(initial_conditions) &&
+        throw(ArgumentError("generate_experiment_set needs at least one IC"))
     experiments = Experiment[]
-    truth = nothing
     for (index, u0) in pairs(initial_conditions)
-        times, _, noisy, parameters =
-            generate_data(rng; u0 = Float64.(u0), network = network, kwargs...)
-        truth = parameters
+        times, _, noisy, parameters = generate_data(
+            truth, rng; u0 = Float64.(u0), tspan, n_points, noise_σ)
         push!(experiments, Experiment(
             Symbol("experiment_$index"), times, noisy, Float64.(u0);
-            metadata = Dict(:truth_parameters => parameters)))
+            metadata = Dict{Symbol, Any}(
+                :truth_parameters => parameters,
+                :generator => truth.generator,
+                :compiled_nstates => truth.model.compiled.nstates)))
     end
-    state_names = [node.name for node in network.nodes if node.kind != INPUT]
-    set = ExperimentSet(experiments, state_names;
-        metadata = Dict(:generator => :compiled_ground_truth,
-                          :truth_parameters => truth))
-    return set
+    state_names = [node.name for node in truth.network.nodes if node.kind != INPUT]
+    generator_label = truth.generator === :compiled_mechanism ?
+                      :compiled_ground_truth : truth.generator
+    return ExperimentSet(experiments, state_names;
+        metadata = Dict{Symbol, Any}(
+            :generator => generator_label,
+            :truth_parameters => truth.parameters,
+            :compiled_once => true,
+            :n_ics => length(initial_conditions),
+            :n_points => n_points,
+            :tspan => tspan,
+            :noise_σ => noise_σ))
+end
+
+"""
+    generate_experiment_set(rng; network, initial_conditions, tspan, n_points, ...)
+
+Build one compiled ground-truth model, then an `ExperimentSet` from that
+stored model. This is the multi-IC entry used by the golden path.
+"""
+function generate_experiment_set(rng::AbstractRNG;
+        network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
+        initial_conditions = [[0.2, 0.1]],
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        n_points::Int = 40,
+        noise_σ::Float64 = 0.05,
+        truth_params::Union{Nothing, NamedTuple, ComponentVector} = nothing,
+        generator::Symbol = :compiled_mechanism)
+    truth = compile_ground_truth_model(
+        rng, network; truth_params = truth_params, generator = generator)
+    return generate_experiment_set_from_compiled_model(
+        truth, rng; initial_conditions, tspan, n_points, noise_σ)
 end
 
 default_truth_params() = (
@@ -115,28 +175,17 @@ function generate_data(rng::AbstractRNG;
         return t_data, clean_data, noisy_data, params
     end
 
-    generator === :compiled_mechanism ||
-        throw(ArgumentError("unknown generator $generator"))
-    if truth_params === nothing
-        truth = GroundTruthModel(rng, network; generator = :compiled_mechanism)
-    else
-        # Same architecture as `build_ude_model`: multi-head / multi-input
-        # unknowns must not be forced through a 1×1 dummy Lux chain.
-        model, default_params = build_ude_model(rng, network)
-        params_cv = truth_params isa ComponentVector ?
-                    truth_params : pack_parameters(truth_params, default_params.nn)
-        truth = GroundTruthModel(network, model, params_cv, :compiled_mechanism)
-    end
-    return generate_from_compiled_model(
-        truth.model, truth.parameters, rng; u0, tspan, n_points, noise_σ)
+    truth = compile_ground_truth_model(
+        rng, network; truth_params = truth_params, generator = generator)
+    return generate_data(truth, rng; u0, tspan, n_points, noise_σ)
 end
 
 """
     generate_from_compiled_model(model, params, rng; u0, tspan, n_points, noise_σ)
 
-Integrate `ude_system` on the supplied `UDEModel`. Does not rebuild the
-Lux tree. `generate_data(::GroundTruthModel)` uses this so a stored
-compiled model is the generator, not a same-network twin.
+Integrate the supplied `UDEModel` through `SciMLBase.ODEProblem(model, u0,
+tspan, p)`. Does not rebuild the Lux tree. `generate_data(::GroundTruthModel)`
+uses this so a stored compiled model is the generator, not a same-network twin.
 """
 function generate_from_compiled_model(model::UDEModel, params, rng::AbstractRNG;
         u0::Vector{Float64} = [0.2, 0.1],
@@ -150,8 +199,8 @@ function generate_from_compiled_model(model::UDEModel, params, rng::AbstractRNG;
     length(u0) == model.compiled.nstates || throw(ArgumentError(
         "u0 length $(length(u0)) does not match compiled nstates $(model.compiled.nstates)"))
     t_data = collect(range(tspan[1], tspan[2]; length = n_points))
-    rhs = (x, p, t) -> ude_system(x, p, t, model)
-    prob = ODEProblem(rhs, u0, tspan, params)
+    # Same SciML entry as `ODEProblem(model, u0, tspan, p)` / `solve(model, ...)`.
+    prob = SciMLBase.ODEProblem(model, u0, tspan, params)
     sol = solve(prob, Tsit5(); saveat = t_data,
         abstol = 1e-9, reltol = 1e-9)
     clean_data = Array(sol)
