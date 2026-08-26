@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- `generate_data` / `generate_experiment_set` and `default_parameters` now
+  build NN weights that match the compiled mechanism (multi-head and
+  multi-regulator unknowns). A 1-input dummy chain no longer silently
+  aliases two unknowns or crash on two-regulator `D(z)`.
+  `RECOVERY_THRESHOLDS` is unchanged.
 - `compile_mechanism` now reindexes kept `NeuralDestructionTerm` heads to
   `1:n`. A skipped duplicate unknown edge no longer leaves a gapped
   `nn_index` that crashed `ude_system` / `ude_rhs!` on a later unknown.

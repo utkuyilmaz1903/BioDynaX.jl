@@ -86,6 +86,54 @@ end
     @test Vector(cache.du) ≈ dx
 end
 
+@testset "generate_data and default_parameters match compiled NN architecture" begin
+    rng = MersenneTwister(17)
+    dual = build_dual_unknown_network()
+    dual_model, dual_p = build_ude_model(rng, dual)
+    times, clean, _, packed_cv = generate_data(
+        rng; network = dual, u0 = [0.2, 0.3, 0.4], tspan = (0.0, 1.0),
+        n_points = 8, noise_σ = 0.0, truth_params = dual_p)
+    @test length(times) == 8
+    @test size(clean) == (3, 8)
+    @test all(isfinite, clean)
+    @test packed_cv.nn == dual_p.nn
+
+    times2, clean2, _, packed_nt = generate_data(
+        rng; network = dual, u0 = [0.2, 0.3, 0.4], tspan = (0.0, 1.0),
+        n_points = 8, noise_σ = 0.0,
+        truth_params = (k_ca = 0.8, k_cb = 0.9, k_c = 0.5))
+    @test size(clean2) == (3, 8)
+    @test all(isfinite, clean2)
+    @test hasproperty(packed_nt.nn, :head_1)
+    @test hasproperty(packed_nt.nn, :head_2)
+
+    set = generate_experiment_set(
+        rng; network = dual, initial_conditions = [[0.2, 0.3, 0.4]],
+        tspan = (0.0, 1.0), n_points = 8, noise_σ = 0.0,
+        truth_params = (k_ca = 0.8, k_cb = 0.9, k_c = 0.5))
+    @test size(first(set.experiments).observations) == (3, 8)
+    @test all(isfinite, first(set.experiments).observations)
+
+    defaults = default_parameters(dual_model; rng = MersenneTwister(18))
+    @test hasproperty(defaults.nn, :head_1)
+    @test hasproperty(defaults.nn, :head_2)
+    @test all(isfinite, ude_system([0.2, 0.3, 0.4], defaults, 0.0, dual_model))
+
+    comp_net = build_competitive_test_network(; known = false)
+    times3, clean3, _, packed_comp = generate_data(
+        rng; network = comp_net, u0 = [0.25, 0.45, 0.2], tspan = (0.0, 1.0),
+        n_points = 8, noise_σ = 0.0,
+        truth_params = (k_in = 0.9, k_s = 0.8, k_i = 0.5))
+    @test size(clean3) == (3, 8)
+    @test all(isfinite, clean3)
+    @test size(packed_comp.nn.layer_1.weight, 2) == 2
+
+    comp_model, _ = build_ude_model(rng, comp_net)
+    comp_defaults = default_parameters(comp_model; rng = MersenneTwister(19))
+    @test size(comp_defaults.nn.layer_1.weight, 2) == 2
+    @test all(isfinite, ude_system([0.25, 0.45, 0.2], comp_defaults, 0.0, comp_model))
+end
+
 @testset "phase 2 static specialization parity" begin
     rng = MersenneTwister(11)
     network = build_linear_test_network()

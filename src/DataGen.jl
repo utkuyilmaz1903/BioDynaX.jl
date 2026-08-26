@@ -115,10 +115,11 @@ function generate_data(rng::AbstractRNG;
         if truth_params === nothing
             truth = GroundTruthModel(rng, network; generator = :compiled_mechanism)
         else
-            nn, nn_ps, st = build_ude_nn(rng)
-            model = compile_network(network, nn, st)
+            # Same architecture as `build_ude_model`: multi-head / multi-input
+            # unknowns must not be forced through a 1×1 dummy Lux chain.
+            model, default_params = build_ude_model(rng, network)
             params_cv = truth_params isa ComponentVector ?
-                truth_params : pack_parameters(truth_params, nn_ps)
+                truth_params : pack_parameters(truth_params, default_params.nn)
             truth = GroundTruthModel(network, model, params_cv, :compiled_mechanism)
         end
         params = truth.parameters

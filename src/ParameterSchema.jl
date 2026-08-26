@@ -68,12 +68,27 @@ function default_phys_parameters(schema::ParameterSchema)
     return (; (name => get(defaults, name, 1.0) for name in schema.phys_names)...)
 end
 
+"""Random NN weights whose tree matches `model.nn` (single- or multi-head)."""
+function _nn_parameters_matching(rng::AbstractRNG, model::UDEModel)
+    nn = model.nn
+    if nn isa MultiHeadNetwork
+        ps_pairs = Pair{Symbol,Any}[]
+        for (i, head) in enumerate(nn.heads)
+            ps_i, _ = Lux.setup(rng, head)
+            push!(ps_pairs, Symbol("head_$i") => _float64_param_tree(ps_i))
+        end
+        return ComponentVector(; ps_pairs...)
+    end
+    ps, _ = Lux.setup(rng, nn)
+    return _float64_param_tree(ps)
+end
+
 function default_parameters(network::BiologicalNetwork, model::UDEModel;
                             rng::AbstractRNG = Random.default_rng())
     schema = parameter_schema(model)
-    nn, nn_ps, _ = build_ude_nn(rng)
     validate_phys_parameters(default_phys_parameters(schema), schema)
-    return pack_parameters(default_phys_parameters(schema), nn_ps)
+    return pack_parameters(
+        default_phys_parameters(schema), _nn_parameters_matching(rng, model))
 end
 
 function default_parameters(model::UDEModel; kwargs...)
