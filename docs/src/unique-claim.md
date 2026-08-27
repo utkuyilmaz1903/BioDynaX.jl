@@ -359,6 +359,7 @@ miss = BioDynaX.unique_claim_protocol_row_from_fields(;
 ## What this page is not
 
 - A wet-lab protocol for one noisy CSV and unknown topology.
+- A general CRN solver.
 - A license to call coefficients biological constants.
 - A promise that combined F1 from a trained NN is canonical Hill.
 - A General-registry install story. Clone and `Pkg.instantiate`.

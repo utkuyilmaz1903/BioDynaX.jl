@@ -151,7 +151,8 @@ function unknown_topology_out_of_scope_row()
     return (;
         page_exists = isfile(path),
         sentence = occursin(sentences.scope, text),
-        unique_not_crn = occursin("general CRN", unique_page),
+        unique_not_crn = occursin("general CRN", unique_page) ||
+                         occursin("general CRN solver", unique_page),
         missing,
         holds = isfile(path) && isempty(missing) &&
                 occursin(sentences.scope, text) &&
