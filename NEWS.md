@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- Claim-metric honesty (`src/ClaimMetricHonesty.jl`, not exported):
+  UDE extras stay below `support_f1_clean`; `unidentifiable_edge` is
+  Fisher/Jacobian cosine or cond, not StructuralIdentifiability.jl;
+  MM unknown gates NN RMSE and residual, not Hill recall 0.99.
+  Docs: [claim-metric-honesty](docs/src/claim-metric-honesty.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Allocation / type-stability gates (`src/AllocationGates.jl`, not
   exported): measured `@allocated` ceilings and workspace reuse
   rows that can fail. Docs:

@@ -52,7 +52,9 @@ Hard job (`test/run_recovery_hard.jl`):
 - **Same protocol with `σ = 0.02`** (`support_f1_noisy = 0.50`).
 - **UDE → unknown edge (MM)** — same training/residual protocol. Canonical MM
   support from the trained NN is **honestly below** the Hill recall gate on this
-  budget. NN RMSE and data residual remain gated.
+  budget (measured recall ~0.5, F1 ~0.33). NN RMSE and data residual remain
+  gated. Hill recall 0.99 is not applied. MM unknown gates NN RMSE and
+  hybrid residual; Hill recall 0.99 is not applied.
 
 Measured zero-noise Hill UDE (9 ICs, seed 103): NN RMSE ≈ 0.04, recall 1.0,
 combined F1 ≈ 0.57 (extras `1` and `r` remain), data residual ≈ 0.003,

@@ -34,6 +34,7 @@ makedocs(
         "Parameter schema and pack" => "parameter-schema-pack.md",
         "Docs executable path" => "docs-executable.md",
         "Allocation and type-stability gates" => "allocation-gates.md",
+        "Claim metric honesty" => "claim-metric-honesty.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

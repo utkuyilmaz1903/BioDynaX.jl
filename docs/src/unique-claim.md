@@ -134,6 +134,12 @@ dirty = discover_unknown_rate(
 
 `benchmark/ude_f1_attempt.jl` replays that surrogate. It is not the
 9-IC recovery job. `support_f1_ude` stays 0.50.
+The same-library UDE extras probe cannot claim we extracted Hill.
+
+unidentifiable_edge is the Fisher/Jacobian cosine or condition-number flag, not StructuralIdentifiability.jl.
+coefficients_are_biological_constants is `!unidentifiable_edge`.
+
+MM unknown gates NN RMSE and hybrid residual; Hill recall 0.99 is not applied.
 
 ## Single-hole instrument vs open compile
 

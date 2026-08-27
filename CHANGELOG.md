@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Claim-metric honesty locks the same-library UDE extras probe below
+  `support_f1_clean`, names `unidentifiable_edge` as the Fisher/Jacobian
+  cosine or condition-number flag (not StructuralIdentifiability.jl),
+  and keeps MM unknown on NN RMSE + residual rather than Hill recall
+  0.99 (`src/ClaimMetricHonesty.jl`, not exported). Combined F1 stays
+  the skeleton floor 0.50. Docs:
+  [claim-metric-honesty](docs/src/claim-metric-honesty.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Allocation / type-stability gates extend `test_quality_gates.jl`
   to the unexported workspaces (`src/AllocationGates.jl`, not
   exported). `allocation_hot` records a warmed `@allocated`

@@ -216,10 +216,11 @@ function production_destruction_tradeoff(
             collinearity = denom == 0 ? 0.0 : abs(dot(j_p, j_d)) / denom
         end
     end
-    unidentifiable_edge = (isfinite(fisher.condition_number) &&
-                           fisher.condition_number ≥ condition_threshold) ||
-                          (isfinite(collinearity) &&
-                           collinearity ≥ collinearity_threshold)
+    unidentifiable_edge = unidentifiable_edge_from_fisher(;
+        condition_number = fisher.condition_number,
+        collinearity,
+        condition_threshold,
+        collinearity_threshold)
     return (;
         production_param,
         condition_number = fisher.condition_number,
@@ -227,6 +228,23 @@ function production_destruction_tradeoff(
         collinearity,
         unidentifiable_edge,
         fisher)
+end
+
+"""
+    unidentifiable_edge_from_fisher(; condition_number, collinearity, ...)
+
+Fisher condition-number **or** trajectory-Jacobian cosine flag.
+`coefficients_are_biological_constants` is `!edge`. This is not
+StructuralIdentifiability.jl and is not a theorem. Not exported.
+"""
+function unidentifiable_edge_from_fisher(; condition_number, collinearity,
+        condition_threshold::Real = 1e6,
+        collinearity_threshold::Real = 0.95)
+    cond_hit = isfinite(condition_number) &&
+               condition_number ≥ condition_threshold
+    cosine_hit = isfinite(collinearity) &&
+                 collinearity ≥ collinearity_threshold
+    return cond_hit || cosine_hit
 end
 
 """Human-readable practical warning for `production_destruction_tradeoff` (not exported)."""
