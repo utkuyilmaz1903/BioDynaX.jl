@@ -15,6 +15,12 @@ Build an `SciMLBase.ODEFunction` for a compiled `UDEModel`.
 - `inplace=false` (default for adjoints): Zygote-safe out-of-place RHS.
 - `inplace=true`: allocation-free `ude_rhs!` with a model cache.
 """
+struct CompiledOOPRhs{M}
+    model::M
+end
+
+@inline (f::CompiledOOPRhs)(u, p, t) = ude_system(u, p, t, f.model)
+
 function build_ude_function(model::UDEModel;
                             inplace::Bool = false,
                             cache::Union{Nothing,UDEModelCache} = nothing)
@@ -23,8 +29,7 @@ function build_ude_function(model::UDEModel;
             allocate_cache(model, Float64) : cache
         return build_ude_rhs(model, local_cache)
     end
-    return SciMLBase.ODEFunction{false}(
-        (u, p, t) -> ude_system(u, p, t, model))
+    return SciMLBase.ODEFunction{false}(CompiledOOPRhs(model))
 end
 
 """

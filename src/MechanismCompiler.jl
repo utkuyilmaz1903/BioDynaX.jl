@@ -5,53 +5,82 @@ abstract type MechanismTerm end
 """Scale factor from reaction stoichiometry (|coefficient|)."""
 @inline _scaled(value, scale::Float64) = scale * value
 
-struct InputProductionTerm <: MechanismTerm
+struct InputProductionTerm{R,I} <: MechanismTerm
     target::Int
     rate_param::Symbol
     input_param::Symbol
     scale::Float64
+    function InputProductionTerm(target::Int, rate_param::Symbol,
+                                 input_param::Symbol, scale::Float64)
+        return new{rate_param,input_param}(target, rate_param, input_param, scale)
+    end
 end
 
-struct MassActionProductionTerm <: MechanismTerm
+struct MassActionProductionTerm{P} <: MechanismTerm
     target::Int
     regulator::Int
     param::Symbol
     order::Int
     scale::Float64
+    function MassActionProductionTerm(target::Int, regulator::Int,
+                                      param::Symbol, order::Int, scale::Float64)
+        return new{param}(target, regulator, param, order, scale)
+    end
 end
 
-struct LinearDestructionTerm <: MechanismTerm
+struct LinearDestructionTerm{P} <: MechanismTerm
     target::Int
     param::Symbol
     scale::Float64
+    function LinearDestructionTerm(target::Int, param::Symbol, scale::Float64)
+        return new{param}(target, param, scale)
+    end
 end
 
-struct HillDestructionTerm <: MechanismTerm
+struct HillDestructionTerm{V,K} <: MechanismTerm
     target::Int
     regulator::Int
     vmax_param::Symbol
     k_param::Symbol
     hill_order::Int
     scale::Float64
+    function HillDestructionTerm(target::Int, regulator::Int,
+                                 vmax_param::Symbol, k_param::Symbol,
+                                 hill_order::Int, scale::Float64)
+        return new{vmax_param,k_param}(
+            target, regulator, vmax_param, k_param, hill_order, scale)
+    end
 end
 
-struct SaturationDestructionTerm <: MechanismTerm
+struct SaturationDestructionTerm{V,K} <: MechanismTerm
     target::Int
     regulator::Int
     vmax_param::Symbol
     km_param::Symbol
     scale::Float64
+    function SaturationDestructionTerm(target::Int, regulator::Int,
+                                       vmax_param::Symbol, km_param::Symbol,
+                                       scale::Float64)
+        return new{vmax_param,km_param}(
+            target, regulator, vmax_param, km_param, scale)
+    end
 end
 
-struct SaturationProductionTerm <: MechanismTerm
+struct SaturationProductionTerm{V,K} <: MechanismTerm
     target::Int
     regulator::Int
     vmax_param::Symbol
     km_param::Symbol
     scale::Float64
+    function SaturationProductionTerm(target::Int, regulator::Int,
+                                      vmax_param::Symbol, km_param::Symbol,
+                                      scale::Float64)
+        return new{vmax_param,km_param}(
+            target, regulator, vmax_param, km_param, scale)
+    end
 end
 
-struct CompetitiveDestructionTerm <: MechanismTerm
+struct CompetitiveDestructionTerm{V,M,I} <: MechanismTerm
     target::Int
     substrate::Int
     inhibitor::Int
@@ -59,6 +88,13 @@ struct CompetitiveDestructionTerm <: MechanismTerm
     km_param::Symbol
     ki_param::Symbol
     scale::Float64
+    function CompetitiveDestructionTerm(target::Int, substrate::Int,
+                                        inhibitor::Int, vmax_param::Symbol,
+                                        km_param::Symbol, ki_param::Symbol,
+                                        scale::Float64)
+        return new{vmax_param,km_param,ki_param}(
+            target, substrate, inhibitor, vmax_param, km_param, ki_param, scale)
+    end
 end
 
 struct CustomDestructionTerm{F} <: MechanismTerm
@@ -99,47 +135,54 @@ end
 @inline _phys_param(p, name::Symbol) =
     positive_parameter(getproperty(p.phys, name))
 
+@inline _phys_param(p, ::Val{name}) where {name} =
+    positive_parameter(getproperty(p.phys, name))
+
+@noinline _typed_cons(xs::Tuple, x) = (xs..., x)
+
 @inline _nonneg_state(x, index::Int) = _nonneg(x[index])
 
-@inline _term_production_value(term::InputProductionTerm, p) =
-    _phys_param(p, term.rate_param) * _phys_param(p, term.input_param)
+@inline _term_production_value(term::InputProductionTerm{R,I}, p) where {R,I} =
+    _phys_param(p, Val{R}()) * _phys_param(p, Val{I}())
 
-@inline function _term_production_value(term::MassActionProductionTerm, x, p)
+@inline function _term_production_value(term::MassActionProductionTerm{P}, x, p) where {P}
     value = _nonneg_state(x, term.regulator)
     for _ in 2:term.order
         value *= _nonneg_state(x, term.regulator)
     end
-    return _phys_param(p, term.param) * value
+    return _phys_param(p, Val{P}()) * value
 end
 
-@inline _term_destruction_value(term::LinearDestructionTerm, p) =
-    _phys_param(p, term.param)
+@inline _term_destruction_value(term::LinearDestructionTerm{P}, p) where {P} =
+    _phys_param(p, Val{P}())
 
-@inline function _term_destruction_value(term::HillDestructionTerm, x, p)
+@inline function _term_destruction_value(term::HillDestructionTerm{V,K}, x, p) where {V,K}
     reg = _nonneg_state(x, term.regulator)
-    kn = _phys_param(p, term.k_param)^term.hill_order
+    kn = _phys_param(p, Val{K}())^term.hill_order
     regn = reg^term.hill_order
-    return _phys_param(p, term.vmax_param) * regn / (kn + regn + eps(typeof(reg)))
+    return _phys_param(p, Val{V}()) * regn / (kn + regn + eps(typeof(reg)))
 end
 
-@inline function _term_destruction_value(term::CompetitiveDestructionTerm, x, p)
+@inline function _term_destruction_value(
+        term::CompetitiveDestructionTerm{V,M,I}, x, p) where {V,M,I}
     sub = _nonneg_state(x, term.substrate)
     inh = _nonneg_state(x, term.inhibitor)
-    km = _phys_param(p, term.km_param)
-    ki = _phys_param(p, term.ki_param)
-    return _phys_param(p, term.vmax_param) * sub / (km * (1 + inh / ki) + sub + eps(typeof(sub)))
+    km = _phys_param(p, Val{M}())
+    ki = _phys_param(p, Val{I}())
+    return _phys_param(p, Val{V}()) * sub / (km * (1 + inh / ki) + sub + eps(typeof(sub)))
 end
 
-@inline function _term_production_value(term::SaturationProductionTerm, x, p)
+@inline function _term_production_value(term::SaturationProductionTerm{V,K}, x, p) where {V,K}
     reg = _nonneg_state(x, term.regulator)
-    km = _phys_param(p, term.km_param)
-    return _phys_param(p, term.vmax_param) * reg / (km + reg + eps(typeof(reg)))
+    km = _phys_param(p, Val{K}())
+    return _phys_param(p, Val{V}()) * reg / (km + reg + eps(typeof(reg)))
 end
 
-@inline function _term_destruction_value(term::SaturationDestructionTerm, x, p)
+@inline function _term_destruction_value(
+        term::SaturationDestructionTerm{V,K}, x, p) where {V,K}
     reg = _nonneg_state(x, term.regulator)
-    km = _phys_param(p, term.km_param)
-    return _phys_param(p, term.vmax_param) * reg / (km + reg + eps(typeof(reg)))
+    km = _phys_param(p, Val{K}())
+    return _phys_param(p, Val{V}()) * reg / (km + reg + eps(typeof(reg)))
 end
 
 @inline function _term_destruction_value(term::CustomDestructionTerm, x, p)
@@ -249,32 +292,54 @@ function ude_rhs!(du, x, p, _t, model::UDEModel, cache::UDEModelCache)
     _require_matching_state_length(x, cm.nstates)
     fill!(cache.production, zero(eltype(x)))
     fill!(cache.destruction, zero(eltype(x)))
-    for term in cm.production_terms
-        if term isa InputProductionTerm
-            _accumulate_production!(cache.production, term, p)
-        elseif term isa SaturationProductionTerm
-            _accumulate_production!(cache.production, term, x, p)
-        else
-            _accumulate_production!(cache.production, term, x, p)
-        end
-    end
-    for term in cm.destruction_terms
-        if term isa LinearDestructionTerm
-            _accumulate_destruction!(cache.destruction, term, p)
-        elseif term isa NeuralDestructionTerm
-            _accumulate_destruction!(
-                cache.destruction, term, x, p, model.nn, model.st, cache)
-        elseif term isa CustomDestructionTerm
-            _accumulate_destruction!(cache.destruction, term, x, p)
-        else
-            _accumulate_destruction!(cache.destruction, term, x, p)
-        end
-    end
+    _accumulate_production_terms!(cache.production, x, p, cm.production_terms)
+    _accumulate_destruction_terms!(
+        cache.destruction, x, p, model.nn, model.st, cache, cm.destruction_terms)
     @inbounds for i in 1:cm.nstates
         du[i] = cache.production[i] - cache.destruction[i] * x[i]
     end
     return du
 end
+
+@inline function _accumulate_production_terms!(P, x, p, terms::Tuple)
+    @inbounds for i in 1:length(terms)
+        _dispatch_production!(P, terms[i], x, p)
+    end
+    return nothing
+end
+
+@inline function _accumulate_destruction_terms!(D, x, p, nn, st, cache, terms::Tuple)
+    @inbounds for i in 1:length(terms)
+        _dispatch_destruction!(D, terms[i], x, p, nn, st, cache)
+    end
+    return nothing
+end
+
+@inline function _accumulate_production_terms!(P, x, p, terms)
+    for term in terms
+        _dispatch_production!(P, term, x, p)
+    end
+    return nothing
+end
+
+@inline function _accumulate_destruction_terms!(D, x, p, nn, st, cache, terms)
+    for term in terms
+        _dispatch_destruction!(D, term, x, p, nn, st, cache)
+    end
+    return nothing
+end
+
+@inline _dispatch_production!(P, term::InputProductionTerm, x, p) =
+    _accumulate_production!(P, term, p)
+@inline _dispatch_production!(P, term, x, p) =
+    _accumulate_production!(P, term, x, p)
+
+@inline _dispatch_destruction!(D, term::LinearDestructionTerm, x, p, nn, st, cache) =
+    _accumulate_destruction!(D, term, p)
+@inline _dispatch_destruction!(D, term::NeuralDestructionTerm, x, p, nn, st, cache) =
+    _accumulate_destruction!(D, term, x, p, nn, st, cache)
+@inline _dispatch_destruction!(D, term, x, p, nn, st, cache) =
+    _accumulate_destruction!(D, term, x, p)
 
 @inline function _production_contribution(term::InputProductionTerm, target, x, p)
     term.target == target || return zero(eltype(x))
@@ -316,11 +381,19 @@ end
     return _scaled(_term_destruction_value(term, x, p), term.scale)
 end
 
+@inline function _neural_regulators(x, term::NeuralDestructionTerm)
+    regs = term.regulators
+    n = length(regs)
+    T = eltype(x)
+    n == 1 && return SVector{1,T}(_nonneg_state(x, term.regulator))
+    n == 2 && return SVector{2,T}(
+        _nonneg_state(x, regs[1]), _nonneg_state(x, regs[2]))
+    return T[_nonneg_state(x, r) for r in regs]
+end
+
 @inline function _destruction_contribution(term::NeuralDestructionTerm, target, x, p, nn, st)
     term.target == target || return zero(eltype(x))
-    input = length(term.regulators) == 1 ?
-        [_nonneg_state(x, term.regulator)] :
-        [_nonneg_state(x, r) for r in term.regulators]
+    input = _neural_regulators(x, term)
     if nn isa MultiHeadNetwork
         head = nn.heads[term.nn_index]
         p_h, s_h = _nn_head_params(p.nn, st, term.nn_index)
@@ -351,10 +424,13 @@ function _ude_system_out_of_place(x, p, _t, model::UDEModel)
     cm = model.compiled
     n = cm.nstates
     T = eltype(x)
-    return Vector{T}(map(1:n) do i
-        _state_production(i, x, p, cm.production_terms) -
-        _state_destruction(i, x, p, cm.destruction_terms, model.nn, model.st) * x[i]
-    end)
+    du = Vector{T}(undef, n)
+    @inbounds for i in 1:n
+        prod = _state_production(i, x, p, cm.production_terms)
+        dest = _state_destruction(i, x, p, cm.destruction_terms, model.nn, model.st)
+        du[i] = prod - dest * x[i]
+    end
+    return du
 end
 
 @inline function _ude_system_static(x::SVector{N,T}, p, _t, model::UDEModel) where {N,T}
@@ -383,16 +459,25 @@ function ude_system(x, p, t, model::UDEModel; cache = nothing)
     return _ude_system_out_of_place(x, p, t, model)
 end
 
+function ude_system(x::SVector{N,T}, p, t, model::UDEModel) where {N,T}
+    _require_matching_state_length(x, model.compiled.nstates)
+    return _ude_system_static(x, p, t, model)
+end
+
+function ude_system(x::SVector{N,T}, p, t, model::UDEModel,
+                    cache::UDEModelCache) where {N,T}
+    _require_matching_state_length(x, model.compiled.nstates)
+    ude_rhs!(cache.du, x, p, t, model, cache)
+    return SVector{N,T}(ntuple(i -> cache.du[i], Val{N}()))
+end
+
 function ude_system(x::SVector{N,T}, p, t, model::UDEModel;
                     cache = nothing) where {N,T}
-    _require_matching_state_length(x, model.compiled.nstates)
-    if cache !== nothing
-        return SVector{N,T}(ude_system(Vector(x), p, t, model; cache = cache))
-    end
-    if N ≤ STATIC_STATE_THRESHOLD && model.compiled.nstates == N
+    if cache === nothing
+        _require_matching_state_length(x, model.compiled.nstates)
         return _ude_system_static(x, p, t, model)
     end
-    return SVector{N,T}(_ude_system_out_of_place(x, p, t, model))
+    return ude_system(x, p, t, model, cache)
 end
 
 function ude_system(x, p, t, nn, st)
@@ -582,8 +667,8 @@ function compile_mechanism(network::BiologicalNetwork)
     isempty(state_ids) &&
         throw(ArgumentError("network contains no dynamic states"))
     node_to_state = Dict(node => row for (row, node) in pairs(state_ids))
-    production_terms = MechanismTerm[]
-    destruction_terms = MechanismTerm[]
+    production_terms = ()
+    destruction_terms = ()
     nn_index = Ref(0)
     neural_keys = Set{Tuple{Int,Int}}()
 
@@ -593,22 +678,24 @@ function compile_mechanism(network::BiologicalNetwork)
             target = node_to_state[node]
             scale = abs(coefficient)
             if coefficient > 0
-                push!(production_terms, _reaction_production_term(
-                    reaction, target, node_to_state, scale))
+                production_terms = _typed_cons(production_terms,
+                    _reaction_production_term(
+                        reaction, target, node_to_state, scale))
             elseif coefficient < 0
                 term = _reaction_destruction_term(
                     reaction, target, node_to_state, nn_index, scale)
                 if term isa NeuralDestructionTerm
                     push!(neural_keys, (term.target, term.regulator))
                 end
-                push!(destruction_terms, term)
+                destruction_terms = _typed_cons(destruction_terms, term)
             end
         end
     end
 
     for edge in values(network.interactions)
         prod = _edge_production_term(edge, node_to_state, 1.0)
-        prod === nothing || push!(production_terms, prod)
+        prod === nothing ||
+            (production_terms = _typed_cons(production_terms, prod))
         dest = _edge_destruction_term(edge, node_to_state, nn_index, 1.0)
         if dest !== nothing
             if dest isa NeuralDestructionTerm
@@ -616,7 +703,7 @@ function compile_mechanism(network::BiologicalNetwork)
                 key in neural_keys && continue
                 push!(neural_keys, key)
             end
-            push!(destruction_terms, dest)
+            destruction_terms = _typed_cons(destruction_terms, dest)
         end
     end
 
@@ -630,27 +717,37 @@ function compile_mechanism(network::BiologicalNetwork)
     # kept unknown then received a gapped slot (1, 3, …). Multi-head dispatch
     # and `allocate_cache` index by that slot, so `ude_system` / `ude_rhs!`
     # threw BoundsError. Renumber kept heads to 1:n.
-    destruction_terms = _reindex_neural_destruction!(destruction_terms)
+    destruction_terms = _reindex_neural_destruction(destruction_terms)
 
     return CompiledMechanism(
         length(state_ids),
         copy(state_ids),
         node_to_state,
-        Tuple(production_terms),
-        Tuple(destruction_terms))
+        production_terms,
+        destruction_terms)
 end
 
-function _reindex_neural_destruction!(terms::Vector{MechanismTerm})
-    nn_index = 0
-    for (i, term) in pairs(terms)
-        term isa NeuralDestructionTerm || continue
-        nn_index += 1
-        term.nn_index == nn_index && continue
-        terms[i] = NeuralDestructionTerm(
-            term.target, term.regulator, nn_index, term.scale, term.regulators)
+function _reindex_neural_destruction(terms::Tuple)
+    acc = Ref(0)
+    return map(term -> _reindex_neural_term(term, acc), terms)
+end
+
+function _reindex_neural_destruction!(terms::Vector)
+    acc = Ref(0)
+    for i in eachindex(terms)
+        terms[i] = _reindex_neural_term(terms[i], acc)
     end
     return terms
 end
+
+@inline function _reindex_neural_term(term::NeuralDestructionTerm, acc::Ref{Int})
+    acc[] += 1
+    term.nn_index == acc[] && return term
+    return NeuralDestructionTerm(
+        term.target, term.regulator, acc[], term.scale, term.regulators)
+end
+
+@inline _reindex_neural_term(term, ::Ref{Int}) = term
 
 const COMPILE_NETWORK_COUNTER = Ref{Union{Nothing,Base.RefValue{Int}}}(nothing)
 

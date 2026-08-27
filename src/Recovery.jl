@@ -534,13 +534,21 @@ destruction `term` with `rate_fn` of the regulator vector.
 """
 function compose_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm, rate_fn)
     return function (u, _, t)
-        du = ude_system(u, p, t, model)
+        du = ude_system(u, p, t, model)::typeof(u)
         nn_D = _destruction_contribution(
             term, term.target, u, p, model.nn, model.st)
-        hat_D = rate_fn([u[r] for r in term.regulators])
+        hat_D = rate_fn(_hybrid_regulator_vector(u, term.regulators))
         du[term.target] += (nn_D - hat_D) * u[term.target]
         return du
     end
+end
+
+@inline function _hybrid_regulator_vector(u, regulators)
+    n = length(regulators)
+    T = eltype(u)
+    n == 1 && return T[u[regulators[1]]]
+    n == 2 && return T[u[regulators[1]], u[regulators[2]]]
+    return T[u[r] for r in regulators]
 end
 
 """
