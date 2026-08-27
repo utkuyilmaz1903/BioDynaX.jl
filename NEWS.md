@@ -1,11 +1,11 @@
 # BioDynaX.jl Unreleased
 
 - Aqua / SciML standards bar: `test/quality.jl` turns on the previously
-  skipped Aqua checks; `standards` CI runs `test/run_standards.jl`
-  (export docstrings, JET on `train_ude` / `discover_unknown_rate` /
-  `compose_hybrid_rhs`, extra ODEProblem fixtures, sensealg
-  boundaries, stricter `@allocated` / `@inferred`). Isolated from
-  `runtests.jl`. Failures are the threshold.
+  skipped Aqua checks (they pass on this tree). `standards` CI runs
+  `test/run_standards.jl` (export docstrings, JET on `train_ude` /
+  `discover_unknown_rate` / `compose_hybrid_rhs`, extra ODEProblem
+  fixtures, sensealg boundaries, stricter `@allocated` / `@inferred`).
+  Isolated from `runtests.jl`. `standards` failures are the threshold.
   `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Software hygiene: internal workspace inventory, SciML format list for
   stacked / science files, `scripts/run_discovery.jl` as a debug runner,

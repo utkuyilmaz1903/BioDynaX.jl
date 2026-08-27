@@ -50,10 +50,10 @@ end
     runtests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
     @test occursin("\n  standards:", ci)
     @test occursin("run_standards.jl", ci)
-    start = findfirst("\n  standards:", ci)
+    start = first(findfirst("\n  standards:", ci))
     rest = ci[start:end]
     nxt = findnext(r"\n  [a-z]", rest, 3)
-    block = nxt === nothing ? rest : rest[1:(nxt.start)]
+    block = nxt === nothing ? rest : rest[1:first(nxt)]
     @test occursin("run_standards.jl", block)
     @test !occursin("continue-on-error", block)
     @test !occursin("test_standards.jl", runtests)

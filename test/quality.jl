@@ -11,7 +11,11 @@ using BioDynaX: SciMLBase
 #   unbound_args = false
 #   persistent_tasks = false
 #   piracies = (treat_as_own = [SciMLBase.ODEProblem, SciMLBase.solve],)
-# Newly strict — expected red until a follow-up lands the fixes:
+# Newly strict relative to 0.9.2. Measured on this tree: all of these
+# currently pass (including piracies without treat_as_own, because
+# ODEProblem/solve methods take UDEModel). Keep them on so a regression
+# fails the quality job. The failing industry bar lives in
+# test/run_standards.jl, not here.
 #   ambiguities          (was skipped)
 #   unbound_args         (was skipped)
 #   persistent_tasks     (was skipped)

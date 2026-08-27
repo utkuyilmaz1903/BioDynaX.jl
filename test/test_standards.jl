@@ -24,6 +24,13 @@ function standards_chain_network(nstates::Int)
     nodes = [NodeSpec(name = Symbol(:S, i)) for i in 1:nstates]
     reactions = ReactionSpec[]
     for i in 1:nstates
+        src = i == nstates ? 1 : i + 1
+        push!(reactions,
+            ReactionSpec(
+                name = Symbol(:drive, i),
+                stoichiometry = Dict(i => 1.0),
+                regulators = [src],
+                metadata = MassActionMetadata(rate_param = Symbol(:p, i))))
         push!(reactions,
             ReactionSpec(
                 name = Symbol(:decay, i),
@@ -148,29 +155,35 @@ end
 
     u32 = Float32[0.2, 0.1]
     tspan32 = (0.0f0, 0.4f0)
-    prob32 = SciMLBase.ODEProblem(model, u32, tspan32, params)
-    sol32 = solve(prob32, Tsit5(); saveat = Float32.(times), sensealg = nothing)
-    @test SciMLBase.successful_retcode(sol32)
-    @test eltype(sol32.u[1]) === Float32
-    @test eltype(sol32.t) === Float32
+    @test begin
+        prob32 = SciMLBase.ODEProblem(model, u32, tspan32, params)
+        sol32 = solve(prob32, Tsit5(); saveat = Float32.(times),
+            sensealg = nothing)
+        SciMLBase.successful_retcode(sol32) &&
+            eltype(sol32.u[1]) === Float32 && eltype(sol32.t) === Float32
+    end
 
     uSA = SA[0.2, 0.1]
-    probSA = SciMLBase.ODEProblem(model, uSA, (0.0, 0.4), params)
-    solSA = solve(probSA, Tsit5(); saveat = times, sensealg = nothing)
-    @test SciMLBase.successful_retcode(solSA)
-    @test solSA.u[1] isa SVector{2, Float64}
+    @test begin
+        probSA = SciMLBase.ODEProblem(model, uSA, (0.0, 0.4), params)
+        solSA = solve(probSA, Tsit5(); saveat = times, sensealg = nothing)
+        SciMLBase.successful_retcode(solSA) && solSA.u[1] isa SVector{2, Float64}
+    end
 
     tspan_int = (0, 1)
-    prob_int = SciMLBase.ODEProblem(model, [0.2, 0.1], tspan_int, params)
-    sol_int = solve(prob_int, Tsit5(); saveat = 0:0.25:1, sensealg = nothing)
-    @test SciMLBase.successful_retcode(sol_int)
-    @test eltype(sol_int.t) <: AbstractFloat
+    @test begin
+        prob_int = SciMLBase.ODEProblem(model, [0.2, 0.1], tspan_int, params)
+        sol_int = solve(prob_int, Tsit5(); saveat = 0:0.25:1, sensealg = nothing)
+        SciMLBase.successful_retcode(sol_int) &&
+            eltype(sol_int.t) <: AbstractFloat
+    end
 
     dual_u = [ForwardDiff.Dual(0.2, 1.0), ForwardDiff.Dual(0.1, 0.0)]
-    du = ude_system(dual_u, params, 0.0, model)
-    @test length(du) == 2
-    @test eltype(du) <: ForwardDiff.Dual
-    @test all(isfinite, ForwardDiff.value.(du))
+    @test begin
+        du = ude_system(dual_u, params, 0.0, model)
+        length(du) == 2 && eltype(du) <: ForwardDiff.Dual &&
+            all(isfinite, ForwardDiff.value.(du))
+    end
 end
 
 @testset "ODEProblem rejects a rank-mismatched u0" begin
