@@ -40,6 +40,7 @@ function SciMLBase.ODEProblem(model::UDEModel, u0, tspan, p;
                               inplace::Bool = false,
                               cache::Union{Nothing,UDEModelCache} = nothing,
                               kwargs...)
+    _require_matching_state_length(u0, model.compiled.nstates)
     f = build_ude_function(model; inplace = inplace, cache = cache)
     return SciMLBase.ODEProblem(f, u0, tspan, p; kwargs...)
 end

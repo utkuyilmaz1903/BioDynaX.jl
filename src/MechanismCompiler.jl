@@ -233,6 +233,12 @@ end
     return nothing
 end
 
+@inline function _require_matching_state_length(u, nstates::Int)
+    length(u) == nstates || throw(DimensionMismatch(
+        "state length $(length(u)) does not match compiled nstates $nstates"))
+    return nothing
+end
+
 """
     ude_rhs!(du, x, p, t, model, cache)
 
@@ -240,6 +246,7 @@ In-place compiled production–destruction RHS using a preallocated cache.
 """
 function ude_rhs!(du, x, p, _t, model::UDEModel, cache::UDEModelCache)
     cm = model.compiled
+    _require_matching_state_length(x, cm.nstates)
     fill!(cache.production, zero(eltype(x)))
     fill!(cache.destruction, zero(eltype(x)))
     for term in cm.production_terms
@@ -368,6 +375,7 @@ Evaluate the compiled production–destruction RHS. `SVector` states with
 `n ≤ STATIC_STATE_THRESHOLD` use the StaticArrays kernel.
 """
 function ude_system(x, p, t, model::UDEModel; cache = nothing)
+    _require_matching_state_length(x, model.compiled.nstates)
     if cache !== nothing
         ude_rhs!(cache.du, x, p, t, model, cache)
         return copy(cache.du)
@@ -377,6 +385,7 @@ end
 
 function ude_system(x::SVector{N,T}, p, t, model::UDEModel;
                     cache = nothing) where {N,T}
+    _require_matching_state_length(x, model.compiled.nstates)
     if cache !== nothing
         return SVector{N,T}(ude_system(Vector(x), p, t, model; cache = cache))
     end
