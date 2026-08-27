@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Claim-scope honesty locks the howto CSV as a synthetic fixture, keeps
+  licensed experimental series absent, fails closed if partial observation
+  claims masked-state UDE training, names graph-prior parent booleans
+  rather than a DataDrivenSparse F1 win, keeps multi-seed UDE as a report,
+  and states that unknown topology / general CRN are out of scope
+  (`src/ClaimScopeHonesty.jl`, not exported). Docs:
+  [out-of-scope](docs/src/out-of-scope.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Claim-metric honesty locks the same-library UDE extras probe below
   `support_f1_clean`, names `unidentifiable_edge` as the Fisher/Jacobian
   cosine or condition-number flag (not StructuralIdentifiability.jl),

@@ -223,7 +223,8 @@ function unique_claim_user_doc_paths()
         joinpath(root, "docs", "src", "parameter-schema-pack.md"),
         joinpath(root, "docs", "src", "docs-executable.md"),
         joinpath(root, "docs", "src", "allocation-gates.md"),
-        joinpath(root, "docs", "src", "claim-metric-honesty.md"))
+        joinpath(root, "docs", "src", "claim-metric-honesty.md"),
+        joinpath(root, "docs", "src", "out-of-scope.md"))
 end
 
 """Hits of ops-lab phrases on landing docs. Empty is the honest state."""

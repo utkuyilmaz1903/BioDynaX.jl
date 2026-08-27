@@ -18,7 +18,8 @@ data = experiment.observations
 u0 = experiment.u0
 ```
 
-That committed CSV is a **static demo table**. `examples/unknown_inhibition.jl`
+That committed CSV is a synthetic fixture, not a licensed experimental series.
+It remains a **static demo table**. `examples/unknown_inhibition.jl`
 writes a generated copy to a temp directory and does not overwrite it.
 Write a new file with `write_experiment_csv`. `Experiment.mask` can hide a
 state or time subset; `train_experiments` already uses that mask. Masked

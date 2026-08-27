@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Claim-scope honesty (`src/ClaimScopeHonesty.jl`, not exported):
+  synthetic howto CSV, no licensed series, no masked-state UDE claim,
+  graph-prior booleans, multi-seed UDE as a report, unknown topology
+  out of scope. Docs: [out-of-scope](docs/src/out-of-scope.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Claim-metric honesty (`src/ClaimMetricHonesty.jl`, not exported):
   UDE extras stay below `support_f1_clean`; `unidentifiable_edge` is
   Fisher/Jacobian cosine or cond, not StructuralIdentifiability.jl;

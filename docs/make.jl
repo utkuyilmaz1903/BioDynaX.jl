@@ -35,6 +35,7 @@ makedocs(
         "Docs executable path" => "docs-executable.md",
         "Allocation and type-stability gates" => "allocation-gates.md",
         "Claim metric honesty" => "claim-metric-honesty.md",
+        "Out of scope" => "out-of-scope.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",
