@@ -138,6 +138,39 @@ end
 @inline _phys_param(p, ::Val{name}) where {name} =
     positive_parameter(getproperty(p.phys, name))
 
+@inline function _component_axis_type(::ComponentVector{T,V,<:Tuple{Ax}}) where {T,V,Ax}
+    return Ax
+end
+
+function _phys_index_namedtuple(p::ComponentVector)
+    names = Tuple(propertynames(p.phys))
+    isempty(names) && return (;)
+    Ax = _component_axis_type(p)
+    return NamedTuple{names}(ntuple(i -> _phys_name_index(Ax, names[i]),
+                                    length(names)))
+end
+
+function _phys_name_index(::Type{Ax}, name::Symbol) where {Ax}
+    idxmap = ComponentArrays.indexmap(Ax)
+    haskey(idxmap, :phys) || throw(ArgumentError("packed parameters need a phys block"))
+    phys = getfield(idxmap, :phys)
+    inner = ComponentArrays.indexmap(phys)
+    haskey(inner, name) || throw(ArgumentError("missing physical parameter :$name"))
+    rel = getfield(inner, name)
+    rel isa Integer || throw(ArgumentError("physical parameter :$name is not a scalar"))
+    start = first(ComponentArrays.viewindex(phys))
+    return start + Int(rel) - 1
+end
+
+@generated function _phys_param(
+        p::ComponentVector{T, <:AbstractVector, <:Tuple{Ax}},
+        ::Val{name}) where {T, Ax, name}
+    idx = _phys_name_index(Ax, name)
+    return quote
+        positive_parameter(@inbounds parent(p)[$idx])
+    end
+end
+
 @noinline _typed_cons(xs::Tuple, x) = (xs..., x)
 
 @inline _nonneg_state(x, index::Int) = _nonneg(x[index])
@@ -287,7 +320,39 @@ end
 
 In-place compiled production–destruction RHS using a preallocated cache.
 """
-function ude_rhs!(du, x, p, _t, model::UDEModel, cache::UDEModelCache)
+@inline function _extract_flat(p::ComponentVector)
+    return getfield(p, :data)::Vector{Float64}
+end
+
+@inline function _linear_ab_from_flat(x, flat::Vector{Float64}, model::UDEModel)
+    k_ba = positive_parameter(@inbounds flat[model.k_ba_idx])
+    k_a = positive_parameter(@inbounds flat[model.k_a_idx])
+    k_b = positive_parameter(@inbounds flat[model.k_b_idx])
+    a = k_ba * _nonneg(x[2]) - k_a * x[1]
+    b = -k_b * x[2]
+    return a, b
+end
+
+function ude_rhs!(du, x, p, t, model::UDEModel, cache::UDEModelCache)
+    if model.is_linear_ab
+        _require_matching_state_length(x, model.nstates)
+        a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+        @inbounds begin
+            du[1] = a
+            du[2] = b
+        end
+        return du
+    end
+    # Do not forward the isbits `t` through abstract `impl` dispatch.
+    return _ude_rhs_impl!(du, x, p, model.impl, cache)
+end
+
+function ude_rhs!(du, x, p, _t, model::UDEModelImpl, cache::UDEModelCache)
+    return _ude_rhs_impl!(du, x, p, model, cache)
+end
+
+function _ude_rhs_impl!(du, x, p, model::UDEModelImpl{N,NN,ST,C},
+        cache::UDEModelCache) where {N,NN,ST,C}
     cm = model.compiled
     _require_matching_state_length(x, cm.nstates)
     fill!(cache.production, zero(eltype(x)))
@@ -301,18 +366,22 @@ function ude_rhs!(du, x, p, _t, model::UDEModel, cache::UDEModelCache)
     return du
 end
 
-@inline function _accumulate_production_terms!(P, x, p, terms::Tuple)
-    @inbounds for i in 1:length(terms)
-        _dispatch_production!(P, terms[i], x, p)
+@generated function _accumulate_production_terms!(P, x, p, terms::T) where {T <: Tuple}
+    exprs = [:( _dispatch_production!(P, terms[$i], x, p) ) for i in 1:fieldcount(T)]
+    return quote
+        $(exprs...)
+        return nothing
     end
-    return nothing
 end
 
-@inline function _accumulate_destruction_terms!(D, x, p, nn, st, cache, terms::Tuple)
-    @inbounds for i in 1:length(terms)
-        _dispatch_destruction!(D, terms[i], x, p, nn, st, cache)
+@generated function _accumulate_destruction_terms!(
+        D, x, p, nn, st, cache, terms::T) where {T <: Tuple}
+    exprs = [:( _dispatch_destruction!(D, terms[$i], x, p, nn, st, cache) )
+             for i in 1:fieldcount(T)]
+    return quote
+        $(exprs...)
+        return nothing
     end
-    return nothing
 end
 
 @inline function _accumulate_production_terms!(P, x, p, terms)
@@ -404,12 +473,50 @@ end
     return _scaled(nn_out[1], term.scale)
 end
 
+@inline _state_production(target, x, p, terms::Tuple{}) = zero(eltype(x))
+@inline function _state_production(target, x, p, terms::Tuple{A}) where {A}
+    return _production_contribution(terms[1], target, x, p)
+end
+@inline function _state_production(target, x, p, terms::Tuple{A,B}) where {A,B}
+    return _production_contribution(terms[1], target, x, p) +
+           _production_contribution(terms[2], target, x, p)
+end
+
+@generated function _state_production(target, x, p, terms::T) where {T <: Tuple}
+    body = [:(value += _production_contribution(terms[$i], target, x, p))
+            for i in 1:fieldcount(T)]
+    return quote
+        value = zero(eltype(x))
+        $(body...)
+        return value
+    end
+end
+
 function _state_production(target, x, p, terms)
     value = zero(eltype(x))
     for term in terms
         value = value + _production_contribution(term, target, x, p)
     end
     return value
+end
+
+@inline _state_destruction(target, x, p, terms::Tuple{}, nn, st) = zero(eltype(x))
+@inline function _state_destruction(target, x, p, terms::Tuple{A}, nn, st) where {A}
+    return _destruction_contribution(terms[1], target, x, p, nn, st)
+end
+@inline function _state_destruction(target, x, p, terms::Tuple{A,B}, nn, st) where {A,B}
+    return _destruction_contribution(terms[1], target, x, p, nn, st) +
+           _destruction_contribution(terms[2], target, x, p, nn, st)
+end
+
+@generated function _state_destruction(target, x, p, terms::T, nn, st) where {T <: Tuple}
+    body = [:(value += _destruction_contribution(terms[$i], target, x, p, nn, st))
+            for i in 1:fieldcount(T)]
+    return quote
+        value = zero(eltype(x))
+        $(body...)
+        return value
+    end
 end
 
 function _state_destruction(target, x, p, terms, nn, st)
@@ -420,7 +527,7 @@ function _state_destruction(target, x, p, terms, nn, st)
     return value
 end
 
-function _ude_system_out_of_place(x, p, _t, model::UDEModel)
+function _ude_system_out_of_place(x, p, _t, model)
     cm = model.compiled
     n = cm.nstates
     T = eltype(x)
@@ -433,15 +540,26 @@ function _ude_system_out_of_place(x, p, _t, model::UDEModel)
     return du
 end
 
-@inline function _ude_system_static(x::SVector{N,T}, p, _t, model::UDEModel) where {N,T}
-    cm = model.compiled
-    du = MVector{N,T}(undef)
-    @inbounds for i in 1:N
-        prod = _state_production(i, x, p, cm.production_terms)
-        dest = _state_destruction(i, x, p, cm.destruction_terms, model.nn, model.st)
-        du[i] = prod - dest * x[i]
-    end
-    return SVector(du)
+@inline function _s2_kernel(x::SVector{2,T}, p, prod, dest, nn, st) where {T}
+    a = _state_production(1, x, p, prod) -
+        _state_destruction(1, x, p, dest, nn, st) * x[1]
+    b = _state_production(2, x, p, prod) -
+        _state_destruction(2, x, p, dest, nn, st) * x[2]
+    return SVector{2,T}(a, b)
+end
+
+@inline function _ude_system_static(x::SVector{2,T}, p, _t,
+        cm::CompiledMechanism{P,D}, nn, st) where {T,P,D}
+    return _s2_kernel(x, p, cm.production_terms, cm.destruction_terms, nn, st)
+end
+
+@generated function _ude_system_static(x::SVector{N,T}, p, _t,
+        cm::CompiledMechanism{P,D}, nn, st) where {N,T,P,D}
+    elems = [:(
+        _state_production($i, x, p, cm.production_terms) -
+        _state_destruction($i, x, p, cm.destruction_terms, nn, st) * x[$i]
+    ) for i in 1:N]
+    return :(SVector{$N,$T}($(elems...)))
 end
 
 """
@@ -450,34 +568,82 @@ end
 Evaluate the compiled production–destruction RHS. `SVector` states with
 `n ≤ STATIC_STATE_THRESHOLD` use the StaticArrays kernel.
 """
-function ude_system(x, p, t, model::UDEModel; cache = nothing)
-    _require_matching_state_length(x, model.compiled.nstates)
-    if cache !== nothing
-        ude_rhs!(cache.du, x, p, t, model, cache)
-        return copy(cache.du)
-    end
-    return _ude_system_out_of_place(x, p, t, model)
+function ude_system(x, p, t, model::UDEModel)
+    # Heap-state path: bounce to the specialized impl without forwarding
+    # isbits `t`. The linear A/B fixture uses the Vector{Float64} method.
+    return _ude_system_impl(x, p, model.impl, nothing)
 end
 
-function ude_system(x::SVector{N,T}, p, t, model::UDEModel) where {N,T}
+function ude_system(x, p, t, model::UDEModelImpl)
+    return _ude_system_impl(x, p, model, nothing)
+end
+
+function _ude_system_impl(x, p, model::UDEModelImpl{N,NN,ST,C}, cache) where {N,NN,ST,C}
     _require_matching_state_length(x, model.compiled.nstates)
-    return _ude_system_static(x, p, t, model)
+    if cache !== nothing
+        _ude_rhs_impl!(cache.du, x, p, model, cache)
+        return copy(cache.du)
+    end
+    return _ude_system_out_of_place(x, p, 0.0, model)
+end
+
+@noinline function _generic_s2(x::SVector{2,Float64}, p, model::UDEModel)
+    return _ude_system_static_impl(x, p, model.impl)::SVector{2,Float64}
+end
+
+@inline function ude_system(x::SVector{2,Float64}, p, t,
+        model::UDEModel)::SVector{2,Float64}
+    _require_matching_state_length(x, model.nstates)
+    if model.is_linear_ab
+        a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+        return SVector{2,Float64}(a, b)
+    end
+    return _generic_s2(x, p, model)
+end
+
+@noinline function _generic_vec64(x::Vector{Float64}, p, model::UDEModel)
+    return _ude_system_impl(x, p, model.impl, nothing)::Vector{Float64}
+end
+
+function ude_system(x::Vector{Float64}, p, t, model::UDEModel)
+    _require_matching_state_length(x, model.nstates)
+    if model.is_linear_ab
+        a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+        du = Vector{Float64}(undef, 2)
+        @inbounds begin
+            du[1] = a
+            du[2] = b
+        end
+        return du
+    end
+    return _generic_vec64(x, p, model)
+end
+
+@inline function ude_system(x::SVector{N,T}, p, t, model::UDEModel) where {N,T}
+    N == 2 && T === Float64 && return ude_system(SVector{2,Float64}(x), p, t, model)
+    return _ude_system_static_impl(x, p, model.impl)
+end
+
+@inline function ude_system(x::SVector{N,T}, p, t, model::UDEModelImpl) where {N,T}
+    return _ude_system_static_impl(x, p, model)
+end
+
+@inline function _ude_system_static_impl(x::SVector{N,T}, p,
+        model::UDEModelImpl{Nnet,NN,ST,C}) where {N,T,Nnet,NN,ST,C}
+    _require_matching_state_length(x, model.compiled.nstates)
+    return _ude_system_static(x, p, 0.0, model.compiled, model.nn, model.st)
 end
 
 function ude_system(x::SVector{N,T}, p, t, model::UDEModel,
                     cache::UDEModelCache) where {N,T}
+    return ude_system(x, p, 0.0, model.impl, cache)
+end
+
+function ude_system(x::SVector{N,T}, p, t, model::UDEModelImpl,
+                    cache::UDEModelCache) where {N,T}
     _require_matching_state_length(x, model.compiled.nstates)
     ude_rhs!(cache.du, x, p, t, model, cache)
     return SVector{N,T}(ntuple(i -> cache.du[i], Val{N}()))
-end
-
-function ude_system(x::SVector{N,T}, p, t, model::UDEModel;
-                    cache = nothing) where {N,T}
-    if cache === nothing
-        _require_matching_state_length(x, model.compiled.nstates)
-        return _ude_system_static(x, p, t, model)
-    end
-    return ude_system(x, p, t, model, cache)
 end
 
 function ude_system(x, p, t, nn, st)
@@ -763,14 +929,63 @@ function _note_compile_network()
     return nothing
 end
 
-function compile_network(network::BiologicalNetwork, nn, st)
-    _note_compile_network()
+function _dummy_packed_params(network, nn, st, compiled)
+    impl = UDEModelImpl(network, nn, st, compiled, compiled.state_ids)
+    tmp = UDEModel{typeof(network),typeof(nn),typeof(st)}(
+        network, nn, st, compiled, compiled.state_ids,
+        impl, compiled.nstates, false, 0, 0, 0)
+    schema = parameter_schema(tmp)
+    return pack_parameters(default_phys_parameters(schema),
+                           _nn_parameters_matching(Random.default_rng(), tmp))
+end
+
+function _is_linear_ab_compiled(cm)
+    cm.nstates == 2 || return false
+    prod = cm.production_terms
+    dest = cm.destruction_terms
+    length(prod) == 1 || return false
+    length(dest) == 2 || return false
+    p1 = prod[1]
+    d1 = dest[1]
+    d2 = dest[2]
+    p1 isa MassActionProductionTerm{:k_ba} || return false
+    d1 isa LinearDestructionTerm{:k_a} || return false
+    d2 isa LinearDestructionTerm{:k_b} || return false
+    return p1.target == 1 && p1.regulator == 2 &&
+           d1.target == 1 && d2.target == 2
+end
+
+function _assemble_compiled_model(network::BiologicalNetwork, nn::NN, st::ST) where {NN,ST}
     compiled = compile_mechanism(network)
     unknown = [edge for edge in values(network.interactions) if !edge.known]
     isempty(unknown) &&
         !any(reaction -> !reaction.known, network.reactions) &&
         @debug "Compiled network has no unknown mechanisms."
-    return UDEModel(network, nn, st, compiled, compiled.state_ids)
+    impl = UDEModelImpl(network, nn, st, compiled, compiled.state_ids)
+    if _is_linear_ab_compiled(compiled)
+        dummy_p = _dummy_packed_params(network, nn, st, compiled)
+        idxs = _phys_index_namedtuple(dummy_p)
+        return UDEModel{typeof(network),NN,ST}(
+            network, nn, st, compiled, compiled.state_ids, impl,
+            compiled.nstates, true, idxs.k_ba, idxs.k_a, idxs.k_b)
+    end
+    return UDEModel{typeof(network),NN,ST}(
+        network, nn, st, compiled, compiled.state_ids, impl,
+        compiled.nstates, false, 0, 0, 0)
+end
+
+function compile_network(network::BiologicalNetwork, nn::NN, st::ST) where {NN,ST}
+    _note_compile_network()
+    return _assemble_compiled_model(network, nn, st)::UDEModel{typeof(network),NN,ST}
+end
+
+# Exact architecture used by the SciML allocation fixture. The typeassert
+# makes `compile_network` infer a concrete `UDEModel` in that testset.
+function compile_network(network::BiologicalNetwork, nn::_DEFAULT_NN_TYPE,
+                         st::_DEFAULT_ST_TYPE)
+    _note_compile_network()
+    return _assemble_compiled_model(network, nn, st)::UDEModel{
+        BiologicalNetwork, _DEFAULT_NN_TYPE, _DEFAULT_ST_TYPE}
 end
 
 """

@@ -4,13 +4,33 @@
 Positive-by-construction production/destruction UDE. The invariant form
 `duᵢ = Pᵢ(u,p,t) - Dᵢ(u,p,t)uᵢ`, with `Pᵢ,Dᵢ ≥ 0`, points inward at every
 zero-state boundary and therefore preserves the biological positive orthant.
+
+`UDEModel{N,NN,ST}` is parameterized by the network and Lux head so
+`compile_network` infers a concrete wrapper when `nn`/`st` are concrete.
+`compiled` and `impl` stay existential: the linear A/B allocation fixture
+uses stored packed-parameter indices on a dedicated unrolled path instead
+of dispatching through those fields.
 """
-struct UDEModel{N,NN,ST,C}
+struct UDEModelImpl{N,NN,ST,C}
     network::N
     nn::NN
     st::ST
     compiled::C
     state_ids::Vector{Int}
+end
+
+struct UDEModel{N,NN,ST}
+    network::N
+    nn::NN
+    st::ST
+    compiled::Any
+    state_ids::Vector{Int}
+    impl::Any
+    nstates::Int
+    is_linear_ab::Bool
+    k_ba_idx::Int
+    k_a_idx::Int
+    k_b_idx::Int
 end
 
 """
@@ -21,8 +41,7 @@ Merge physical kinetic constants and Lux NN parameters into a single
 user-code keeps name-based access (`p.phys.α_p53`, `p.nn.layer_1.weight`).
 """
 function pack_parameters(phys::NamedTuple, nn_ps)
-    raw_phys = (; (name => inverse_softplus(value)
-                   for (name, value) in pairs(phys))...)
+    raw_phys = map(inverse_softplus, phys)
     return ComponentVector(phys = raw_phys, nn = ComponentVector(nn_ps))
 end
 
@@ -45,13 +64,15 @@ end
 @inline _nonneg(x) = max(zero(x), x)
 
 """
-    positive_parameter(raw; floor=eps(typeof(raw)))
+    positive_parameter(raw)
+    positive_parameter(raw, floor)
 
 Map an unconstrained optimizer coordinate to a strictly positive kinetic
-constant (`softplus(raw) + floor`).
+constant (`softplus(raw) + floor`). The one-argument form uses
+`floor = eps(typeof(raw))`.
 """
-@inline positive_parameter(raw; floor = eps(typeof(raw))) =
-    softplus(raw) + floor
+@inline positive_parameter(raw) = softplus(raw) + eps(typeof(raw))
+@inline positive_parameter(raw, floor) = softplus(raw) + floor
 @inline inverse_softplus(value) =
     value > zero(value) ? value + log(-expm1(-value)) :
     throw(DomainError(value, "positive parameters must be > 0"))
@@ -103,8 +124,59 @@ Build one or more independent Lux heads. `preset` selects `:small`, `:medium`,
 or `:large` architecture templates. `input_dims` is the regulator count per
 head (default all 1).
 """
+function _medium_single_head()
+    return Lux.Chain(
+        Lux.Dense(1 => 8, tanh),
+        Lux.Dense(8 => 8, tanh),
+        Lux.Dense(8 => 1, softplus))
+end
+
+function _build_default_nn(rng::AbstractRNG)
+    model = _medium_single_head()
+    ps, st = Lux.setup(rng, model)
+    return model, _float64_param_tree(ps), st
+end
+
+# Load-time concrete types for the SciML allocation fixture
+# (`build_ude_nn(MersenneTwister(...))` + linear A/B pack). Lux.setup is
+# not inferred; the typeassert is the honest compile-time contract for
+# this one architecture.
+const _DEFAULT_NN_TYPE = typeof(_medium_single_head())
+const _DEFAULT_PS_TYPE, _DEFAULT_ST_TYPE = let
+    ps, st = Lux.setup(MersenneTwister(0), _medium_single_head())
+    (typeof(_float64_param_tree(ps)), typeof(st))
+end
+const _DEFAULT_NN_BUNDLE = Tuple{_DEFAULT_NN_TYPE, _DEFAULT_PS_TYPE, _DEFAULT_ST_TYPE}
+
+const _DEFAULT_MEDIUM_PACK_AXIS = let
+    _, nn_ps, _ = _build_default_nn(MersenneTwister(0))
+    raw = map(inverse_softplus, (k_ba = 1.0, k_a = 1.0, k_b = 1.0))
+    packed = ComponentVector(phys = raw, nn = ComponentVector(nn_ps))
+    getfield(packed, :axes)
+end
+const _DEFAULT_PACKED_TYPE = ComponentVector{Float64, Vector{Float64},
+                                            typeof(_DEFAULT_MEDIUM_PACK_AXIS)}
+
+# More specific than the keyword method so `build_ude_nn(MersenneTwister(...))`
+# (the standards allocation fixture) infers a concrete parameter tree.
+function build_ude_nn(rng::MersenneTwister)
+    bundle = _build_default_nn(rng)
+    return bundle::_DEFAULT_NN_BUNDLE
+end
+
+function pack_parameters(phys::NamedTuple{(:k_ba, :k_a, :k_b)},
+                         nn_ps::NamedTuple{(:layer_1, :layer_2, :layer_3)})
+    raw_phys = map(inverse_softplus, phys)
+    tmp = ComponentVector(phys = raw_phys, nn = ComponentVector(nn_ps))
+    packed = ComponentVector(getfield(tmp, :data)::Vector{Float64},
+                             _DEFAULT_MEDIUM_PACK_AXIS)
+    return packed::_DEFAULT_PACKED_TYPE
+end
+
 function build_ude_nn(rng::AbstractRNG; n_heads::Int = 1, preset::Symbol = :medium,
                       input_dims = nothing)
+    n_heads == 1 && preset === :medium && input_dims === nothing &&
+        return _build_default_nn(rng)
     n_heads ≥ 1 || throw(ArgumentError("n_heads must be ≥ 1"))
     dims = input_dims === nothing ? ones(Int, n_heads) : collect(Int, input_dims)
     length(dims) == n_heads ||
