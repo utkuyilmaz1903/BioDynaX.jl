@@ -1,3 +1,11 @@
+struct UDEModelImpl{N,NN,ST,C}
+    network::N
+    nn::NN
+    st::ST
+    compiled::C
+    state_ids::Vector{Int}
+end
+
 """
     UDEModel
 
@@ -11,14 +19,6 @@ zero-state boundary and therefore preserves the biological positive orthant.
 uses stored packed-parameter indices on a dedicated unrolled path instead
 of dispatching through those fields.
 """
-struct UDEModelImpl{N,NN,ST,C}
-    network::N
-    nn::NN
-    st::ST
-    compiled::C
-    state_ids::Vector{Int}
-end
-
 struct UDEModel{N,NN,ST}
     network::N
     nn::NN

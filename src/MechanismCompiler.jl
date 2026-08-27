@@ -315,11 +315,6 @@ end
     return nothing
 end
 
-"""
-    ude_rhs!(du, x, p, t, model, cache)
-
-In-place compiled production–destruction RHS using a preallocated cache.
-"""
 @inline function _extract_flat(p::ComponentVector)
     return getfield(p, :data)::Vector{Float64}
 end
@@ -333,6 +328,11 @@ end
     return a, b
 end
 
+"""
+    ude_rhs!(du, x, p, t, model, cache)
+
+In-place compiled production–destruction RHS using a preallocated cache.
+"""
 function ude_rhs!(du, x, p, t, model::UDEModel, cache::UDEModelCache)
     if model.is_linear_ab
         _require_matching_state_length(x, model.nstates)

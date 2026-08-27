@@ -7,6 +7,12 @@ entry point. Out-of-place dynamics are used for Zygote adjoints; in-place
 dynamics with a preallocated cache are used for production forward passes.
 """
 
+struct CompiledOOPRhs{M}
+    model::M
+end
+
+@inline (f::CompiledOOPRhs)(u, p, t) = ude_system(u, p, t, f.model)
+
 """
     build_ude_function(model; inplace=false, cache=nothing)
 
@@ -15,12 +21,6 @@ Build an `SciMLBase.ODEFunction` for a compiled `UDEModel`.
 - `inplace=false` (default for adjoints): Zygote-safe out-of-place RHS.
 - `inplace=true`: allocation-free `ude_rhs!` with a model cache.
 """
-struct CompiledOOPRhs{M}
-    model::M
-end
-
-@inline (f::CompiledOOPRhs)(u, p, t) = ude_system(u, p, t, f.model)
-
 function build_ude_function(model::UDEModel;
                             inplace::Bool = false,
                             cache::Union{Nothing,UDEModelCache} = nothing)
