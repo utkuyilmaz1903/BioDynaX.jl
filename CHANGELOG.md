@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Raise Aqua in `test/quality.jl` to the default `test_all` surface
+  (ambiguities, unbound_args, persistent_tasks, piracies without
+  `treat_as_own`, undocumented_names). Those checks currently pass on
+  this tree; they stay on so a regression fails `quality`. Add an
+  isolated `standards` CI job (`test/run_standards.jl`) for
+  export-docstring coverage, JET `report_call` / `report_opt` on
+  `train_ude`, `discover_unknown_rate`, and `compose_hybrid_rhs`,
+  extra SciML ODEProblem/remake/solve fixtures, `recommend_sensealg`
+  boundaries, and stricter allocation/type checks. `standards` is
+  the failing threshold; `test` and `recovery` stay isolated.
+  Combined F1 stays the skeleton floor 0.50.
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Software hygiene names unexported lock surfaces versus runtime wiring
   (`train_experiments_with_warmup`, `denominator_split_counts`), expands
   the SciML format job to the stacked and science Julia files, marks

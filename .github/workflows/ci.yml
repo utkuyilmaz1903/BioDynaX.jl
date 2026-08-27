@@ -110,6 +110,10 @@ jobs:
               "test/test_claim_metric_honesty.jl",
               "test/test_claim_scope_honesty.jl",
               "test/test_software_hygiene.jl",
+              "test/quality.jl",
+              "test/run_standards.jl",
+              "test/test_standards.jl",
+              "test/test_standards_jet.jl",
           ]
           ok = true
           for file in files
@@ -154,6 +158,19 @@ jobs:
       - name: Static quality gates
         run: |
           julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
+
+  standards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - name: Industry-bar SciML standards
+        run: |
+          julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["JET", "ForwardDiff"]); include("test/run_standards.jl")'
 
   docs:
     runs-on: ubuntu-latest
