@@ -609,6 +609,16 @@ end
     return :(SVector{$N,$T}($(elems...)))
 end
 
+@inline function _ude_system_static(x::SVector{N,T}, p, _t,
+        model::UDEModel) where {N,T}
+    return _ude_system_static_impl(x, p, model.impl)
+end
+
+@inline function _ude_system_static(x::SVector{N,T}, p, _t,
+        model::UDEModelImpl) where {N,T}
+    return _ude_system_static_impl(x, p, model)
+end
+
 """
     ude_system(x, p, t, model::UDEModel) -> dx
 
