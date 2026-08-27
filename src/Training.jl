@@ -394,6 +394,13 @@ function _training_converged(final_loss, initial_loss, config, diagnostics)
                               config, diagnostics)
 end
 
+"""
+    train_ude(p_init, data, t_data, u0, tspan, model)
+    train_ude(p_init, data, t_data, u0, tspan, nn, st; model, network)
+
+Fit physical (and optional neural) parameters of a compiled UDE to one
+trajectory. Use `train_experiments` for masked multi-replicate data.
+"""
 function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                    model::Union{Nothing,UDEModel} = nothing,
                    network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
@@ -579,14 +586,14 @@ function _train_ude_model(p_init, data, t_data, u0, tspan, model::UDEModel;
         initial_stage_iteration, Float64(previous_residual_init), session)
 end
 
+const _DEFAULT_TRAINING_CONFIG = TrainingConfig()
+
 """
     train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
 
 Fit physical (and optional neural) parameters of a compiled UDE to one
 trajectory. Use `train_experiments` for masked multi-replicate data.
 """
-const _DEFAULT_TRAINING_CONFIG = TrainingConfig()
-
 function train_ude(p_init::P, data::AbstractMatrix,
                    t_data::AbstractVector, u0::AbstractVector,
                    tspan::NTuple{2,Real}, model::UDEModel) where {P}
