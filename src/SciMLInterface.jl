@@ -55,6 +55,8 @@ back to checkpointed `InterpolatingAdjoint` with `ZygoteVJP`.
 function recommend_sensealg(model::UDEModel;
                             policy::AbstractADPolicy = ZygoteAD(),
                             n_observations::Int = 100)
+    n_observations isa Integer && n_observations ≥ 1 || throw(ArgumentError(
+        "n_observations must be an Integer ≥ 1"))
     nn_terms = count(term -> term isa NeuralDestructionTerm,
                      model.compiled.destruction_terms)
     nstates = model.compiled.nstates
