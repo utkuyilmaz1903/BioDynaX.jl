@@ -861,7 +861,9 @@ function _discover_explicit(X, derivatives, network, backend,
     training_indices = collect(1:(sample_count - validation_count))
     validation_indices =
         collect((sample_count - validation_count + 1):sample_count)
-    candidates = ExplicitCandidate{eltype(X)}[]
+    # Public contract: `result.candidates isa Vector{ExplicitCandidate}`
+    # (the UnionAll). `Vector{ExplicitCandidate{T}}` is not a subtype.
+    candidates = ExplicitCandidate[]
     chunk_size = _backend_chunk_size(backend)
 
     for target in _target_indices(X, targets)
@@ -948,30 +950,71 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     return candidates
 end
 
-function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfig;
-                        targets = nothing)
+function _candidate_basis(candidates::Vector{ExplicitCandidate})
+    n = length(candidates)
+    basis = Vector{LocalBasisSpec}(undef, n)
+    @inbounds for i in eachindex(candidates)
+        basis[i] = candidates[i].specification
+    end
+    return basis
+end
+
+function _candidate_basis(candidates::Vector{ImplicitCandidate{T}}) where {T}
+    n = length(candidates)
+    basis = Vector{LocalBasisSpec}(undef, n)
+    @inbounds for i in eachindex(candidates)
+        basis[i] = candidates[i].specification
+    end
+    return basis
+end
+
+function _run_discovery(X, derivatives, network, backend::ImplicitSINDyPI,
+                        config::DiscoveryConfig; targets = nothing)
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
-    if backend isa ImplicitSINDyPI
-        candidates = _discover_implicit(
-            X, derivatives, network, backend, config; targets = targets)
-    elseif backend isa ExplicitSTLSQ || backend isa DataDrivenSparseSTLSQ
-        candidates = _discover_explicit(
-            X, derivatives, network, backend, config; targets = targets)
-    else
-        throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
-    end
+    candidates = _discover_implicit(
+        X, derivatives, network, backend, config; targets = targets)
     (isempty(candidates) || all(_support_empty, candidates)) &&
         throw(ArgumentError("empty support: no terms survived thresholding"))
     equation_text = join(format_equation.(candidates), "\n")
-    basis = getfield.(candidates, :specification)
+    basis = _candidate_basis(candidates)
     metadata = RunMetadata(
         seed = config.seed,
         package_version = PACKAGE_VERSION,
         data_hash = data_fingerprint(X, derivatives),
         config = (; backend = string(typeof(backend)), samples = size(X, 2)))
-    return DiscoveryResult(true, "ok", equation_text, basis, nothing,
-                           candidates, metadata, DiscoverySuccess)
+    return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
+                           typeof(candidates), RunMetadata, DiscoveryRetcode}(
+        true, "ok", equation_text, basis, nothing,
+        candidates, metadata, DiscoverySuccess)
+end
+
+function _run_discovery(X, derivatives, network,
+                        backend::Union{ExplicitSTLSQ, DataDrivenSparseSTLSQ},
+                        config::DiscoveryConfig; targets = nothing)
+    size(X, 2) ≥ 20 ||
+        throw(ArgumentError("insufficient finite trajectory samples"))
+    candidates = _discover_explicit(
+        X, derivatives, network, backend, config; targets = targets)
+    (isempty(candidates) || all(_support_empty, candidates)) &&
+        throw(ArgumentError("empty support: no terms survived thresholding"))
+    equation_text = join(format_equation.(candidates), "\n")
+    basis = _candidate_basis(candidates)
+    metadata = RunMetadata(
+        seed = config.seed,
+        package_version = PACKAGE_VERSION,
+        data_hash = data_fingerprint(X, derivatives),
+        config = (; backend = string(typeof(backend)), samples = size(X, 2)))
+    return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
+                           Vector{ExplicitCandidate}, RunMetadata,
+                           DiscoveryRetcode}(
+        true, "ok", equation_text, basis, nothing,
+        candidates, metadata, DiscoverySuccess)
+end
+
+function _run_discovery(X, derivatives, network, backend,
+                        config::DiscoveryConfig; targets = nothing)
+    throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
 end
 
 function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;

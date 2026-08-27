@@ -85,6 +85,15 @@ function DiscoveryResult(success::Bool, message, equations, basis, solution,
         metadata, retcode)
 end
 
+function DiscoveryResult(success::Bool, message, equations, basis, solution,
+                         candidates, metadata, retcode::DiscoveryRetcode)
+    return DiscoveryResult{typeof(equations), typeof(basis), typeof(solution),
+                           typeof(candidates), typeof(metadata),
+                           DiscoveryRetcode}(
+        success, String(message), equations, basis, solution, candidates,
+        metadata, retcode)
+end
+
 Base.getproperty(r::DiscoveryResult, name::Symbol) =
     name === :equation ? getfield(r, :equations) : getfield(r, name)
 
