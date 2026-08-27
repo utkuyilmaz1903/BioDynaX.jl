@@ -27,6 +27,8 @@ struct UDEModel{N,NN,ST}
     state_ids::Vector{Int}
     impl::Any
     nstates::Int
+    n_neural::Int
+    max_nn_in::Int
     is_linear_ab::Bool
     k_ba_idx::Int
     k_a_idx::Int

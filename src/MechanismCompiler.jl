@@ -929,11 +929,24 @@ function _note_compile_network()
     return nothing
 end
 
+function _neural_layout(compiled)
+    n_neural = 0
+    max_nn_in = 0
+    for term in compiled.destruction_terms
+        if term isa NeuralDestructionTerm
+            n_neural += 1
+            max_nn_in = max(max_nn_in, length(term.regulators))
+        end
+    end
+    return n_neural, max_nn_in
+end
+
 function _dummy_packed_params(network, nn, st, compiled)
     impl = UDEModelImpl(network, nn, st, compiled, compiled.state_ids)
+    n_neural, max_nn_in = _neural_layout(compiled)
     tmp = UDEModel{typeof(network),typeof(nn),typeof(st)}(
         network, nn, st, compiled, compiled.state_ids,
-        impl, compiled.nstates, false, 0, 0, 0)
+        impl, compiled.nstates, n_neural, max_nn_in, false, 0, 0, 0)
     schema = parameter_schema(tmp)
     return pack_parameters(default_phys_parameters(schema),
                            _nn_parameters_matching(Random.default_rng(), tmp))
@@ -962,16 +975,18 @@ function _assemble_compiled_model(network::BiologicalNetwork, nn::NN, st::ST) wh
         !any(reaction -> !reaction.known, network.reactions) &&
         @debug "Compiled network has no unknown mechanisms."
     impl = UDEModelImpl(network, nn, st, compiled, compiled.state_ids)
+    n_neural, max_nn_in = _neural_layout(compiled)
     if _is_linear_ab_compiled(compiled)
         dummy_p = _dummy_packed_params(network, nn, st, compiled)
         idxs = _phys_index_namedtuple(dummy_p)
         return UDEModel{typeof(network),NN,ST}(
             network, nn, st, compiled, compiled.state_ids, impl,
-            compiled.nstates, true, idxs.k_ba, idxs.k_a, idxs.k_b)
+            compiled.nstates, n_neural, max_nn_in, true,
+            idxs.k_ba, idxs.k_a, idxs.k_b)
     end
     return UDEModel{typeof(network),NN,ST}(
         network, nn, st, compiled, compiled.state_ids, impl,
-        compiled.nstates, false, 0, 0, 0)
+        compiled.nstates, n_neural, max_nn_in, false, 0, 0, 0)
 end
 
 function compile_network(network::BiologicalNetwork, nn::NN, st::ST) where {NN,ST}

@@ -45,7 +45,7 @@ function SciMLBase.ODEProblem(model::UDEModel, u0, tspan, p;
                               inplace::Bool = false,
                               cache::Union{Nothing,UDEModelCache} = nothing,
                               kwargs...)
-    _require_matching_state_length(u0, model.compiled.nstates)
+    _require_matching_state_length(u0, model.nstates)
     f = build_ude_function(model; inplace = inplace, cache = cache)
     return SciMLBase.ODEProblem(f, u0, tspan, p; kwargs...)
 end
@@ -63,9 +63,8 @@ function recommend_sensealg(model::UDEModel;
                             n_observations::Int = 100)
     n_observations isa Integer && n_observations ≥ 1 || throw(ArgumentError(
         "n_observations must be an Integer ≥ 1"))
-    nn_terms = count(term -> term isa NeuralDestructionTerm,
-                     model.compiled.destruction_terms)
-    nstates = model.compiled.nstates
+    nn_terms = model.n_neural
+    nstates = model.nstates
     if policy isa ProductionAD
         return SensealgRecommendation(
             InterpolatingAdjoint(autojacvec = ZygoteVJP(), checkpointing = true),

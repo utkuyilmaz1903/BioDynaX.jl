@@ -523,7 +523,7 @@ Discover a scalar destruction rate `D(r)` with graph-local implicit SINDy-PI.
 """
 function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
                                network = nothing,
-                               config = rate_discovery_config(),
+                               config::DiscoveryConfig = rate_discovery_config(),
                                verbose::Bool = false, strict::Bool = false)
     net = network === nothing ? _rate_network_from_samples(R) : network
     nreg = size(R, 1)

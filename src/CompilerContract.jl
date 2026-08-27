@@ -46,7 +46,7 @@ neural_regulator_arities(model::UDEModel) = neural_regulator_arities(model.compi
 
 neural_head_count(compiled::CompiledMechanism) = length(neural_destruction_terms(compiled))
 
-neural_head_count(model::UDEModel) = neural_head_count(model.compiled)
+neural_head_count(model::UDEModel) = model.n_neural
 
 function neural_head_count(network::BiologicalNetwork)
     neural_head_count(compile_mechanism(network))

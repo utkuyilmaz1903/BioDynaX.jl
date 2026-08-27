@@ -85,7 +85,7 @@ function training_sensealg_kind(solver::SolverConfig)
 end
 
 function neural_training_requires_interpolating(model::UDEModel)
-    return neural_head_count(model) > 0
+    return model.n_neural > 0
 end
 
 """
@@ -193,9 +193,20 @@ mutable struct TrainingSolveSession{M, P, C, S}
     sensealg_kind::Symbol
 end
 
+function training_solve_session(model::UDEModel, u0, tspan, p, solver::SolverConfig)
+    assert_training_sensealg(model, solver)
+    inplace = _forward_inplace(solver)
+    template = SciMLBase.ODEProblem(model, u0, tspan, p; inplace = inplace)
+    return TrainingSolveSession(
+        model, template, nothing, solver, inplace, 0, 0,
+        training_sensealg_kind(solver))
+end
+
 function training_solve_session(model::UDEModel, u0, tspan, p;
         solver::SolverConfig = lock_training_solver(model, SolverConfig()),
         cache::Union{Nothing, UDEModelCache} = nothing)
+    cache === nothing &&
+        return training_solve_session(model, u0, tspan, p, solver)
     assert_training_sensealg(model, solver)
     inplace = _forward_inplace(solver)
     local_cache = cache
