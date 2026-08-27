@@ -67,7 +67,9 @@ D(z)\dot{x}_i-N(z)=0.
 ```
 
 The constant denominator coefficient is anchored to one. Numerator and
-denominator coefficients are selected jointly with QR-based STLSQ. Contiguous
+denominator coefficients are selected jointly with blocked ridge STLSQ
+(`_stlsq_blocked!` on a grow-only Gram workspace). Dense QR `_stlsq` is
+the agreement oracle, not the bootstrap factorisation. Contiguous
 hold-out blocks and bootstrap consensus reject unstable supports.
 
 The product path (`sample_unknown_destruction` → `discover_unknown_rate`)
@@ -82,9 +84,11 @@ with a different library — that is the graph-prior ablation.
 Libraries are generated per target from graph parents. For bounded indegree `k`,
 the library scales with `Σ O(k_i^d)` rather than global `O(n^d)`.
 
-Streaming chunks (`each_library_chunk`) and blocked STLSQ avoid one dense design
+Streaming chunks (`each_reusable_library_chunk`) overwrite one library
+buffer. Blocked STLSQ reuses a Gram workspace across bootstrap draws
+and can fill implicit design in row chunks without a full `n × p`
 matrix. Implicit candidates are stress-tested on train, validation and an
-orthant grid (`domain_samples`).
+orthant grid (`domain_samples`). See [Discovery streaming](discovery-streaming.md).
 
 Raw trajectories can enter discovery via `estimate_derivatives` and
 `discover_equations(X, times, network)`. Recovered candidates export to LaTeX

@@ -1,5 +1,12 @@
 # BioDynaX.jl Unreleased
 
+- Discovery library evaluation reuses grow-only workspaces
+  (`STLSQWorkspace`, `StreamingImplicitWorkspace`; not exported).
+  `evaluate_library!` writes in place. `_fit_implicit` streams implicit
+  design chunks through `_stlsq_blocked!`. `ImplicitSINDyPI.chunk_size`
+  is the blocked row width. Docs:
+  [discovery-streaming](docs/src/discovery-streaming.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - `generate_experiment_set` compiles one `GroundTruthModel` and generates
   every IC from that stored model (`compile_ground_truth_model`,
   `generate_experiment_set_from_compiled_model`; not exported).

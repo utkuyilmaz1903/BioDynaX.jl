@@ -58,7 +58,10 @@ checkpointed `InterpolatingAdjoint` adjoints today.
 
 ## Discovery scaling
 
+Blocked STLSQ reuses one grow-only Gram workspace across bootstrap draws.
 Streaming library chunks and blocked STLSQ keep large sample counts tractable.
+See [Discovery streaming](discovery-streaming.md) for the workspace types,
+`_stlsq_blocked!`, and the chunk-size helper.
 Raw trajectories can skip the UDE path:
 
 ```julia

@@ -81,6 +81,11 @@ rhs = compose_hybrid_rhs(
 If discovery cannot be trusted, `strict = false` returns
 `DiscoveryResult(success=false, retcode=...)` instead of throwing.
 
+Library evaluation reuses grow-only buffers. `evaluate_library!` writes
+in place. `_fit_implicit` streams implicit design chunks through
+`_stlsq_blocked!` so a bootstrap draw does not rebuild the Gram. See
+[Discovery streaming](discovery-streaming.md).
+
 After a fit, print the protocol block (identifiability first; not exported).
 `unidentifiable_edge` is the product warning: coefficients are not
 biological constants. `BioDynaX.assert_single_unknown_destruction(model)`

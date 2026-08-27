@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Discovery library evaluation reuses grow-only STLSQ / implicit-design
+  workspaces. `evaluate_library!` writes monomials in place.
+  `_fit_implicit` streams row chunks (`_stlsq_blocked!`). Bootstrap
+  draws do not rebuild the Gram. `RECOVERY_THRESHOLDS` and the export
+  list are unchanged.
 - `generate_experiment_set` compiles the ground-truth model once;
   `generate_from_compiled_model` uses `SciMLBase.ODEProblem(model, ...)`.
   Suite hole policy is explicit for every section

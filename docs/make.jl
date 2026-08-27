@@ -20,6 +20,7 @@ makedocs(
         "How-to" => "howto.md",
         "Unique claim" => "unique-claim.md",
         "Compiled experiment path" => "compiled-path.md",
+        "Discovery streaming" => "discovery-streaming.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",
