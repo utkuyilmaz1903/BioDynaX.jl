@@ -37,7 +37,7 @@ end
 
 # -- Train counter ------------------------------------------------------------
 
-const TRAIN_UNKNOWN_EDGE_COUNTER = Ref{Union{Nothing,Base.RefValue{Int}}}(nothing)
+const TRAIN_UNKNOWN_EDGE_COUNTER = Ref{Union{Nothing, Base.RefValue{Int}}}(nothing)
 
 function _note_train_unknown_edge()
     counter = TRAIN_UNKNOWN_EDGE_COUNTER[]
@@ -81,7 +81,7 @@ struct RecoverySuiteSectionSpec
     name::Symbol
     kind::Symbol
     hole_policy::Symbol
-    expected_holes::Union{Nothing,Int}
+    expected_holes::Union{Nothing, Int}
     trains_unknown_edge::Bool
     trains_ude::Bool
     trains_experiments::Bool
@@ -113,7 +113,7 @@ end
 
 function recovery_suite_default_sections()
     return (:linear, :mm, :hill, :competitive,
-            :ude_discovery, :mm_unknown, :ablation)
+        :ude_discovery, :mm_unknown, :ablation)
 end
 
 function recovery_suite_unique_claim_trainers()
@@ -195,7 +195,8 @@ function recovery_suite_spec_matrix()
     specs = recovery_suite_section_specs()
     names = [spec.name for spec in specs]
     trainers = [spec.name for spec in specs if spec.trains_unknown_edge]
-    default_trainers = [spec.name for spec in specs
+    default_trainers = [spec.name
+                        for spec in specs
                         if spec.trains_unknown_edge && spec.default_suite]
     unique_claim = [spec.name for spec in specs if spec.kind === :unique_claim]
     open_known = [spec.name for spec in specs if spec.kind === :known_kinetics]
@@ -264,7 +265,8 @@ end
 
 function recovery_suite_skipped_unique_claim_trainers(sections)
     plan = recovery_suite_plan(sections)
-    return [section for section in recovery_suite_unique_claim_trainers()
+    return [section
+            for section in recovery_suite_unique_claim_trainers()
             if section in plan.skipped]
 end
 
@@ -320,15 +322,16 @@ function recovery_suite_section_source_row(section::Symbol)
     trains_unknown = occursin("_train_unknown_edge", body)
     trains_ude = occursin("train_ude(", body)
     trains_experiments = occursin("train_experiments(", body) &&
-        !occursin("train_experiments_with_warmup", body)
+                         !occursin("train_experiments_with_warmup", body)
     discovers = occursin("discover_equations(", body) ||
                 occursin("discover_unknown_rate(", body)
     uses_admit = occursin("admit_recovery_suite_network", body)
     uses_generate = occursin("generate_experiment_set(", body) ||
-        (spec.uses_generate_experiment_set && occursin("_train_unknown_edge", body))
+                    (spec.uses_generate_experiment_set &&
+                     occursin("_train_unknown_edge", body))
     gated = recovery_suite_section_is_gated(section)
     generate_ok = spec.uses_generate_experiment_set ? uses_generate :
-        !occursin("generate_experiment_set(", body)
+                  !occursin("generate_experiment_set(", body)
     holds = gated &&
             trains_unknown == spec.trains_unknown_edge &&
             trains_ude == spec.trains_ude &&
@@ -357,8 +360,8 @@ function recovery_suite_section_source_matrix()
         trainer_sections = Tuple(row.section for row in trainer_bodies),
         holds = all(row -> row.holds, rows) &&
                 issetequal(
-                    [row.section for row in trainer_bodies],
-                    recovery_suite_unique_claim_trainers()))
+            [row.section for row in trainer_bodies],
+            recovery_suite_unique_claim_trainers()))
 end
 
 function train_unknown_edge_only_in_unique_claim_source()
@@ -471,7 +474,7 @@ function skip_empty_unique_claim_plan()
         holds = isempty(plan.train_unknown_edge) &&
                 issetequal(plan.skipped,
                     setdiff(collect(recovery_suite_sections()),
-                            [:linear, :ablation, :literature])) &&
+                        [:linear, :ablation, :literature])) &&
                 recovery_suite_would_train_unknown_edge(
                     recovery_suite_default_sections()))
 end
@@ -574,8 +577,8 @@ function recovery_suite_cost_matrix()
         trainer_sections = Tuple(row.section for row in trainer_cost),
         holds = length(rows) == length(recovery_suite_sections()) &&
                 issetequal(
-                    [row.section for row in trainer_cost],
-                    recovery_suite_unique_claim_trainers()))
+            [row.section for row in trainer_cost],
+            recovery_suite_unique_claim_trainers()))
 end
 
 function skip_linear_compile_report()
@@ -663,7 +666,7 @@ end
 
 function recovery_suite_report_key_matrix()
     keys = Dict(section => recovery_suite_expected_report_keys(section)
-                for section in recovery_suite_sections())
+    for section in recovery_suite_sections())
     return (;
         n = length(keys),
         ude = keys[:ude_discovery],
@@ -682,7 +685,7 @@ end
 function skip_known_kinetics_key_report()
     report = skip_known_kinetics_report()
     keys_ok = all(section -> skip_report_has_expected_keys(report, section),
-                  (:linear, :mm, :hill, :competitive))
+        (:linear, :mm, :hill, :competitive))
     return (;
         report,
         keys_ok,
@@ -715,33 +718,33 @@ const RECOVERY_SUITE_SECTION_NEEDLES = (
     hill = ("train_ude(", "build_hill_recovery_network"),
     competitive = ("train_ude(", "build_competitive_test_network"),
     ude_discovery = ("_train_unknown_edge",
-                     "admit_recovery_suite_network(:ude_discovery)",
-                     "UNIQUE_CLAIM_PROTOCOL.tspan",
-                     "UNIQUE_CLAIM_PROTOCOL.n_points"),
+        "admit_recovery_suite_network(:ude_discovery)",
+        "UNIQUE_CLAIM_PROTOCOL.tspan",
+        "UNIQUE_CLAIM_PROTOCOL.n_points"),
     mm_unknown = ("_train_unknown_edge",
-                  "admit_recovery_suite_network(:mm_unknown)",
-                  "UNIQUE_CLAIM_PROTOCOL.tspan",
-                  "UNIQUE_CLAIM_PROTOCOL.n_points"),
+        "admit_recovery_suite_network(:mm_unknown)",
+        "UNIQUE_CLAIM_PROTOCOL.tspan",
+        "UNIQUE_CLAIM_PROTOCOL.n_points"),
     ablation = ("discover_equations(", "build_rate_ablation_network",
-                "scope = :graph", "scope = :global"),
+        "scope = :graph", "scope = :global"),
     three_state = ("discover_equations(", "build_three_state_unknown_network"),
     wrong_graph = ("discover_equations(", "build_wrong_graph_unknown_network"),
     six_state = ("discover_equations(", "build_six_state_unknown_network",
-                 "Z_in_local_library"),
+        "Z_in_local_library"),
     six_state_wrong_graph = ("discover_equations(",
-                             "build_six_state_wrong_graph_network"),
+        "build_six_state_wrong_graph_network"),
     identifiability = ("production_destruction_tradeoff(",
-                       "build_hill_recovery_network"),
+        "build_hill_recovery_network"),
     ident_interventions = ("train_ude(", "frozen_phys = [:k_prod]",
-                           "admit_recovery_suite_network(:ident_interventions)"),
+        "admit_recovery_suite_network(:ident_interventions)"),
     partial_obs = ("train_experiments(",
-                   "admit_recovery_suite_network(:partial_obs)",
-                   "ude_mask_train_claimed = false"),
+        "admit_recovery_suite_network(:partial_obs)",
+        "ude_mask_train_claimed = false"),
     competitive_unknown = ("discover_unknown_rate(",
-                           "canonical_f1_claimed = false"),
+        "canonical_f1_claimed = false"),
     literature = ("build_repressilator_network",
-                  "experimental_csv = false",
-                  "unique_claim_protocol = false"))
+        "experimental_csv = false",
+        "unique_claim_protocol = false"))
 
 function recovery_suite_section_needles(section::Symbol)
     needles = RECOVERY_SUITE_SECTION_NEEDLES
@@ -754,14 +757,14 @@ function recovery_suite_section_needles_hold(section::Symbol)
     body = recovery_suite_section_body(section)
     isempty(body) && return false
     return all(needle -> occursin(needle, body),
-               recovery_suite_section_needles(section))
+        recovery_suite_section_needles(section))
 end
 
 function recovery_suite_needles_matrix()
     rows = [(;
-        section,
-        holds = recovery_suite_section_needles_hold(section),
-        gated = recovery_suite_section_is_gated(section))
+                section,
+                holds = recovery_suite_section_needles_hold(section),
+                gated = recovery_suite_section_is_gated(section))
             for section in recovery_suite_sections()]
     return (;
         rows,
@@ -818,9 +821,9 @@ function recovery_suite_shared_rng_honesty()
         shared = Tuple(shared),
         trainers = Tuple(trainers),
         skip_linear_changes_ude_rng = :linear in shared &&
-            :ude_discovery in shared,
+                                      :ude_discovery in shared,
         default_keeps_order = recovery_suite_default_sections()[1] === :linear &&
-            recovery_suite_default_sections()[5] === :ude_discovery,
+                              recovery_suite_default_sections()[5] === :ude_discovery,
         holds = :linear in shared && :ude_discovery in shared &&
                 :mm_unknown in shared &&
                 recovery_suite_default_sections()[5] === :ude_discovery)
@@ -832,13 +835,16 @@ function format_recovery_suite_skip_index()
     push!(lines, "section kind policy holes train_unknown default")
     for row in index.rows
         holes = row.expected_holes === nothing ? "NA" : string(row.expected_holes)
-        push!(lines, join((
-            row.section,
-            row.kind,
-            row.hole_policy,
-            holes,
-            row.trains_unknown_edge,
-            row.default_suite), " "))
+        push!(lines,
+            join(
+                (
+                    row.section,
+                    row.kind,
+                    row.hole_policy,
+                    holes,
+                    row.trains_unknown_edge,
+                    row.default_suite),
+                " "))
     end
     return join(lines, "\n")
 end
@@ -850,7 +856,8 @@ function format_recovery_suite_skip_markdown()
         "|---|---|---|---|---|---|"]
     for row in index.rows
         holes = row.expected_holes === nothing ? "NA" : string(row.expected_holes)
-        push!(lines, "| `$(row.section)` | $(row.kind) | $(row.hole_policy) | $holes | $(row.trains_unknown_edge) | $(row.default_suite) |")
+        push!(lines,
+            "| `$(row.section)` | $(row.kind) | $(row.hole_policy) | $holes | $(row.trains_unknown_edge) | $(row.default_suite) |")
     end
     return join(lines, "\n")
 end
@@ -929,7 +936,7 @@ function recovery_suite_skip_source_holds()
     src = read(recovery_suite_skip_source_path(), String)
     impl = read(recovery_jl_source_path(), String)
     docs = isfile(recovery_suite_skip_docs_path()) ?
-        read(recovery_suite_skip_docs_path(), String) : ""
+           read(recovery_suite_skip_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in RECOVERY_SUITE_SKIP_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
            !occursin("support_f1_ude = 0.99", docs) &&
@@ -962,7 +969,7 @@ function recovery_suite_skip_source_violations()
     src = read(recovery_suite_skip_source_path(), String)
     impl = read(recovery_jl_source_path(), String)
     docs = isfile(recovery_suite_skip_docs_path()) ?
-        read(recovery_suite_skip_docs_path(), String) : ""
+           read(recovery_suite_skip_docs_path(), String) : ""
     missing = [s for s in RECOVERY_SUITE_SKIP_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", impl) &&

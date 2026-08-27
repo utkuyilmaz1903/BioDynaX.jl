@@ -182,7 +182,7 @@ One compiled `UDEModel`, one template `ODEProblem`, and the locked
 solver. `predict_ude_session` remakes `u0` / `tspan` / `p` and does not
 call `compile_network`.
 """
-mutable struct TrainingSolveSession{M,P,C,S}
+mutable struct TrainingSolveSession{M, P, C, S}
     model::M
     template::P
     cache::C
@@ -195,7 +195,7 @@ end
 
 function training_solve_session(model::UDEModel, u0, tspan, p;
         solver::SolverConfig = lock_training_solver(model, SolverConfig()),
-        cache::Union{Nothing,UDEModelCache} = nothing)
+        cache::Union{Nothing, UDEModelCache} = nothing)
     assert_training_sensealg(model, solver)
     inplace = _forward_inplace(solver)
     local_cache = cache
@@ -260,7 +260,7 @@ function session_predicts_without_compile(session::TrainingSolveSession, p, u0,
     return n == 0
 end
 
-function resolve_training_model(model::Union{Nothing,UDEModel}, nn, st,
+function resolve_training_model(model::Union{Nothing, UDEModel}, nn, st,
         network::BiologicalNetwork)
     model === nothing || return model
     return compile_network(network, nn, st)
@@ -297,7 +297,7 @@ function warmup_first_experiment(p_init, set::ExperimentSet, model::UDEModel;
         seed = seed,
         session = session)
     state = hasproperty(result.diagnostics, :optimizer_state) ?
-        result.diagnostics.optimizer_state : nothing
+            result.diagnostics.optimizer_state : nothing
     return (;
         result,
         params = result.params,
@@ -349,7 +349,7 @@ function unique_claim_training_config(;
         adam_iterations = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
         bfgs_iterations = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
         frozen_phys::Vector{Symbol} = Symbol[],
-        model::Union{Nothing,UDEModel} = nothing)
+        model::Union{Nothing, UDEModel} = nothing)
     base = TrainingConfig(
         adam_iterations = adam_iterations,
         bfgs_iterations = bfgs_iterations,
@@ -418,7 +418,7 @@ function train_experiments_compile_report(p_init, set::ExperimentSet, model::UDE
             adam_iterations = 1, bfgs_iterations = 0, log_every = 10^6),
         constraint = nothing)
     cfg = constraint === nothing ? config :
-        TrainingConfig(config; constraint = constraint)
+          TrainingConfig(config; constraint = constraint)
     locked = lock_training_config(model, cfg)
     n = with_compile_network_counter() do counter
         train_experiments(
@@ -442,10 +442,11 @@ end
 
 function warmup_state_reuse_report(p_init, set::ExperimentSet, model::UDEModel;
         adam_iterations::Int = 2)
-    config = lock_training_config(model, TrainingConfig(
-        adam_iterations = adam_iterations,
-        bfgs_iterations = 0,
-        log_every = 10^6))
+    config = lock_training_config(model,
+        TrainingConfig(
+            adam_iterations = adam_iterations,
+            bfgs_iterations = 0,
+            log_every = 10^6))
     warm = warmup_first_experiment(
         p_init, set, model; config = config, verbose = false)
     reused = train_experiments(
@@ -740,9 +741,10 @@ end
 
 function train_ude_compile_report(p_init, data, times, u0, tspan, model;
         adam_iterations::Int = 1)
-    locked = lock_training_config(model, TrainingConfig(
-        adam_iterations = adam_iterations, bfgs_iterations = 0,
-        log_every = 10^6))
+    locked = lock_training_config(model,
+        TrainingConfig(
+            adam_iterations = adam_iterations, bfgs_iterations = 0,
+            log_every = 10^6))
     n = with_compile_network_counter() do counter
         train_ude(
             p_init, data, times, u0, tspan, model;
@@ -764,11 +766,12 @@ end
 function frozen_phys_warmup_report(p_init, set::ExperimentSet, model::UDEModel;
         frozen::Vector{Symbol} = [:k_ba],
         adam_iterations::Int = 2)
-    config = lock_training_config(model, TrainingConfig(
-        adam_iterations = adam_iterations,
-        bfgs_iterations = 0,
-        log_every = 10^6,
-        frozen_phys = frozen))
+    config = lock_training_config(model,
+        TrainingConfig(
+            adam_iterations = adam_iterations,
+            bfgs_iterations = 0,
+            log_every = 10^6,
+            frozen_phys = frozen))
     names = Tuple(parameter_schema(model).phys_names)
     before = NamedTuple{names}(ntuple(
         i -> Float64(p_init.phys[i]), length(names)))
@@ -781,7 +784,7 @@ function frozen_phys_warmup_report(p_init, set::ExperimentSet, model::UDEModel;
     after = NamedTuple{names}(ntuple(
         i -> Float64(reused.params.phys[i]), length(names)))
     frozen_held = all(name -> getfield(before, name) ≈ getfield(after, name),
-                      frozen)
+        frozen)
     return (;
         frozen,
         before,
@@ -803,8 +806,9 @@ function masked_experiment_compile_report(p_init, set::ExperimentSet,
     end
     masked = ExperimentSet(experiments, set.state_names; units = set.units,
         metadata = set.metadata)
-    locked = lock_training_config(model, TrainingConfig(
-        adam_iterations = 1, bfgs_iterations = 0, log_every = 10^6))
+    locked = lock_training_config(
+        model, TrainingConfig(
+            adam_iterations = 1, bfgs_iterations = 0, log_every = 10^6))
     n = with_compile_network_counter() do counter
         train_experiments(
             p_init, masked, model; config = locked, verbose = false)
@@ -836,11 +840,12 @@ function sensealg_nobs_honesty_row(model::UDEModel)
         large_name = large.name,
         locked_kind = training_sensealg_kind(locked),
         lock_follows_nobs_100 = training_sensealg_kind(large.sensealg) ===
-            training_sensealg_kind(locked),
+                                training_sensealg_kind(locked),
         holds = training_sensealg_kind(large.sensealg) ===
                 training_sensealg_kind(locked) &&
-                (neural ? small.name === :interpolating_neural &&
-                          large.name === :interpolating_neural :
+                (neural ?
+                 small.name === :interpolating_neural &&
+                 large.name === :interpolating_neural :
                  small.name === :backsolve_mechanistic &&
                  large.name === :interpolating_default))
 end
@@ -850,10 +855,10 @@ function sensealg_nobs_honesty_matrix()
         build_ude_model(MersenneTwister(7), build_linear_test_network())[1])
     hill = sensealg_nobs_honesty_row(
         build_ude_model(MersenneTwister(11),
-            build_hill_recovery_network(; known = false, hill_order = 2))[1])
+        build_hill_recovery_network(; known = false, hill_order = 2))[1])
     remap = sensealg_nobs_honesty_row(
         build_ude_model(MersenneTwister(13),
-            build_remapped_two_regulator_network())[1])
+        build_remapped_two_regulator_network())[1])
     return (;
         linear,
         hill,
@@ -929,9 +934,10 @@ function horizon_curriculum_session_report(p_init, data, times, u0, tspan,
         model; adam_iterations::Int = 1)
     curriculum = HorizonCurriculum(
         fractions = [0.5, 1.0], min_points = 3, minimum_fraction = 0.4)
-    config = lock_training_config(model, TrainingConfig(
-        adam_iterations = adam_iterations, bfgs_iterations = 0,
-        log_every = 10^6, horizon_schedule = curriculum))
+    config = lock_training_config(model,
+        TrainingConfig(
+            adam_iterations = adam_iterations, bfgs_iterations = 0,
+            log_every = 10^6, horizon_schedule = curriculum))
     n = with_compile_network_counter() do counter
         train_ude(
             p_init, data, times, u0, tspan, model;
@@ -946,9 +952,10 @@ end
 
 function optimizer_state_roundtrip_report(p_init, set::ExperimentSet,
         model::UDEModel; adam_iterations::Int = 2)
-    config = lock_training_config(model, TrainingConfig(
-        adam_iterations = adam_iterations, bfgs_iterations = 0,
-        log_every = 10^6))
+    config = lock_training_config(model,
+        TrainingConfig(
+            adam_iterations = adam_iterations, bfgs_iterations = 0,
+            log_every = 10^6))
     warm = warmup_first_experiment(
         p_init, set, model; config = config, verbose = false)
     reused = train_experiments(
@@ -1057,10 +1064,10 @@ function training_reuse_source_holds()
     src = read(training_reuse_source_path(), String)
     impl = read(training_jl_source_path(), String)
     docs = isfile(training_reuse_docs_path()) ?
-        read(training_reuse_docs_path(), String) : ""
+           read(training_reuse_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in TRAINING_REUSE_MUST_CONTAIN) &&
            !any(occursin(needle, impl) || occursin(needle, docs)
-                for needle in TRAINING_REUSE_MUST_NOT_CONTAIN)
+    for needle in TRAINING_REUSE_MUST_NOT_CONTAIN)
 end
 
 function training_reuse_docs_hold()
@@ -1089,9 +1096,10 @@ function training_reuse_source_violations()
     src = read(training_reuse_source_path(), String)
     impl = read(training_jl_source_path(), String)
     docs = isfile(training_reuse_docs_path()) ?
-        read(training_reuse_docs_path(), String) : ""
+           read(training_reuse_docs_path(), String) : ""
     missing = [s for s in TRAINING_REUSE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s for s in TRAINING_REUSE_MUST_NOT_CONTAIN
+    forbidden = [s
+                 for s in TRAINING_REUSE_MUST_NOT_CONTAIN
                  if occursin(s, impl) || occursin(s, docs)]
     return (; missing, forbidden)
 end

@@ -42,7 +42,8 @@ function howto_csv_fixture_row()
     howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
     benches = read(joinpath(pkgdir(BioDynaX), "docs", "src",
             "benchmarks.md"), String)
-    experimental = read(joinpath(pkgdir(BioDynaX), "docs", "src",
+    experimental = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src",
             "experimental.md"), String)
     header = isfile(csv) ? readline(csv) : ""
     wetlab = occursin("wet-lab recovery", lowercase(howto)) ||
@@ -56,7 +57,8 @@ function howto_csv_fixture_row()
         absence = occursin(sentences.absence, benches),
         result = occursin(CLAIM_SCOPE_ABSENCE, benches),
         no_wetlab = !wetlab && !occursin("wet-lab recovery", lowercase(benches)),
-        no_experimental_claim = !occursin("recovered from wet-lab", lowercase(experimental)),
+        no_experimental_claim = !occursin(
+            "recovered from wet-lab", lowercase(experimental)),
         holds = isfile(csv) && header == "t,S,R" &&
                 occursin(sentences.csv, howto) &&
                 occursin(sentences.absence, benches) &&

@@ -59,12 +59,12 @@ end
 
 function compiled_neural_head_count(model::UDEModel)
     return count(term -> term isa NeuralDestructionTerm,
-                 model.compiled.destruction_terms)
+        model.compiled.destruction_terms)
 end
 
 function compiled_custom_term_count(model::UDEModel)
     return count(term -> term isa CustomDestructionTerm,
-                 model.compiled.destruction_terms)
+        model.compiled.destruction_terms)
 end
 
 function lux_head_count(model::UDEModel)
@@ -77,8 +77,9 @@ function phys_roundtrip_error(phys::NamedTuple, unpacked)
     for name in keys(phys)
         hasproperty(unpacked.phys, name) ||
             return (; ok = false, maxerr = Inf)
-        push!(errs, abs(Float64(getproperty(unpacked.phys, name)) -
-                        Float64(getproperty(phys, name))))
+        push!(errs,
+            abs(Float64(getproperty(unpacked.phys, name)) -
+                Float64(getproperty(phys, name))))
     end
     return (; ok = true, maxerr = maximum(errs))
 end
@@ -108,7 +109,7 @@ function parameter_schema_pack_row(name::Symbol, model::UDEModel, packed)
         lux_head_count(model),
         :k_custom in schema.phys_names,
         schema_contains(schema, propertynames(unpacked.phys)) ||
-            length(schema.phys_names) ≤ length(propertynames(unpacked.phys)))
+        length(schema.phys_names) ≤ length(propertynames(unpacked.phys)))
     return (; schema, unpacked, typed, holds = typed.holds)
 end
 
@@ -168,8 +169,8 @@ function remapped_pack_unpack_row()
     err = phys_roundtrip_error(phys, unpacked)
     schema = parameter_schema(model)
     nn_ok = model.nn isa MultiHeadNetwork &&
-        hasproperty(packed.nn, :head_1) &&
-        hasproperty(packed.nn, :head_2)
+            hasproperty(packed.nn, :head_1) &&
+            hasproperty(packed.nn, :head_2)
     return (;
         err,
         nn_heads = schema.nn_heads,
@@ -281,17 +282,18 @@ function schema_vs_compiled_nn_tree_row()
         lux = lux_head_count(model)
         dummy = compiled == 0 && lux == 1 && !(model.nn isa MultiHeadNetwork)
         multi = compiled ≥ 2 && model.nn isa MultiHeadNetwork &&
-            lux == compiled
+                lux == compiled
         single = compiled == 1 && lux == 1
-        push!(cases, (;
-            name,
-            compiled,
-            lux,
-            schema_heads = schema.nn_heads,
-            dummy,
-            multi,
-            single,
-            holds = schema.nn_heads == compiled &&
+        push!(cases,
+            (;
+                name,
+                compiled,
+                lux,
+                schema_heads = schema.nn_heads,
+                dummy,
+                multi,
+                single,
+                holds = schema.nn_heads == compiled &&
                     (dummy || multi || single)))
     end
     return (;
@@ -447,13 +449,15 @@ function fixture_schema_row(name::Symbol, network::BiologicalNetwork;
 end
 
 function hill_unknown_schema_row()
-    return fixture_schema_row(:hill, build_hill_recovery_network(;
-        known = false, hill_order = 2))
+    return fixture_schema_row(
+        :hill, build_hill_recovery_network(;
+            known = false, hill_order = 2))
 end
 
 function hill_known_schema_row()
-    return fixture_schema_row(:hill_known, build_hill_recovery_network(;
-        known = true, hill_order = 2))
+    return fixture_schema_row(
+        :hill_known, build_hill_recovery_network(;
+            known = true, hill_order = 2))
 end
 
 function mm_unknown_schema_row()
@@ -676,7 +680,7 @@ end
 function parameter_schema_pack_source_holds()
     src = read(parameter_schema_pack_source_path(), String)
     docs = isfile(parameter_schema_pack_docs_path()) ?
-        read(parameter_schema_pack_docs_path(), String) : ""
+           read(parameter_schema_pack_docs_path(), String) : ""
     impl = read(parameter_schema_jl_source_path(), String)
     return all(occursin(needle, src) for needle in PARAMETER_SCHEMA_PACK_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -687,7 +691,7 @@ end
 function parameter_schema_pack_source_violations()
     src = read(parameter_schema_pack_source_path(), String)
     docs = isfile(parameter_schema_pack_docs_path()) ?
-        read(parameter_schema_pack_docs_path(), String) : ""
+           read(parameter_schema_pack_docs_path(), String) : ""
     missing = [s for s in PARAMETER_SCHEMA_PACK_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&
@@ -911,12 +915,13 @@ function suite_section_schema_catalog()
         model, packed = build_ude_model(rng, net)
         schema = parameter_schema(model)
         unpacked = unpack_parameters(packed)
-        push!(rows, (;
-            section,
-            n_phys = length(schema.phys_names),
-            nn_heads = schema.nn_heads,
-            has_custom = :k_custom in schema.phys_names,
-            holds = schema.nn_heads == compiled_neural_head_count(model) &&
+        push!(rows,
+            (;
+                section,
+                n_phys = length(schema.phys_names),
+                nn_heads = schema.nn_heads,
+                has_custom = :k_custom in schema.phys_names,
+                holds = schema.nn_heads == compiled_neural_head_count(model) &&
                     hasproperty(unpacked, :phys)))
     end
     return (;
@@ -1140,7 +1145,7 @@ function format_pack_markdown(schema::ParameterSchema, unpacked)
     println(io, "|---|---|")
     for name in schema.phys_names
         val = hasproperty(unpacked.phys, name) ?
-            getproperty(unpacked.phys, name) : missing
+              getproperty(unpacked.phys, name) : missing
         println(io, "| ", name, " | ", val, " |")
     end
     println(io, "| nn_heads | ", schema.nn_heads, " |")

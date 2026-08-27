@@ -1,5 +1,10 @@
 # BioDynaX.jl Unreleased
 
+- Software hygiene: internal workspace inventory, SciML format list for
+  stacked / science files, `scripts/run_discovery.jl` as a debug runner,
+  README unique-claim first line. Docs:
+  [internal-workspaces](docs/src/internal-workspaces.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Claim-scope honesty (`src/ClaimScopeHonesty.jl`, not exported):
   synthetic howto CSV, no licensed series, no masked-state UDE claim,
   graph-prior booleans, multi-seed UDE as a report, unknown topology

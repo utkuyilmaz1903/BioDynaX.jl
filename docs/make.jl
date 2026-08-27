@@ -36,6 +36,7 @@ makedocs(
         "Allocation and type-stability gates" => "allocation-gates.md",
         "Claim metric honesty" => "claim-metric-honesty.md",
         "Out of scope" => "out-of-scope.md",
+        "Internal workspaces" => "internal-workspaces.md",
         "SciML Integration" => "sciml.md",
         "Metadata" => "metadata.md",
         "Architecture" => "architecture.md",

@@ -302,7 +302,7 @@ function live_hl_smoke_protocol_row()
                 proto.n_points == 50 && proto.seed == 103 &&
                 !proto.smoke &&
                 docs_executable_locked_sentences().protocol ==
-                    "Smoke (1 IC / 8 points) is not the seed-103 / 9-IC protocol.")
+                "Smoke (1 IC / 8 points) is not the seed-103 / 9-IC protocol.")
 end
 
 function live_hl_thresholds_row()
@@ -329,7 +329,7 @@ end
 function docs_executable_source_holds()
     src = read(docs_executable_source_path(), String)
     docs = isfile(docs_executable_docs_path()) ?
-        read(docs_executable_docs_path(), String) : ""
+           read(docs_executable_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in DOCS_EXECUTABLE_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", docs) &&
            !occursin("function validate_network", docs)
@@ -338,7 +338,7 @@ end
 function docs_executable_source_violations()
     src = read(docs_executable_source_path(), String)
     docs = isfile(docs_executable_docs_path()) ?
-        read(docs_executable_docs_path(), String) : ""
+           read(docs_executable_docs_path(), String) : ""
     missing = [s for s in DOCS_EXECUTABLE_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&
@@ -659,10 +659,10 @@ function format_leftover_catalog()
     println(io, "| page | leftover hits |")
     println(io, "|---|---|")
     for (name, row) in (
-            :tutorial => leftover_tutorial_row(),
-            :howto => leftover_howto_row(),
-            :sciml => leftover_sciml_row(),
-            :architecture => leftover_architecture_row())
+        :tutorial => leftover_tutorial_row(),
+        :howto => leftover_howto_row(),
+        :sciml => leftover_sciml_row(),
+        :architecture => leftover_architecture_row())
         println(io, "| ", name, " | ", row.n, " |")
     end
     return String(take!(io))
@@ -1036,11 +1036,12 @@ function ag_page_inventory_row()
     for page in DOCS_EXECUTABLE_AG_PAGES
         path = joinpath(root, page)
         text = isfile(path) ? read(path, String) : ""
-        push!(rows, (;
-            page,
-            exists = isfile(path),
-            leftover = length(leftover_hits_on(path)),
-            holds = isfile(path) && !occursin("support_f1_ude = 0.99", text)))
+        push!(rows,
+            (;
+                page,
+                exists = isfile(path),
+                leftover = length(leftover_hits_on(path)),
+                holds = isfile(path) && !occursin("support_f1_ude = 0.99", text)))
     end
     return (;
         n = length(rows),
@@ -1054,11 +1055,12 @@ function hl_page_inventory_row()
     for page in DOCS_EXECUTABLE_HL_PAGES
         path = joinpath(root, page)
         text = isfile(path) ? read(path, String) : ""
-        push!(rows, (;
-            page,
-            exists = isfile(path),
-            leftover = length(leftover_hits_on(path)),
-            holds = isfile(path) && !occursin("support_f1_ude = 0.99", text)))
+        push!(rows,
+            (;
+                page,
+                exists = isfile(path),
+                leftover = length(leftover_hits_on(path)),
+                holds = isfile(path) && !occursin("support_f1_ude = 0.99", text)))
     end
     return (;
         n = length(rows),

@@ -103,7 +103,8 @@ function extracted_hill_docs_hold()
             "unique-claim.md"), String)
     benches = read(joinpath(pkgdir(BioDynaX), "docs", "src",
             "benchmarks.md"), String)
-    metric_page = read(joinpath(pkgdir(BioDynaX), "docs", "src",
+    metric_page = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src",
             "claim-metric-honesty.md"), String)
     return occursin(sentences.extracted_hill, unique_page) &&
            occursin(sentences.extracted_hill, metric_page) &&
@@ -133,9 +134,11 @@ function identifiability_docs_not_structural_hold()
     sentences = claim_metric_honesty_locked_sentences()
     unique_page = read(joinpath(pkgdir(BioDynaX), "docs", "src",
             "unique-claim.md"), String)
-    experimental = read(joinpath(pkgdir(BioDynaX), "docs", "src",
+    experimental = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src",
             "experimental.md"), String)
-    metric_page = read(joinpath(pkgdir(BioDynaX), "docs", "src",
+    metric_page = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src",
             "claim-metric-honesty.md"), String)
     ident_src = read(joinpath(pkgdir(BioDynaX), "src", "Identifiability.jl"),
         String)
@@ -232,7 +235,8 @@ function mm_unknown_docs_hold()
             "unique-claim.md"), String)
     benches = read(joinpath(pkgdir(BioDynaX), "docs", "src",
             "benchmarks.md"), String)
-    metric_page = read(joinpath(pkgdir(BioDynaX), "docs", "src",
+    metric_page = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src",
             "claim-metric-honesty.md"), String)
     return occursin(sentences.mm, unique_page) &&
            occursin(sentences.mm, metric_page) &&

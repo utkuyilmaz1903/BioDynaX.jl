@@ -145,9 +145,10 @@ function positive_parameter_allocation_row()
     raw = 0.5
     row = allocation_gate_row(:positive, () -> positive_parameter(raw),
         ALLOCATION_GATE_LIMITS.positive_parameter)
-    return merge(row, (;
-        value = positive_parameter(raw),
-        limit = ALLOCATION_GATE_LIMITS.positive_parameter))
+    return merge(row,
+        (;
+            value = positive_parameter(raw),
+            limit = ALLOCATION_GATE_LIMITS.positive_parameter))
 end
 
 function inverse_softplus_allocation_row()
@@ -178,9 +179,10 @@ function remapped_pack_allocation_row()
         () -> pack_parameters(phys, p0.nn),
         ALLOCATION_GATE_LIMITS.pack_parameters)
     schema = parameter_schema(model)
-    return merge(row, (;
-        nn_heads = schema.nn_heads,
-        holds = row.holds && schema.nn_heads == 2))
+    return merge(
+        row, (;
+            nn_heads = schema.nn_heads,
+            holds = row.holds && schema.nn_heads == 2))
 end
 
 function kinetic_schema_allocation_row()
@@ -191,9 +193,10 @@ function kinetic_schema_allocation_row()
         () -> parameter_schema(model),
         ALLOCATION_GATE_LIMITS.parameter_schema)
     schema = parameter_schema(model)
-    return merge(row, (;
-        has_custom = :k_custom in schema.phys_names,
-        holds = row.holds && :k_custom in schema.phys_names))
+    return merge(row,
+        (;
+            has_custom = :k_custom in schema.phys_names,
+            holds = row.holds && :k_custom in schema.phys_names))
 end
 
 # -- Denominator / library ----------------------------------------------------
@@ -291,9 +294,10 @@ function ude_rhs_linear_allocation_row()
     row = allocation_gate_row(:rhs_linear,
         () -> ude_rhs!(cache.du, u, packed, 0.0, fx.model, cache),
         ALLOCATION_GATE_LIMITS.ude_rhs_linear)
-    return merge(row, (;
-        finite = all(isfinite, cache.du),
-        holds = row.holds && all(isfinite, cache.du)))
+    return merge(row,
+        (;
+            finite = all(isfinite, cache.du),
+            holds = row.holds && all(isfinite, cache.du)))
 end
 
 function ude_rhs_default_allocation_row()
@@ -307,9 +311,10 @@ function ude_rhs_default_allocation_row()
     row = allocation_gate_row(:rhs_p53,
         () -> ude_rhs!(cache.du, u, packed, 0.0, model, cache),
         ALLOCATION_GATE_LIMITS.ude_rhs_p53)
-    return merge(row, (;
-        finite = all(isfinite, cache.du),
-        holds = row.holds && all(isfinite, cache.du)))
+    return merge(row,
+        (;
+            finite = all(isfinite, cache.du),
+            holds = row.holds && all(isfinite, cache.du)))
 end
 
 # -- Type rows ----------------------------------------------------------------
@@ -951,7 +956,7 @@ end
 function allocation_gates_source_holds()
     src = read(allocation_gates_source_path(), String)
     docs = isfile(allocation_gates_docs_path()) ?
-        read(allocation_gates_docs_path(), String) : ""
+           read(allocation_gates_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in ALLOCATION_GATES_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", docs) &&
            !occursin("function validate_network", docs)
@@ -960,7 +965,7 @@ end
 function allocation_gates_source_violations()
     src = read(allocation_gates_source_path(), String)
     docs = isfile(allocation_gates_docs_path()) ?
-        read(allocation_gates_docs_path(), String) : ""
+           read(allocation_gates_docs_path(), String) : ""
     missing = [s for s in ALLOCATION_GATES_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&
@@ -1312,4 +1317,3 @@ function allocation_gates_contract_holds()
            allocation_gates_live_surface_row().holds &&
            zero_hole_dummy_head_not_schema_row().holds
 end
-

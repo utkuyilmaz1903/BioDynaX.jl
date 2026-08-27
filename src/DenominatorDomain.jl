@@ -60,7 +60,7 @@ function unit_rate_basis_spec()
     num = [
         MonomialTerm(Int[], Int[], "1"),
         MonomialTerm([1], [1], "x[1]"),
-        MonomialTerm([1], [2], "x[1]^2"),
+        MonomialTerm([1], [2], "x[1]^2")
     ]
     return LocalBasisSpec(1, [1], num, num[2:end])
 end
@@ -71,7 +71,7 @@ function two_state_basis_spec()
         MonomialTerm([1], [1], "x[1]"),
         MonomialTerm([2], [1], "x[2]"),
         MonomialTerm([1], [2], "x[1]^2"),
-        MonomialTerm([2], [2], "x[2]^2"),
+        MonomialTerm([2], [2], "x[2]^2")
     ]
     return LocalBasisSpec(1, [1, 2], num, num[2:end])
 end
@@ -425,13 +425,15 @@ function fixture_safe_library_row(name::Symbol, network::BiologicalNetwork;
 end
 
 function hill_unknown_denominator_row()
-    return fixture_safe_library_row(:hill, build_hill_recovery_network(;
-        known = false, hill_order = 2))
+    return fixture_safe_library_row(
+        :hill, build_hill_recovery_network(;
+            known = false, hill_order = 2))
 end
 
 function hill_known_denominator_row()
-    return fixture_safe_library_row(:hill_known, build_hill_recovery_network(;
-        known = true, hill_order = 2))
+    return fixture_safe_library_row(
+        :hill_known, build_hill_recovery_network(;
+            known = true, hill_order = 2))
 end
 
 function mm_unknown_denominator_row()
@@ -608,11 +610,11 @@ end
 function denominator_violation_count_source_holds()
     src = read(recovery_jl_source_path_for_denominator(), String)
     return occursin(
-            "function denominator_violation_count(candidate::ImplicitCandidate, X;", src) &&
+               "function denominator_violation_count(candidate::ImplicitCandidate, X;", src) &&
            occursin(
-            "function denominator_violation_count(::ExplicitCandidate, X;", src) &&
+               "function denominator_violation_count(::ExplicitCandidate, X;", src) &&
            occursin(
-            "function denominator_violation_count(::Nothing, X; floor::Real = 1e-8)", src)
+               "function denominator_violation_count(::Nothing, X; floor::Real = 1e-8)", src)
 end
 
 function denominator_split_counts_source_holds()
@@ -850,7 +852,7 @@ function suite_section_denominator_catalog()
         rows,
         holds = !isempty(rows) && all(r -> r.holds, rows) &&
                 length(unique(r.section for r in rows)) ==
-                    length(recovery_suite_sections()))
+                length(recovery_suite_sections()))
 end
 
 function format_suite_denominator_catalog()
@@ -880,7 +882,7 @@ end
 function denominator_domain_source_holds()
     src = read(denominator_domain_source_path(), String)
     docs = isfile(denominator_domain_docs_path()) ?
-        read(denominator_domain_docs_path(), String) : ""
+           read(denominator_domain_docs_path(), String) : ""
     impl = read(recovery_jl_source_path_for_denominator(), String)
     return all(occursin(needle, src) for needle in DENOMINATOR_DOMAIN_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -891,7 +893,7 @@ end
 function denominator_domain_source_violations()
     src = read(denominator_domain_source_path(), String)
     docs = isfile(denominator_domain_docs_path()) ?
-        read(denominator_domain_docs_path(), String) : ""
+           read(denominator_domain_docs_path(), String) : ""
     missing = [s for s in DENOMINATOR_DOMAIN_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&

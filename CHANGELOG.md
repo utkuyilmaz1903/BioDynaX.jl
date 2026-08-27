@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Software hygiene names unexported lock surfaces versus runtime wiring
+  (`train_experiments_with_warmup`, `denominator_split_counts`), expands
+  the SciML format job to the stacked and science Julia files, marks
+  `scripts/run_discovery.jl` as a debug runner, and puts the unique-claim
+  preview on the README first line. Docs:
+  [internal-workspaces](docs/src/internal-workspaces.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Claim-scope honesty locks the howto CSV as a synthetic fixture, keeps
   licensed experimental series absent, fails closed if partial observation
   claims masked-state UDE training, names graph-prior parent booleans

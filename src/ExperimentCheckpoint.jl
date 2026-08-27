@@ -37,8 +37,7 @@ function experiment_checkpoint_locked_sentences()
 end
 
 """Landing sentence used by `docs/src/sciml.md`."""
-experiment_checkpoint_contract() =
-    experiment_checkpoint_locked_sentences().remapped
+experiment_checkpoint_contract() = experiment_checkpoint_locked_sentences().remapped
 
 function experiment_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Experiments.jl")
@@ -71,14 +70,14 @@ function experiment_fingerprint_row(set::ExperimentSet)
     tagged = ExperimentSet(
         set.experiments, set.state_names;
         units = set.units,
-        metadata = merge(copy(set.metadata), Dict{Symbol,Any}(:tag => :probe)))
+        metadata = merge(copy(set.metadata), Dict{Symbol, Any}(:tag => :probe)))
     tagged_hash = experiment_fingerprint(tagged)
     experiments = map(set.experiments) do experiment
         Experiment(
             experiment.name, experiment.times, experiment.observations,
             experiment.u0; mask = experiment.mask,
             metadata = merge(copy(experiment.metadata),
-                Dict{Symbol,Any}(:note => :ignored)))
+                Dict{Symbol, Any}(:note => :ignored)))
     end
     meta_only = ExperimentSet(experiments, set.state_names; units = set.units)
     meta_hash = experiment_fingerprint(meta_only)
@@ -203,7 +202,7 @@ function experiment_weight_row(set::ExperimentSet)
             exp.name, exp.times, exp.observations, exp.u0;
             mask = exp.mask,
             metadata = merge(copy(exp.metadata),
-                Dict{Symbol,Any}(:weight => 2.0, :noise_σ => 0.25)))
+                Dict{Symbol, Any}(:weight => 2.0, :noise_σ => 0.25)))
     end
     return (;
         default_weight = all(==(1.0), weights),
@@ -225,7 +224,8 @@ function checkpoint_schema_row()
         major = CHECKPOINT_SCHEMA_VERSION.major,
         source_has_version = occursin("CHECKPOINT_SCHEMA_VERSION = v\"1.0.0\"", src),
         save_uses_schema = occursin("CHECKPOINT_SCHEMA_VERSION", train),
-        resume_passes_state = occursin("optimizer_state = checkpoint.optimizer_state", train),
+        resume_passes_state = occursin(
+            "optimizer_state = checkpoint.optimizer_state", train),
         holds = CHECKPOINT_SCHEMA_VERSION == v"1.0.0" &&
                 occursin("CHECKPOINT_SCHEMA_VERSION = v\"1.0.0\"", src) &&
                 occursin("optimizer_state = checkpoint.optimizer_state", train))
@@ -457,7 +457,7 @@ function six_state_generate_train_row()
     rng = MersenneTwister(41)
     model, p0 = build_ude_model(rng, net)
     ics = [[0.22, 0.18, 0.16, 0.14, 0.12, 0.10],
-           [0.28, 0.20, 0.18, 0.16, 0.14, 0.12]]
+        [0.28, 0.20, 0.18, 0.16, 0.14, 0.12]]
     set = generate_experiment_set(
         MersenneTwister(41); network = net,
         initial_conditions = ics,
@@ -584,7 +584,7 @@ end
 function experiment_checkpoint_source_holds()
     src = read(experiment_checkpoint_source_path(), String)
     docs = isfile(experiment_checkpoint_docs_path()) ?
-        read(experiment_checkpoint_docs_path(), String) : ""
+           read(experiment_checkpoint_docs_path(), String) : ""
     impl = read(experiment_jl_source_path(), String)
     return all(occursin(needle, src) for needle in EXPERIMENT_CHECKPOINT_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -622,7 +622,7 @@ function experiment_checkpoint_source_violations()
     src = read(experiment_checkpoint_source_path(), String)
     impl = read(experiment_jl_source_path(), String)
     docs = isfile(experiment_checkpoint_docs_path()) ?
-        read(experiment_checkpoint_docs_path(), String) : ""
+           read(experiment_checkpoint_docs_path(), String) : ""
     missing = [s for s in EXPERIMENT_CHECKPOINT_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", impl) &&
@@ -868,7 +868,7 @@ function unique_claim_from_compiled_fingerprint_row()
             tspan = fp.tspan, n_points = fp.n_points, noise_σ = 0.0)
         digest = experiment_fingerprint(set)
         ics = [experiment_fingerprint(ExperimentSet(
-            [exp], set.state_names; units = set.units))
+                   [exp], set.state_names; units = set.units))
                for exp in set.experiments]
         return (;
             compiles = counter[],
@@ -895,7 +895,7 @@ function unique_claim_ic_fingerprint_uniqueness_row()
         tspan = (0.0, 0.6), n_points = 6, noise_σ = 0.0,
         truth_params = (k_ba = 0.8, k_a = 1.2, k_b = 0.5))
     hashes = [experiment_fingerprint(ExperimentSet(
-        [exp], set.state_names; units = set.units))
+                  [exp], set.state_names; units = set.units))
               for exp in set.experiments]
     return (;
         n_ics = length(set),
@@ -939,7 +939,7 @@ function batch_remainder_row(set::ExperimentSet; batch_size::Int = 2)
     widths = [length(batch) for batch in batches]
     flat = reduce(vcat, [[exp.name for exp in batch] for batch in batches])
     last_short = length(set) % batch_size != 0 ?
-        last(widths) == length(set) % batch_size : last(widths) == batch_size
+                 last(widths) == length(set) % batch_size : last(widths) == batch_size
     return (;
         n_ics = length(set),
         batch_size,
@@ -1074,7 +1074,7 @@ function frozen_phys_checkpoint_row(; dir)
     after = NamedTuple{names}(ntuple(
         i -> Float64(first_fit.params.phys[i]), length(names)))
     frozen_held = all(name -> getfield(before, name) ≈ getfield(after, name),
-                      frozen)
+        frozen)
     return (;
         compiles = n,
         frozen,
