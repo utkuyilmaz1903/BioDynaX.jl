@@ -25,6 +25,7 @@ using OptimizationOptimJL
 using Optimisers
 using PrecompileTools
 using Zygote
+import ChainRulesCore
 using ChainRulesCore: ignore_derivatives
 using Random
 using Serialization

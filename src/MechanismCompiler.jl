@@ -171,6 +171,24 @@ end
     end
 end
 
+function ChainRulesCore.rrule(::typeof(_phys_param), p::ComponentVector,
+        ::Val{name}) where {name}
+    idx = _phys_name_index(_component_axis_type(p), name)
+    raw = @inbounds parent(p)[idx]
+    y = positive_parameter(raw)
+    function phys_param_pullback(Δ)
+        Δu = ChainRulesCore.unthunk(Δ)
+        Δu isa ChainRulesCore.AbstractZero &&
+            return (ChainRulesCore.NoTangent(), ChainRulesCore.ZeroTangent(),
+                    ChainRulesCore.NoTangent())
+        flat = zero(parent(p))
+        @inbounds flat[idx] = sigmoid(raw) * Δu
+        tan = ComponentVector(flat, getfield(p, :axes))
+        return (ChainRulesCore.NoTangent(), tan, ChainRulesCore.NoTangent())
+    end
+    return y, phys_param_pullback
+end
+
 @noinline _typed_cons(xs::Tuple, x) = (xs..., x)
 
 @inline _nonneg_state(x, index::Int) = _nonneg(x[index])
@@ -319,6 +337,19 @@ end
     return getfield(p, :data)::Vector{Float64}
 end
 
+function ChainRulesCore.rrule(::typeof(_extract_flat), p::ComponentVector)
+    flat = getfield(p, :data)::Vector{Float64}
+    axes = getfield(p, :axes)
+    function extract_flat_pullback(Δ)
+        Δu = ChainRulesCore.unthunk(Δ)
+        Δu isa ChainRulesCore.AbstractZero &&
+            return (ChainRulesCore.NoTangent(), ChainRulesCore.ZeroTangent())
+        tan = ComponentVector(convert(Vector{Float64}, Δu), axes)
+        return (ChainRulesCore.NoTangent(), tan)
+    end
+    return flat, extract_flat_pullback
+end
+
 @inline function _linear_ab_from_flat(x, flat::Vector{Float64}, model::UDEModel)
     k_ba = positive_parameter(@inbounds flat[model.k_ba_idx])
     k_a = positive_parameter(@inbounds flat[model.k_a_idx])
@@ -450,13 +481,23 @@ end
     return _scaled(_term_destruction_value(term, x, p), term.scale)
 end
 
-@inline function _neural_regulators(x, term::NeuralDestructionTerm)
+@inline function _neural_regulators(x::SVector, term::NeuralDestructionTerm)
     regs = term.regulators
     n = length(regs)
     T = eltype(x)
     n == 1 && return SVector{1,T}(_nonneg_state(x, term.regulator))
     n == 2 && return SVector{2,T}(
         _nonneg_state(x, regs[1]), _nonneg_state(x, regs[2]))
+    return T[_nonneg_state(x, r) for r in regs]
+end
+
+@inline function _neural_regulators(x, term::NeuralDestructionTerm)
+    regs = term.regulators
+    n = length(regs)
+    T = eltype(x)
+    # Heap states (training / Zygote): Vector inputs, not SVector.
+    n == 1 && return T[_nonneg_state(x, term.regulator)]
+    n == 2 && return T[_nonneg_state(x, regs[1]), _nonneg_state(x, regs[2])]
     return T[_nonneg_state(x, r) for r in regs]
 end
 
@@ -531,13 +572,19 @@ function _ude_system_out_of_place(x, p, _t, model)
     cm = model.compiled
     n = cm.nstates
     T = eltype(x)
-    du = Vector{T}(undef, n)
-    @inbounds for i in 1:n
+    # Build the Vector without `setindex!` so Zygote can differentiate.
+    if n == 2
+        p1 = _state_production(1, x, p, cm.production_terms)
+        d1 = _state_destruction(1, x, p, cm.destruction_terms, model.nn, model.st)
+        p2 = _state_production(2, x, p, cm.production_terms)
+        d2 = _state_destruction(2, x, p, cm.destruction_terms, model.nn, model.st)
+        return T[p1 - d1 * x[1], p2 - d2 * x[2]]
+    end
+    return map(1:n) do i
         prod = _state_production(i, x, p, cm.production_terms)
         dest = _state_destruction(i, x, p, cm.destruction_terms, model.nn, model.st)
-        du[i] = prod - dest * x[i]
+        T(prod - dest * x[i])
     end
-    return du
 end
 
 @inline function _s2_kernel(x::SVector{2,T}, p, prod, dest, nn, st) where {T}
@@ -605,18 +652,40 @@ end
     return _ude_system_impl(x, p, model.impl, nothing)::Vector{Float64}
 end
 
-function ude_system(x::Vector{Float64}, p, t, model::UDEModel)
+@inline function _linear_vec64(x, p, model::UDEModel)
+    a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+    return Float64[a, b]
+end
+
+@inline function _ude_system_vec64_primal(x, p, model::UDEModel)
     _require_matching_state_length(x, model.nstates)
     if model.is_linear_ab
-        a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
-        du = Vector{Float64}(undef, 2)
-        @inbounds begin
-            du[1] = a
-            du[2] = b
-        end
-        return du
+        return _linear_vec64(x, p, model)
     end
     return _generic_vec64(x, p, model)
+end
+
+function ude_system(x::Vector{Float64}, p, t, model::UDEModel)
+    return _ude_system_vec64_primal(x, p, model)
+end
+
+# Zygote traces both sides of `if model.is_linear_ab`. A custom rrule
+# evaluates only the taken kernel so training stays on one AD graph.
+function ChainRulesCore.rrule(::typeof(ude_system), x::Vector{Float64}, p, t,
+        model::UDEModel)
+    y = _ude_system_vec64_primal(x, p, model)
+    function ude_system_vec64_pullback(Δ)
+        Δu = ChainRulesCore.unthunk(Δ)
+        back = if model.is_linear_ab
+            last(Zygote.pullback(_linear_vec64, x, p, model))
+        else
+            last(Zygote.pullback(_generic_vec64, x, p, model))
+        end
+        gx, gp, gm = back(Δu)
+        return (ChainRulesCore.NoTangent(), gx, gp,
+                ChainRulesCore.NoTangent(), gm)
+    end
+    return y, ude_system_vec64_pullback
 end
 
 @inline function ude_system(x::SVector{N,T}, p, t, model::UDEModel) where {N,T}
