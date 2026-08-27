@@ -73,18 +73,19 @@ legacy `Dict{Symbol}`.
 """
 const MetadataLike = Union{KineticMetadata,AbstractDict{Symbol}}
 
-@inline _meta_symbol(meta::AbstractDict{Symbol}, key::Symbol, default::Symbol) =
-    Symbol(get(meta, key, default))
-
-@inline function _meta_int(meta::AbstractDict{Symbol}, key::Symbol, default::Int)
-    value = get(meta, key, default)
-    return value isa Integer ? Int(value) : default
+@inline function _coerce_symbol(value, default::Symbol)
+    value isa Symbol && return value
+    value isa AbstractString && return Symbol(value)
+    return default
 end
 
-@inline _meta_symbol(meta::Dict{Symbol,Any}, key::Symbol, default::Symbol) =
-    get(meta, key, default)
+@inline function _meta_symbol(meta::AbstractDict{Symbol}, key::Symbol, default::Symbol)
+    haskey(meta, key) || return default
+    return _coerce_symbol(get(meta, key, default), default)
+end
 
-@inline function _meta_int(meta::Dict{Symbol,Any}, key::Symbol, default::Int)
+@inline function _meta_int(meta::AbstractDict{Symbol}, key::Symbol, default::Int)
+    haskey(meta, key) || return default
     value = get(meta, key, default)
     return value isa Integer ? Int(value) : default
 end
@@ -140,40 +141,47 @@ end
 @inline _meta_int(meta::EmptyMetadata, key::Symbol, default::Int) = default
 @inline _meta_symbol(meta::KineticMetadata, key::Symbol, default::Symbol) = default
 @inline _meta_int(meta::KineticMetadata, key::Symbol, default::Int) = default
-@inline _meta_symbol(meta::MetadataLike, key::Symbol, default::Integer) =
+@inline _meta_symbol(meta::KineticMetadata, key::Symbol, default::Integer) =
+    _meta_symbol(meta, key, Symbol("k_", default))
+@inline _meta_symbol(meta::AbstractDict{Symbol}, key::Symbol, default::Integer) =
     _meta_symbol(meta, key, Symbol("k_", default))
 
-@inline function _meta_get(meta::MetadataLike, key::Symbol)
-    meta isa AbstractDict{Symbol} && return get(meta, key, nothing)
-    meta isa CompetitiveMetadata && return _meta_get(meta, key)
-    return nothing
+@inline function _meta_get(meta::AbstractDict{Symbol}, key::Symbol)
+    haskey(meta, key) || return nothing
+    return get(meta, key, nothing)
 end
 
-@inline function _meta_haskey(meta::MetadataLike, key::Symbol)
-    meta isa AbstractDict{Symbol} && return haskey(meta, key)
-    meta isa InputDriveMetadata &&
-        return key in (:drive, :rate_param, :input_param, :input_node)
-    meta isa MassActionMetadata &&
-        return key in (:rate_param, :order, :input_param)
-    meta isa HillMetadata &&
-        return key in (:vmax_param, :k_param, :hill_order)
-    meta isa CompetitiveMetadata &&
-        return key in (:vmax_param, :km_param, :ki_param,
-                       :substrate, :inhibitor, :regulators)
-    meta isa LinearDecayMetadata && return key === :rate_param
-    meta isa SaturationMetadata &&
-        return key in (:vmax_param, :km_param)
-    meta isa CustomKineticMetadata &&
-        return key in (:rate_param, :evaluator, :preset)
-    return false
+@inline _meta_get(::KineticMetadata, ::Symbol) = nothing
+
+@inline _meta_haskey(meta::AbstractDict{Symbol}, key::Symbol) = haskey(meta, key)
+@inline _meta_haskey(meta::InputDriveMetadata, key::Symbol) =
+    key === :drive || key === :rate_param ||
+    key === :input_param || key === :input_node
+@inline _meta_haskey(meta::MassActionMetadata, key::Symbol) =
+    key === :rate_param || key === :order || key === :input_param
+@inline _meta_haskey(meta::HillMetadata, key::Symbol) =
+    key === :vmax_param || key === :k_param || key === :hill_order
+@inline _meta_haskey(meta::CompetitiveMetadata, key::Symbol) =
+    key === :vmax_param || key === :km_param || key === :ki_param ||
+    key === :substrate || key === :inhibitor || key === :regulators
+@inline _meta_haskey(meta::LinearDecayMetadata, key::Symbol) = key === :rate_param
+@inline _meta_haskey(meta::SaturationMetadata, key::Symbol) =
+    key === :vmax_param || key === :km_param
+@inline _meta_haskey(meta::CustomKineticMetadata, key::Symbol) =
+    key === :rate_param || key === :evaluator || key === :preset
+@inline _meta_haskey(::KineticMetadata, ::Symbol) = false
+
+@inline _is_input_drive(meta::InputDriveMetadata) = meta.drive === :input
+@inline function _is_input_drive(meta::AbstractDict{Symbol})
+    haskey(meta, :drive) || return false
+    return _meta_symbol(meta, :drive, :none) === :input
 end
+@inline _is_input_drive(::KineticMetadata) = false
 
 """
     metadata_summary(meta) -> String
 
 Compact diagnostic label for typed kinetic metadata or a `Dict{Symbol}` payload.
 """
-function metadata_summary(meta::MetadataLike)
-    meta isa AbstractDict{Symbol} && return "Dict{Symbol}($(length(meta)) keys)"
-    return string(typeof(meta))
-end
+metadata_summary(meta::AbstractDict{Symbol}) = "Dict{Symbol}($(length(meta)) keys)"
+metadata_summary(meta::KineticMetadata) = string(typeof(meta))

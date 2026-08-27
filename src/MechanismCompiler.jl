@@ -489,26 +489,32 @@ function ude_system(x, p, t, nn, st, network::BiologicalNetwork)
     return ude_system(x, p, t, model)
 end
 
-function _custom_kinetic_evaluator(meta::MetadataLike, reaction_name::Symbol)
-    if meta isa CustomKineticMetadata
-        meta.evaluator !== nothing && return meta.evaluator
-        meta.preset == :power_law &&
-            return (x, p, regulators) -> begin
-                reg = _nonneg_state(x, only(regulators))
-                return _phys_param(p, meta.rate_param) * reg
-            end
-        throw(ArgumentError(
-            "reaction $reaction_name: CUSTOM_KINETIC requires evaluator or supported preset"))
-    end
+function _custom_kinetic_evaluator(meta::CustomKineticMetadata, reaction_name::Symbol)
+    meta.evaluator !== nothing && return meta.evaluator
+    meta.preset === :power_law &&
+        return (x, p, regulators) -> begin
+            reg = _nonneg_state(x, only(regulators))
+            return _phys_param(p, meta.rate_param) * reg
+        end
+    throw(ArgumentError(
+        "reaction $reaction_name: CUSTOM_KINETIC requires evaluator or supported preset"))
+end
+
+function _custom_kinetic_evaluator(meta::AbstractDict{Symbol}, reaction_name::Symbol)
     evaluator = _meta_get(meta, :evaluator)
     evaluator isa Function && return evaluator
     preset = _meta_get(meta, :preset)
-    preset == :power_law &&
+    preset === :power_law &&
         return (x, p, regulators) -> begin
             rate_param = _meta_symbol(meta, :rate_param, reaction_name)
             reg = _nonneg_state(x, only(regulators))
             return _phys_param(p, rate_param) * reg
         end
+    throw(ArgumentError(
+        "reaction $reaction_name: CUSTOM_KINETIC metadata missing evaluator or preset"))
+end
+
+function _custom_kinetic_evaluator(::KineticMetadata, reaction_name::Symbol)
     throw(ArgumentError(
         "reaction $reaction_name: CUSTOM_KINETIC metadata missing evaluator or preset"))
 end
@@ -528,8 +534,7 @@ function _reaction_production_term(
             _meta_symbol(meta, :input_param, :signal),
             scale)
     end
-    if _meta_haskey(meta, :drive) &&
-       _meta_symbol(meta, :drive, :none) == :input
+    if _is_input_drive(meta)
         return InputProductionTerm(
             target,
             _meta_symbol(meta, :rate_param, reaction.name),

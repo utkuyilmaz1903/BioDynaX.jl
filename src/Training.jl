@@ -124,11 +124,26 @@ function predict_ude(p, u0, tspan, saveat, model::UDEModel;
                      solver_config::SolverConfig = SolverConfig(),
                      cache::Union{Nothing,UDEModelCache} = nothing,
                      session = nothing)
-    return predict_ude(
-        p, u0, tspan, saveat, model.nn, model.st;
-        model = model, network = model.network,
-        solver_config = solver_config, cache = cache,
-        session = session)
+    if session !== nothing
+        return predict_ude_session(session, p, u0, tspan, saveat)
+    end
+    inplace = _forward_inplace(solver_config)
+    prob = SciMLBase.ODEProblem(
+        model, u0, tspan, p; inplace = inplace, cache = cache)
+    sol = solve(
+        prob, solver_config.algorithm;
+        saveat = saveat,
+        abstol = solver_config.abstol,
+        reltol = solver_config.reltol,
+        maxiters = solver_config.maxiters,
+        sensealg = solver_config.sensealg,
+        dense = false,
+        save_everystep = false)
+    prediction = Array(sol)
+    ignore_derivatives() do
+        _validate_solution(sol, prediction, saveat, tspan)
+    end
+    return prediction
 end
 
 function loss_mse(p, data, t_data, u0, tspan, nn, st;
@@ -294,6 +309,15 @@ end
 function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                    model::Union{Nothing,UDEModel} = nothing,
                    network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
+                   kwargs...)
+    resolved = model === nothing ? compile_network(network, nn, st) : model
+    return _train_ude_model(
+        p_init, data, t_data, u0, tspan, resolved, nn, st, resolved.network;
+        kwargs...)
+end
+
+function _train_ude_model(p_init, data, t_data, u0, tspan, model::UDEModel, nn, st,
+                          network::BiologicalNetwork;
                    config::Union{Nothing,TrainingConfig} = nothing,
                    adam_iters::Int = 300,
                    adam_lr::Float64 = 0.01,
@@ -317,17 +341,11 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
         adam_learning_rate = adam_lr,
         bfgs_iterations = bfgs_iters,
         log_every = log_every) : config
-    resolved_model = model === nothing ?
-        compile_network(network, nn, st) : model
-    if model === nothing && resolved_model !== nothing
-        training_config = lock_training_config(resolved_model, training_config)
-    elseif model !== nothing
-        training_config = lock_training_config(resolved_model, training_config)
-    end
+    training_config = lock_training_config(model, training_config)
     local_session = session
     if local_session === nothing
         local_session = training_solve_session(
-            resolved_model, u0, tspan, p_init;
+            model, u0, tspan, p_init;
             solver = training_config.solver)
     end
     diag = LossDiagnostics()
@@ -340,8 +358,7 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
         rho_init
     function make_loss(local_data, local_times, local_span)
         return (p, _) -> loss_mse(
-            p, local_data, local_times, u0, local_span, nn, st;
-            model = resolved_model, network = network,
+            p, local_data, local_times, u0, local_span, model;
             constraint = training_config.constraint, dual, ρ,
             solver_config = training_config.solver, diagnostics = diag)
     end
@@ -375,7 +392,7 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                 run = RunMetadata(
                     seed = seed,
                     data_hash = data_fingerprint(data, t_data, u0),
-                    config = Dict(:training => training_config)),
+                    config = (; training = training_config)),
                 dual = copy(dual),
                 rho = ρ,
                 outer = current_outer[],
@@ -433,8 +450,7 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
         end
         if training_config.constraint isa AugmentedLagrangianConfig
             prediction = predict_ude(
-                params, u0, tspan, t_data, nn, st;
-                model = resolved_model, network = network,
+                params, u0, tspan, t_data, model;
                 solver_config = training_config.solver,
                 session = local_session)
             constraints = _constraint_values(
@@ -454,7 +470,7 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
     metadata = RunMetadata(
         seed = seed,
         data_hash = data_fingerprint(data, t_data, u0),
-        config = Dict(:training => training_config))
+        config = (; training = training_config))
     diagnostics = (
         mse = diag.mse, constraint = diag.constraint,
         primal_residual = diag.primal_residual, dual = copy(dual), ρ = ρ,
@@ -478,14 +494,40 @@ Fit physical (and optional neural) parameters of a compiled UDE to one
 trajectory. Use `train_experiments` for masked multi-replicate data.
 """
 function train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
-    return train_ude(
-        p_init, data, t_data, u0, tspan, model.nn, model.st;
-        model = model, network = model.network, kwargs...)
+    return _train_ude_model(
+        p_init, data, t_data, u0, tspan, model, model.nn, model.st, model.network;
+        kwargs...)
 end
 
-function loss_mse(p, data, t_data, u0, tspan, model::UDEModel; kwargs...)
-    return loss_mse(p, data, t_data, u0, tspan, model.nn, model.st;
-                    model = model, network = model.network, kwargs...)
+function loss_mse(p, data, t_data, u0, tspan, model::UDEModel;
+                  constraint::AbstractConstraintStrategy = StructuralPositivity(),
+                  dual = zeros(eltype(p), size(data, 1)),
+                  ρ = one(eltype(p)),
+                  solver_config::SolverConfig = SolverConfig(),
+                  mask = trues(size(data)),
+                  diagnostics::Union{Nothing,LossDiagnostics} = nothing,
+                  session = nothing)
+    prediction = predict_ude(p, u0, tspan, t_data, model;
+                             solver_config = solver_config,
+                             session = session)
+    size(prediction) == size(data) ||
+        throw(ErrorException("ODE solve terminated before all observations"))
+    all(isfinite, prediction) ||
+        throw(ErrorException("ODE solve returned non-finite states"))
+    mse = _masked_mse(prediction, data, mask)
+    constraints = _constraint_values(prediction, constraint)
+    constraint_loss = constraint isa AugmentedLagrangianConfig ?
+        _augmented_term(
+            constraints, dual, ρ, constraint.smoothness) : zero(mse)
+    total = mse + constraint_loss
+    residual = isempty(constraints) ? zero(mse) :
+        max(zero(mse), maximum(constraints))
+    if diagnostics !== nothing
+        ignore_derivatives() do
+            _record!(diagnostics, mse, constraint_loss, total, residual)
+        end
+    end
+    return total
 end
 
 """

@@ -766,14 +766,30 @@ function _failed_discovery(error, config; prefix = "Discovery failed")
         _discovery_retcode(error))
 end
 
+@inline function _coefficient_vanishes(coefficient)
+    coefficient isa Number || return true
+    return abs(float(coefficient)) ≤ 1e-10
+end
+
 function _support_empty(candidate::ExplicitCandidate)
-    return all(coefficient -> abs(coefficient) ≤ 1e-10, candidate.coefficients)
+    coeffs = candidate.coefficients
+    isempty(coeffs) && return true
+    empty = true
+    @inbounds for coefficient in coeffs
+        empty &= _coefficient_vanishes(coefficient)
+    end
+    return empty
 end
 
 function _support_empty(candidate::ImplicitCandidate)
-    return all(coefficient -> abs(coefficient) ≤ 1e-10,
-               vcat(candidate.numerator_coefficients,
-                    candidate.denominator_coefficients))
+    empty = true
+    @inbounds for coefficient in candidate.numerator_coefficients
+        empty &= _coefficient_vanishes(coefficient)
+    end
+    @inbounds for coefficient in candidate.denominator_coefficients
+        empty &= _coefficient_vanishes(coefficient)
+    end
+    return empty
 end
 
 function _target_indices(X, targets)
@@ -796,7 +812,7 @@ function _discover_explicit(X, derivatives, network, backend,
     training_indices = collect(1:(sample_count - validation_count))
     validation_indices =
         collect((sample_count - validation_count + 1):sample_count)
-    candidates = ExplicitCandidate[]
+    candidates = ExplicitCandidate{eltype(X)}[]
     chunk_size = _backend_chunk_size(backend)
 
     for target in _target_indices(X, targets)
@@ -842,7 +858,7 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     val_X = @view X[:, validation_indices]
     domain_X = _denominator_domain_grid(
         X; n = backend.domain_samples, seed = config.seed)
-    candidates = ImplicitCandidate[]
+    candidates = ImplicitCandidate{eltype(X)}[]
     denominator_errors = Exception[]
 
     for target in _target_indices(X, targets)
@@ -904,8 +920,7 @@ function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfi
         seed = config.seed,
         package_version = PACKAGE_VERSION,
         data_hash = data_fingerprint(X, derivatives),
-        config = Dict(:backend => string(typeof(backend)),
-                      :samples => size(X, 2)))
+        config = (; backend = string(typeof(backend)), samples = size(X, 2)))
     return DiscoveryResult(true, "ok", equation_text, basis, nothing,
                            candidates, metadata, DiscoverySuccess)
 end

@@ -497,8 +497,22 @@ function _rate_network_from_samples(R::AbstractMatrix)
     n ≥ 1 || throw(ArgumentError("rate samples must have at least one regulator row"))
     nodes = [NodeSpec(name = Symbol(:r, i)) for i in 1:n]
     edges = [EdgeSpec(source = i, target = 1, kind = INHIBITION,
-                      family = HILL, known = false) for i in 2:n]
-    return BiologicalNetwork(nodes, edges)
+                      family = HILL, known = false,
+                      metadata = EmptyMetadata()) for i in 2:n]
+    return _trusted_rate_network(nodes, edges)
+end
+
+function _trusted_rate_network(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec})
+    g = SimpleDiGraph(length(nodes))
+    interactions = Dict{Tuple{Int,Int},EdgeSpec}()
+    for edge in edges
+        key = (edge.source, edge.target)
+        add_edge!(g, edge.source, edge.target)
+        interactions[key] = edge
+    end
+    names = Dict(i => String(node.name) for (i, node) in pairs(nodes))
+    kinds = Dict(key => edge.kind for (key, edge) in interactions)
+    return BiologicalNetwork(g, nodes, interactions, ReactionSpec[], names, kinds)
 end
 
 """
