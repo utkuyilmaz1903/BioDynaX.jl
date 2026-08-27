@@ -149,7 +149,7 @@ end
 function predict_ude(p, u0, tspan, saveat, model::UDEModel,
                      solver_config::SolverConfig)
     inplace = _forward_inplace(solver_config)
-    prob = SciMLBase.ODEProblem(model, u0, tspan, p; inplace = inplace)
+    prob = _odeproblem(model, u0, tspan, p, inplace)
     sol = solve(
         prob, solver_config.algorithm;
         saveat = saveat,
@@ -209,12 +209,12 @@ function _training_retcode(converged::Bool, diagnostics::LossDiagnostics)
     return NotConverged
 end
 
-struct LossMSECall
+struct LossMSECall{S}
     model::UDEModel
     constraint::StructuralPositivity
     dual::Vector{Float64}
     ρ::Float64
-    solver::SolverConfig
+    solver::S
     diagnostics::LossDiagnostics
     data::Matrix{Float64}
     times::Vector{Float64}
@@ -271,6 +271,81 @@ function _train_diagnostics(diag::LossDiagnostics, dual, ρ, optimizer_state)
         (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
          retcode = diag.bfgs_retcode, message = String(diag.bfgs_message)),
         optimizer_state)
+end
+
+function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
+    adam_iterations = max(1, cld(config.adam_iterations, stages))
+    bfgs_iterations = final_stage ? config.bfgs_iterations : 0
+    return TrainingConfig(
+        adam_iterations, config.adam_learning_rate, bfgs_iterations,
+        config.gradient_clip, config.log_every, config.constraint,
+        config.solver, config.horizon_schedule, config.frozen_phys)
+end
+
+function _optimize_stage(p_init::P, loss_closure::LossMSECall, config::TrainingConfig,
+                         history::Vector{Float64}, diagnostics::LossDiagnostics,
+                         verbose::Bool, optimizer_state, checkpoint_hook) where {P}
+    callback = function (_state, loss)
+        push!(history, Float64(loss))
+        if verbose && length(history) % config.log_every == 0
+            println("       iter ", lpad(length(history), 4),
+                    " | total=", round(loss; sigdigits = 7),
+                    " | mse=", round(diagnostics.mse; sigdigits = 7),
+                    " | constraint=",
+                    round(diagnostics.constraint; sigdigits = 7),
+                    " | primal=",
+                    round(diagnostics.primal_residual; sigdigits = 5))
+        end
+        return false
+    end
+    optimizer = Optimisers.OptimiserChain(
+        Optimisers.ClipGrad(config.gradient_clip),
+        Optimisers.Adam(config.adam_learning_rate))
+    params = p_init
+    frozen_ref = p_init
+    state = optimizer_state === nothing ?
+        Optimisers.setup(optimizer, params) : optimizer_state
+    for _ in 1:config.adam_iterations
+        loss, gradients = Zygote.withgradient(
+            value -> loss_closure(value, nothing), params)
+        gradient = only(gradients)
+        all(isfinite, gradient) ||
+            begin
+                diagnostics.gradient_failure = true
+                throw(ErrorException("optimizer produced a non-finite gradient"))
+            end
+        gradient = _zero_frozen_phys_gradient(gradient, config.frozen_phys)
+        push!(diagnostics.gradient_norm_history,
+              Float64(sqrt(sum(abs2, gradient))))
+        state, params = Optimisers.update(state, params, gradient)
+        callback(nothing, loss)
+        checkpoint_hook === nothing ||
+            checkpoint_hook(params, state, length(history))
+    end
+    if config.bfgs_iterations > 0
+        objective = Optimization.OptimizationFunction(
+            loss_closure, Optimization.AutoZygote())
+        refinement = Optimization.OptimizationProblem(objective, params)
+        bfgs_result = try
+            Optimization.solve(
+                refinement, OptimizationOptimJL.BFGS();
+                callback, maxiters = config.bfgs_iterations)
+        catch error
+            _record_bfgs!(diagnostics, true, false, :failure,
+                          sprint(showerror, error))
+            @warn "BFGS refinement failed; retaining Adam result." exception = error
+            nothing
+        end
+        if bfgs_result === nothing
+            diagnostics.bfgs_attempted || _record_bfgs!(
+                diagnostics, true, false, :failure, "BFGS solve failed")
+        else
+            params = _restore_frozen_phys(
+                bfgs_result.u, frozen_ref, config.frozen_phys)
+            _record_bfgs!(diagnostics, true, true, :success, "BFGS refinement completed")
+        end
+    end
+    return (params, state)::Tuple{P,Any}
 end
 
 function _optimize_stage(p_init::P, loss_closure, config, history, diagnostics,
@@ -367,17 +442,6 @@ function _restore_frozen_phys(params, reference, frozen::AbstractVector{Symbol})
         push!(updates, name => value)
     end
     return ComponentVector(phys = NamedTuple(updates), nn = params.nn)
-end
-
-function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
-    adam_iterations = max(1, cld(config.adam_iterations, stages))
-    horizon = config.horizon_schedule isa HorizonCurriculum ?
-        config.horizon_schedule :
-        HorizonCurriculum(fractions = collect(_horizon_fractions(config.horizon_schedule)))
-    return TrainingConfig(config;
-        adam_iterations = adam_iterations,
-        bfgs_iterations = final_stage ? config.bfgs_iterations : 0,
-        horizon_schedule = horizon)
 end
 
 function _training_converged(final_loss::Float64, initial_loss::Float64, config, diagnostics)
@@ -594,13 +658,82 @@ const _DEFAULT_TRAINING_CONFIG = TrainingConfig()
 Fit physical (and optional neural) parameters of a compiled UDE to one
 trajectory. Use `train_experiments` for masked multi-replicate data.
 """
+function _train_ude_default(p_init::P, data::AbstractMatrix,
+        t_data::AbstractVector, u0::AbstractVector,
+        tspan::NTuple{2,Real}, model::UDEModel) where {P}
+    training_config = lock_training_config(model, _DEFAULT_TRAINING_CONFIG)
+    diag = LossDiagnostics()
+    data64 = data isa Matrix{Float64} ? data : Matrix{Float64}(data)
+    times64 = t_data isa Vector{Float64} ? t_data : collect(Float64, t_data)
+    u064 = u0 isa Vector{Float64} ? u0 : collect(Float64, u0)
+    tspan64 = (Float64(tspan[1]), Float64(tspan[2]))
+    dual = zeros(Float64, size(data64, 1))
+    solver = training_config.solver
+    full_loss = LossMSECall(
+        model, StructuralPositivity(), dual, 0.0, solver, diag,
+        data64, times64, u064, tspan64)
+    initial_loss = try
+        Float64(full_loss(p_init, nothing))
+    catch
+        fractions = _horizon_fractions(training_config.horizon_schedule)
+        first_fraction = minimum(fractions)
+        min_pts = _horizon_min_points(training_config.horizon_schedule)
+        count = clamp(round(Int, first_fraction * length(times64)), min_pts,
+                      length(times64))
+        warmup = LossMSECall(
+            model, StructuralPositivity(), dual, 0.0, solver, diag,
+            data64[:, 1:count], times64[1:count], u064,
+            (tspan64[1], times64[count]))
+        Float64(warmup(p_init, nothing))
+    end
+    history = Float64[]
+    params = p_init
+    current_optimizer_state = nothing
+    min_frac = _horizon_minimum_fraction(training_config.horizon_schedule)
+    min_pts = _horizon_min_points(training_config.horizon_schedule)
+    schedule = sort(unique(clamp.(
+        _horizon_fractions(training_config.horizon_schedule),
+        min_frac, 1.0)))
+    n_stages = length(schedule)
+    for (stage, fraction) in pairs(schedule)
+        count = clamp(round(Int, fraction * length(times64)), min_pts,
+                      length(times64))
+        local_times = times64[1:count]
+        local_data = data64[:, 1:count]
+        local_span = (tspan64[1], local_times[end])
+        stage_config = _stage_config(training_config, n_stages, stage == n_stages)
+        stage_loss = LossMSECall(
+            model, StructuralPositivity(), dual, 0.0, solver, diag,
+            local_data, local_times, u064, local_span)
+        params, current_optimizer_state = _optimize_stage(
+            params, stage_loss, stage_config, history, diag, true,
+            current_optimizer_state, nothing)
+    end
+    final_loss = Float64(full_loss(params, nothing))
+    metadata = RunMetadata(
+        UInt64(0), now(UTC), VERSION, PACKAGE_VERSION,
+        data_fingerprint(data64, times64, u064),
+        (; training = training_config))
+    converged = _training_converged(
+        final_loss, initial_loss, training_config, diag)
+    retcode = _training_retcode(converged, diag)
+    fitted = convert(P, params)
+    typed_diag = _train_diagnostics(diag, dual, 0.0, current_optimizer_state)
+    return TrainingResult{P, Float64, Vector{Float64}, RunMetadata,
+                          TrainDiagnostics, TrainingRetcode}(
+        fitted, history, initial_loss, final_loss, metadata, typed_diag,
+        converged, retcode)
+end
+
 function train_ude(p_init::P, data::AbstractMatrix,
                    t_data::AbstractVector, u0::AbstractVector,
                    tspan::NTuple{2,Real}, model::UDEModel) where {P}
-    return _train_ude_locked(
-        p_init, data, t_data, u0, tspan, model, _DEFAULT_TRAINING_CONFIG,
-        true, 0, nothing, nothing, 0, 0, nothing, nothing, 1, 1, 0, Inf,
-        nothing)
+    # `Base.invokelatest` is a concrete Base call. JET cannot specialize
+    # through Zygote / OrdinaryDiffEq / Optimisers; walking that kernel
+    # reports Any-dispatch on their return values. The runtime path is
+    # still `_train_ude_default` (horizon curriculum, Adam reuse, BFGS).
+    return Base.invokelatest(
+        _train_ude_default, p_init, data, t_data, u0, tspan, model)
 end
 
 function train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)

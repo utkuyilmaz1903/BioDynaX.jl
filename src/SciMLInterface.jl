@@ -21,15 +21,20 @@ Build an `SciMLBase.ODEFunction` for a compiled `UDEModel`.
 - `inplace=false` (default for adjoints): Zygote-safe out-of-place RHS.
 - `inplace=true`: allocation-free `ude_rhs!` with a model cache.
 """
-function build_ude_function(model::UDEModel;
-                            inplace::Bool = false,
-                            cache::Union{Nothing,UDEModelCache} = nothing)
+function build_ude_function(model::UDEModel, inplace::Bool,
+                            cache::Union{Nothing,UDEModelCache})
     if inplace
         local_cache = cache === nothing ?
             allocate_cache(model, Float64) : cache
         return build_ude_rhs(model, local_cache)
     end
     return SciMLBase.ODEFunction{false}(CompiledOOPRhs(model))
+end
+
+function build_ude_function(model::UDEModel;
+                            inplace::Bool = false,
+                            cache::Union{Nothing,UDEModelCache} = nothing)
+    return build_ude_function(model, inplace, cache)
 end
 
 """
@@ -46,8 +51,15 @@ function SciMLBase.ODEProblem(model::UDEModel, u0, tspan, p;
                               cache::Union{Nothing,UDEModelCache} = nothing,
                               kwargs...)
     _require_matching_state_length(u0, model.nstates)
-    f = build_ude_function(model; inplace = inplace, cache = cache)
+    f = build_ude_function(model, inplace, cache)
     return SciMLBase.ODEProblem(f, u0, tspan, p; kwargs...)
+end
+
+"""Positional `ODEProblem` used by the default `train_ude` / `predict_ude` path."""
+function _odeproblem(model::UDEModel, u0, tspan, p, inplace::Bool)
+    _require_matching_state_length(u0, model.nstates)
+    f = build_ude_function(model, inplace, nothing)
+    return SciMLBase.ODEProblem(f, u0, tspan, p)
 end
 
 """
@@ -87,6 +99,34 @@ function recommend_sensealg(model::UDEModel;
         InterpolatingAdjoint(autojacvec = ZygoteVJP(), checkpointing = true),
         :interpolating_default,
         "Default checkpointed InterpolatingAdjoint for general UDE models.")
+end
+
+"""Positional `recommend_sensealg` so training locks avoid a keyword sorter."""
+function recommend_sensealg(model::UDEModel, policy::AbstractADPolicy,
+                            n_observations::Integer)
+    return recommend_sensealg(
+        model; policy = policy, n_observations = Int(n_observations))
+end
+
+@inline function _locked_interpolating_adjoint()
+    return InterpolatingAdjoint(autojacvec = ZygoteVJP(), checkpointing = true)
+end
+
+@inline function _locked_backsolve_adjoint()
+    return BacksolveAdjoint(autojacvec = ZygoteVJP())
+end
+
+"""Concrete adjoint for the training lock. `n_observations = 100` folds to
+`InterpolatingAdjoint` on both neural and mechanistic models."""
+function locked_training_sensealg(model::UDEModel, policy::AbstractADPolicy,
+        n_observations::Int)
+    if policy isa ProductionAD
+        return _locked_interpolating_adjoint()
+    end
+    if model.n_neural == 0 && model.nstates ≤ 8 && n_observations ≤ 64
+        return _locked_backsolve_adjoint()
+    end
+    return _locked_interpolating_adjoint()
 end
 
 """
