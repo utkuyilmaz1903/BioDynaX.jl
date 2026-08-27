@@ -219,7 +219,7 @@ function mm_unknown_recovery_family_source_holds()
     start = findfirst("if :mm_unknown in wanted", src)
     start === nothing && return false
     rest = src[first(start):end]
-    nxt = findnext("if :ablation in wanted", rest)
+    nxt = findfirst("if :ablation in wanted", rest)
     body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
     return occursin("family = :mm", body) &&
            occursin("mm_rate_truth", body) &&
