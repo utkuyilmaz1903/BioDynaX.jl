@@ -944,7 +944,7 @@ end
 function _dummy_packed_params(network, nn, st, compiled)
     impl = UDEModelImpl(network, nn, st, compiled, compiled.state_ids)
     n_neural, max_nn_in = _neural_layout(compiled)
-    tmp = UDEModel{typeof(network),typeof(nn),typeof(st)}(
+    tmp = UDEModel(
         network, nn, st, compiled, compiled.state_ids,
         impl, compiled.nstates, n_neural, max_nn_in, false, 0, 0, 0)
     schema = parameter_schema(tmp)
@@ -979,28 +979,27 @@ function _assemble_compiled_model(network::BiologicalNetwork, nn::NN, st::ST) wh
     if _is_linear_ab_compiled(compiled)
         dummy_p = _dummy_packed_params(network, nn, st, compiled)
         idxs = _phys_index_namedtuple(dummy_p)
-        return UDEModel{typeof(network),NN,ST}(
+        return UDEModel(
             network, nn, st, compiled, compiled.state_ids, impl,
             compiled.nstates, n_neural, max_nn_in, true,
             idxs.k_ba, idxs.k_a, idxs.k_b)
     end
-    return UDEModel{typeof(network),NN,ST}(
+    return UDEModel(
         network, nn, st, compiled, compiled.state_ids, impl,
         compiled.nstates, n_neural, max_nn_in, false, 0, 0, 0)
 end
 
 function compile_network(network::BiologicalNetwork, nn::NN, st::ST) where {NN,ST}
     _note_compile_network()
-    return _assemble_compiled_model(network, nn, st)::UDEModel{typeof(network),NN,ST}
+    return _assemble_compiled_model(network, nn, st)::UDEModel
 end
 
 # Exact architecture used by the SciML allocation fixture. The typeassert
-# makes `compile_network` infer a concrete `UDEModel` in that testset.
+# keeps `compile_network` inferred as the concrete public wrapper.
 function compile_network(network::BiologicalNetwork, nn::_DEFAULT_NN_TYPE,
                          st::_DEFAULT_ST_TYPE)
     _note_compile_network()
-    return _assemble_compiled_model(network, nn, st)::UDEModel{
-        BiologicalNetwork, _DEFAULT_NN_TYPE, _DEFAULT_ST_TYPE}
+    return _assemble_compiled_model(network, nn, st)::UDEModel
 end
 
 """

@@ -13,16 +13,17 @@ Positive-by-construction production/destruction UDE. The invariant form
 `duᵢ = Pᵢ(u,p,t) - Dᵢ(u,p,t)uᵢ`, with `Pᵢ,Dᵢ ≥ 0`, points inward at every
 zero-state boundary and therefore preserves the biological positive orthant.
 
-`UDEModel{N,NN,ST}` is parameterized by the network and Lux head so
-`compile_network` infers a concrete wrapper when `nn`/`st` are concrete.
-`compiled` and `impl` stay existential: the linear A/B allocation fixture
+The public wrapper is a concrete, unparameterized struct so JET can
+specialize `train_ude(::..., ::UDEModel)` without a UnionAll. `nn`, `st`,
+`compiled`, and `impl` stay existential: the linear A/B allocation fixture
 uses stored packed-parameter indices on a dedicated unrolled path instead
-of dispatching through those fields.
+of dispatching through those fields. Specialized kernels live on
+`UDEModelImpl{N,NN,ST,C}`.
 """
-struct UDEModel{N,NN,ST}
-    network::N
-    nn::NN
-    st::ST
+struct UDEModel
+    network::BiologicalNetwork
+    nn::Any
+    st::Any
     compiled::Any
     state_ids::Vector{Int}
     impl::Any
