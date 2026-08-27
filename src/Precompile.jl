@@ -26,5 +26,18 @@
         recovery_suite_expected_holes(:linear)
         allocate_stlsq_workspace(Float64, 16, 4, 8)
         _backend_chunk_size(ImplicitSINDyPI(chunk_size = 32))
+        lock_training_solver(model)
+        training_solve_session(model, u, (0.0, 1.0), params)
+        recommend_sensealg(model; n_observations = 64)
+        recommend_sensealg(model; n_observations = 65)
+        recovery_suite_plan((:linear, :ablation))
+        recovery_suite_section_spec(:ude_discovery)
+        experiment_checkpoint_locked_sentences()
+        experiment_checkpoint_contract()
+        discovery_retcode_catalog()
+        extras_print_label(nothing)
+        extras_print_label(String[])
+        hybrid_compose_locked_sentences()
+        hybrid_compose_contract()
     end
 end

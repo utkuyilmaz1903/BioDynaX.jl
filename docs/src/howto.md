@@ -128,3 +128,64 @@ These are experimental. DataDrivenSparse is never a CI dependency.
 `run_recovery_suite` admits unique-claim sections through
 `admit_recovery_suite_network`. Other sections have an explicit hole
 policy and stay open; see [Compiled experiment path](compiled-path.md).
+A skipped recovery-suite section does not call `_train_unknown_edge`.
+See [Recovery suite skip](recovery-suite-skip.md).
+
+`SolveSurfaceRow` compares `ude_system`, `ODEFunction`, `ODEProblem`,
+`remake`, inplace cache, `SciMLBase.solve`, and `predict_ude` on the
+same fixtures. See [SciML solve surface](sciml-solve-surface.md).
+
+`TrainingSolveSession` remakes one `ODEProblem` across ICs. Unique-claim
+training (`_train_unknown_edge`) calls `train_experiments_with_warmup` so
+the first-IC Adam state is not discarded. See
+[Training reuse](training-reuse.md). The AD constraint `predict_ude`
+call must pass the compiled model.
+
+`experiment_fingerprint` hashes times, observations, mask, and `u0`.
+Metadata is not identity. `experiment_batches` covers every IC.
+`resume_training` reuses the compiled `UDEModel`. Remapped multi-head
+generate and `train_experiments` share one compiled tree. See
+[Experiment fingerprint and checkpoint](experiment-checkpoint.md).
+
+`DiscoveryRetcode` names insufficient samples, unsafe denominators,
+empty support, a singular library, a generic failure, and success.
+See [Failure modes](failure-modes.md).
+
+`compose_hybrid_rhs` with the neural destruction rate recovers
+`ude_system`. See [Hybrid compose path](hybrid-compose.md).
+
+`hybrid_data_residual` agrees with `SciMLBase.solve` of
+`compose_hybrid_rhs`. Smoke residual (1 IC / 8 points) is not the
+seed-103 / 9-IC protocol residual. See
+[Hybrid residual versus solver](hybrid-residual.md).
+
+`production_destruction_tradeoff` joins `UniqueClaimProtocolRow`
+through `identifiability_product`.
+`coefficients_are_biological_constants` is false exactly when
+`unidentifiable_edge` is true. See
+[Identifiability product rows](identifiability-product.md).
+
+`local_basis` `scope=:graph` uses graph parents; `scope=:global` is
+the ablation. `local_has_true_parent_gate` is the recovered-support
+membership check. See
+[Graph-local library and ablation](graph-local-library.md).
+
+`denominator_split_counts` walks train, validation, and the
+orthant domain grid. `ude_extras_denominator_row` still counts
+violations when extras remain. See
+[Denominator and domain safety](denominator-domain.md).
+
+`parameter_schema` collects `CustomKineticMetadata.rate_param` so
+`:k_custom` is present. `unpack_parameters` inverts
+`pack_parameters`. See
+[Parameter schema and pack](parameter-schema-pack.md).
+
+`docs_executable_join_row` joins the H–L contract sentences.
+`leftover_contradiction_hits` must be empty on tutorial / howto /
+sciml / architecture. See
+[Docs executable path](docs-executable.md).
+
+`allocation_hot` measures a warmed `@allocated` ceiling that can
+fail. `stlsq_workspace_reuse_row` requires `STLSQWorkspace`
+`resize_count` to stay put on a same-shape ensure. See
+[Allocation and type-stability gates](allocation-gates.md).

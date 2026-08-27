@@ -643,7 +643,17 @@ function _reindex_neural_destruction!(terms::Vector{MechanismTerm})
     return terms
 end
 
+const COMPILE_NETWORK_COUNTER = Ref{Union{Nothing,Base.RefValue{Int}}}(nothing)
+
+function _note_compile_network()
+    counter = COMPILE_NETWORK_COUNTER[]
+    counter === nothing && return nothing
+    counter[] += 1
+    return nothing
+end
+
 function compile_network(network::BiologicalNetwork, nn, st)
+    _note_compile_network()
     compiled = compile_mechanism(network)
     unknown = [edge for edge in values(network.interactions) if !edge.known]
     isempty(unknown) &&

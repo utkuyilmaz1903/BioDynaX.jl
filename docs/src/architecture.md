@@ -14,6 +14,9 @@ equation discovery.
 3. `compile_network` wraps the IR in a `UDEModel`.
 4. `ExperimentSet` carries replicates, irregular samples and observation masks.
 5. `train_ude` or `train_experiments` returns a versioned `TrainingResult`.
+   A `TrainingSolveSession` remakes one `ODEProblem` across ICs and does
+   not call `compile_network` per IC. First-IC warmup hands Optimisers
+   state to the multi-IC stage. See [Training reuse](training-reuse.md).
 6. `local_basis` derives candidate variables from each target's graph parents
    (`scope = :graph`, or `:global` for ablations).
 7. `discover_equations` fits `D(z)ẋ-N(z)=0`, validates denominators and reports
@@ -28,6 +31,40 @@ The unique-claim product is printed and stored in that same order:
    `canonical_hill_from_nn` stays false.
 4. **REPRODUCTION** — seed 103, 9 ICs, 50 points. Smoke is labeled
    separately and is not this fingerprint.
+
+The SciML solve surface agrees `ude_system`, `ODEFunction`,
+`ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and
+`predict_ude`. Mechanistic models switch adjoints at 64 observations.
+See [SciML solve surface](sciml-solve-surface.md).
+
+A skipped recovery-suite section does not call _train_unknown_edge.
+See [Recovery suite skip](recovery-suite-skip.md).
+
+`experiment_fingerprint` hashes times, observations, mask, and `u0`.
+`resume_training` reuses the compiled `UDEModel` and does not call
+`compile_network`. Remapped multi-head generate and
+`train_experiments` share one compiled tree. See
+[Experiment fingerprint and checkpoint](experiment-checkpoint.md).
+
+validate_network stays a topology checker; 0-hole and 2-hole networks still validate.
+See [Failure modes](failure-modes.md).
+
+compose_hybrid_rhs with the neural destruction rate recovers ude_system.
+See [Hybrid compose path](hybrid-compose.md).
+hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
+See [Hybrid residual versus solver](hybrid-residual.md).
+production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
+See [Identifiability product rows](identifiability-product.md).
+local_basis scope=:graph uses graph parents; scope=:global is the ablation.
+See [Graph-local library and ablation](graph-local-library.md).
+denominator_split_counts walks train, validation, and the orthant domain grid separately.
+See [Denominator and domain safety](denominator-domain.md).
+parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
+See [Parameter schema and pack](parameter-schema-pack.md).
+The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
+See [Docs executable path](docs-executable.md).
+Allocation gates use measured hot-path byte ceilings that can fail.
+See [Allocation and type-stability gates](allocation-gates.md).
 
 See [Unique claim](unique-claim.md). `validate_network` stays a
 topology/metadata checker; the single-hole instrument is

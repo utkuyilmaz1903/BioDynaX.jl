@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Allocation / type-stability gates extend `test_quality_gates.jl`
+  to the unexported workspaces (`src/AllocationGates.jl`, not
+  exported). `allocation_hot` records a warmed `@allocated`
+  ceiling that can fail. `STLSQWorkspace` reuse must not increment
+  `resize_count` on a same-shape ensure. Docs:
+  [allocation-gates](docs/src/allocation-gates.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Docs executable path joins the H–L surfaces (hybrid residual,
+  identifiability product, graph-local library, denominator domain,
+  parameter schema pack) with leftover scanners on tutorial / howto /
+  sciml (`src/DocsExecutable.jl`, not exported). It does not restate
+  the A–G pages. Docs:
+  [docs-executable](docs/src/docs-executable.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Parameter schema / pack collects `CustomKineticMetadata.rate_param`
+  so `:k_custom` is present (`src/ParameterSchemaPack.jl`, not
+  exported). `unpack_parameters` inverts `pack_parameters`.
+  Remapped multi-head pack/unpack matches the compiled NN tree.
+  Docs: [parameter-schema-pack](docs/src/parameter-schema-pack.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Denominator / domain safety splits `denominator_violation_count`
+  across train, validation, and the orthant domain grid
+  (`src/DenominatorDomain.jl`, not exported). Explicit candidates
+  count 0. Failed discovery records `typemax`. UDE extras still
+  walk the domain grid. Docs:
+  [denominator-domain](docs/src/denominator-domain.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Graph-local library rows lock `local_basis` `scope=:graph` versus
+  `scope=:global` and name `local_has_true_parent_gate`
+  (`src/GraphLocalLibrary.jl`, not exported). Wrong-graph parent
+  sets omit the true regulator. `run_recovery_suite` graph-prior
+  sections call that gate. Docs:
+  [graph-local-library](docs/src/graph-local-library.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Identifiability product rows join `production_destruction_tradeoff`
+  to `UniqueClaimProtocolRow` through `identifiability_product`
+  (`src/IdentifiabilityProduct.jl`, not exported). Collinearity
+  prints only when the cosine is finite.
+  `coefficients_are_biological_constants` follows
+  `unidentifiable_edge`. Docs:
+  [identifiability-product](docs/src/identifiability-product.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Hybrid residual versus solver agrees `hybrid_data_residual` with
+  `SciMLBase.solve` of `compose_hybrid_rhs` and with `predict_ude`
+  at noise 0 (`src/HybridResidual.jl`, not exported). Failed compose
+  paths return Inf or throw. Smoke residual (1 IC / 8 points) is not
+  the seed-103 / 9-IC protocol residual. Docs:
+  [hybrid-residual](docs/src/hybrid-residual.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Hybrid compose path locks `compose_hybrid_rhs` identity against
+  `ude_system` and `hybrid_data_residual` against noise-0 generated
+  data (`src/HybridCompose.jl`, not exported). Failed discovery
+  cannot `export_rhs`. Remapped heads compose one term at a time.
+  Docs: [hybrid-compose](docs/src/hybrid-compose.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Failure-mode instrument locks `DiscoveryRetcode` maps, the 20-sample
+  discovery floor, 0/2-hole `validate_network` openness, KPI failure
+  symbols without combined F1, and extras `NA` / `(none)` / live
+  leftovers (`src/FailureModes.jl`, not exported). Docs:
+  [failure-modes](docs/src/failure-modes.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Experiment fingerprints ignore metadata; batches cover every IC
+  without padding; `resume_training` reuses the compiled `UDEModel`
+  (`src/ExperimentCheckpoint.jl`, not exported). Remapped multi-head
+  generate and `train_experiments` / `train_experiments_with_warmup`
+  share one compiled tree. Checkpoints stay Julia `serialize`
+  payloads. Docs:
+  [experiment-checkpoint](docs/src/experiment-checkpoint.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Unused `run_recovery_suite` sections do not call
+  `_train_unknown_edge` (`recovery_suite_plan`,
+  `with_train_unknown_edge_counter`; not exported). The default suite
+  still runs `:ude_discovery` and `:mm_unknown`. Skip does not drop
+  protocol ICs. `benchmark/recovery_suite.jl` keeps the fast block
+  separate from the unique-claim trainers.
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- SciML solve surface agrees `ude_system`, `ODEFunction`,
+  `ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and
+  `predict_ude` (`SolveSurfaceRow`; not exported). Mechanistic
+  models switch from `BacksolveAdjoint` to `InterpolatingAdjoint`
+  when `n_observations` exceeds 64. No new solver. `RECOVERY_THRESHOLDS`
+  and the export list are unchanged.
+- Training reuses one compiled `UDEModel` across ICs
+  (`TrainingSolveSession`, `train_experiments_with_warmup`; not
+  exported). The Augmented-Lagrangian constraint path passes the
+  compiled model into `predict_ude`. First-IC warmup hands its
+  Optimisers state to `train_experiments`. Neural holes lock
+  `InterpolatingAdjoint`; `BacksolveAdjoint` is rejected on a neural
+  hole.   `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Discovery library evaluation reuses grow-only STLSQ / implicit-design
   workspaces. `evaluate_library!` writes monomials in place.
   `_fit_implicit` streams row chunks (`_stlsq_blocked!`). Bootstrap

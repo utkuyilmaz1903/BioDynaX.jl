@@ -42,7 +42,11 @@ function predict_ude(p, u0, tspan, saveat, nn, st;
                      model::Union{Nothing,UDEModel} = nothing,
                      network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
                      solver_config::SolverConfig = SolverConfig(),
-                     cache::Union{Nothing,UDEModelCache} = nothing)
+                     cache::Union{Nothing,UDEModelCache} = nothing,
+                     session = nothing)
+    if session !== nothing
+        return predict_ude_session(session, p, u0, tspan, saveat)
+    end
     resolved = model === nothing ?
         ignore_derivatives(() -> compile_network(network, nn, st)) : model
     inplace = _forward_inplace(solver_config)
@@ -118,11 +122,13 @@ Integrate the compiled UDE and return the state trajectory at `saveat`.
 """
 function predict_ude(p, u0, tspan, saveat, model::UDEModel;
                      solver_config::SolverConfig = SolverConfig(),
-                     cache::Union{Nothing,UDEModelCache} = nothing)
+                     cache::Union{Nothing,UDEModelCache} = nothing,
+                     session = nothing)
     return predict_ude(
         p, u0, tspan, saveat, model.nn, model.st;
         model = model, network = model.network,
-        solver_config = solver_config, cache = cache)
+        solver_config = solver_config, cache = cache,
+        session = session)
 end
 
 function loss_mse(p, data, t_data, u0, tspan, nn, st;
@@ -134,10 +140,12 @@ function loss_mse(p, data, t_data, u0, tspan, nn, st;
                   ρ = one(eltype(p)),
                   solver_config::SolverConfig = SolverConfig(),
                   mask = trues(size(data)),
-                  diagnostics::Union{Nothing,LossDiagnostics} = nothing)
+                  diagnostics::Union{Nothing,LossDiagnostics} = nothing,
+                  session = nothing)
     prediction = predict_ude(p, u0, tspan, t_data, nn, st;
                              model = model, network = network,
-                             solver_config = solver_config)
+                             solver_config = solver_config,
+                             session = session)
     size(prediction) == size(data) ||
         throw(ErrorException("ODE solve terminated before all observations"))
     all(isfinite, prediction) ||
@@ -302,12 +310,26 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                    initial_outer::Int = 1,
                    initial_stage::Int = 1,
                    initial_stage_iteration::Int = 0,
-                   previous_residual_init = Inf)
+                   previous_residual_init = Inf,
+                   session = nothing)
     training_config = isnothing(config) ? TrainingConfig(
         adam_iterations = adam_iters,
         adam_learning_rate = adam_lr,
         bfgs_iterations = bfgs_iters,
         log_every = log_every) : config
+    resolved_model = model === nothing ?
+        compile_network(network, nn, st) : model
+    if model === nothing && resolved_model !== nothing
+        training_config = lock_training_config(resolved_model, training_config)
+    elseif model !== nothing
+        training_config = lock_training_config(resolved_model, training_config)
+    end
+    local_session = session
+    if local_session === nothing
+        local_session = training_solve_session(
+            resolved_model, u0, tspan, p_init;
+            solver = training_config.solver)
+    end
     diag = LossDiagnostics()
     state_count = size(data, 1)
     dual = dual_init === nothing ?
@@ -319,7 +341,7 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
     function make_loss(local_data, local_times, local_span)
         return (p, _) -> loss_mse(
             p, local_data, local_times, u0, local_span, nn, st;
-            model = model, network = network,
+            model = resolved_model, network = network,
             constraint = training_config.constraint, dual, ρ,
             solver_config = training_config.solver, diagnostics = diag)
     end
@@ -412,8 +434,9 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
         if training_config.constraint isa AugmentedLagrangianConfig
             prediction = predict_ude(
                 params, u0, tspan, t_data, nn, st;
-                model = model, network = network,
-                solver_config = training_config.solver)
+                model = resolved_model, network = network,
+                solver_config = training_config.solver,
+                session = local_session)
             constraints = _constraint_values(
                 prediction, training_config.constraint)
             residual = maximum(constraints)
@@ -439,7 +462,8 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
             last(diag.gradient_norm_history),
         gradient_norm_history = copy(diag.gradient_norm_history),
         bfgs = (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
-                retcode = diag.bfgs_retcode, message = diag.bfgs_message))
+                retcode = diag.bfgs_retcode, message = diag.bfgs_message),
+        optimizer_state = current_optimizer_state)
     converged = _training_converged(
         final_loss, initial_loss, training_config, diag)
     retcode = _training_retcode(converged, diag)
@@ -476,11 +500,18 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
                            network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
                            config::TrainingConfig = TrainingConfig(),
                            execution::ExecutionConfig = ExecutionConfig(),
-                           verbose::Bool = true, seed::Integer = 0)
+                           verbose::Bool = true, seed::Integer = 0,
+                           optimizer_state = nothing,
+                           session = nothing)
+    resolved_model = resolve_training_model(model, nn, st, network)
+    training_config = lock_training_config(resolved_model, config)
+    local_session = session === nothing ?
+        training_solve_session(resolved_model, set, p_init;
+            solver = training_config.solver) : session
     diag = LossDiagnostics()
     dual = zeros(eltype(p_init), length(set.state_names))
-    ρ = config.constraint isa AugmentedLagrangianConfig ?
-        config.constraint.initial_ρ : zero(eltype(p_init))
+    ρ = training_config.constraint isa AugmentedLagrangianConfig ?
+        training_config.constraint.initial_ρ : zero(eltype(p_init))
     function batch_loss(p, experiments)
         total = zero(eltype(p))
         weight_sum = zero(eltype(p))
@@ -490,9 +521,9 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
             total += weight * loss_mse(
                 p, experiment.observations, experiment.times, experiment.u0,
                 (first(experiment.times), last(experiment.times)), nn, st;
-                model = model, network = network,
-                constraint = config.constraint, dual, ρ,
-                solver_config = config.solver, mask = experiment.mask,
+                model = resolved_model, network = network,
+                constraint = training_config.constraint, dual, ρ,
+                solver_config = training_config.solver, mask = experiment.mask,
                 diagnostics = nothing) / (scale^2)
             weight_sum += weight
         end
@@ -502,9 +533,9 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
     initial = objective(p_init, nothing)
     history = Float64[]
     params = p_init
-    optimizer_state = nothing
-    outer_iterations = config.constraint isa AugmentedLagrangianConfig ?
-        config.constraint.outer_iterations : 1
+    current_optimizer_state = optimizer_state
+    outer_iterations = training_config.constraint isa AugmentedLagrangianConfig ?
+        training_config.constraint.outer_iterations : 1
     previous_residual = Inf
     for outer in 1:outer_iterations
         batches = experiment_batches(
@@ -516,58 +547,63 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
             # Adam only on this minibatch. Joint BFGS runs once after the
             # outer loop so the last IC cannot monopolize the second-order step.
             batch_config = _stage_config(
-                config, outer_iterations * length(batches), false)
-            params, optimizer_state = _optimize_stage(
+                training_config, outer_iterations * length(batches), false)
+            params, current_optimizer_state = _optimize_stage(
                 params, batch_objective, batch_config, history, diag; verbose,
-                optimizer_state)
+                optimizer_state = current_optimizer_state)
         end
-        if config.constraint isa AugmentedLagrangianConfig
+        if training_config.constraint isa AugmentedLagrangianConfig
             experiment_constraints = map(set.experiments) do experiment
                 prediction = predict_ude(
                     params, experiment.u0,
                     (first(experiment.times), last(experiment.times)),
-                    experiment.times, nn, st; solver_config = config.solver)
-                _constraint_values(prediction, config.constraint)
+                    experiment.times, nn, st;
+                    model = resolved_model,
+                    network = network,
+                    solver_config = training_config.solver,
+                    session = local_session)
+                _constraint_values(prediction, training_config.constraint)
             end
             constraints = reduce((left, right) -> max.(left, right),
                                  experiment_constraints)
             residual = max(zero(eltype(constraints)), maximum(constraints))
             dual .= max.(zero(eltype(dual)), dual .+ ρ .* constraints)
             if residual >
-               config.constraint.progress_ratio * previous_residual
+               training_config.constraint.progress_ratio * previous_residual
                 ρ = min(
-                    config.constraint.max_ρ,
-                    config.constraint.growth * ρ)
+                    training_config.constraint.max_ρ,
+                    training_config.constraint.growth * ρ)
             end
             previous_residual = residual
-            residual ≤ config.constraint.tolerance && break
+            residual ≤ training_config.constraint.tolerance && break
         end
     end
-    if config.bfgs_iterations > 0
-        polish = TrainingConfig(config;
+    if training_config.bfgs_iterations > 0
+        polish = TrainingConfig(training_config;
             adam_iterations = 0,
-            bfgs_iterations = config.bfgs_iterations)
-        params, optimizer_state = _optimize_stage(
+            bfgs_iterations = training_config.bfgs_iterations)
+        params, current_optimizer_state = _optimize_stage(
             params, objective, polish, history, diag; verbose,
-            optimizer_state)
+            optimizer_state = current_optimizer_state)
     end
     final = objective(params, nothing)
     metadata = RunMetadata(
         seed = seed, data_hash = experiment_fingerprint(set),
-        config = Dict(:training => config, :experiments => length(set)))
-    converged = _training_converged(final, initial, config, diag)
+        config = Dict(:training => training_config, :experiments => length(set)))
+    converged = _training_converged(final, initial, training_config, diag)
     retcode = _training_retcode(converged, diag)
     return TrainingResult(
         params, history, initial, final, metadata,
         (experiment_count = length(set), dual = copy(dual), ρ = ρ,
          primal_residual =
-             config.constraint isa AugmentedLagrangianConfig ?
+             training_config.constraint isa AugmentedLagrangianConfig ?
              max(zero(ρ), previous_residual) : zero(ρ),
          final_gradient_norm = isempty(diag.gradient_norm_history) ? NaN :
              last(diag.gradient_norm_history),
          gradient_norm_history = copy(diag.gradient_norm_history),
          bfgs = (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
-                 retcode = diag.bfgs_retcode, message = diag.bfgs_message)),
+                 retcode = diag.bfgs_retcode, message = diag.bfgs_message),
+         optimizer_state = current_optimizer_state),
         converged, retcode)
 end
 

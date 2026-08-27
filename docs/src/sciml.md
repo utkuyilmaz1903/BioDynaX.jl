@@ -37,6 +37,20 @@ and two-regulator `D(S,I)` must match that problem, the in-place cache
 path, `remake`, and `SciMLBase.solve(model, ...)`. See
 [Compiled experiment path](compiled-path.md).
 
+Training reuses one compiled `UDEModel` and one `TrainingSolveSession`
+([Training reuse](training-reuse.md)).
+A TrainingSolveSession remakes one SciMLBase.ODEProblem across ICs; it does not compile_network per IC.
+Remapped multi-head generate and train_experiments share one compiled tree; train_experiments does not compile per IC.
+compose_hybrid_rhs with the neural destruction rate recovers ude_system.
+hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.
+production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.
+local_basis scope=:graph uses graph parents; scope=:global is the ablation.
+denominator_split_counts walks train, validation, and the orthant domain grid separately.
+parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
+The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
+Allocation gates use measured hot-path byte ceilings that can fail.
+See [Allocation and type-stability gates](allocation-gates.md).
+
 ## In-place production integration
 
 For allocation-free forward passes, request an in-place problem and pair it
@@ -49,6 +63,9 @@ solver_config = default_solver_config(model; ad_policy = ProductionAD())
 prediction = predict_ude(params, u0, tspan, times, model;
                          solver_config = solver_config, cache = cache)
 ```
+
+The SciML solve surface agrees ude_system, ODEFunction, ODEProblem, remake, inplace cache, SciMLBase.solve, and predict_ude.
+See [SciML solve surface](sciml-solve-surface.md). Mechanistic models switch from BacksolveAdjoint to InterpolatingAdjoint when n_observations exceeds 64.
 
 ## Adjoints
 

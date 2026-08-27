@@ -282,10 +282,80 @@ function denominator_violation_count(candidate::ImplicitCandidate, X;
     return count(<(floor), denominator)
 end
 
+"""Explicit candidates have no rational denominator; the count is 0."""
+function denominator_violation_count(::ExplicitCandidate, X;
+                                     floor::Real = 1e-8)
+    return 0
+end
+
+"""Failed discovery has no candidate; treat as an unbounded violation."""
+function denominator_violation_count(::Nothing, X; floor::Real = 1e-8)
+    return typemax(Int)
+end
+
+"""
+    denominator_split_counts(candidate, train_X, val_X, domain_X; floor=1e-8)
+
+Count denominator violations on the train slice, the validation slice,
+and the orthant domain grid separately. Combined F1 is not scored here.
+"""
+function denominator_split_counts(candidate, train_X, val_X, domain_X;
+                                  floor::Real = 1e-8)
+    train = denominator_violation_count(candidate, train_X; floor = floor)
+    val = denominator_violation_count(candidate, val_X; floor = floor)
+    domain = denominator_violation_count(candidate, domain_X; floor = floor)
+    return (;
+        train, val, domain,
+        total = train + val + domain,
+        any = (train + val + domain) > 0)
+end
+
+"""
+    ude_extras_denominator_row(candidate, R_grid; extras, floor, domain_samples)
+
+Apply `denominator_split_counts` on the UDE extras path. Live extras
+do not skip the train / val / orthant grid. Hardcoded F1-attempt
+extras strings stay rejected.
+"""
+function ude_extras_denominator_row(candidate, R_grid;
+        extras = String[], floor::Real = 1e-8,
+        domain_samples::Int = 32, seed::Integer = 42)
+    n = size(R_grid, 2)
+    n_val = n ≤ 2 ? 0 : clamp(round(Int, 0.2 * n), 1, n - 1)
+    train_X = n_val == 0 ? R_grid : @view R_grid[:, 1:(n - n_val)]
+    val_X = n_val == 0 ? R_grid : @view R_grid[:, (n - n_val + 1):n]
+    domain_X = _denominator_domain_grid(R_grid; n = domain_samples, seed = seed)
+    split = denominator_split_counts(
+        candidate, train_X, val_X, domain_X; floor = floor)
+    extras_label = extras_print_label(extras)
+    return merge(split, (;
+        extras,
+        extras_label,
+        extras_live = extras !== nothing && !isempty(extras),
+        hardcoded = extras_print_is_hardcoded_attempt(extras_label),
+        n_train = size(train_X, 2),
+        n_val = size(val_X, 2),
+        n_domain = size(domain_X, 2),
+        holds = extras_print_is_hardcoded_attempt(extras_label) == false))
+end
+
 function support_uses_variable(candidate; variable::Int, atol::Real = 1e-8)
     recovered = active_support(candidate; atol = atol)
     keys = union(recovered.numerator, recovered.denominator)
     return any(key -> variable in key[1], keys)
+end
+
+"""True when a discovered candidate support contains `variable`."""
+function local_has_true_parent_gate(candidate; variable::Int, atol::Real = 1e-8)
+    candidate === nothing && return false
+    return support_uses_variable(candidate; variable = variable, atol = atol)
+end
+
+"""True when a discovered candidate support contains any of `variables`."""
+function local_has_false_parent_gate(candidate; variables, atol::Real = 1e-8)
+    candidate === nothing && return false
+    return any(v -> support_uses_variable(candidate; variable = Int(v), atol = atol),
+               variables)
 end
 
 """True implicit support for `D = vmax r^n / (K^n + r^n)` on variable `variable`."""
@@ -518,6 +588,7 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
                              adam, bfgs, noise_σ, tspan, n_points,
                              frozen_phys::Vector{Symbol} = Symbol[],
                              phys_init = nothing)
+    _note_train_unknown_edge()
     set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = _unknown_edge_ics(),
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
@@ -526,24 +597,14 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
     guess = phys_init === nothing ?
         NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
     ude_init = pack_parameters(guess, ude_p0.nn)
-    first_exp = first(set.experiments)
-    warm = train_ude(
-        ude_init, first_exp.observations, first_exp.times, first_exp.u0,
-        (first(first_exp.times), last(first_exp.times)), ude_model;
-        config = TrainingConfig(
-            adam_iterations = adam,
-            bfgs_iterations = 0,
-            horizon_schedule = HorizonCurriculum(fractions = [0.35, 0.7, 1.0]),
-            log_every = 10^6,
-            frozen_phys = frozen_phys),
-        verbose = false)
-    fit = train_experiments(
-        warm.params, set, ude_model;
-        config = TrainingConfig(
-            adam_iterations = adam,
-            bfgs_iterations = bfgs,
-            log_every = 10^6,
-            frozen_phys = frozen_phys),
+    config = unique_claim_training_config(
+        model = ude_model,
+        adam_iterations = adam,
+        bfgs_iterations = bfgs,
+        frozen_phys = frozen_phys)
+    fit = train_experiments_with_warmup(
+        ude_init, set, ude_model;
+        config = lock_training_config(ude_model, config),
         verbose = false)
     return fit, set
 end
@@ -606,6 +667,7 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     residual = Inf
     den_violations = typemax(Int)
     extras = String[]
+    extras_denominator = nothing
     if discovery.success
         candidate = discovery.candidates[1]
         metrics = support_f1(candidate, truth_support.numerator,
@@ -618,6 +680,8 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         D_hat = [d_hat([rj]) for rj in r]
         rate_rmse = rate_rel_rmse(D_hat, D_true)
         den_violations = denominator_violation_count(candidate, R_grid)
+        extras_denominator = ude_extras_denominator_row(
+            candidate, R_grid; extras = extras)
         residual = data_residual_fn(d_hat)
     end
     norm_f1 = 0.0
@@ -642,6 +706,7 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         normalized_support_f1 = norm_f1,
         normalized_support_recall = norm_recall,
         extras,
+        extras_denominator,
         discovery = discovery,
         term = term)
 end
@@ -1156,14 +1221,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             support_f1(lc, truth3.numerator, truth3.denominator).combined.f1,
         global_f1 = gc === nothing ? 0.0 :
             support_f1(gc, truth3.numerator, truth3.denominator).combined.f1,
-        local_has_true_parent = lc !== nothing &&
-            support_uses_variable(lc; variable = 2),
-        local_false_parent = lc !== nothing &&
-            (support_uses_variable(lc; variable = 3) ||
-             support_uses_variable(lc; variable = 4)),
-        global_false_parent = gc !== nothing &&
-            (support_uses_variable(gc; variable = 3) ||
-             support_uses_variable(gc; variable = 4)))
+        local_has_true_parent = local_has_true_parent_gate(lc; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lc; variables = (3, 4)),
+        global_false_parent = local_has_false_parent_gate(gc; variables = (3, 4)))
     end
 
     if :wrong_graph in wanted
@@ -1192,11 +1252,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         local_success = local_w.success,
         local_f1 = lcw === nothing ? 0.0 :
             support_f1(lcw, truth_w.numerator, truth_w.denominator).combined.f1,
-        local_has_true_parent = lcw !== nothing &&
-            support_uses_variable(lcw; variable = 2),
-        local_false_parent = lcw !== nothing &&
-            (support_uses_variable(lcw; variable = 3) ||
-             support_uses_variable(lcw; variable = 4)))
+        local_has_true_parent = local_has_true_parent_gate(lcw; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lcw; variables = (3, 4)))
     end
 
     if :identifiability in wanted
@@ -1420,18 +1477,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             support_f1(lc6, truth6.numerator, truth6.denominator).combined.f1,
         global_f1 = gc6 === nothing ? 0.0 :
             support_f1(gc6, truth6.numerator, truth6.denominator).combined.f1,
-        local_has_true_parent = lc6 !== nothing &&
-            support_uses_variable(lc6; variable = 2),
-        local_false_parent = lc6 !== nothing &&
-            (support_uses_variable(lc6; variable = 3) ||
-             support_uses_variable(lc6; variable = 4) ||
-             support_uses_variable(lc6; variable = 5) ||
-             support_uses_variable(lc6; variable = 6)),
-        global_false_parent = gc6 !== nothing &&
-            (support_uses_variable(gc6; variable = 3) ||
-             support_uses_variable(gc6; variable = 4) ||
-             support_uses_variable(gc6; variable = 5) ||
-             support_uses_variable(gc6; variable = 6)),
+        local_has_true_parent = local_has_true_parent_gate(lc6; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lc6; variables = (3, 4, 5, 6)),
+        global_false_parent = local_has_false_parent_gate(gc6; variables = (3, 4, 5, 6)),
         distractor_in_local = 6 ∈ local_spec6.variables,
         distractor_in_global = 6 ∈ global_spec6.variables,
         Z_in_local_library = 6 ∈ local_spec6.variables,
@@ -1467,13 +1515,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         local_success = local_6w.success,
         local_f1 = lc6w === nothing ? 0.0 :
             support_f1(lc6w, truth_6w.numerator, truth_6w.denominator).combined.f1,
-        local_has_true_parent = lc6w !== nothing &&
-            support_uses_variable(lc6w; variable = 2),
-        local_false_parent = lc6w !== nothing &&
-            (support_uses_variable(lc6w; variable = 3) ||
-             support_uses_variable(lc6w; variable = 4) ||
-             support_uses_variable(lc6w; variable = 5) ||
-             support_uses_variable(lc6w; variable = 6)))
+        local_has_true_parent = local_has_true_parent_gate(lc6w; variable = 2),
+        local_false_parent = local_has_false_parent_gate(lc6w; variables = (3, 4, 5, 6)))
     end
 
     if :literature in wanted

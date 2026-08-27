@@ -43,6 +43,14 @@ function parameter_schema(model::UDEModel)
             end
         end
     end
+    # CustomDestructionTerm stores an evaluator, not the rate symbol.
+    # Collect CustomKineticMetadata.rate_param from the network IR.
+    for reaction in model.network.reactions
+        reaction.known || continue
+        reaction.family == CUSTOM_KINETIC || continue
+        sym = _meta_symbol(reaction.metadata, :rate_param, :k_custom)
+        sym ∈ seen || (push!(names, sym); push!(seen, sym))
+    end
     nn_heads = count(term -> term isa NeuralDestructionTerm,
                      model.compiled.destruction_terms)
     return ParameterSchema(names, nn_heads)
@@ -64,7 +72,7 @@ function default_phys_parameters(schema::ParameterSchema)
     defaults = Dict{Symbol,Float64}(
         :α_p53 => 0.9, :β_mdm2 => 1.1, :γ_mdm2 => 1.5, :signal => 1.0,
         :vmax => 1.0, :km => 0.5, :ki => 0.5, :n => 4.0, :K => 0.5,
-        :γ => 1.0, :k => 0.5, :unit => 1.0)
+        :γ => 1.0, :k => 0.5, :unit => 1.0, :k_custom => 0.8)
     return (; (name => get(defaults, name, 1.0) for name in schema.phys_names)...)
 end
 

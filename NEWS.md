@@ -1,5 +1,79 @@
 # BioDynaX.jl Unreleased
 
+- Allocation / type-stability gates (`src/AllocationGates.jl`, not
+  exported): measured `@allocated` ceilings and workspace reuse
+  rows that can fail. Docs:
+  [allocation-gates](docs/src/allocation-gates.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Docs executable path (`src/DocsExecutable.jl`, not exported):
+  joins H–L contract sentences and scans leftover closed-hole
+  phrases. Docs: [docs-executable](docs/src/docs-executable.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Parameter schema / pack (`src/ParameterSchemaPack.jl`, not
+  exported): `:k_custom` is in `parameter_schema`.
+  `unpack_parameters` inverts `pack_parameters`. Docs:
+  [parameter-schema-pack](docs/src/parameter-schema-pack.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Denominator / domain safety (`src/DenominatorDomain.jl`, not
+  exported): train / validation / orthant split counts. UDE extras
+  still call `denominator_violation_count` on the domain grid.
+  Docs: [denominator-domain](docs/src/denominator-domain.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Graph-local library (`src/GraphLocalLibrary.jl`, not exported):
+  `local_basis` `scope=:graph` versus `scope=:global`.
+  `local_has_true_parent_gate` is the recovered-support membership
+  check. Docs:
+  [graph-local-library](docs/src/graph-local-library.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Identifiability product rows (`src/IdentifiabilityProduct.jl`,
+  not exported): `production_destruction_tradeoff` joins
+  `UniqueClaimProtocolRow`. Finite collinearity prints; NaN stays
+  silent. Docs:
+  [identifiability-product](docs/src/identifiability-product.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Hybrid residual versus solver (`src/HybridResidual.jl`, not
+  exported): `hybrid_data_residual` agrees with `SciMLBase.solve`
+  of `compose_hybrid_rhs`. Noise-0 identity residual is ~0; smoke
+  (1 IC / 8 points) is not the seed-103 / 9-IC protocol residual.
+  Docs: [hybrid-residual](docs/src/hybrid-residual.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Hybrid compose path (`src/HybridCompose.jl`, not exported):
+  `compose_hybrid_rhs` with the neural destruction rate recovers
+  `ude_system`. Failed `DiscoveryResult` cannot `export_rhs`.
+  Docs: [hybrid-compose](docs/src/hybrid-compose.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Failure-mode instrument (`src/FailureModes.jl`, not exported)
+  names every `DiscoveryRetcode`, keeps `validate_network` open on
+  0/2-hole networks, and keeps combined F1 out of KPI failure
+  symbols. Docs: [failure-modes](docs/src/failure-modes.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Experiment fingerprints, batches, and checkpoint resume stay on one
+  compiled tree (`src/ExperimentCheckpoint.jl`, not exported).
+  Remapped multi-head generate and `train_experiments` do not
+  `compile_network` per IC. Docs:
+  [experiment-checkpoint](docs/src/experiment-checkpoint.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Unused recovery-suite sections do not call `_train_unknown_edge`
+  (`src/RecoverySuiteSkip.jl`, not exported).
+  `recovery_suite_plan` names trainers; the default suite still
+  includes `:ude_discovery` and `:mm_unknown`.
+  `benchmark/recovery_suite.jl` already splits fast sections from the
+  unique-claim trainers. Docs:
+  [recovery-suite-skip](docs/src/recovery-suite-skip.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- SciML solve surface (`src/SciMLSolveSurface.jl`, not exported)
+  agrees `ude_system` / `ODEFunction` / `ODEProblem` / remake /
+  inplace cache / `SciMLBase.solve` / `predict_ude`. The
+  `recommend_sensealg` 64/65 observation boundary is locked.
+  Docs: [sciml-solve-surface](docs/src/sciml-solve-surface.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Training reuses one compiled `UDEModel` and one
+  `TrainingSolveSession` across ICs (`src/TrainingReuse.jl`, not
+  exported). `_train_unknown_edge` calls `train_experiments_with_warmup`
+  so the first-IC Adam state is not discarded. Neural holes lock
+  `InterpolatingAdjoint` with ZygoteVJP. Docs:
+  [training-reuse](docs/src/training-reuse.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Discovery library evaluation reuses grow-only workspaces
   (`STLSQWorkspace`, `StreamingImplicitWorkspace`; not exported).
   `evaluate_library!` writes in place. `_fit_implicit` streams implicit
