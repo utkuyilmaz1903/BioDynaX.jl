@@ -14,7 +14,12 @@ BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_in
 ```
 
 The default test matrix must stay fast: do not put multi-minute UDE trains in
-`test/runtests.jl`. `BIODYNAX_SMOKE=1` is **1 IC / 8 points**, not the 9-IC
+`test/runtests.jl`. The `standards` CI job (`test/run_standards.jl`) and the
+stricter Aqua flags in `test/quality.jl` are an industry bar: they may be red
+while `test` and `recovery` stay green. Do not include `test_standards.jl` from
+`runtests.jl`. Do not mark those failures `@test_broken`. Do not loosen
+recovery to make `standards` look greener.
+`BIODYNAX_SMOKE=1` is **1 IC / 8 points**, not the 9-IC
 seed-103 / regulator-grid recovery protocol; that string check stays in
 `test/test_recovery.jl`.
 The golden path is `examples/unknown_inhibition.jl`.
@@ -33,6 +38,7 @@ job. The red gate stays seed 103 / 104.
 julia --project=docs docs/instantiate.jl
 julia --project=docs docs/make.jl
 julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
+julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["JET", "ForwardDiff"]); include("test/run_standards.jl")'
 julia --project=. benchmark/sindy_baseline.jl
 julia --project=. benchmark/probe_datadriven.jl
 julia --project=. benchmark/allocation_gate.jl

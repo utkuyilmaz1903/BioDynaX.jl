@@ -34,8 +34,29 @@ end
         "test/test_allocation_gates.jl",
         "test/test_claim_metric_honesty.jl",
         "test/test_claim_scope_honesty.jl",
-        "test/test_software_hygiene.jl")
+        "test/test_software_hygiene.jl",
+        "test/quality.jl",
+        "test/run_standards.jl",
+        "test/test_standards.jl",
+        "test/test_standards_jet.jl")
     for file in needed
         @test occursin(file, ci)
     end
+end
+
+@testset "standards job is isolated and is not continue-on-error" begin
+    ci = read(joinpath(pkgdir(BioDynaX), ".github", "workflows", "ci.yml"),
+        String)
+    runtests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
+    @test occursin("\n  standards:", ci)
+    @test occursin("run_standards.jl", ci)
+    start = findfirst("\n  standards:", ci)
+    rest = ci[start:end]
+    nxt = findnext(r"\n  [a-z]", rest, 3)
+    block = nxt === nothing ? rest : rest[1:(nxt.start)]
+    @test occursin("run_standards.jl", block)
+    @test !occursin("continue-on-error", block)
+    @test !occursin("test_standards.jl", runtests)
+    @test !occursin("quality.jl", runtests)
+    @test occursin("run_recovery_hard.jl", ci)
 end
