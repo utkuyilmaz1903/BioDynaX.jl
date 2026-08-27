@@ -95,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compiled model into `predict_ude`. First-IC warmup hands its
   Optimisers state to `train_experiments`. Neural holes lock
   `InterpolatingAdjoint`; `BacksolveAdjoint` is rejected on a neural
-  hole. `RECOVERY_THRESHOLDS` and the export list are unchanged.
+  hole.   `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Discovery library evaluation reuses grow-only STLSQ / implicit-design
   workspaces. `evaluate_library!` writes monomials in place.
   `_fit_implicit` streams row chunks (`_stlsq_blocked!`). Bootstrap
