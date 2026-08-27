@@ -134,6 +134,12 @@ dirty = discover_unknown_rate(
 
 `benchmark/ude_f1_attempt.jl` replays that surrogate. It is not the
 9-IC recovery job. `support_f1_ude` stays 0.50.
+The same-library UDE extras probe cannot claim we extracted Hill.
+
+unidentifiable_edge is the Fisher/Jacobian cosine or condition-number flag, not StructuralIdentifiability.jl.
+coefficients_are_biological_constants is `!unidentifiable_edge`.
+
+MM unknown gates NN RMSE and hybrid residual; Hill recall 0.99 is not applied.
 
 ## Single-hole instrument vs open compile
 
@@ -353,6 +359,7 @@ miss = BioDynaX.unique_claim_protocol_row_from_fields(;
 ## What this page is not
 
 - A wet-lab protocol for one noisy CSV and unknown topology.
+- A general CRN solver.
 - A license to call coefficients biological constants.
 - A promise that combined F1 from a trained NN is canonical Hill.
 - A General-registry install story. Clone and `Pkg.instantiate`.

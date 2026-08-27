@@ -153,7 +153,7 @@ end
     ptr = pointer(ws.buffer)
     nchunks = 0
     for (chunk, sample_range) in BioDynaX.each_reusable_library_chunk(
-            spec.numerator, X, ws; chunk_size = 17)
+        spec.numerator, X, ws; chunk_size = 17)
         nchunks += 1
         @test pointer(parent(chunk)) === ptr || pointer(ws.buffer) === ptr
         @test length(sample_range) ≤ 17

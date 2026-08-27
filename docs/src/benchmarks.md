@@ -33,7 +33,7 @@ Fast job (`test/test_recovery.jl`):
 - **Partial observation** — subsampled analytical `D` recall, masked linear
   train, and discovery→`compose_hybrid_rhs` residual versus data. UDE
   training on missing states is **not** claimed (`ude_mask_train_claimed =
-  false`).
+  false`). UDE training on missing states is not claimed.
 - **Identifiability interventions** — freeze `k_prod`, normalize sampled
   `D`, and a production-rate change. Jacobian collinearity remains;
   `tradeoff_broken = false` is the locked finding.
@@ -52,7 +52,9 @@ Hard job (`test/run_recovery_hard.jl`):
 - **Same protocol with `σ = 0.02`** (`support_f1_noisy = 0.50`).
 - **UDE → unknown edge (MM)** — same training/residual protocol. Canonical MM
   support from the trained NN is **honestly below** the Hill recall gate on this
-  budget. NN RMSE and data residual remain gated.
+  budget (measured recall ~0.5, F1 ~0.33). NN RMSE and data residual remain
+  gated. Hill recall 0.99 is not applied. MM unknown gates NN RMSE and
+  hybrid residual; Hill recall 0.99 is not applied.
 
 Measured zero-noise Hill UDE (9 ICs, seed 103): NN RMSE ≈ 0.04, recall 1.0,
 combined F1 ≈ 0.57 (extras `1` and `r` remain), data residual ≈ 0.003,
@@ -111,7 +113,7 @@ the distractor `z`.
 | BioDynaX global | 1.00 | no | 0 | 0.007 | 0.56 |
 | DataDrivenSparse global | unavailable | — | — | — | — |
 
-DataDrivenSparse could not be resolved against this preview
+DataDrivenSparse could not be resolved against this preview.
 (`DataDrivenDiffEq` requires ModelingToolkit versions that conflict with
 BioDynaX weakdep compat `ModelingToolkit = "9, 10"` and `SciMLBase = 3`).
 That is an install error, not a skip-as-win and not “we beat them”.
@@ -186,9 +188,9 @@ and σ = 0.02 in the hard job. It is not claimed at σ ≥ 0.05.
 
 ## Published / experimental series
 
-No licensed experimental time series in this repository matches the
-unique-claim protocol (known graph, at most one unknown destruction edge,
-redistributable license, ≤8 states). That absence is the result. It is not
+No licensed experimental time series in this repository matches the unique-claim protocol.
+That paragraph still means known graph, at most one unknown destruction
+edge, redistributable license, ≤8 states. That absence is the result. It is not
 a silent skip.
 
 Elowitz & Leibler (Nature 403:335–338, 2000) is a **synthetic ODE** fixture

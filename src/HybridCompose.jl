@@ -367,10 +367,11 @@ function remapped_compose_row()
             rhs = compose_hybrid_rhs(model, packed, term, rate)
             a = ude_system(Float64.(u0), packed, 0.0, model)
             b = rhs(Float64.(u0), packed, 0.0)
-            push!(rows, (;
-                nn_index = term.nn_index,
-                match = a ≈ b,
-                n_regs = length(term.regulators)))
+            push!(rows,
+                (;
+                    nn_index = term.nn_index,
+                    match = a ≈ b,
+                    n_regs = length(term.regulators)))
         end
         counter[]
     end
@@ -481,8 +482,8 @@ function discover_then_compose_row()
         n_ics = 1,
         smoke = true,
         holds = result.success ?
-            (composed && isfinite(residual)) :
-            (!composed && result.retcode !== DiscoverySuccess))
+                (composed && isfinite(residual)) :
+                (!composed && result.retcode !== DiscoverySuccess))
 end
 
 function hill_known_generate_unknown_compose_row()
@@ -551,9 +552,10 @@ function multi_ic_identity_residual_row()
     n = with_compile_network_counter() do counter
         for u0 in ics
             traj = hybrid_generate(built.model, built.packed, u0; n_points = 12)
-            push!(residuals, hybrid_data_residual(
-                built.model, built.packed, term, rate,
-                traj.u0, traj.tspan, traj.times, traj.data))
+            push!(residuals,
+                hybrid_data_residual(
+                    built.model, built.packed, term, rate,
+                    traj.u0, traj.tspan, traj.times, traj.data))
         end
         counter[]
     end
@@ -1063,7 +1065,7 @@ end
 function hybrid_compose_source_holds()
     src = read(hybrid_compose_source_path(), String)
     docs = isfile(hybrid_compose_docs_path()) ?
-        read(hybrid_compose_docs_path(), String) : ""
+           read(hybrid_compose_docs_path(), String) : ""
     impl = read(recovery_jl_source_path(), String)
     return all(occursin(needle, src) for needle in HYBRID_COMPOSE_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -1074,7 +1076,7 @@ end
 function hybrid_compose_source_violations()
     src = read(hybrid_compose_source_path(), String)
     docs = isfile(hybrid_compose_docs_path()) ?
-        read(hybrid_compose_docs_path(), String) : ""
+           read(hybrid_compose_docs_path(), String) : ""
     missing = [s for s in HYBRID_COMPOSE_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&

@@ -17,6 +17,8 @@ The default test matrix must stay fast: do not put multi-minute UDE trains in
 `test/runtests.jl`. `BIODYNAX_SMOKE=1` is **1 IC / 8 points**, not the 9-IC
 seed-103 / regulator-grid recovery protocol; that string check stays in
 `test/test_recovery.jl`.
+The golden path is `examples/unknown_inhibition.jl`.
+`scripts/run_discovery.jl` is a debug runner, not the product.
 Closed-loop unknown-edge trains belong in the dedicated `recovery` CI job
 (`test/run_recovery_hard.jl`). `train_experiments` Adam may be minibatched;
 BFGS always refines the joint loss over the full set. Do not loosen
@@ -61,6 +63,11 @@ Export only the freeze list plus golden-path verbs. Recovery fixtures,
 Fisher, GPU/SBML/MTK, and library internals stay `BioDynaX.foo`. Do not grow
 the public `export` list to silence Documenter `missing_docs` warnings.
 `scripts/_*.jl` debug runners are gitignored; they are not the product.
+`scripts/run_discovery.jl` is a committed debug runner around
+`examples/unknown_inhibition.jl`; do not treat it as the unique-claim
+entry point. Unexported lock surfaces versus runtime wiring
+(`train_experiments_with_warmup`, `denominator_split_counts`) are listed
+in [internal-workspaces](docs/src/internal-workspaces.md).
 
 ## Experimental API
 
@@ -71,8 +78,8 @@ Do not use them in a paper or a wet lab.
 
 New files should match `.JuliaFormatter.toml` (SciML style). Do not
 reformat the whole tree in a drive-by PR. New Julia files that the
-format job lists (`src/DataGenContract.jl`, `src/RecoveryAdmission.jl`,
-and their tests) must stay `overwrite=false` clean.
+format job lists (stacked workspaces, science-honesty files, and their
+tests) must stay `overwrite=false` clean.
 
 `generate_data` must keep the compiled NN tree (multi-head and
 multi-regulator). Do not restore a 1-input dummy. `generate_experiment_set`

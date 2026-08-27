@@ -185,8 +185,9 @@ function failure_mode_hill_trajectory(;
     rng = MersenneTwister(5)
     model, p0 = build_ude_model(rng, net)
     packed = known ?
-        pack_parameters((k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6), p0.nn) :
-        pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), p0.nn)
+             pack_parameters(
+        (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6), p0.nn) :
+             pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), p0.nn)
     times, clean, _, _ = generate_from_compiled_model(
         model, packed, MersenneTwister(5);
         u0 = Float64.(u0), tspan = tspan, n_points = n_points, noise_σ = 0.0)
@@ -405,10 +406,13 @@ function failed_discovery_does_not_paint_f1()
         failed_discovery_result_row(),
         insufficient_samples_row(),
         empty_support_row())
-    return all(row -> row.holds && !occursin("support_f1_ude = 0.99",
-        hasproperty(row, :retcode) ? string(row.retcode) : ""), rows) &&
+    return all(
+        row -> row.holds &&
+            !occursin("support_f1_ude = 0.99",
+                hasproperty(row, :retcode) ? string(row.retcode) : ""),
+        rows) &&
            all(row -> row.success == false || row.retcode === DiscoverySuccess,
-               rows)
+        rows)
 end
 
 # -- 0/2-hole versus validate_network -----------------------------------------
@@ -430,22 +434,37 @@ function hole_validate_specs()
     return (
         HoleValidateSpec(:linear_zero, build_linear_test_network, 0, false, false),
         HoleValidateSpec(:zero_alias, build_zero_unknown_linear_network, 0, false, false),
-        HoleValidateSpec(:hill_known, () -> build_hill_recovery_network(; known = true, hill_order = 2), 0, false, false),
-        HoleValidateSpec(:hill_unknown, () -> build_hill_recovery_network(; known = false, hill_order = 2), 1, true, true),
-        HoleValidateSpec(:mm_known, () -> build_mm_recovery_network(; known = true), 0, false, false),
-        HoleValidateSpec(:mm_unknown, () -> build_mm_recovery_network(; known = false), 1, true, true),
+        HoleValidateSpec(
+            :hill_known, () -> build_hill_recovery_network(; known = true, hill_order = 2),
+            0, false, false),
+        HoleValidateSpec(:hill_unknown,
+            () -> build_hill_recovery_network(; known = false, hill_order = 2),
+            1, true, true),
+        HoleValidateSpec(
+            :mm_known, () -> build_mm_recovery_network(; known = true), 0, false, false),
+        HoleValidateSpec(
+            :mm_unknown, () -> build_mm_recovery_network(; known = false), 1, true, true),
         HoleValidateSpec(:dual, build_dual_unknown_network, 2, false, true),
-        HoleValidateSpec(:two_regulator, build_two_regulator_unknown_network, 1, true, false),
-        HoleValidateSpec(:six_state, () -> build_six_state_unknown_network(; known = false), 1, true, false),
-        HoleValidateSpec(:skipped_duplicate, build_skipped_duplicate_unknown_network, 2, false, false),
-        HoleValidateSpec(:skipped_middle, build_skipped_middle_unknown_network, 3, false, false),
-        HoleValidateSpec(:competitive_known, () -> build_competitive_test_network(; known = true), 0, false, false),
-        HoleValidateSpec(:competitive_unknown, () -> build_competitive_test_network(; known = false), 1, true, false),
+        HoleValidateSpec(
+            :two_regulator, build_two_regulator_unknown_network, 1, true, false),
+        HoleValidateSpec(
+            :six_state, () -> build_six_state_unknown_network(; known = false),
+            1, true, false),
+        HoleValidateSpec(
+            :skipped_duplicate, build_skipped_duplicate_unknown_network, 2, false, false),
+        HoleValidateSpec(
+            :skipped_middle, build_skipped_middle_unknown_network, 3, false, false),
+        HoleValidateSpec(:competitive_known,
+            () -> build_competitive_test_network(; known = true), 0, false, false),
+        HoleValidateSpec(:competitive_unknown,
+            () -> build_competitive_test_network(; known = false), 1, true, false),
         HoleValidateSpec(:repressilator, build_repressilator_network, 0, false, false),
         HoleValidateSpec(:default_example, () -> DEFAULT_EXAMPLE_NETWORK, 1, true, false),
         HoleValidateSpec(:mm_test, build_mm_test_network, 0, false, false),
-        HoleValidateSpec(:three_state, () -> build_three_state_unknown_network(), 1, true, false),
-        HoleValidateSpec(:kinetic_known, build_kinetic_generalization_network, 0, false, false))
+        HoleValidateSpec(
+            :three_state, () -> build_three_state_unknown_network(), 1, true, false),
+        HoleValidateSpec(
+            :kinetic_known, build_kinetic_generalization_network, 0, false, false))
 end
 
 """
@@ -625,11 +644,12 @@ function kpi_failure_grid()
     f1s = (0.10, 0.50, 0.57, 0.99)
     rows = NamedTuple[]
     for edge in edges, residual in residuals, recall in recalls, f1 in f1s
-        push!(rows, kpi_probe_row(
-            unidentifiable_edge = edge,
-            data_residual = residual,
-            support_recall = recall,
-            support_f1 = f1))
+        push!(rows,
+            kpi_probe_row(
+                unidentifiable_edge = edge,
+                data_residual = residual,
+                support_recall = recall,
+                support_f1 = f1))
     end
     n_fail = count(r -> !isempty(r.failures), rows)
     n_hold = count(r -> r.hold, rows)
@@ -699,7 +719,7 @@ One extras printer case.
 """
 struct ExtrasPrintCase
     name::Symbol
-    extras
+    extras::Any
     expected::String
     hardcoded::Bool
 end
@@ -726,13 +746,14 @@ function extras_print_catalog_row()
     for case in cases
         label = extras_print_label(case.extras)
         hardcoded = extras_print_is_hardcoded_attempt(label)
-        push!(rows, (;
-            name = case.name,
-            label,
-            expected = case.expected,
-            hardcoded,
-            expected_hardcoded = case.hardcoded,
-            holds = label == case.expected && hardcoded == case.hardcoded))
+        push!(rows,
+            (;
+                name = case.name,
+                label,
+                expected = case.expected,
+                hardcoded,
+                expected_hardcoded = case.hardcoded,
+                holds = label == case.expected && hardcoded == case.hardcoded))
     end
     return (;
         n = length(rows),
@@ -1109,7 +1130,7 @@ end
 function failure_mode_source_holds()
     src = read(failure_mode_source_path(), String)
     docs = isfile(failure_mode_docs_path()) ?
-        read(failure_mode_docs_path(), String) : ""
+           read(failure_mode_docs_path(), String) : ""
     impl = read(discovery_jl_source_path(), String)
     return all(occursin(needle, src) for needle in FAILURE_MODE_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -1120,7 +1141,7 @@ end
 function failure_mode_source_violations()
     src = read(failure_mode_source_path(), String)
     docs = isfile(failure_mode_docs_path()) ?
-        read(failure_mode_docs_path(), String) : ""
+           read(failure_mode_docs_path(), String) : ""
     missing = [s for s in FAILURE_MODE_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&
@@ -1145,7 +1166,8 @@ end
 
 function failure_mode_landing_docs_hold()
     howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    architecture = read(joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
+    architecture = read(
+        joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
     sentences = failure_mode_locked_sentences()
     return occursin("failure-modes", howto) &&
            occursin("DiscoveryRetcode", howto) &&

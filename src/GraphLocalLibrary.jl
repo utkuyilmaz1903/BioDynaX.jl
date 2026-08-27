@@ -99,13 +99,13 @@ function graph_vs_global_library_row(network::BiologicalNetwork, target::Int;
     parents = graph_parent_set(network, target)
     nstates = length(state_nodes(network))
     true_in_graph = true_parent === nothing ? nothing :
-        Int(true_parent) in graph_vars
+                    Int(true_parent) in graph_vars
     true_in_parents = true_parent === nothing ? nothing :
-        Int(true_parent) in parents
+                      Int(true_parent) in parents
     subset = graph_vars ⊆ global_vars || graph_vars == global_vars
     wider = candidate_count(graph_spec) ≤ candidate_count(global_spec)
     parents_in_graph = parents ⊆ graph_vars ||
-        all(p -> p == target || p in graph_vars, parents)
+                       all(p -> p == target || p in graph_vars, parents)
     return (;
         target,
         nstates,
@@ -306,11 +306,12 @@ function remapped_library_row()
     nstates = length(state_nodes(net))
     for target in 1:nstates
         packed = graph_vs_global_library_row(net, target)
-        push!(rows, (;
-            target,
-            graph_terms = packed.graph_terms,
-            global_terms = packed.global_terms,
-            holds = packed.holds))
+        push!(rows,
+            (;
+                target,
+                graph_terms = packed.graph_terms,
+                global_terms = packed.global_terms,
+                holds = packed.holds))
     end
     return (;
         rows,
@@ -470,9 +471,9 @@ function ablation_discovery_gate_row()
         n_ics = 1,
         smoke = true,
         holds = local_disc.success ?
-            (local_has_true_parent_gate(local_cand; variable = 1) &&
-             !local_has_false_parent_gate(local_cand; variables = (2,))) :
-            local_disc.retcode !== DiscoverySuccess)
+                (local_has_true_parent_gate(local_cand; variable = 1) &&
+                 !local_has_false_parent_gate(local_cand; variables = (2,))) :
+                local_disc.retcode !== DiscoverySuccess)
 end
 
 function three_state_discovery_gate_row()
@@ -498,8 +499,8 @@ function three_state_discovery_gate_row()
         n_ics = 1,
         holds = 2 in candidate_parents(net, 1) &&
                 (local_disc.success ?
-                    local_has_true_parent_gate(lc; variable = 2) :
-                    local_disc.retcode !== DiscoverySuccess))
+                 local_has_true_parent_gate(lc; variable = 2) :
+                 local_disc.retcode !== DiscoverySuccess))
 end
 
 function wrong_graph_discovery_gate_row()
@@ -849,7 +850,7 @@ end
 function graph_local_library_source_holds()
     src = read(graph_local_library_source_path(), String)
     docs = isfile(graph_local_library_docs_path()) ?
-        read(graph_local_library_docs_path(), String) : ""
+           read(graph_local_library_docs_path(), String) : ""
     impl = read(joinpath(pkgdir(BioDynaX), "src", "BasisFactory.jl"), String)
     return all(occursin(needle, src) for needle in GRAPH_LOCAL_LIBRARY_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -860,7 +861,7 @@ end
 function graph_local_library_source_violations()
     src = read(graph_local_library_source_path(), String)
     docs = isfile(graph_local_library_docs_path()) ?
-        read(graph_local_library_docs_path(), String) : ""
+           read(graph_local_library_docs_path(), String) : ""
     missing = [s for s in GRAPH_LOCAL_LIBRARY_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&
@@ -983,13 +984,14 @@ function suite_parent_set_catalog()
         n_dyn = length(state_nodes(net))
         for target in 1:n_dyn
             packed = graph_vs_global_library_row(net, target)
-            push!(rows, (;
-                section,
-                target,
-                n_parents = length(packed.parents),
-                graph_terms = packed.graph_terms,
-                global_terms = packed.global_terms,
-                holds = packed.holds))
+            push!(rows,
+                (;
+                    section,
+                    target,
+                    n_parents = length(packed.parents),
+                    graph_terms = packed.graph_terms,
+                    global_terms = packed.global_terms,
+                    holds = packed.holds))
         end
     end
     return (;
@@ -997,7 +999,7 @@ function suite_parent_set_catalog()
         rows,
         holds = !isempty(rows) && all(r -> r.holds, rows) &&
                 length(unique(r.section for r in rows)) ==
-                    length(recovery_suite_sections()))
+                length(recovery_suite_sections()))
 end
 
 function format_suite_parent_catalog()

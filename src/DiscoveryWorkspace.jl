@@ -61,7 +61,7 @@ coefficient vector (`coefficients ./ scales`) and is invalidated by the
 next `_stlsq_blocked!` call. `resize_count` increments only when a buffer
 is reallocated.
 """
-mutable struct STLSQWorkspace{T<:AbstractFloat}
+mutable struct STLSQWorkspace{T <: AbstractFloat}
     scales::Vector{T}
     coefficients::Vector{T}
     scaled::Vector{T}
@@ -86,7 +86,7 @@ Full-width implicit design buffers (`n × n_num`, `n × n_den`, `n × p`)
 plus an STLSQ workspace. Used when the caller already materialised `X`.
 Streaming fits prefer `StreamingImplicitWorkspace`.
 """
-mutable struct ImplicitLibraryWorkspace{T<:AbstractFloat}
+mutable struct ImplicitLibraryWorkspace{T <: AbstractFloat}
     num_buf::Matrix{T}
     den_buf::Matrix{T}
     design::Matrix{T}
@@ -105,7 +105,7 @@ end
 
 Chunk-sized implicit design only. The full `n × p` design is never stored.
 """
-mutable struct StreamingImplicitWorkspace{T<:AbstractFloat}
+mutable struct StreamingImplicitWorkspace{T <: AbstractFloat}
     num_chunk::Matrix{T}
     den_chunk::Matrix{T}
     design_chunk::Matrix{T}
@@ -127,14 +127,14 @@ end
 
 One reusable `chunk_size × n_terms` block for `each_reusable_library_chunk`.
 """
-mutable struct LibraryChunkWorkspace{T<:AbstractFloat}
+mutable struct LibraryChunkWorkspace{T <: AbstractFloat}
     buffer::Matrix{T}
     chunk_size::Int
     n_terms::Int
     resize_count::Int
 end
 
-struct ReusableLibraryChunks{T<:AbstractFloat,M<:AbstractMatrix{T}}
+struct ReusableLibraryChunks{T <: AbstractFloat, M <: AbstractMatrix{T}}
     terms::Vector{MonomialTerm}
     X::M
     chunk_size::Int
@@ -154,7 +154,7 @@ function _grow_vector!(store::Ref, current::Vector{T}, n::Int) where {T}
 end
 
 function allocate_stlsq_workspace(::Type{T}, n::Integer, p::Integer,
-        chunk_size::Integer) where {T<:AbstractFloat}
+        chunk_size::Integer) where {T <: AbstractFloat}
     n ≥ 0 || throw(ArgumentError("n must be non-negative"))
     p ≥ 0 || throw(ArgumentError("p must be non-negative"))
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
@@ -208,7 +208,7 @@ function ensure_stlsq_workspace!(ws::STLSQWorkspace{T}, n::Integer, p::Integer,
 end
 
 function allocate_implicit_workspace(::Type{T}, n::Integer, n_num::Integer,
-        n_den::Integer, chunk_size::Integer) where {T<:AbstractFloat}
+        n_den::Integer, chunk_size::Integer) where {T <: AbstractFloat}
     p = Int(n_num) + Int(n_den)
     return ImplicitLibraryWorkspace{T}(
         Matrix{T}(undef, Int(n), Int(n_num)),
@@ -246,7 +246,7 @@ function ensure_implicit_workspace!(ws::ImplicitLibraryWorkspace{T}, n::Integer,
 end
 
 function allocate_streaming_implicit_workspace(::Type{T}, n::Integer,
-        n_num::Integer, n_den::Integer, chunk_size::Integer) where {T<:AbstractFloat}
+        n_num::Integer, n_den::Integer, chunk_size::Integer) where {T <: AbstractFloat}
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
     cs = min(Int(chunk_size), max(Int(n), 1))
     p = Int(n_num) + Int(n_den)
@@ -295,7 +295,7 @@ function ensure_streaming_implicit_workspace!(ws::StreamingImplicitWorkspace{T},
 end
 
 function allocate_library_chunk_workspace(::Type{T}, chunk_size::Integer,
-        n_terms::Integer) where {T<:AbstractFloat}
+        n_terms::Integer) where {T <: AbstractFloat}
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
     n_terms ≥ 0 || throw(ArgumentError("n_terms must be non-negative"))
     return LibraryChunkWorkspace{T}(
@@ -430,17 +430,17 @@ function implicit_design!(ws::ImplicitLibraryWorkspace, spec::LocalBasisSpec,
         X::AbstractMatrix, y::AbstractVector)
     n = length(y)
     n == size(X, 2) || throw(DimensionMismatch("y must match X columns"))
-    num = @view ws.num_buf[1:n, 1:ws.n_num]
-    den = @view ws.den_buf[1:n, 1:ws.n_den]
+    num = @view ws.num_buf[1:n, 1:(ws.n_num)]
+    den = @view ws.den_buf[1:n, 1:(ws.n_den)]
     design = @view ws.design[1:n, 1:(ws.n_num + ws.n_den)]
     evaluate_library!(num, spec.numerator, X)
     evaluate_library!(den, spec.denominator, X)
-    @inbounds for j in 1:ws.n_num
+    @inbounds for j in 1:(ws.n_num)
         for i in 1:n
             design[i, j] = num[i, j]
         end
     end
-    @inbounds for j in 1:ws.n_den
+    @inbounds for j in 1:(ws.n_den)
         col = ws.n_num + j
         for i in 1:n
             design[i, col] = -den[i, j] * y[i]
@@ -665,7 +665,7 @@ full design. Hierarchy pruning still uses `prune_nested_implicit`.
 """
 function _fit_implicit_stream(spec::LocalBasisSpec, X, derivative, indices,
         threshold; chunk_size::Int = 256,
-        workspace::Union{Nothing,StreamingImplicitWorkspace} = nothing)
+        workspace::Union{Nothing, StreamingImplicitWorkspace} = nothing)
     local_X = @view X[:, indices]
     n = length(indices)
     n_num = length(spec.numerator)
@@ -676,9 +676,9 @@ function _fit_implicit_stream(spec::LocalBasisSpec, X, derivative, indices,
         y[i] = derivative[indices[i]]
     end
     ws = workspace === nothing ?
-        allocate_streaming_implicit_workspace(T, n, n_num, n_den, chunk_size) :
-        ensure_streaming_implicit_workspace!(
-            workspace, n, n_num, n_den, chunk_size)
+         allocate_streaming_implicit_workspace(T, n, n_num, n_den, chunk_size) :
+         ensure_streaming_implicit_workspace!(
+        workspace, n, n_num, n_den, chunk_size)
     function fill_from_target!(design, sample_range)
         rows = length(sample_range)
         num = @view ws.num_chunk[1:rows, 1:n_num]
@@ -723,15 +723,15 @@ end
 
 function _fit_implicit_workspace(spec::LocalBasisSpec, X, derivative, indices,
         threshold; chunk_size::Int = 256,
-        workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
+        workspace::Union{Nothing, ImplicitLibraryWorkspace} = nothing)
     local_X = @view X[:, indices]
     n = length(indices)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
     T = eltype(X)
     ws = workspace === nothing ?
-        allocate_implicit_workspace(T, n, n_num, n_den, chunk_size) :
-        ensure_implicit_workspace!(workspace, n, n_num, n_den, chunk_size)
+         allocate_implicit_workspace(T, n, n_num, n_den, chunk_size) :
+         ensure_implicit_workspace!(workspace, n, n_num, n_den, chunk_size)
     y = @view ws.y[1:n]
     @inbounds for i in 1:n
         y[i] = derivative[indices[i]]
@@ -769,7 +769,7 @@ function each_reusable_library_chunk(terms::Vector{MonomialTerm},
         chunk_size::Int = 256)
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
     ensure_library_chunk_workspace!(workspace, chunk_size, length(terms))
-    return ReusableLibraryChunks{eltype(X),typeof(X)}(
+    return ReusableLibraryChunks{eltype(X), typeof(X)}(
         terms, X, chunk_size, workspace)
 end
 
@@ -779,8 +779,9 @@ function each_reusable_library_chunk(terms::Vector{MonomialTerm},
     return each_reusable_library_chunk(terms, X, ws; chunk_size = chunk_size)
 end
 
-Base.eltype(::Type{<:ReusableLibraryChunks{T}}) where {T} =
-    Tuple{SubArray{T,2},UnitRange{Int}}
+function Base.eltype(::Type{<:ReusableLibraryChunks{T}}) where {T}
+    Tuple{SubArray{T, 2}, UnitRange{Int}}
+end
 Base.IteratorSize(::Type{<:ReusableLibraryChunks}) = Base.SizeUnknown()
 
 function Base.iterate(chunks::ReusableLibraryChunks, start::Int = 1)
@@ -808,7 +809,7 @@ function materialise_library_via_chunks(terms, X; chunk_size::Int = 256)
     output = Matrix{eltype(X)}(undef, size(X, 2), length(terms))
     ws = allocate_library_chunk_workspace(eltype(X), chunk_size, length(terms))
     for (chunk, sample_range) in each_reusable_library_chunk(
-            terms, X, ws; chunk_size = chunk_size)
+        terms, X, ws; chunk_size = chunk_size)
         output[sample_range, :] .= chunk
     end
     return output
@@ -982,10 +983,10 @@ function discovery_workspace_source_holds()
     impl = read(discovery_jl_source_path(), String) *
            read(basis_factory_source_path(), String)
     docs = isfile(discovery_streaming_docs_path()) ?
-        read(discovery_streaming_docs_path(), String) : ""
+           read(discovery_streaming_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in DISCOVERY_WORKSPACE_MUST_CONTAIN) &&
            !any(occursin(needle, impl) || occursin(needle, docs)
-                for needle in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN)
+    for needle in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN)
 end
 
 function discovery_jl_uses_workspace()
@@ -1048,9 +1049,10 @@ function discovery_workspace_source_violations()
     impl = read(discovery_jl_source_path(), String) *
            read(basis_factory_source_path(), String)
     docs = isfile(discovery_streaming_docs_path()) ?
-        read(discovery_streaming_docs_path(), String) : ""
+           read(discovery_streaming_docs_path(), String) : ""
     missing = [s for s in DISCOVERY_WORKSPACE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s for s in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN
+    forbidden = [s
+                 for s in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN
                  if occursin(s, impl) || occursin(s, docs)]
     return (; missing, forbidden)
 end

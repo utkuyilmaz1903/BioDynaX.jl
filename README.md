@@ -1,5 +1,9 @@
 # BioDynaX.jl
 
+Research preview. Not v1.0. Unique claim: known graph, one unknown
+destruction `D(z)`, practical `unidentifiable_edge`, gated residual and
+recall. Not a general network solver.
+
 [![CI](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

@@ -146,7 +146,7 @@ function residual_solver_agreement_row(model::UDEModel, p, u0; kwargs...)
         counter[]
     end
     hybrid_sciml = bundle.hybrid ≈ bundle.sciml ||
-        abs(bundle.hybrid - bundle.sciml) < 1e-12
+                   abs(bundle.hybrid - bundle.sciml) < 1e-12
     identity_small = bundle.hybrid < 1e-6
     model_small = bundle.model_solve < 1e-6
     pred_small = bundle.pred < 1e-6
@@ -315,7 +315,7 @@ function noise_does_not_paint_f1_row()
                 RECOVERY_THRESHOLDS.support_f1_ude == 0.50 &&
                 RECOVERY_THRESHOLDS.support_f1_clean == 0.99 &&
                 RECOVERY_THRESHOLDS.support_f1_ude <
-                    RECOVERY_THRESHOLDS.support_f1_clean)
+                RECOVERY_THRESHOLDS.support_f1_clean)
 end
 
 # -- Smoke versus protocol residual -------------------------------------------
@@ -347,10 +347,11 @@ function smoke_vs_protocol_residual_row()
         smoke_exp.times, smoke_exp.observations)
     protocol_residuals = Float64[]
     for exp in protocol_set.experiments
-        push!(protocol_residuals, hybrid_data_residual(
-            built.model, built.packed, term, rate,
-            exp.u0, (first(exp.times), last(exp.times)),
-            exp.times, exp.observations))
+        push!(protocol_residuals,
+            hybrid_data_residual(
+                built.model, built.packed, term, rate,
+                exp.u0, (first(exp.times), last(exp.times)),
+                exp.times, exp.observations))
     end
     return (;
         smoke_ics = length(smoke_set),
@@ -704,10 +705,11 @@ function remapped_residual_solver_row()
                 model, packed, term, rate, Float64.(u0), tspan, times, pred)
             sciml = hybrid_residual_sciml_solve(
                 model, packed, term, rate, u0, tspan, times, pred)
-            push!(rows, (;
-                nn_index = term.nn_index,
-                hybrid, sciml,
-                match = hybrid < 1e-6 && sciml < 1e-6 && hybrid ≈ sciml))
+            push!(rows,
+                (;
+                    nn_index = term.nn_index,
+                    hybrid, sciml,
+                    match = hybrid < 1e-6 && sciml < 1e-6 && hybrid ≈ sciml))
         end
         counter[]
     end
@@ -759,8 +761,8 @@ function skipped_middle_residual_solver_row()
     times = collect(range(0.0, 0.6; length = 8))
     pred = predict_ude(packed, u0, tspan, times, model)
     matches = [hybrid_data_residual(
-        model, packed, term, neural_identity_rate(model, packed, term),
-        u0, tspan, times, pred) < 1e-6 for term in terms]
+                   model, packed, term, neural_identity_rate(model, packed, term),
+                   u0, tspan, times, pred) < 1e-6 for term in terms]
     return (;
         n_terms = length(terms),
         holes = count_unknown_destructions(net),
@@ -781,12 +783,14 @@ function multi_ic_residual_solver_row()
     n = with_compile_network_counter() do counter
         for u0 in ics
             traj = hybrid_generate(built.model, built.packed, u0; n_points = 12)
-            push!(residuals, hybrid_data_residual(
-                built.model, built.packed, term, rate,
-                traj.u0, traj.tspan, traj.times, traj.data))
-            push!(scimls, hybrid_residual_sciml_solve(
-                built.model, built.packed, term, rate,
-                traj.u0, traj.tspan, traj.times, traj.data))
+            push!(residuals,
+                hybrid_data_residual(
+                    built.model, built.packed, term, rate,
+                    traj.u0, traj.tspan, traj.times, traj.data))
+            push!(scimls,
+                hybrid_residual_sciml_solve(
+                    built.model, built.packed, term, rate,
+                    traj.u0, traj.tspan, traj.times, traj.data))
         end
         counter[]
     end
@@ -1133,7 +1137,7 @@ end
 function hybrid_residual_source_holds()
     src = read(hybrid_residual_source_path(), String)
     docs = isfile(hybrid_residual_docs_path()) ?
-        read(hybrid_residual_docs_path(), String) : ""
+           read(hybrid_residual_docs_path(), String) : ""
     impl = read(recovery_jl_source_path(), String)
     return all(occursin(needle, src) for needle in HYBRID_RESIDUAL_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -1144,7 +1148,7 @@ end
 function hybrid_residual_source_violations()
     src = read(hybrid_residual_source_path(), String)
     docs = isfile(hybrid_residual_docs_path()) ?
-        read(hybrid_residual_docs_path(), String) : ""
+           read(hybrid_residual_docs_path(), String) : ""
     missing = [s for s in HYBRID_RESIDUAL_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&

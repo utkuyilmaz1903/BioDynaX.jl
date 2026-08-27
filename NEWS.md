@@ -1,5 +1,21 @@
 # BioDynaX.jl Unreleased
 
+- Software hygiene: internal workspace inventory, SciML format list for
+  stacked / science files, `scripts/run_discovery.jl` as a debug runner,
+  README unique-claim first line. Docs:
+  [internal-workspaces](docs/src/internal-workspaces.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Claim-scope honesty (`src/ClaimScopeHonesty.jl`, not exported):
+  synthetic howto CSV, no licensed series, no masked-state UDE claim,
+  graph-prior booleans, multi-seed UDE as a report, unknown topology
+  out of scope. Docs: [out-of-scope](docs/src/out-of-scope.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
+- Claim-metric honesty (`src/ClaimMetricHonesty.jl`, not exported):
+  UDE extras stay below `support_f1_clean`; `unidentifiable_edge` is
+  Fisher/Jacobian cosine or cond, not StructuralIdentifiability.jl;
+  MM unknown gates NN RMSE and residual, not Hill recall 0.99.
+  Docs: [claim-metric-honesty](docs/src/claim-metric-honesty.md).
+  `RECOVERY_THRESHOLDS` and the public export list are unchanged.
 - Allocation / type-stability gates (`src/AllocationGates.jl`, not
   exported): measured `@allocated` ceilings and workspace reuse
   rows that can fail. Docs:

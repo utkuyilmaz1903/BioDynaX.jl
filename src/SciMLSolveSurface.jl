@@ -254,9 +254,10 @@ function solve_surface_row(model::UDEModel, params, u0;
         solver_config = solve_surface_solver())
     session = training_solve_session(
         model, u, tspan, params;
-        solver = lock_training_solver(model, solve_surface_solver(
-            ad_policy = ZygoteAD(),
-            sensealg = auto_sensealg(model; n_observations = 100))))
+        solver = lock_training_solver(model,
+            solve_surface_solver(
+                ad_policy = ZygoteAD(),
+                sensealg = auto_sensealg(model; n_observations = 100))))
     sess = predict_ude_session(session, params, u, tspan, times)
     times_g, clean, _, used = generate_from_compiled_model(
         model, params, MersenneTwister(0);
@@ -370,9 +371,9 @@ function sensealg_boundary_grid(model::UDEModel)
     neural = neural_head_count(model) > 0
     mechanistic = !neural && model.compiled.nstates ≤ 8
     crossing = mechanistic ?
-        (n64.zygote_name === :backsolve_mechanistic &&
-         n65.zygote_name === :interpolating_default) :
-        (n64.zygote_name === n65.zygote_name)
+               (n64.zygote_name === :backsolve_mechanistic &&
+                n65.zygote_name === :interpolating_default) :
+               (n64.zygote_name === n65.zygote_name)
     return (;
         n20, n64, n65, n100, neural, mechanistic, crossing,
         holds = n20.holds && n64.holds && n65.holds && n100.holds && crossing)
@@ -383,19 +384,19 @@ function sensealg_boundary_matrix()
         build_ude_model(MersenneTwister(7), build_linear_test_network())[1])
     hill = sensealg_boundary_grid(
         build_ude_model(MersenneTwister(11),
-            build_hill_recovery_network(; known = false, hill_order = 2))[1])
+        build_hill_recovery_network(; known = false, hill_order = 2))[1])
     remap = sensealg_boundary_grid(
         build_ude_model(MersenneTwister(13),
-            build_remapped_two_regulator_network())[1])
+        build_remapped_two_regulator_network())[1])
     six = sensealg_boundary_grid(
         build_ude_model(MersenneTwister(41),
-            build_six_state_unknown_network(; known = false))[1])
+        build_six_state_unknown_network(; known = false))[1])
     competitive = sensealg_boundary_grid(
         build_ude_model(MersenneTwister(47),
-            build_competitive_test_network(; known = true))[1])
+        build_competitive_test_network(; known = true))[1])
     zero = sensealg_boundary_grid(
         build_ude_model(MersenneTwister(7),
-            build_zero_unknown_linear_network())[1])
+        build_zero_unknown_linear_network())[1])
     dual = sensealg_boundary_grid(
         build_ude_model(MersenneTwister(21), build_dual_unknown_network())[1])
     return (;
@@ -567,7 +568,7 @@ function _compiled_fixture(rng::AbstractRNG, network::BiologicalNetwork;
         truth_params = nothing)
     model, params = build_ude_model(rng, network)
     packed = truth_params === nothing ? params :
-        pack_parameters(truth_params, params.nn)
+             pack_parameters(truth_params, params.nn)
     u0 = fill(0.22, model.compiled.nstates)
     return model, packed, u0
 end
@@ -652,7 +653,7 @@ function competitive_solve_surface_path()
     model, params, _ = _compiled_fixture(
         MersenneTwister(47), build_competitive_test_network(; known = true);
         truth_params = (k_in = 0.9, vmax = 1.5, km = 0.4, ki = 0.6,
-                        k_s = 0.8, k_i = 0.5))
+            k_s = 0.8, k_i = 0.5))
     row = solve_surface_row(model, params, [0.25, 0.45, 0.20])
     boundary = sensealg_boundary_grid(model)
     cfg = solver_config_agreement_row(model)
@@ -914,8 +915,8 @@ end
 function production_inplace_matrix()
     linear = production_inplace_agreement(
         _compiled_fixture(
-            MersenneTwister(7), build_linear_test_network();
-            truth_params = (k_ba = 0.8, k_a = 1.2, k_b = 0.5))...)
+        MersenneTwister(7), build_linear_test_network();
+        truth_params = (k_ba = 0.8, k_a = 1.2, k_b = 0.5))...)
     hill = let
         model, params, _ = _compiled_fixture(
             MersenneTwister(11),
@@ -1025,10 +1026,10 @@ function sciml_solve_surface_source_holds()
     src = read(sciml_solve_surface_source_path(), String)
     impl = read(sciml_interface_source_path(), String)
     docs = isfile(sciml_solve_surface_docs_path()) ?
-        read(sciml_solve_surface_docs_path(), String) : ""
+           read(sciml_solve_surface_docs_path(), String) : ""
     return all(occursin(needle, src) for needle in SCIML_SOLVE_SURFACE_MUST_CONTAIN) &&
            !any(occursin(needle, impl) || occursin(needle, docs)
-                for needle in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN)
+    for needle in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN)
 end
 
 function sciml_solve_surface_docs_path()
@@ -1061,9 +1062,10 @@ function sciml_solve_surface_source_violations()
     src = read(sciml_solve_surface_source_path(), String)
     impl = read(sciml_interface_source_path(), String)
     docs = isfile(sciml_solve_surface_docs_path()) ?
-        read(sciml_solve_surface_docs_path(), String) : ""
+           read(sciml_solve_surface_docs_path(), String) : ""
     missing = [s for s in SCIML_SOLVE_SURFACE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s for s in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN
+    forbidden = [s
+                 for s in SCIML_SOLVE_SURFACE_MUST_NOT_CONTAIN
                  if occursin(s, impl) || occursin(s, docs)]
     return (; missing, forbidden)
 end

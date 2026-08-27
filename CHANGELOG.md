@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Software hygiene names unexported lock surfaces versus runtime wiring
+  (`train_experiments_with_warmup`, `denominator_split_counts`), expands
+  the SciML format job to the stacked and science Julia files, marks
+  `scripts/run_discovery.jl` as a debug runner, and puts the unique-claim
+  preview on the README first line. Docs:
+  [internal-workspaces](docs/src/internal-workspaces.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Claim-scope honesty locks the howto CSV as a synthetic fixture, keeps
+  licensed experimental series absent, fails closed if partial observation
+  claims masked-state UDE training, names graph-prior parent booleans
+  rather than a DataDrivenSparse F1 win, keeps multi-seed UDE as a report,
+  and states that unknown topology / general CRN are out of scope
+  (`src/ClaimScopeHonesty.jl`, not exported). Docs:
+  [out-of-scope](docs/src/out-of-scope.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
+- Claim-metric honesty locks the same-library UDE extras probe below
+  `support_f1_clean`, names `unidentifiable_edge` as the Fisher/Jacobian
+  cosine or condition-number flag (not StructuralIdentifiability.jl),
+  and keeps MM unknown on NN RMSE + residual rather than Hill recall
+  0.99 (`src/ClaimMetricHonesty.jl`, not exported). Combined F1 stays
+  the skeleton floor 0.50. Docs:
+  [claim-metric-honesty](docs/src/claim-metric-honesty.md).
+  `RECOVERY_THRESHOLDS` and the export list are unchanged.
 - Allocation / type-stability gates extend `test_quality_gates.jl`
   to the unexported workspaces (`src/AllocationGates.jl`, not
   exported). `allocation_hot` records a warmed `@allocated`

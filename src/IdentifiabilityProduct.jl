@@ -161,21 +161,23 @@ end
 finite. NaN and a missing field stay silent. Coefficients stay `!edge`.
 """
 function format_protocol_collinearity_row()
-    with_col = format_protocol_result((;
-        unidentifiable_edge = true,
-        collinearity = 0.997,
-        production_param = :k_prod);
+    with_col = format_protocol_result(
+        (;
+            unidentifiable_edge = true,
+            collinearity = 0.997,
+            production_param = :k_prod);
         residual = 0.01, support_recall = 1.0, support_f1 = 0.57,
         extras = String[], seed = 103, n_ics = 9, n_points = 50)
     without = format_protocol_result((; unidentifiable_edge = true);
         residual = 0.01, support_recall = 1.0, support_f1 = 0.57,
         extras = String[], seed = 103, n_ics = 9, n_points = 50)
     nan_col = format_protocol_result((;
-        unidentifiable_edge = true, collinearity = NaN);
+            unidentifiable_edge = true, collinearity = NaN);
         residual = 0.01, support_recall = 1.0, support_f1 = 0.57)
-    identified = format_protocol_result((;
-        unidentifiable_edge = false, collinearity = 0.11,
-        production_param = :k_rs);
+    identified = format_protocol_result(
+        (;
+            unidentifiable_edge = false, collinearity = 0.11,
+            production_param = :k_rs);
         residual = 0.01, support_recall = 1.0, support_f1 = 0.57)
     return (;
         with_col, without, nan_col, identified,
@@ -280,7 +282,7 @@ function smoke_vs_protocol_print_row()
         smoke_flag = occursin("smoke: true", smoke_txt),
         same_coeff = occursin(
             "coefficients_are_biological_constants: false", protocol_txt) &&
-            occursin(
+                     occursin(
             "coefficients_are_biological_constants: false", smoke_txt),
         holds = occursin("n_ics: 9", protocol_txt) &&
                 occursin("n_points: 50", protocol_txt) &&
@@ -313,7 +315,7 @@ function identifiability_product_row_namedtuple(row::IdentifiabilityProductRow)
         unknown_holes = row.unknown_holes,
         unidentifiable_edge = row.unidentifiable_edge,
         coefficients_are_biological_constants =
-            row.coefficients_are_biological_constants,
+        row.coefficients_are_biological_constants,
         collinearity = row.collinearity,
         production_param = row.production_param,
         extras_label = row.extras_label,
@@ -546,11 +548,12 @@ function remapped_tradeoff_path()
             term = term, n_points = 10)
         join = join_tradeoff_protocol_row(
             Symbol(:remap_, term.nn_index), trade; unknown_holes = 2)
-        push!(rows, (;
-            nn_index = term.nn_index,
-            collinearity = trade.collinearity,
-            join_holds = join.holds,
-            coeff = coefficients_are_biological_constants(trade)))
+        push!(rows,
+            (;
+                nn_index = term.nn_index,
+                collinearity = trade.collinearity,
+                join_holds = join.holds,
+                coeff = coefficients_are_biological_constants(trade)))
     end
     return (;
         n_terms = length(terms),
@@ -690,8 +693,8 @@ function report_verbose_tradeoff_row()
     return (;
         report, silent, printed, warning,
         printed_has_warning = occursin("collinear", printed) ||
-            occursin("collinearity", printed) ||
-            occursin("Practical", printed),
+                              occursin("collinearity", printed) ||
+                              occursin("Practical", printed),
         same_edge = report.unidentifiable_edge == silent.unidentifiable_edge,
         holds = isfinite(report.collinearity) &&
                 report.unidentifiable_edge == silent.unidentifiable_edge &&
@@ -759,7 +762,8 @@ function extras_not_invented_on_join_row()
         none = join.typed.extras_label == "(none)",
         na_label = na.typed.extras_label == "NA",
         live = leftover.typed.extras_label == "1, r",
-        no_attempt = extras_print_is_hardcoded_attempt(leftover.typed.extras_label) == false,
+        no_attempt = extras_print_is_hardcoded_attempt(leftover.typed.extras_label) ==
+                     false,
         holds = join.holds && na.holds && leftover.holds &&
                 join.typed.extras_label == "(none)" &&
                 na.typed.extras_label == "NA" &&
@@ -822,7 +826,7 @@ function production_destruction_tradeoff_source_holds()
     rest = src[first(start):end]
     nxt = findnext(r"\n\"\"\"", rest, 40)
     body = nxt === nothing ? rest[1:min(lastindex(rest), 2500)] :
-        rest[1:(first(nxt) - 1)]
+           rest[1:(first(nxt) - 1)]
     return occursin("assess_identifiability", body) &&
            occursin("collinearity", body) &&
            occursin("unidentifiable_edge", body) &&
@@ -837,7 +841,7 @@ function format_production_destruction_warning_source_holds()
     rest = src[first(start):end]
     nxt = findnext(r"\n\"\"\"", rest, 20)
     body = nxt === nothing ? rest[1:min(lastindex(rest), 1200)] :
-        rest[1:(first(nxt) - 1)]
+           rest[1:(first(nxt) - 1)]
     return occursin("not structural", body) &&
            occursin("collinear", body)
 end
@@ -849,7 +853,7 @@ function format_protocol_result_collinearity_source_holds()
     rest = src[first(start):end]
     nxt = findnext(r"\n\"\"\"", rest, 40)
     body = nxt === nothing ? rest[1:min(lastindex(rest), 2500)] :
-        rest[1:(first(nxt) - 1)]
+           rest[1:(first(nxt) - 1)]
     return occursin("coefficients_are_biological_constants", body) &&
            occursin("collinearity", body) &&
            occursin("isfinite(ident.collinearity)", body) &&
@@ -1095,7 +1099,7 @@ end
 function identifiability_product_source_holds()
     src = read(identifiability_product_source_path(), String)
     docs = isfile(identifiability_product_docs_path()) ?
-        read(identifiability_product_docs_path(), String) : ""
+           read(identifiability_product_docs_path(), String) : ""
     impl = read(identifiability_jl_source_path(), String)
     return all(occursin(needle, src) for needle in IDENTIFIABILITY_PRODUCT_MUST_CONTAIN) &&
            !occursin("support_f1_ude = 0.99", impl) &&
@@ -1106,7 +1110,7 @@ end
 function identifiability_product_source_violations()
     src = read(identifiability_product_source_path(), String)
     docs = isfile(identifiability_product_docs_path()) ?
-        read(identifiability_product_docs_path(), String) : ""
+           read(identifiability_product_docs_path(), String) : ""
     missing = [s for s in IDENTIFIABILITY_PRODUCT_MUST_CONTAIN if !occursin(s, src)]
     forbidden = String[]
     occursin("support_f1_ude = 0.99", docs) &&
