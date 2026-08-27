@@ -13,7 +13,8 @@ and they are not a product. Names below are **not exported**; call them as
 - **SBML** — species and stoichiometry only. MathML does not lower to
   Hill/MM metadata. Explicit kinetic laws become `known = false`.
 - **Fisher identifiability** — a Gauss–Newton matrix at a fit over physical
-  parameters. Not structural identifiability.
+  parameters. Not structural identifiability and
+  not StructuralIdentifiability.jl.
 
 ## GPU (`CUDA`)
 

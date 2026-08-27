@@ -6,7 +6,7 @@ they do not open Hill-from-NN.
 
 ## Combined F1 stays a skeleton floor
 
-`support_f1_ude` stays 0.50; `support_f1_clean` stays 0.99.
+support_f1_ude stays 0.50; support_f1_clean stays 0.99.
 
 The same-library UDE extras probe cannot claim we extracted Hill.
 `ude_f1_attempt_live_row` replays the locked surrogate
