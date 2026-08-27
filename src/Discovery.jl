@@ -776,18 +776,18 @@ function _empty_candidates(backend)
     return backend isa ImplicitSINDyPI ? ImplicitCandidate[] : ExplicitCandidate[]
 end
 
-_discovery_retcode(::DomainError) = DenominatorUnsafe
-_discovery_retcode(::LinearAlgebra.SingularException) = SingularLibrary
-function _discovery_retcode(error::ArgumentError)
-    msg = error.msg
-    if msg isa String
-        occursin("insufficient", msg) && return InsufficientSamples
-        occursin("empty support", msg) && return EmptySupport
+function _discovery_retcode(error)
+    error isa DomainError && return DenominatorUnsafe
+    error isa LinearAlgebra.SingularException && return SingularLibrary
+    if error isa ArgumentError
+        msg = error.msg
+        if msg isa String
+            occursin("insufficient", msg) && return InsufficientSamples
+            occursin("empty support", msg) && return EmptySupport
+        end
     end
     return DiscoveryFailed
 end
-_discovery_retcode(::Exception) = DiscoveryFailed
-_discovery_retcode(::Any) = DiscoveryFailed
 
 function _failed_discovery(error::Exception, config::DiscoveryConfig, prefix::String)
     message = prefix * ": " * sprint(showerror, error)
