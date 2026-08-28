@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: m1-pipeline
     content: "M1: ince gated dispatcher + composer koru; MechanismRecoveryResult; DestructionSamples yok"
-    status: pending
+    status: completed
   - id: m2-heldout
     content: "M2: ExperimentSplit + holdout residual ve D hatası; 0.30’u körlemesine sıkılaştırma"
     status: pending
