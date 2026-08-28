@@ -1,6 +1,8 @@
 using BioDynaX: MechanismRecoveryResult,
     generate_recovery_experiments,
-    consume_shared_suite_rng!
+    consume_shared_suite_rng!,
+    sample_destruction,
+    evaluate_recovery
 
 function _mechanism_recovery_result(;
         extras = ["1", "r"],
@@ -44,8 +46,10 @@ end
     @test !(:generate_recovery_experiments in names(BioDynaX))
     @test !(:consume_shared_suite_rng! in names(BioDynaX))
     @test !(:fit_unknown_destruction in names(BioDynaX))
-    @test !isdefined(BioDynaX, :sample_destruction)
-    @test !isdefined(BioDynaX, :evaluate_recovery)
+    @test isdefined(BioDynaX, :sample_destruction)
+    @test !(:sample_destruction in names(BioDynaX))
+    @test isdefined(BioDynaX, :evaluate_recovery)
+    @test !(:evaluate_recovery in names(BioDynaX))
     @test !isdefined(BioDynaX, :report_recovery)
 end
 
@@ -182,4 +186,158 @@ end
     @test wrapped.protocol_result === proto
     @test wrapped[:locked_kpis].data_residual == 0.003
     @test haskey(wrapped, :protocol_result)
+end
+
+@testset "sample_destruction returns the existing grid 3-tuple" begin
+    rng = MersenneTwister(1)
+    net = build_hill_recovery_network(; known = false)
+    model, params = build_ude_model(rng, net)
+    term = only_unknown_destruction(model)
+    sampled = sample_destruction(model, params, term)
+    expected = BioDynaX.sample_unknown_destruction_grid(model, params, term)
+    @test sampled isa Tuple
+    @test length(sampled) == 3
+    R, D, chosen = sampled
+    R_grid, D_grid, term_grid = expected
+    @test R == R_grid
+    @test D == D_grid
+    @test chosen === term_grid
+    @test chosen === term
+    @test size(R) == (1, 80)
+    @test size(D) == (1, 80)
+    @test vec(R) == collect(range(0.05, 2.0; length = 80))
+    r_range = range(0.1, 1.5; length = 11)
+    R2, D2, term2 = sample_destruction(
+        model, params, term; r_range = r_range, fill_value = 0.7)
+    R2_grid, D2_grid, term2_grid = BioDynaX.sample_unknown_destruction_grid(
+        model, params, term; r_range = r_range, fill_value = 0.7)
+    @test R2 == R2_grid
+    @test D2 == D2_grid
+    @test term2 === term2_grid
+    @test size(R2, 2) == 11
+end
+
+function _pipeline_function_body(name)
+    src = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
+    start = findfirst("function " * name, src)
+    start === nothing && return ""
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+end
+
+function _composer_function_body()
+    src = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    start = findfirst("function _evaluate_unknown_rate_recovery", src)
+    start === nothing && return ""
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+end
+
+function _synthetic_discovery(success::Bool, candidates)
+    return DiscoveryResult(
+        success, success ? "ok" : "failed", nothing, nothing, nothing,
+        candidates, (;))
+end
+
+@testset "evaluate_recovery is metric-only and unexported" begin
+    @test isdefined(BioDynaX, :evaluate_recovery)
+    @test !(:evaluate_recovery in names(BioDynaX))
+    @test public_export_list_holds()
+    body = _pipeline_function_body("evaluate_recovery")
+    @test occursin("extras_denominator = ude_extras_denominator_row(", body)
+    @test !occursin("discover_unknown_rate", body)
+    @test !occursin("normalize_destruction_samples", body)
+    @test !occursin("training_ok", body)
+    @test !occursin("unique_claim_discovery_config", body)
+    @test !occursin("times =", body)
+    @test !occursin("RECOVERY_THRESHOLDS", body)
+    composer = _composer_function_body()
+    @test occursin("training_ok", composer)
+    @test occursin("evaluate_recovery(", composer)
+    @test occursin("success = discovery.success", composer)
+    @test occursin("retcode = discovery.retcode", composer)
+    @test occursin("message = discovery.message", composer)
+end
+
+@testset "evaluate_recovery does not call discovery or own training_ok" begin
+    cand = BioDynaX.synthetic_safe_implicit_candidate()
+    R = BioDynaX.regulator_grid(20)
+    D = ones(size(R))
+    truth = hill_rate_support(2)
+    truth_rate = r -> hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    residual_calls = Ref(0)
+    discovery = _synthetic_discovery(true, [cand])
+    discovery_norm = _synthetic_discovery(false, ImplicitCandidate[])
+    metrics = evaluate_recovery(
+        R, D, discovery, discovery_norm, truth_rate, truth,
+        d_hat -> (residual_calls[] += 1; 0.25))
+    @test residual_calls[] == 1
+    @test metrics.data_residual == 0.25
+    @test :training_ok ∉ keys(metrics)
+    @test :success ∉ keys(metrics)
+    @test :retcode ∉ keys(metrics)
+    @test :message ∉ keys(metrics)
+    @test :nn_correlation ∉ keys(metrics)
+    @test :nn_rate_rmse ∉ keys(metrics)
+    @test :discovery ∉ keys(metrics)
+    @test keys(metrics) == (
+        :support_f1, :support_recall, :discovered_rate_rmse, :data_residual,
+        :denominator_violations, :normalized_support_f1,
+        :normalized_support_recall, :extras, :extras_denominator)
+    failed = _synthetic_discovery(false, ImplicitCandidate[])
+    fail_calls = Ref(0)
+    failed_metrics = evaluate_recovery(
+        R, D, failed, failed, truth_rate, truth,
+        d_hat -> (fail_calls[] += 1; 0.0))
+    @test fail_calls[] == 0
+    @test failed_metrics.support_f1 == 0.0
+    @test failed_metrics.support_recall == 0.0
+    @test failed_metrics.discovered_rate_rmse == Inf
+    @test failed_metrics.data_residual == Inf
+    @test failed_metrics.denominator_violations == typemax(Int)
+    @test failed_metrics.extras == String[]
+    @test failed_metrics.extras_denominator === nothing
+    @test failed_metrics.normalized_support_f1 == 0.0
+    @test failed_metrics.normalized_support_recall == 0.0
+    @test :training_ok ∉ keys(failed_metrics)
+end
+
+@testset "evaluate_recovery keeps current denominator and metric formulas" begin
+    cand = BioDynaX.synthetic_unsafe_implicit_candidate()
+    norm_cand = BioDynaX.synthetic_safe_implicit_candidate()
+    R = BioDynaX.regulator_grid(40)
+    D = ones(size(R))
+    truth = hill_rate_support(2)
+    truth_rate = r -> hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+    discovery = _synthetic_discovery(true, [cand])
+    discovery_norm = _synthetic_discovery(true, [norm_cand])
+    extras = discovered_support_extras(cand, truth.numerator, truth.denominator)
+    expected_f1 = support_f1(cand, truth.numerator, truth.denominator)
+    expected_norm = support_f1(norm_cand, truth.numerator, truth.denominator)
+    r = vec(R)
+    D_true = truth_rate(r)
+    d_hat = equation_to_function(cand)
+    D_hat = [d_hat([rj]) for rj in r]
+    expected_row = ude_extras_denominator_row(cand, R; extras = extras)
+    metrics = evaluate_recovery(
+        R, D, discovery, discovery_norm, truth_rate, truth, _ -> 0.11)
+    @test metrics.support_f1 == expected_f1.combined.f1
+    @test metrics.support_recall == expected_f1.combined.recall
+    @test metrics.discovered_rate_rmse == rate_rel_rmse(D_hat, D_true)
+    @test metrics.data_residual == 0.11
+    @test metrics.denominator_violations ==
+          denominator_violation_count(cand, R)
+    @test metrics.extras == extras
+    @test metrics.extras_denominator.train == expected_row.train
+    @test metrics.extras_denominator.val == expected_row.val
+    @test metrics.extras_denominator.domain == expected_row.domain
+    @test metrics.extras_denominator.total == expected_row.total
+    @test metrics.extras_denominator.any == expected_row.any
+    @test metrics.extras_denominator.holds == expected_row.holds
+    @test metrics.normalized_support_f1 == expected_norm.combined.f1
+    @test metrics.normalized_support_recall == expected_norm.combined.recall
+    @test metrics.denominator_violations > 0
+    @test metrics.extras_denominator.any
 end

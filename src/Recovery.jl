@@ -673,52 +673,24 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         R_grid, times, reshape(vec(D_norm), size(D_nn));
         config = unique_claim_discovery_config(),
         verbose = false, strict = false)
-    f1 = 0.0
-    recall = 0.0
-    rate_rmse = Inf
-    residual = Inf
-    den_violations = typemax(Int)
-    extras = String[]
-    extras_denominator = nothing
-    if discovery.success
-        candidate = discovery.candidates[1]
-        metrics = support_f1(candidate, truth_support.numerator,
-                             truth_support.denominator)
-        f1 = metrics.combined.f1
-        recall = metrics.combined.recall
-        extras = discovered_support_extras(
-            candidate, truth_support.numerator, truth_support.denominator)
-        d_hat = equation_to_function(candidate)
-        D_hat = [d_hat([rj]) for rj in r]
-        rate_rmse = rate_rel_rmse(D_hat, D_true)
-        den_violations = denominator_violation_count(candidate, R_grid)
-        extras_denominator = ude_extras_denominator_row(
-            candidate, R_grid; extras = extras)
-        residual = data_residual_fn(d_hat)
-    end
-    norm_f1 = 0.0
-    norm_recall = 0.0
-    if discovery_norm.success
-        metrics_n = support_f1(discovery_norm.candidates[1],
-                               truth_support.numerator, truth_support.denominator)
-        norm_f1 = metrics_n.combined.f1
-        norm_recall = metrics_n.combined.recall
-    end
+    metrics = evaluate_recovery(
+        R_grid, D_nn, discovery, discovery_norm, truth_rate, truth_support,
+        data_residual_fn)
     return (;
         nn_correlation = nn_corr,
         nn_rate_rmse = nn_rmse,
         success = discovery.success,
         retcode = discovery.retcode,
         message = discovery.message,
-        support_f1 = f1,
-        support_recall = recall,
-        discovered_rate_rmse = rate_rmse,
-        data_residual = residual,
-        denominator_violations = den_violations,
-        normalized_support_f1 = norm_f1,
-        normalized_support_recall = norm_recall,
-        extras,
-        extras_denominator,
+        support_f1 = metrics.support_f1,
+        support_recall = metrics.support_recall,
+        discovered_rate_rmse = metrics.discovered_rate_rmse,
+        data_residual = metrics.data_residual,
+        denominator_violations = metrics.denominator_violations,
+        normalized_support_f1 = metrics.normalized_support_f1,
+        normalized_support_recall = metrics.normalized_support_recall,
+        extras = metrics.extras,
+        extras_denominator = metrics.extras_denominator,
         discovery = discovery,
         term = term)
 end

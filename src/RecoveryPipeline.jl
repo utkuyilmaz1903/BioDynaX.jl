@@ -3,7 +3,7 @@
 #
 # This file does not change RECOVERY_THRESHOLDS, public exports, or
 # run_recovery_suite control flow beyond named generate / dummy-RNG /
-# fit helpers. Held-out, functional identifiability, and
+# fit / sample / evaluate helpers. Held-out, functional identifiability, and
 # DestructionSamples are out of scope.
 ###############################################################################
 
@@ -158,4 +158,76 @@ function fit_unknown_destruction(ude_model, ude_p0, set;
         ude_init, set, ude_model;
         config = lock_training_config(ude_model, config),
         verbose = false)
+end
+
+"""
+    sample_destruction(model, params, term; r_range, fill_value)
+
+Thin wrapper around `sample_unknown_destruction_grid`. Returns the
+existing `(R, D, term)` representation. Not exported. Not a
+`DestructionSamples` object and not `sample_learned_function`.
+"""
+function sample_destruction(model, params, term;
+        r_range = range(0.05, 2.0; length = 80),
+        fill_value = 0.3)
+    return sample_unknown_destruction_grid(
+        model, params, term; r_range = r_range, fill_value = fill_value)
+end
+
+"""
+    evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
+                      truth_support, data_residual_fn)
+
+Metric-only unique-claim evaluation. Computes the current Q1 / Q2 / Q5
+fields from already-run raw and normalized `DiscoveryResult`s. Does not
+discover, normalize samples, decide `training_ok`, construct times, or
+own success / retcode / message. Not exported. Not a held-out or
+functional-identifiability diagnostic.
+"""
+function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
+                           truth_support, data_residual_fn)
+    r = vec(R_grid)
+    D_true = truth_rate(r)
+    f1 = 0.0
+    recall = 0.0
+    rate_rmse = Inf
+    residual = Inf
+    den_violations = typemax(Int)
+    extras = String[]
+    extras_denominator = nothing
+    if discovery.success
+        candidate = discovery.candidates[1]
+        metrics = support_f1(candidate, truth_support.numerator,
+                             truth_support.denominator)
+        f1 = metrics.combined.f1
+        recall = metrics.combined.recall
+        extras = discovered_support_extras(
+            candidate, truth_support.numerator, truth_support.denominator)
+        d_hat = equation_to_function(candidate)
+        D_hat = [d_hat([rj]) for rj in r]
+        rate_rmse = rate_rel_rmse(D_hat, D_true)
+        den_violations = denominator_violation_count(candidate, R_grid)
+        extras_denominator = ude_extras_denominator_row(
+            candidate, R_grid; extras = extras)
+        residual = data_residual_fn(d_hat)
+    end
+    norm_f1 = 0.0
+    norm_recall = 0.0
+    if discovery_norm.success
+        metrics_n = support_f1(discovery_norm.candidates[1],
+                               truth_support.numerator, truth_support.denominator)
+        norm_f1 = metrics_n.combined.f1
+        norm_recall = metrics_n.combined.recall
+    end
+    return (;
+        support_f1 = f1,
+        support_recall = recall,
+        discovered_rate_rmse = rate_rmse,
+        data_residual = residual,
+        denominator_violations = den_violations,
+        normalized_support_f1 = norm_f1,
+        normalized_support_recall = norm_recall,
+        extras,
+        extras_denominator,
+    )
 end
