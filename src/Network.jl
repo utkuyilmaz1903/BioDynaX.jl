@@ -139,8 +139,10 @@ function _validate_reaction_metadata!(network::BiologicalNetwork, reaction::Reac
     if reaction.family == CUSTOM_KINETIC
         has_eval = meta isa CustomKineticMetadata && meta.evaluator !== nothing
         has_preset = meta isa CustomKineticMetadata && meta.preset != :none
-        dict_eval = meta isa AbstractDict{Symbol} && meta[:evaluator] isa Function
-        dict_preset = meta isa AbstractDict{Symbol} && get(meta, :preset, :none) != :none
+        dict_eval = meta isa AbstractDict{Symbol} &&
+            haskey(meta, :evaluator) && meta[:evaluator] isa Function
+        dict_preset = meta isa AbstractDict{Symbol} &&
+            _meta_symbol(meta, :preset, :none) !== :none
         (has_eval || has_preset || dict_eval || dict_preset) ||
             throw(ArgumentError(
                 "reaction $(reaction.name): CUSTOM_KINETIC requires evaluator or preset"))

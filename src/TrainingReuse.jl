@@ -85,7 +85,7 @@ function training_sensealg_kind(solver::SolverConfig)
 end
 
 function neural_training_requires_interpolating(model::UDEModel)
-    return neural_head_count(model) > 0
+    return model.n_neural > 0
 end
 
 """
@@ -100,15 +100,10 @@ function lock_training_solver(model::UDEModel, solver::SolverConfig)
     if solver.ad_policy isa ProductionAD && solver.sensealg === nothing
         return solver
     end
-    rec = recommend_sensealg(
-        model; policy = solver.ad_policy, n_observations = 100)
+    sa = locked_training_sensealg(model, solver.ad_policy, 100)
     return SolverConfig(
-        algorithm = solver.algorithm,
-        ad_policy = solver.ad_policy,
-        sensealg = rec.sensealg,
-        abstol = solver.abstol,
-        reltol = solver.reltol,
-        maxiters = solver.maxiters)
+        solver.algorithm, sa, solver.abstol, solver.reltol,
+        solver.maxiters, solver.ad_policy)
 end
 
 function lock_training_solver(model::UDEModel; ad_policy::AbstractADPolicy = ZygoteAD(),
@@ -118,7 +113,11 @@ function lock_training_solver(model::UDEModel; ad_policy::AbstractADPolicy = Zyg
 end
 
 function lock_training_config(model::UDEModel, config::TrainingConfig)
-    return TrainingConfig(config; solver = lock_training_solver(model, config.solver))
+    solver = lock_training_solver(model, config.solver)
+    return TrainingConfig(
+        config.adam_iterations, config.adam_learning_rate, config.bfgs_iterations,
+        config.gradient_clip, config.log_every, config.constraint, solver,
+        config.horizon_schedule, config.frozen_phys)
 end
 
 """
@@ -193,9 +192,20 @@ mutable struct TrainingSolveSession{M, P, C, S}
     sensealg_kind::Symbol
 end
 
+function training_solve_session(model::UDEModel, u0, tspan, p, solver::SolverConfig)
+    assert_training_sensealg(model, solver)
+    inplace = _forward_inplace(solver)
+    template = SciMLBase.ODEProblem(model, u0, tspan, p; inplace = inplace)
+    return TrainingSolveSession(
+        model, template, nothing, solver, inplace, 0, 0,
+        training_sensealg_kind(solver))
+end
+
 function training_solve_session(model::UDEModel, u0, tspan, p;
         solver::SolverConfig = lock_training_solver(model, SolverConfig()),
         cache::Union{Nothing, UDEModelCache} = nothing)
+    cache === nothing &&
+        return training_solve_session(model, u0, tspan, p, solver)
     assert_training_sensealg(model, solver)
     inplace = _forward_inplace(solver)
     local_cache = cache

@@ -9,15 +9,15 @@ struct RunMetadata
     julia_version::VersionNumber
     package_version::VersionNumber
     data_hash::String
-    config::Dict{Symbol,Any}
+    config
 end
 
 function RunMetadata(; seed::Integer = 0,
                      package_version::VersionNumber = PACKAGE_VERSION,
                      data_hash::AbstractString = "",
-                     config = Dict{Symbol,Any}())
+                     config = (;))
     return RunMetadata(UInt64(seed), now(UTC), VERSION, package_version,
-                       String(data_hash), Dict{Symbol,Any}(config))
+                       String(data_hash), config)
 end
 
 """

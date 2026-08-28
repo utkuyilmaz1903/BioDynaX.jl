@@ -26,6 +26,14 @@ struct ImplicitCandidate{T}
     denominator_minimum::T
 end
 
+struct ImplicitPruneCandidate{T}
+    num::Vector{T}
+    den::Vector{T}
+    score::Float64
+    k::Int
+    rss::T
+end
+
 """
     discover_equations(p_trained, model::UDEModel; kwargs...)
     discover_equations(p_trained, model, set::ExperimentSet; kwargs...)
@@ -171,9 +179,11 @@ end
 function _fit_implicit(spec::LocalBasisSpec, X, derivative, indices,
                        threshold; chunk_size::Int = 256,
                        workspace::Union{Nothing,StreamingImplicitWorkspace} = nothing)
-    return _fit_implicit_stream(
+    num, den = _fit_implicit_stream(
         spec, X, derivative, indices, threshold;
         chunk_size = chunk_size, workspace = workspace)
+    T = eltype(X)
+    return (num, den)::Tuple{Vector{T}, Vector{T}}
 end
 
 function _implicit_rss(spec, numerator, denominator, X, y)
@@ -226,7 +236,7 @@ function _refit_masked_implicit!(ws::ImplicitLibraryWorkspace, spec, X, y,
     end
     enforce_hierarchy!(numerator, spec.numerator, threshold)
     enforce_hierarchy!(denominator, spec.denominator, threshold)
-    return numerator, denominator
+    return (numerator, denominator)::Tuple{Vector{eltype(X)}, Vector{eltype(X)}}
 end
 
 function _active_term_indices(numerator, denominator)
@@ -282,7 +292,8 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
     ytr = @view y[train]
     Xval = @view X[:, val]
     yval = @view y[val]
-    candidates = NamedTuple[]
+    T = eltype(y)
+    candidates = ImplicitPruneCandidate{T}[]
     for bits in 1:((1 << n_act) - 1)
         keep_n = falses(n_num)
         keep_d = falses(n_den)
@@ -306,25 +317,45 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
         # Negative BIC * (1 + rtol) previously emptied the admissible set.
         score = information_criterion(length(ytr), rss_fit * length(ytr), k;
                                       criterion = :bic)
-        push!(candidates, (num = n2, den = d2, score = score, k = k, rss = rss_val))
+        push!(candidates, ImplicitPruneCandidate{T}(
+            n2, d2, Float64(score), k, T(rss_val)))
     end
     isempty(candidates) && return _refit_masked_implicit(
         spec, X, y,
         [i in num_idx for i in 1:n_num],
         [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
-    finite_candidates = [c for c in candidates if isfinite(c.score) && isfinite(c.rss)]
+    finite_candidates = ImplicitPruneCandidate{T}[]
+    for c in candidates
+        isfinite(c.score) && isfinite(c.rss) && push!(finite_candidates, c)
+    end
     isempty(finite_candidates) && return _refit_masked_implicit(
         spec, X, y,
         [i in num_idx for i in 1:n_num],
         [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
-    best_score = minimum(c.score for c in finite_candidates)
-    slack = max(abs(best_score) * rtol, 1e-12)
-    admissible = [c for c in finite_candidates if c.score ≤ best_score + slack]
+    best_score = finite_candidates[1].score
+    @inbounds for i in 2:length(finite_candidates)
+        score = finite_candidates[i].score
+        if score < best_score
+            best_score = score
+        end
+    end
+    slack = max(abs(best_score) * Float64(rtol), 1e-12)
+    cutoff = best_score + slack
+    admissible = ImplicitPruneCandidate{T}[]
+    for c in finite_candidates
+        c.score ≤ cutoff && push!(admissible, c)
+    end
     isempty(admissible) && return _refit_masked_implicit(
         spec, X, y,
         [i in num_idx for i in 1:n_num],
         [i in den_idx for i in 1:n_den], threshold; workspace = workspace)
-    chosen = argmin(c -> (c.k, c.rss), admissible)
+    chosen = admissible[1]
+    @inbounds for i in 2:length(admissible)
+        cand = admissible[i]
+        if (cand.k, cand.rss) < (chosen.k, chosen.rss)
+            chosen = cand
+        end
+    end
     keep_n = abs.(chosen.num) .> 1e-8
     keep_d = abs.(chosen.den) .> 1e-8
     any(keep_n) || return chosen.num, chosen.den
@@ -384,11 +415,11 @@ function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
     return numerator, denominator
 end
 
-function _evaluate_candidate(spec, numerator_coefficients,
-                             denominator_coefficients, X)
-    numerator = evaluate_library(spec.numerator, X) *
-                numerator_coefficients
-    denominator = one(eltype(X)) .+
+function _evaluate_candidate(spec, numerator_coefficients::AbstractVector{T},
+                             denominator_coefficients::AbstractVector{T},
+                             X::AbstractMatrix) where {T}
+    numerator = evaluate_library(spec.numerator, X) * numerator_coefficients
+    denominator = one(T) .+
                   evaluate_library(spec.denominator, X) *
                   denominator_coefficients
     return numerator ./ denominator, denominator
@@ -448,7 +479,7 @@ function _consensus_refit(spec, X, derivative, indices, threshold,
         denominator_coefficients, spec.denominator, threshold)
     return prune_nested_implicit(
         spec, numerator_coefficients, denominator_coefficients,
-        local_X, Vector(y), threshold; workspace = ws)
+        local_X, Vector(y), threshold; workspace = ws)::Tuple{Vector{eltype(X)}, Vector{eltype(X)}}
 end
 
 """Deterministic orthant stress grid spanning observed data bounds."""
@@ -750,13 +781,15 @@ function _discovery_retcode(error)
     error isa LinearAlgebra.SingularException && return SingularLibrary
     if error isa ArgumentError
         msg = error.msg
-        occursin("insufficient", lowercase(msg)) && return InsufficientSamples
-        occursin("empty support", lowercase(msg)) && return EmptySupport
+        if msg isa String
+            occursin("insufficient", msg) && return InsufficientSamples
+            occursin("empty support", msg) && return EmptySupport
+        end
     end
     return DiscoveryFailed
 end
 
-function _failed_discovery(error, config; prefix = "Discovery failed")
+function _failed_discovery(error::Exception, config::DiscoveryConfig, prefix::String)
     message = prefix * ": " * sprint(showerror, error)
     @warn message
     return DiscoveryResult(
@@ -766,14 +799,46 @@ function _failed_discovery(error, config; prefix = "Discovery failed")
         _discovery_retcode(error))
 end
 
+function _failed_discovery(error, config; prefix = "Discovery failed")
+    err = error isa Exception ? error : ErrorException(string(error))
+    return _failed_discovery(err, config, String(prefix))
+end
+
+function _failed_discovery_caught(error, config::DiscoveryConfig, prefix::String)
+    if error isa DomainError
+        return _failed_discovery(error, config, prefix)
+    elseif error isa LinearAlgebra.SingularException
+        return _failed_discovery(error, config, prefix)
+    elseif error isa ArgumentError
+        return _failed_discovery(error, config, prefix)
+    end
+    return _failed_discovery(ErrorException(prefix), config, prefix)
+end
+
+@inline function _coefficient_vanishes(coefficient)
+    coefficient isa Number || return true
+    return abs(float(coefficient)) ≤ 1e-10
+end
+
 function _support_empty(candidate::ExplicitCandidate)
-    return all(coefficient -> abs(coefficient) ≤ 1e-10, candidate.coefficients)
+    coeffs = candidate.coefficients
+    isempty(coeffs) && return true
+    empty = true
+    @inbounds for coefficient in coeffs
+        empty &= _coefficient_vanishes(coefficient)
+    end
+    return empty
 end
 
 function _support_empty(candidate::ImplicitCandidate)
-    return all(coefficient -> abs(coefficient) ≤ 1e-10,
-               vcat(candidate.numerator_coefficients,
-                    candidate.denominator_coefficients))
+    empty = true
+    @inbounds for coefficient in candidate.numerator_coefficients
+        empty &= _coefficient_vanishes(coefficient)
+    end
+    @inbounds for coefficient in candidate.denominator_coefficients
+        empty &= _coefficient_vanishes(coefficient)
+    end
+    return empty
 end
 
 function _target_indices(X, targets)
@@ -796,6 +861,8 @@ function _discover_explicit(X, derivatives, network, backend,
     training_indices = collect(1:(sample_count - validation_count))
     validation_indices =
         collect((sample_count - validation_count + 1):sample_count)
+    # Public contract: `result.candidates isa Vector{ExplicitCandidate}`
+    # (the UnionAll). `Vector{ExplicitCandidate{T}}` is not a subtype.
     candidates = ExplicitCandidate[]
     chunk_size = _backend_chunk_size(backend)
 
@@ -842,7 +909,7 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     val_X = @view X[:, validation_indices]
     domain_X = _denominator_domain_grid(
         X; n = backend.domain_samples, seed = config.seed)
-    candidates = ImplicitCandidate[]
+    candidates = ImplicitCandidate{eltype(X)}[]
     denominator_errors = Exception[]
 
     for target in _target_indices(X, targets)
@@ -883,31 +950,71 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     return candidates
 end
 
-function _run_discovery(X, derivatives, network, backend, config::DiscoveryConfig;
-                        targets = nothing)
+function _candidate_basis(candidates::Vector{ExplicitCandidate})
+    n = length(candidates)
+    basis = Vector{LocalBasisSpec}(undef, n)
+    @inbounds for i in eachindex(candidates)
+        basis[i] = candidates[i].specification
+    end
+    return basis
+end
+
+function _candidate_basis(candidates::Vector{ImplicitCandidate{T}}) where {T}
+    n = length(candidates)
+    basis = Vector{LocalBasisSpec}(undef, n)
+    @inbounds for i in eachindex(candidates)
+        basis[i] = candidates[i].specification
+    end
+    return basis
+end
+
+function _run_discovery(X, derivatives, network, backend::ImplicitSINDyPI,
+                        config::DiscoveryConfig; targets = nothing)
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
-    if backend isa ImplicitSINDyPI
-        candidates = _discover_implicit(
-            X, derivatives, network, backend, config; targets = targets)
-    elseif backend isa ExplicitSTLSQ || backend isa DataDrivenSparseSTLSQ
-        candidates = _discover_explicit(
-            X, derivatives, network, backend, config; targets = targets)
-    else
-        throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
-    end
+    candidates = _discover_implicit(
+        X, derivatives, network, backend, config; targets = targets)
     (isempty(candidates) || all(_support_empty, candidates)) &&
         throw(ArgumentError("empty support: no terms survived thresholding"))
     equation_text = join(format_equation.(candidates), "\n")
-    basis = getfield.(candidates, :specification)
+    basis = _candidate_basis(candidates)
     metadata = RunMetadata(
         seed = config.seed,
         package_version = PACKAGE_VERSION,
         data_hash = data_fingerprint(X, derivatives),
-        config = Dict(:backend => string(typeof(backend)),
-                      :samples => size(X, 2)))
-    return DiscoveryResult(true, "ok", equation_text, basis, nothing,
-                           candidates, metadata, DiscoverySuccess)
+        config = (; backend = string(typeof(backend)), samples = size(X, 2)))
+    return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
+                           typeof(candidates), RunMetadata, DiscoveryRetcode}(
+        true, "ok", equation_text, basis, nothing,
+        candidates, metadata, DiscoverySuccess)
+end
+
+function _run_discovery(X, derivatives, network,
+                        backend::Union{ExplicitSTLSQ, DataDrivenSparseSTLSQ},
+                        config::DiscoveryConfig; targets = nothing)
+    size(X, 2) ≥ 20 ||
+        throw(ArgumentError("insufficient finite trajectory samples"))
+    candidates = _discover_explicit(
+        X, derivatives, network, backend, config; targets = targets)
+    (isempty(candidates) || all(_support_empty, candidates)) &&
+        throw(ArgumentError("empty support: no terms survived thresholding"))
+    equation_text = join(format_equation.(candidates), "\n")
+    basis = _candidate_basis(candidates)
+    metadata = RunMetadata(
+        seed = config.seed,
+        package_version = PACKAGE_VERSION,
+        data_hash = data_fingerprint(X, derivatives),
+        config = (; backend = string(typeof(backend)), samples = size(X, 2)))
+    return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
+                           Vector{ExplicitCandidate}, RunMetadata,
+                           DiscoveryRetcode}(
+        true, "ok", equation_text, basis, nothing,
+        candidates, metadata, DiscoverySuccess)
+end
+
+function _run_discovery(X, derivatives, network, backend,
+                        config::DiscoveryConfig; targets = nothing)
+    throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
 end
 
 function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
@@ -931,8 +1038,8 @@ function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
         return result
     catch error
         strict && rethrow()
-        return _failed_discovery(
-            error, config; prefix = "Multi-trajectory discovery failed")
+        return _failed_discovery_caught(
+            error, config, "Multi-trajectory discovery failed")
     end
 end
 
@@ -967,8 +1074,7 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
         return result
     catch error
         strict && rethrow()
-        return _failed_discovery(
-            error, config; prefix = "Raw-data discovery failed")
+        return _failed_discovery_caught(error, config, "Raw-data discovery failed")
     end
 end
 
@@ -1102,6 +1208,6 @@ function discover_equations(p_trained, nn, st;
         return result
     catch error
         strict && rethrow()
-        return _failed_discovery(error, config)
+        return _failed_discovery_caught(error, config, "Discovery failed")
     end
 end

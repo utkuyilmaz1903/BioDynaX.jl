@@ -497,8 +497,22 @@ function _rate_network_from_samples(R::AbstractMatrix)
     n ≥ 1 || throw(ArgumentError("rate samples must have at least one regulator row"))
     nodes = [NodeSpec(name = Symbol(:r, i)) for i in 1:n]
     edges = [EdgeSpec(source = i, target = 1, kind = INHIBITION,
-                      family = HILL, known = false) for i in 2:n]
-    return BiologicalNetwork(nodes, edges)
+                      family = HILL, known = false,
+                      metadata = EmptyMetadata()) for i in 2:n]
+    return _trusted_rate_network(nodes, edges)
+end
+
+function _trusted_rate_network(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec})
+    g = SimpleDiGraph(length(nodes))
+    interactions = Dict{Tuple{Int,Int},EdgeSpec}()
+    for edge in edges
+        key = (edge.source, edge.target)
+        add_edge!(g, edge.source, edge.target)
+        interactions[key] = edge
+    end
+    names = Dict(i => String(node.name) for (i, node) in pairs(nodes))
+    kinds = Dict(key => edge.kind for (key, edge) in interactions)
+    return BiologicalNetwork(g, nodes, interactions, ReactionSpec[], names, kinds)
 end
 
 """
@@ -509,7 +523,7 @@ Discover a scalar destruction rate `D(r)` with graph-local implicit SINDy-PI.
 """
 function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
                                network = nothing,
-                               config = rate_discovery_config(),
+                               config::DiscoveryConfig = rate_discovery_config(),
                                verbose::Bool = false, strict::Bool = false)
     net = network === nothing ? _rate_network_from_samples(R) : network
     nreg = size(R, 1)
@@ -534,13 +548,21 @@ destruction `term` with `rate_fn` of the regulator vector.
 """
 function compose_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm, rate_fn)
     return function (u, _, t)
-        du = ude_system(u, p, t, model)
+        du = ude_system(u, p, t, model)::typeof(u)
         nn_D = _destruction_contribution(
             term, term.target, u, p, model.nn, model.st)
-        hat_D = rate_fn([u[r] for r in term.regulators])
+        hat_D = rate_fn(_hybrid_regulator_vector(u, term.regulators))
         du[term.target] += (nn_D - hat_D) * u[term.target]
         return du
     end
+end
+
+@inline function _hybrid_regulator_vector(u, regulators)
+    n = length(regulators)
+    T = eltype(u)
+    n == 1 && return T[u[regulators[1]]]
+    n == 2 && return T[u[regulators[1]], u[regulators[2]]]
+    return T[u[r] for r in regulators]
 end
 
 """

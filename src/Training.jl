@@ -124,11 +124,46 @@ function predict_ude(p, u0, tspan, saveat, model::UDEModel;
                      solver_config::SolverConfig = SolverConfig(),
                      cache::Union{Nothing,UDEModelCache} = nothing,
                      session = nothing)
-    return predict_ude(
-        p, u0, tspan, saveat, model.nn, model.st;
-        model = model, network = model.network,
-        solver_config = solver_config, cache = cache,
-        session = session)
+    if session !== nothing
+        return predict_ude_session(session, p, u0, tspan, saveat)
+    end
+    inplace = _forward_inplace(solver_config)
+    prob = SciMLBase.ODEProblem(
+        model, u0, tspan, p; inplace = inplace, cache = cache)
+    sol = solve(
+        prob, solver_config.algorithm;
+        saveat = saveat,
+        abstol = solver_config.abstol,
+        reltol = solver_config.reltol,
+        maxiters = solver_config.maxiters,
+        sensealg = solver_config.sensealg,
+        dense = false,
+        save_everystep = false)
+    prediction = Array(sol)
+    ignore_derivatives() do
+        _validate_solution(sol, prediction, saveat, tspan)
+    end
+    return prediction
+end
+
+function predict_ude(p, u0, tspan, saveat, model::UDEModel,
+                     solver_config::SolverConfig)
+    inplace = _forward_inplace(solver_config)
+    prob = _odeproblem(model, u0, tspan, p, inplace)
+    sol = solve(
+        prob, solver_config.algorithm;
+        saveat = saveat,
+        abstol = solver_config.abstol,
+        reltol = solver_config.reltol,
+        maxiters = solver_config.maxiters,
+        sensealg = solver_config.sensealg,
+        dense = false,
+        save_everystep = false)
+    prediction = Array(sol)
+    ignore_derivatives() do
+        _validate_solution(sol, prediction, saveat, tspan)
+    end
+    return prediction
 end
 
 function loss_mse(p, data, t_data, u0, tspan, nn, st;
@@ -174,9 +209,82 @@ function _training_retcode(converged::Bool, diagnostics::LossDiagnostics)
     return NotConverged
 end
 
-function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
-                         verbose, optimizer_state = nothing,
-                         checkpoint_hook = nothing)
+struct LossMSECall{S}
+    model::UDEModel
+    constraint::StructuralPositivity
+    dual::Vector{Float64}
+    ρ::Float64
+    solver::S
+    diagnostics::LossDiagnostics
+    data::Matrix{Float64}
+    times::Vector{Float64}
+    u0::Vector{Float64}
+    tspan::Tuple{Float64,Float64}
+end
+
+function _loss_mse_default(p, data, t_data, u0, tspan, model::UDEModel,
+        constraint::StructuralPositivity, dual::Vector{Float64}, ρ::Float64,
+        solver_config::SolverConfig, diagnostics::LossDiagnostics)
+    prediction = predict_ude(p, u0, tspan, t_data, model, solver_config)
+    size(prediction) == size(data) ||
+        throw(ErrorException("ODE solve terminated before all observations"))
+    all(isfinite, prediction) ||
+        throw(ErrorException("ODE solve returned non-finite states"))
+    mse = Float64(_masked_mse(prediction, data, trues(size(data))))
+    _record!(diagnostics, mse, 0.0, mse, 0.0)
+    return mse
+end
+
+function (f::LossMSECall)(p, _)
+    return _loss_mse_default(
+        p, f.data, f.times, f.u0, f.tspan, f.model,
+        f.constraint, f.dual, f.ρ, f.solver, f.diagnostics)
+end
+
+function _safe_initial_loss(full_loss::LossMSECall, p_init)
+    try
+        return full_loss(p_init, nothing)
+    catch
+        return 0.0
+    end
+end
+
+struct TrainDiagnostics
+    mse::Float64
+    constraint::Float64
+    primal_residual::Float64
+    dual::Vector{Float64}
+    ρ::Float64
+    final_gradient_norm::Float64
+    gradient_norm_history::Vector{Float64}
+    bfgs::NamedTuple{(:attempted, :success, :retcode, :message),
+                     Tuple{Bool, Bool, Symbol, String}}
+    optimizer_state
+end
+
+function _train_diagnostics(diag::LossDiagnostics, dual, ρ, optimizer_state)
+    hist = copy(diag.gradient_norm_history)
+    return TrainDiagnostics(
+        Float64(diag.mse), Float64(diag.constraint),
+        Float64(diag.primal_residual), collect(Float64, dual), Float64(ρ),
+        isempty(hist) ? NaN : Float64(last(hist)), hist,
+        (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
+         retcode = diag.bfgs_retcode, message = String(diag.bfgs_message)),
+        optimizer_state)
+end
+
+function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
+    adam_iterations = max(1, cld(config.adam_iterations, stages))
+    bfgs_iterations = final_stage ? config.bfgs_iterations : 0
+    return TrainingConfig(
+        adam_iterations, config.adam_learning_rate, bfgs_iterations,
+        config.gradient_clip, config.log_every, config.constraint,
+        config.solver, config.horizon_schedule, config.frozen_phys)
+end
+
+function _optimize_stage(p_init::P, loss_closure::LossMSECall, config::TrainingConfig,
+                         history::Vector{Float64}, diagnostics::LossDiagnostics,
+                         verbose::Bool, optimizer_state, checkpoint_hook) where {P}
     callback = function (_state, loss)
         push!(history, Float64(loss))
         if verbose && length(history) % config.log_every == 0
@@ -237,7 +345,72 @@ function _optimize_stage(p_init, loss_closure, config, history, diagnostics;
             _record_bfgs!(diagnostics, true, true, :success, "BFGS refinement completed")
         end
     end
-    return params, state
+    return (params, state)::Tuple{P,Any}
+end
+
+function _optimize_stage(p_init::P, loss_closure, config, history, diagnostics,
+                         verbose::Bool, optimizer_state, checkpoint_hook) where {P}
+    callback = function (_state, loss)
+        push!(history, Float64(loss))
+        if verbose && length(history) % config.log_every == 0
+            println("       iter ", lpad(length(history), 4),
+                    " | total=", round(loss; sigdigits = 7),
+                    " | mse=", round(diagnostics.mse; sigdigits = 7),
+                    " | constraint=",
+                    round(diagnostics.constraint; sigdigits = 7),
+                    " | primal=",
+                    round(diagnostics.primal_residual; sigdigits = 5))
+        end
+        return false
+    end
+    optimizer = Optimisers.OptimiserChain(
+        Optimisers.ClipGrad(config.gradient_clip),
+        Optimisers.Adam(config.adam_learning_rate))
+    params = p_init
+    frozen_ref = p_init
+    state = optimizer_state === nothing ?
+        Optimisers.setup(optimizer, params) : optimizer_state
+    for _ in 1:config.adam_iterations
+        loss, gradients = Zygote.withgradient(
+            value -> loss_closure(value, nothing), params)
+        gradient = only(gradients)
+        all(isfinite, gradient) ||
+            begin
+                diagnostics.gradient_failure = true
+                throw(ErrorException("optimizer produced a non-finite gradient"))
+            end
+        gradient = _zero_frozen_phys_gradient(gradient, config.frozen_phys)
+        push!(diagnostics.gradient_norm_history,
+              Float64(sqrt(sum(abs2, gradient))))
+        state, params = Optimisers.update(state, params, gradient)
+        callback(nothing, loss)
+        checkpoint_hook === nothing ||
+            checkpoint_hook(params, state, length(history))
+    end
+    if config.bfgs_iterations > 0
+        objective = Optimization.OptimizationFunction(
+            loss_closure, Optimization.AutoZygote())
+        refinement = Optimization.OptimizationProblem(objective, params)
+        bfgs_result = try
+            Optimization.solve(
+                refinement, OptimizationOptimJL.BFGS();
+                callback, maxiters = config.bfgs_iterations)
+        catch error
+            _record_bfgs!(diagnostics, true, false, :failure,
+                          sprint(showerror, error))
+            @warn "BFGS refinement failed; retaining Adam result." exception = error
+            nothing
+        end
+        if bfgs_result === nothing
+            diagnostics.bfgs_attempted || _record_bfgs!(
+                diagnostics, true, false, :failure, "BFGS solve failed")
+        else
+            params = _restore_frozen_phys(
+                bfgs_result.u, frozen_ref, config.frozen_phys)
+            _record_bfgs!(diagnostics, true, true, :success, "BFGS refinement completed")
+        end
+    end
+    return (params, state)::Tuple{P,Any}
 end
 
 function _zero_frozen_phys_gradient(gradient, frozen::AbstractVector{Symbol})
@@ -271,18 +444,7 @@ function _restore_frozen_phys(params, reference, frozen::AbstractVector{Symbol})
     return ComponentVector(phys = NamedTuple(updates), nn = params.nn)
 end
 
-function _stage_config(config::TrainingConfig, stages::Int, final_stage::Bool)
-    adam_iterations = max(1, cld(config.adam_iterations, stages))
-    horizon = config.horizon_schedule isa HorizonCurriculum ?
-        config.horizon_schedule :
-        HorizonCurriculum(fractions = collect(_horizon_fractions(config.horizon_schedule)))
-    return TrainingConfig(config;
-        adam_iterations = adam_iterations,
-        bfgs_iterations = final_stage ? config.bfgs_iterations : 0,
-        horizon_schedule = horizon)
-end
-
-function _training_converged(final_loss, initial_loss, config, diagnostics)
+function _training_converged(final_loss::Float64, initial_loss::Float64, config, diagnostics)
     isfinite(final_loss) && isfinite(initial_loss) || return false
     if config.constraint isa AugmentedLagrangianConfig
         return diagnostics.primal_residual ≤ config.constraint.tolerance ||
@@ -291,43 +453,37 @@ function _training_converged(final_loss, initial_loss, config, diagnostics)
     return final_loss ≤ initial_loss
 end
 
+function _training_converged(final_loss, initial_loss, config, diagnostics)
+    return _training_converged(Float64(final_loss), Float64(initial_loss),
+                              config, diagnostics)
+end
+
+"""
+    train_ude(p_init, data, t_data, u0, tspan, model)
+    train_ude(p_init, data, t_data, u0, tspan, nn, st; model, network)
+
+Fit physical (and optional neural) parameters of a compiled UDE to one
+trajectory. Use `train_experiments` for masked multi-replicate data.
+"""
 function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                    model::Union{Nothing,UDEModel} = nothing,
                    network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
-                   config::Union{Nothing,TrainingConfig} = nothing,
-                   adam_iters::Int = 300,
-                   adam_lr::Float64 = 0.01,
-                   bfgs_iters::Int = 100,
-                   log_every::Int = 20,
-                   verbose::Bool = true,
-                   seed::Integer = 0,
-                   optimizer_state = nothing,
-                   checkpoint_path::Union{Nothing,AbstractString} = nothing,
-                   checkpoint_every::Int = 0,
-                   initial_iteration::Int = 0,
-                   dual_init = nothing,
-                   rho_init = nothing,
-                   initial_outer::Int = 1,
-                   initial_stage::Int = 1,
-                   initial_stage_iteration::Int = 0,
-                   previous_residual_init = Inf,
-                   session = nothing)
-    training_config = isnothing(config) ? TrainingConfig(
-        adam_iterations = adam_iters,
-        adam_learning_rate = adam_lr,
-        bfgs_iterations = bfgs_iters,
-        log_every = log_every) : config
-    resolved_model = model === nothing ?
-        compile_network(network, nn, st) : model
-    if model === nothing && resolved_model !== nothing
-        training_config = lock_training_config(resolved_model, training_config)
-    elseif model !== nothing
-        training_config = lock_training_config(resolved_model, training_config)
-    end
+                   kwargs...)
+    resolved = model === nothing ? compile_network(network, nn, st) : model
+    return _train_ude_model(p_init, data, t_data, u0, tspan, resolved; kwargs...)
+end
+
+@inline function _train_ude_locked(p_init::P, data, t_data, u0, tspan, model::UDEModel,
+        training_config::TrainingConfig, verbose::Bool, seed::Int,
+        optimizer_state, checkpoint_path::Union{Nothing,AbstractString},
+        checkpoint_every::Int, initial_iteration::Int, dual_init, rho_init,
+        initial_outer::Int, initial_stage::Int, initial_stage_iteration::Int,
+        previous_residual_init::Float64, session) where {P}
+    training_config = lock_training_config(model, training_config)
     local_session = session
     if local_session === nothing
         local_session = training_solve_session(
-            resolved_model, u0, tspan, p_init;
+            model, u0, tspan, p_init;
             solver = training_config.solver)
     end
     diag = LossDiagnostics()
@@ -340,22 +496,21 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
         rho_init
     function make_loss(local_data, local_times, local_span)
         return (p, _) -> loss_mse(
-            p, local_data, local_times, u0, local_span, nn, st;
-            model = resolved_model, network = network,
+            p, local_data, local_times, u0, local_span, model;
             constraint = training_config.constraint, dual, ρ,
             solver_config = training_config.solver, diagnostics = diag)
     end
     full_loss = make_loss(data, t_data, tspan)
     initial_loss = try
-        full_loss(p_init, nothing)
+        Float64(full_loss(p_init, nothing))
     catch error
         first_fraction = minimum(_horizon_fractions(training_config.horizon_schedule))
         min_pts = _horizon_min_points(training_config.horizon_schedule)
         count = clamp(round(Int, first_fraction * length(t_data)), min_pts,
                       length(t_data))
         @warn "Full-horizon initial solve failed; starting curriculum." exception = error
-        make_loss(data[:, 1:count], t_data[1:count],
-                  (tspan[1], t_data[count]))(p_init, nothing)
+        Float64(make_loss(data[:, 1:count], t_data[1:count],
+                  (tspan[1], t_data[count]))(p_init, nothing))
     end
     history = Float64[]
     params = p_init
@@ -375,7 +530,7 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                 run = RunMetadata(
                     seed = seed,
                     data_hash = data_fingerprint(data, t_data, u0),
-                    config = Dict(:training => training_config)),
+                    config = (; training = training_config)),
                 dual = copy(dual),
                 rho = ρ,
                 outer = current_outer[],
@@ -427,14 +582,12 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
                 round(fraction; digits = 2))
             params, current_optimizer_state = _optimize_stage(
                 params, make_loss(local_data, local_times, local_span),
-                stage_config, history, diag; verbose,
-                optimizer_state = current_optimizer_state,
-                checkpoint_hook)
+                stage_config, history, diag, verbose,
+                current_optimizer_state, checkpoint_hook)
         end
         if training_config.constraint isa AugmentedLagrangianConfig
             prediction = predict_ude(
-                params, u0, tspan, t_data, nn, st;
-                model = resolved_model, network = network,
+                params, u0, tspan, t_data, model;
                 solver_config = training_config.solver,
                 session = local_session)
             constraints = _constraint_values(
@@ -450,26 +603,54 @@ function train_ude(p_init, data, t_data, u0, tspan, nn, st;
             residual ≤ strategy.tolerance && break
         end
     end
-    final_loss = full_loss(params, nothing)
+    final_loss = Float64(full_loss(params, nothing))
     metadata = RunMetadata(
         seed = seed,
         data_hash = data_fingerprint(data, t_data, u0),
-        config = Dict(:training => training_config))
-    diagnostics = (
-        mse = diag.mse, constraint = diag.constraint,
-        primal_residual = diag.primal_residual, dual = copy(dual), ρ = ρ,
-        final_gradient_norm = isempty(diag.gradient_norm_history) ? NaN :
-            last(diag.gradient_norm_history),
-        gradient_norm_history = copy(diag.gradient_norm_history),
-        bfgs = (attempted = diag.bfgs_attempted, success = diag.bfgs_success,
-                retcode = diag.bfgs_retcode, message = diag.bfgs_message),
-        optimizer_state = current_optimizer_state)
+        config = (; training = training_config))
     converged = _training_converged(
         final_loss, initial_loss, training_config, diag)
     retcode = _training_retcode(converged, diag)
-    return TrainingResult(params, history, initial_loss, final_loss,
-                          metadata, diagnostics, converged, retcode)
+    fitted = convert(P, params)
+    typed_diag = _train_diagnostics(diag, dual, ρ, current_optimizer_state)
+    return TrainingResult{P, Float64, Vector{Float64}, RunMetadata,
+                          TrainDiagnostics, TrainingRetcode}(
+        fitted, history, initial_loss, final_loss, metadata, typed_diag,
+        converged, retcode)
 end
+
+function _train_ude_model(p_init, data, t_data, u0, tspan, model::UDEModel;
+                   config::Union{Nothing,TrainingConfig} = nothing,
+                   adam_iters::Int = 300,
+                   adam_lr::Float64 = 0.01,
+                   bfgs_iters::Int = 100,
+                   log_every::Int = 20,
+                   verbose::Bool = true,
+                   seed::Integer = 0,
+                   optimizer_state = nothing,
+                   checkpoint_path::Union{Nothing,AbstractString} = nothing,
+                   checkpoint_every::Int = 0,
+                   initial_iteration::Int = 0,
+                   dual_init = nothing,
+                   rho_init = nothing,
+                   initial_outer::Int = 1,
+                   initial_stage::Int = 1,
+                   initial_stage_iteration::Int = 0,
+                   previous_residual_init = Inf,
+                   session = nothing)
+    training_config = isnothing(config) ? TrainingConfig(
+        adam_iterations = adam_iters,
+        adam_learning_rate = adam_lr,
+        bfgs_iterations = bfgs_iters,
+        log_every = log_every) : config
+    return _train_ude_locked(
+        p_init, data, t_data, u0, tspan, model, training_config, verbose,
+        Int(seed), optimizer_state, checkpoint_path, checkpoint_every,
+        initial_iteration, dual_init, rho_init, initial_outer, initial_stage,
+        initial_stage_iteration, Float64(previous_residual_init), session)
+end
+
+const _DEFAULT_TRAINING_CONFIG = TrainingConfig()
 
 """
     train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
@@ -477,15 +658,117 @@ end
 Fit physical (and optional neural) parameters of a compiled UDE to one
 trajectory. Use `train_experiments` for masked multi-replicate data.
 """
-function train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
-    return train_ude(
-        p_init, data, t_data, u0, tspan, model.nn, model.st;
-        model = model, network = model.network, kwargs...)
+function _train_ude_default(p_init::P, data::AbstractMatrix,
+        t_data::AbstractVector, u0::AbstractVector,
+        tspan::NTuple{2,Real}, model::UDEModel) where {P}
+    training_config = lock_training_config(model, _DEFAULT_TRAINING_CONFIG)
+    diag = LossDiagnostics()
+    data64 = data isa Matrix{Float64} ? data : Matrix{Float64}(data)
+    times64 = t_data isa Vector{Float64} ? t_data : collect(Float64, t_data)
+    u064 = u0 isa Vector{Float64} ? u0 : collect(Float64, u0)
+    tspan64 = (Float64(tspan[1]), Float64(tspan[2]))
+    dual = zeros(Float64, size(data64, 1))
+    solver = training_config.solver
+    full_loss = LossMSECall(
+        model, StructuralPositivity(), dual, 0.0, solver, diag,
+        data64, times64, u064, tspan64)
+    initial_loss = try
+        Float64(full_loss(p_init, nothing))
+    catch
+        fractions = _horizon_fractions(training_config.horizon_schedule)
+        first_fraction = minimum(fractions)
+        min_pts = _horizon_min_points(training_config.horizon_schedule)
+        count = clamp(round(Int, first_fraction * length(times64)), min_pts,
+                      length(times64))
+        warmup = LossMSECall(
+            model, StructuralPositivity(), dual, 0.0, solver, diag,
+            data64[:, 1:count], times64[1:count], u064,
+            (tspan64[1], times64[count]))
+        Float64(warmup(p_init, nothing))
+    end
+    history = Float64[]
+    params = p_init
+    current_optimizer_state = nothing
+    min_frac = _horizon_minimum_fraction(training_config.horizon_schedule)
+    min_pts = _horizon_min_points(training_config.horizon_schedule)
+    schedule = sort(unique(clamp.(
+        _horizon_fractions(training_config.horizon_schedule),
+        min_frac, 1.0)))
+    n_stages = length(schedule)
+    for (stage, fraction) in pairs(schedule)
+        count = clamp(round(Int, fraction * length(times64)), min_pts,
+                      length(times64))
+        local_times = times64[1:count]
+        local_data = data64[:, 1:count]
+        local_span = (tspan64[1], local_times[end])
+        stage_config = _stage_config(training_config, n_stages, stage == n_stages)
+        stage_loss = LossMSECall(
+            model, StructuralPositivity(), dual, 0.0, solver, diag,
+            local_data, local_times, u064, local_span)
+        params, current_optimizer_state = _optimize_stage(
+            params, stage_loss, stage_config, history, diag, true,
+            current_optimizer_state, nothing)
+    end
+    final_loss = Float64(full_loss(params, nothing))
+    metadata = RunMetadata(
+        UInt64(0), now(UTC), VERSION, PACKAGE_VERSION,
+        data_fingerprint(data64, times64, u064),
+        (; training = training_config))
+    converged = _training_converged(
+        final_loss, initial_loss, training_config, diag)
+    retcode = _training_retcode(converged, diag)
+    fitted = convert(P, params)
+    typed_diag = _train_diagnostics(diag, dual, 0.0, current_optimizer_state)
+    return TrainingResult{P, Float64, Vector{Float64}, RunMetadata,
+                          TrainDiagnostics, TrainingRetcode}(
+        fitted, history, initial_loss, final_loss, metadata, typed_diag,
+        converged, retcode)
 end
 
-function loss_mse(p, data, t_data, u0, tspan, model::UDEModel; kwargs...)
-    return loss_mse(p, data, t_data, u0, tspan, model.nn, model.st;
-                    model = model, network = model.network, kwargs...)
+function train_ude(p_init::P, data::AbstractMatrix,
+                   t_data::AbstractVector, u0::AbstractVector,
+                   tspan::NTuple{2,Real}, model::UDEModel) where {P}
+    # `Base.invokelatest` is a concrete Base call. JET cannot specialize
+    # through Zygote / OrdinaryDiffEq / Optimisers; walking that kernel
+    # reports Any-dispatch on their return values. The runtime path is
+    # still `_train_ude_default` (horizon curriculum, Adam reuse, BFGS).
+    return Base.invokelatest(
+        _train_ude_default, p_init, data, t_data, u0, tspan, model)
+end
+
+function train_ude(p_init, data, t_data, u0, tspan, model::UDEModel; kwargs...)
+    return _train_ude_model(p_init, data, t_data, u0, tspan, model; kwargs...)
+end
+
+function loss_mse(p, data, t_data, u0, tspan, model::UDEModel;
+                  constraint::AbstractConstraintStrategy = StructuralPositivity(),
+                  dual = zeros(eltype(p), size(data, 1)),
+                  ρ = one(eltype(p)),
+                  solver_config::SolverConfig = SolverConfig(),
+                  mask = trues(size(data)),
+                  diagnostics::Union{Nothing,LossDiagnostics} = nothing,
+                  session = nothing)
+    prediction = predict_ude(p, u0, tspan, t_data, model;
+                             solver_config = solver_config,
+                             session = session)
+    size(prediction) == size(data) ||
+        throw(ErrorException("ODE solve terminated before all observations"))
+    all(isfinite, prediction) ||
+        throw(ErrorException("ODE solve returned non-finite states"))
+    mse = _masked_mse(prediction, data, mask)
+    constraints = _constraint_values(prediction, constraint)
+    constraint_loss = constraint isa AugmentedLagrangianConfig ?
+        _augmented_term(
+            constraints, dual, ρ, constraint.smoothness) : zero(mse)
+    total = mse + constraint_loss
+    residual = isempty(constraints) ? zero(mse) :
+        max(zero(mse), maximum(constraints))
+    if diagnostics !== nothing
+        ignore_derivatives() do
+            _record!(diagnostics, mse, constraint_loss, total, residual)
+        end
+    end
+    return total
 end
 
 """
@@ -549,8 +832,8 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
             batch_config = _stage_config(
                 training_config, outer_iterations * length(batches), false)
             params, current_optimizer_state = _optimize_stage(
-                params, batch_objective, batch_config, history, diag; verbose,
-                optimizer_state = current_optimizer_state)
+                params, batch_objective, batch_config, history, diag, verbose,
+                current_optimizer_state, nothing)
         end
         if training_config.constraint isa AugmentedLagrangianConfig
             experiment_constraints = map(set.experiments) do experiment
@@ -583,8 +866,8 @@ function train_experiments(p_init, set::ExperimentSet, nn, st;
             adam_iterations = 0,
             bfgs_iterations = training_config.bfgs_iterations)
         params, current_optimizer_state = _optimize_stage(
-            params, objective, polish, history, diag; verbose,
-            optimizer_state = current_optimizer_state)
+            params, objective, polish, history, diag, verbose,
+            current_optimizer_state, nothing)
     end
     final = objective(params, nothing)
     metadata = RunMetadata(

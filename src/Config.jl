@@ -146,9 +146,14 @@ end
     SensealgRecommendation
 
 Human-readable adjoint policy chosen by `recommend_sensealg`.
+
+The wrapper type is intentionally unparameterized so
+`recommend_sensealg` infers a single concrete return type even when
+the payload adjoint switches between `BacksolveAdjoint` and
+`InterpolatingAdjoint`.
 """
-struct SensealgRecommendation{S}
-    sensealg::S
+struct SensealgRecommendation
+    sensealg
     name::Symbol
     rationale::String
 end
