@@ -1061,11 +1061,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
-    ude_row = (; evaled..., identifiability = ident_ude)
-    report[:ude_discovery] = (;
-        ude_row...,
-        locked_kpis = locked_ude_kpis(ude_row),
-        protocol_result = build_protocol_result(ude_row))
+    report[:ude_discovery] = report_recovery(
+        evaled, ident_ude;
+        model = ude_model, params = ude_fit.params, experiments = ude_set)
     end
 
     if :mm_unknown in wanted
@@ -1094,11 +1092,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
-    mm_row = (; evaled..., identifiability = ident_mm)
-    report[:mm_unknown] = (;
-        mm_row...,
-        locked_kpis = locked_ude_kpis(mm_row),
-        protocol_result = build_protocol_result(mm_row))
+    report[:mm_unknown] = report_recovery(
+        evaled, ident_mm;
+        model = ude_model, params = ude_fit.params, experiments = ude_set)
     end
 
     if :ablation in wanted

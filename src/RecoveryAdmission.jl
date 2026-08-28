@@ -414,9 +414,10 @@ end
 function unique_claim_protocol_row(ude;
         fingerprint::UniqueClaimFingerprint = unique_claim_fingerprint(),
         equations = nothing)
-    result = hasproperty(ude, :protocol_result) ? ude.protocol_result :
-             build_protocol_result(ude)
-    kpis = hasproperty(ude, :locked_kpis) ? ude.locked_kpis : locked_ude_kpis(ude)
+    result = hasproperty(ude, :protocol_result) && ude.protocol_result !== nothing ?
+             ude.protocol_result : build_protocol_result(ude)
+    kpis = hasproperty(ude, :locked_kpis) && ude.locked_kpis !== nothing ?
+           ude.locked_kpis : locked_ude_kpis(ude)
     failures = unique_claim_kpi_failures(kpis)
     text = format_recovery_protocol(ude, fingerprint; equations = equations)
     return UniqueClaimProtocolRow(

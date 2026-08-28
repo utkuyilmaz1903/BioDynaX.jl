@@ -3,8 +3,8 @@
 #
 # This file does not change RECOVERY_THRESHOLDS, public exports, or
 # run_recovery_suite control flow beyond named generate / dummy-RNG /
-# fit / sample / evaluate helpers. Held-out, functional identifiability, and
-# DestructionSamples are out of scope.
+# fit / sample / evaluate / report helpers. Held-out, functional
+# identifiability, and DestructionSamples are out of scope.
 ###############################################################################
 
 """
@@ -230,4 +230,50 @@ function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
         extras,
         extras_denominator,
     )
+end
+
+"""
+    report_recovery(evaled, ident; model, params, experiments)
+
+Typed unique-claim report. Builds an internal `MechanismRecoveryResult`
+from composer output and the existing identifiability object. Always
+fills `locked_kpis` and `protocol_result`. Not exported. Not a held-out,
+functional-identifiability, hypothesis, or uncertainty object.
+"""
+function report_recovery(evaled, ident;
+        model = nothing, params = nothing, experiments = nothing)
+    extras_denominator = hasproperty(evaled, :extras_denominator) ?
+                         getproperty(evaled, :extras_denominator) : nothing
+    discovery = hasproperty(evaled, :discovery) ? getproperty(evaled, :discovery) :
+                nothing
+    term = hasproperty(evaled, :term) ? getproperty(evaled, :term) : nothing
+    kpi_src = (;
+        data_residual = evaled.data_residual,
+        support_recall = evaled.support_recall,
+        support_f1 = evaled.support_f1,
+        extras = evaled.extras,
+        identifiability = ident)
+    return MechanismRecoveryResult(;
+        nn_correlation = evaled.nn_correlation,
+        nn_rate_rmse = evaled.nn_rate_rmse,
+        success = evaled.success,
+        retcode = evaled.retcode,
+        message = evaled.message,
+        support_f1 = evaled.support_f1,
+        support_recall = evaled.support_recall,
+        discovered_rate_rmse = evaled.discovered_rate_rmse,
+        data_residual = evaled.data_residual,
+        denominator_violations = evaled.denominator_violations,
+        normalized_support_f1 = evaled.normalized_support_f1,
+        normalized_support_recall = evaled.normalized_support_recall,
+        extras = evaled.extras,
+        extras_denominator = extras_denominator,
+        discovery = discovery,
+        term = term,
+        identifiability = ident,
+        locked_kpis = locked_ude_kpis(kpi_src),
+        protocol_result = build_protocol_result(kpi_src),
+        model = model,
+        params = params,
+        experiments = experiments)
 end

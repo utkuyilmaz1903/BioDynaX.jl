@@ -2,7 +2,11 @@ using BioDynaX: MechanismRecoveryResult,
     generate_recovery_experiments,
     consume_shared_suite_rng!,
     sample_destruction,
-    evaluate_recovery
+    evaluate_recovery,
+    report_recovery,
+    _evaluate_unknown_rate_recovery,
+    run_recovery_suite,
+    recovery_suite_section_body
 
 function _mechanism_recovery_result(;
         extras = ["1", "r"],
@@ -34,6 +38,59 @@ function _mechanism_recovery_result(;
         protocol_result = protocol_result)
 end
 
+function _composer_early_evaled()
+    return (;
+        nn_correlation = 0.1,
+        nn_rate_rmse = 1.0,
+        success = false,
+        retcode = DiscoveryFailed,
+        message = "training did not identify the unknown edge",
+        support_f1 = 0.0,
+        support_recall = 0.0,
+        discovered_rate_rmse = Inf,
+        data_residual = Inf,
+        denominator_violations = typemax(Int),
+        normalized_support_f1 = 0.0,
+        normalized_support_recall = 0.0,
+        extras = String[],
+        discovery = nothing,
+        term = nothing)
+end
+
+function _composer_valid_evaled()
+    return (;
+        nn_correlation = 0.95,
+        nn_rate_rmse = 0.05,
+        success = true,
+        retcode = DiscoverySuccess,
+        message = "ok",
+        support_f1 = 0.57,
+        support_recall = 1.0,
+        discovered_rate_rmse = 0.10,
+        data_residual = 0.003,
+        denominator_violations = 0,
+        normalized_support_f1 = 0.60,
+        normalized_support_recall = 1.0,
+        extras = ["1", "r"],
+        extras_denominator = (; train = 0, val = 0, domain = 0),
+        discovery = :discovery_ran,
+        term = :term)
+end
+
+function _real_composer_early_evaled()
+    rng = MersenneTwister(1)
+    net = build_hill_recovery_network(; known = false, hill_order = 2)
+    model, params = build_ude_model(rng, net)
+    term = only_unknown_destruction(model)
+    residual_calls = Ref(0)
+    evaled = _evaluate_unknown_rate_recovery(
+        model, params, term,
+        r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2);
+        order = 2, family = :hill, noise_σ = 0.0,
+        data_residual_fn = _ -> (residual_calls[] += 1; Inf))
+    return evaled, residual_calls[], term
+end
+
 @testset "MechanismRecoveryResult stays internal" begin
     @test !(:MechanismRecoveryResult in names(BioDynaX))
     @test isdefined(BioDynaX, :MechanismRecoveryResult)
@@ -50,7 +107,8 @@ end
     @test !(:sample_destruction in names(BioDynaX))
     @test isdefined(BioDynaX, :evaluate_recovery)
     @test !(:evaluate_recovery in names(BioDynaX))
-    @test !isdefined(BioDynaX, :report_recovery)
+    @test isdefined(BioDynaX, :report_recovery)
+    @test !(:report_recovery in names(BioDynaX))
 end
 
 @testset "generate_recovery_experiments is the 9-IC unique-claim set" begin
@@ -340,4 +398,265 @@ end
     @test metrics.normalized_support_recall == expected_norm.combined.recall
     @test metrics.denominator_violations > 0
     @test metrics.extras_denominator.any
+end
+
+@testset "report_recovery produces MechanismRecoveryResult with filled KPIs" begin
+    evaled = _composer_valid_evaled()
+    ident = (; unidentifiable_edge = true, production_param = :k_prod)
+    ude_row = (; evaled..., identifiability = ident)
+    expected_kpis = locked_ude_kpis(ude_row)
+    expected_proto = build_protocol_result(ude_row)
+    reported = report_recovery(
+        evaled, ident; model = :model, params = :params, experiments = :set)
+    @test reported isa MechanismRecoveryResult
+    @test reported.locked_kpis !== nothing
+    @test reported.protocol_result !== nothing
+    @test reported.locked_kpis == expected_kpis
+    @test reported.protocol_result == expected_proto
+    @test Tuple(keys(reported.protocol_result)) == PROTOCOL_RESULT_FIELDS
+    @test reported.protocol_result.canonical_hill_from_nn === false
+    @test reported.protocol_result.claim === :recall_plus_data_residual
+    @test reported.nn_correlation == evaled.nn_correlation
+    @test reported.nn_rate_rmse == evaled.nn_rate_rmse
+    @test reported.success == evaled.success
+    @test reported.retcode === evaled.retcode
+    @test reported.message == evaled.message
+    @test reported.support_f1 == evaled.support_f1
+    @test reported.support_recall == evaled.support_recall
+    @test reported.discovered_rate_rmse == evaled.discovered_rate_rmse
+    @test reported.data_residual == evaled.data_residual
+    @test reported.denominator_violations == evaled.denominator_violations
+    @test reported.normalized_support_f1 == evaled.normalized_support_f1
+    @test reported.normalized_support_recall == evaled.normalized_support_recall
+    @test reported.extras == evaled.extras
+    @test reported.extras_denominator == evaled.extras_denominator
+    @test reported.discovery === evaled.discovery
+    @test reported.term === evaled.term
+    @test reported.identifiability === ident
+    @test reported.model === :model
+    @test reported.params === :params
+    @test reported.experiments === :set
+    legacy = (;
+        ude_row...,
+        locked_kpis = expected_kpis,
+        protocol_result = expected_proto)
+    @test format_recovery_protocol(reported; equations = "D(z) = 1 + r") ==
+          format_recovery_protocol(legacy; equations = "D(z) = 1 + r")
+    row = unique_claim_protocol_row(reported)
+    @test row.protocol_result === reported.protocol_result
+    @test row.kpis === reported.locked_kpis
+end
+
+@testset "report_recovery accepts discovery nothing and missing extras_denominator" begin
+    evaled = _composer_early_evaled()
+    @test evaled.discovery === nothing
+    @test !hasproperty(evaled, :extras_denominator)
+    ident = (; unidentifiable_edge = true)
+    reported = report_recovery(evaled, ident)
+    @test reported isa MechanismRecoveryResult
+    @test reported.discovery === nothing
+    @test reported.extras_denominator === nothing
+    @test reported.locked_kpis !== nothing
+    @test reported.protocol_result !== nothing
+    @test reported.success == false
+    @test reported.data_residual == Inf
+    @test reported.support_recall == 0.0
+    @test reported.extras == String[]
+    @test reported.protocol_result.canonical_hill_from_nn === false
+    @test Tuple(keys(reported.protocol_result)) == PROTOCOL_RESULT_FIELDS
+    ude_row = (; evaled..., identifiability = ident)
+    @test reported.locked_kpis == locked_ude_kpis(ude_row)
+    @test reported.protocol_result == build_protocol_result(ude_row)
+end
+
+@testset "haskey and hasproperty do not prove report field values" begin
+    bare = _mechanism_recovery_result()
+    @test haskey(bare, :protocol_result)
+    @test hasproperty(bare, :protocol_result)
+    @test bare.protocol_result === nothing
+    @test haskey(bare, :locked_kpis)
+    @test hasproperty(bare, :locked_kpis)
+    @test bare.locked_kpis === nothing
+    @test haskey(bare, :discovery)
+    @test hasproperty(bare, :discovery)
+    @test bare.discovery === nothing
+    @test haskey(bare, :extras_denominator)
+    @test hasproperty(bare, :extras_denominator)
+    @test bare.extras_denominator === nothing
+    txt = format_recovery_protocol(bare; equations = "D(z) = 1")
+    @test occursin("canonical_hill_from_nn: false", txt)
+    @test occursin("hybrid_data_residual: 0.003", txt)
+    row = unique_claim_protocol_row(bare)
+    @test row.protocol_result !== nothing
+    @test row.kpis !== nothing
+    @test Tuple(keys(row.protocol_result)) == PROTOCOL_RESULT_FIELDS
+    @test row.protocol_result.canonical_hill_from_nn === false
+    evaled = _composer_early_evaled()
+    @test hasproperty(evaled, :discovery)
+    @test evaled.discovery === nothing
+    reported = report_recovery(evaled, (; unidentifiable_edge = false))
+    @test haskey(reported, :discovery)
+    @test hasproperty(reported, :discovery)
+    @test reported.discovery === nothing
+    @test haskey(reported, :extras_denominator)
+    @test reported.extras_denominator === nothing
+end
+
+@testset "report_recovery does not introduce M2 or M3 fields" begin
+    reported = report_recovery(
+        _composer_valid_evaled(), (; unidentifiable_edge = true))
+    fields = fieldnames(typeof(reported))
+    @test :holdout ∉ fields
+    @test :train ∉ fields
+    @test :samples ∉ fields
+    @test :r_range ∉ fields
+    @test :functional_identifiability ∉ fields
+    @test :independently_trained_D ∉ fields
+    @test :uncertainty ∉ fields
+    @test :hypothesis ∉ fields
+    @test :occupancy ∉ fields
+    @test :q4 ∉ fields
+    @test :q7 ∉ fields
+    @test :data_residual_holdout ∉ fields
+    @test :d_rmse_holdout ∉ fields
+    @test :holdout ∉ keys(reported)
+    @test :samples ∉ keys(reported)
+    @test :functional_identifiability ∉ keys(reported)
+    @test !isdefined(BioDynaX, :DestructionSamples)
+    @test !isdefined(BioDynaX, :ExperimentSplit)
+    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test public_export_list_holds()
+end
+
+@testset "live unique-claim sections construct results through report_recovery" begin
+    ude_body = recovery_suite_section_body(:ude_discovery)
+    mm_body = recovery_suite_section_body(:mm_unknown)
+    for body in (ude_body, mm_body)
+        @test occursin("report_recovery(", body)
+        @test occursin("_train_unknown_edge", body)
+        @test occursin("_evaluate_unknown_rate_recovery", body)
+        @test occursin("report_production_destruction_tradeoff", body)
+        @test !occursin("(; evaled..., identifiability", body)
+        @test !occursin("locked_ude_kpis(ude_row)", body)
+        @test !occursin("locked_ude_kpis(mm_row)", body)
+        @test !occursin("build_protocol_result(ude_row)", body)
+        @test !occursin("build_protocol_result(mm_row)", body)
+        @test !occursin("sample_destruction(", body)
+        @test !occursin("evaluate_recovery(", body)
+        @test !occursin("discover_unknown_rate(", body)
+        @test !occursin("normalize_destruction_samples", body)
+    end
+    @test occursin("admit_recovery_suite_network(:ude_discovery)", ude_body)
+    @test occursin("admit_recovery_suite_network(:mm_unknown)", mm_body)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.tspan", ude_body)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.n_points", ude_body)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.tspan", mm_body)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.n_points", mm_body)
+    @test occursin("family = :mm", mm_body)
+    @test findfirst("_train_unknown_edge", ude_body) <
+          findfirst("_evaluate_unknown_rate_recovery", ude_body)
+    @test findfirst("_evaluate_unknown_rate_recovery", ude_body) <
+          findfirst("report_production_destruction_tradeoff", ude_body)
+    @test findfirst("report_production_destruction_tradeoff", ude_body) <
+          findfirst("report_recovery(", ude_body)
+    @test findfirst("_train_unknown_edge", mm_body) <
+          findfirst("_evaluate_unknown_rate_recovery", mm_body)
+    @test findfirst("_evaluate_unknown_rate_recovery", mm_body) <
+          findfirst("report_production_destruction_tradeoff", mm_body)
+    @test findfirst("report_production_destruction_tradeoff", mm_body) <
+          findfirst("report_recovery(", mm_body)
+end
+
+@testset "real composer early-return can be reported safely" begin
+    evaled, residual_calls, term = _real_composer_early_evaled()
+    @test residual_calls == 0
+    @test evaled.discovery === nothing
+    @test evaled.data_residual === Inf
+    @test !hasproperty(evaled, :extras_denominator)
+    @test evaled.success == false
+    @test evaled.retcode === DiscoveryFailed
+    @test evaled.support_recall == 0.0
+    @test evaled.extras == String[]
+    @test evaled.term === term
+    ident = (; unidentifiable_edge = true, production_param = :k_prod)
+    reported = report_recovery(evaled, ident)
+    @test reported isa MechanismRecoveryResult
+    @test reported.discovery === nothing
+    @test reported.data_residual === Inf
+    @test reported.extras_denominator === nothing
+    @test hasproperty(reported, :locked_kpis) && reported.locked_kpis !== nothing
+    @test hasproperty(reported, :protocol_result) &&
+          reported.protocol_result !== nothing
+    @test reported.success == false
+    @test reported.support_recall == 0.0
+    @test reported.extras == String[]
+    @test reported.identifiability === ident
+    @test reported.protocol_result.canonical_hill_from_nn === false
+    @test Tuple(keys(reported.protocol_result)) == PROTOCOL_RESULT_FIELDS
+    ude_row = (; evaled..., identifiability = ident)
+    @test reported.locked_kpis == locked_ude_kpis(ude_row)
+    @test reported.protocol_result == build_protocol_result(ude_row)
+    txt = format_recovery_protocol(reported)
+    @test occursin("hybrid_data_residual: Inf", txt)
+    @test occursin("canonical_hill_from_nn: false", txt)
+    row = unique_claim_protocol_row(reported)
+    @test row.protocol_result !== nothing
+    @test row.kpis !== nothing
+end
+
+@testset "live :ude_discovery and :mm_unknown paths use MechanismRecoveryResult" begin
+    report = run_recovery_suite(MersenneTwister(1);
+        ude_adam = 0, ude_bfgs = 0,
+        sections = (:ude_discovery, :mm_unknown))
+    @test report isa Dict{Symbol,Any}
+    @test issetequal(keys(report), Set((:ude_discovery, :mm_unknown)))
+    for section in (:ude_discovery, :mm_unknown)
+        row = report[section]
+        @test row isa MechanismRecoveryResult
+        @test hasproperty(row, :locked_kpis) && row.locked_kpis !== nothing
+        @test hasproperty(row, :protocol_result) && row.protocol_result !== nothing
+        @test row[:data_residual] === row.data_residual
+        @test row[:locked_kpis] === row.locked_kpis
+        @test row[:protocol_result] === row.protocol_result
+        @test haskey(row, :identifiability)
+        @test haskey(row, :nn_correlation)
+        @test haskey(row, :support_f1)
+        @test row.data_residual === Inf
+        @test row.discovery === nothing
+        @test row.protocol_result.canonical_hill_from_nn === false
+        @test row.protocol_result.claim === :recall_plus_data_residual
+        @test Tuple(keys(row.protocol_result)) == PROTOCOL_RESULT_FIELDS
+        fields = fieldnames(typeof(row))
+        @test :holdout ∉ fields
+        @test :train ∉ fields
+        @test :samples ∉ fields
+        @test :r_range ∉ fields
+        @test :functional_identifiability ∉ fields
+        @test :independently_trained_D ∉ fields
+        @test :uncertainty ∉ fields
+        @test :hypothesis ∉ fields
+        @test :occupancy ∉ fields
+        @test :q4 ∉ fields
+        @test :q7 ∉ fields
+        @test :data_residual_holdout ∉ fields
+        @test :d_rmse_holdout ∉ fields
+        @test :holdout ∉ keys(row)
+        @test :samples ∉ keys(row)
+        @test :functional_identifiability ∉ keys(row)
+        txt = format_recovery_protocol(row)
+        @test occursin("IDENTIFIABILITY", txt)
+        @test occursin("FIT", txt)
+        @test occursin("DISCOVERY", txt)
+        @test occursin("REPRODUCTION", txt)
+        @test occursin("canonical_hill_from_nn: false", txt)
+        proto_row = unique_claim_protocol_row(row)
+        @test proto_row.protocol_result !== nothing
+        @test proto_row.kpis !== nothing
+        @test proto_row.protocol_result === row.protocol_result
+        @test proto_row.kpis === row.locked_kpis
+    end
+    @test !isdefined(BioDynaX, :DestructionSamples)
+    @test !isdefined(BioDynaX, :ExperimentSplit)
+    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test public_export_list_holds()
 end
