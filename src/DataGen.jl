@@ -72,8 +72,14 @@ function compile_ground_truth_model(rng::AbstractRNG, network::BiologicalNetwork
         return GroundTruthModel(rng, network; generator = :compiled_mechanism)
     end
     model, default_params = build_ude_model(rng, network)
-    params_cv = truth_params isa ComponentVector ?
-                truth_params : pack_parameters(truth_params, default_params.nn)
+    schema = parameter_schema(model)
+    if truth_params isa ComponentVector
+        validate_phys_parameters(unpack_parameters(truth_params).phys, schema)
+        params_cv = truth_params
+    else
+        validate_phys_parameters(truth_params, schema)
+        params_cv = pack_parameters(truth_params, default_params.nn)
+    end
     return GroundTruthModel(network, model, params_cv, :compiled_mechanism)
 end
 

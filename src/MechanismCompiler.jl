@@ -350,10 +350,12 @@ function ChainRulesCore.rrule(::typeof(_extract_flat), p::ComponentVector)
     return flat, extract_flat_pullback
 end
 
-@inline function _linear_ab_from_flat(x, flat::Vector{Float64}, model::UDEModel)
-    k_ba = positive_parameter(@inbounds flat[model.k_ba_idx])
-    k_a = positive_parameter(@inbounds flat[model.k_a_idx])
-    k_b = positive_parameter(@inbounds flat[model.k_b_idx])
+# Name-based lookup: compile-time flat indices assume dummy schema order
+# and silently read NN bytes when phys fields are reordered or omitted.
+@inline function _linear_ab_rhs(x, p, ::UDEModel)
+    k_ba = _phys_param(p, Val{:k_ba}())
+    k_a = _phys_param(p, Val{:k_a}())
+    k_b = _phys_param(p, Val{:k_b}())
     a = k_ba * _nonneg(x[2]) - k_a * x[1]
     b = -k_b * x[2]
     return a, b
@@ -367,7 +369,7 @@ In-place compiled production–destruction RHS using a preallocated cache.
 function ude_rhs!(du, x, p, t, model::UDEModel, cache::UDEModelCache)
     if model.is_linear_ab
         _require_matching_state_length(x, model.nstates)
-        a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+        a, b = _linear_ab_rhs(x, p, model)
         @inbounds begin
             du[1] = a
             du[2] = b
@@ -652,7 +654,7 @@ end
         model::UDEModel)::SVector{2,Float64}
     _require_matching_state_length(x, model.nstates)
     if model.is_linear_ab
-        a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+        a, b = _linear_ab_rhs(x, p, model)
         return SVector{2,Float64}(a, b)
     end
     return _generic_s2(x, p, model)
@@ -663,7 +665,7 @@ end
 end
 
 @inline function _linear_vec64(x, p, model::UDEModel)
-    a, b = _linear_ab_from_flat(x, _extract_flat(p), model)
+    a, b = _linear_ab_rhs(x, p, model)
     return Float64[a, b]
 end
 
@@ -1043,6 +1045,7 @@ function _is_linear_ab_compiled(cm)
     p1 isa MassActionProductionTerm{:k_ba} || return false
     d1 isa LinearDestructionTerm{:k_a} || return false
     d2 isa LinearDestructionTerm{:k_b} || return false
+    p1.scale == 1.0 && d1.scale == 1.0 && d2.scale == 1.0 || return false
     return p1.target == 1 && p1.regulator == 2 &&
            d1.target == 1 && d2.target == 2
 end

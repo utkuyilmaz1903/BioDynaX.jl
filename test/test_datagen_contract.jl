@@ -20,6 +20,23 @@
     @test !(:generate_experiment_set_from_compiled_model in names(BioDynaX))
 end
 
+@testset "linear generate_data rejects missing phys and ignores NamedTuple order" begin
+    net = build_linear_test_network()
+    schema = (k_ba = 0.8, k_a = 1.2, k_b = 0.4)
+    reordered = (k_b = 0.4, k_a = 1.2, k_ba = 0.8)
+    _, clean_schema, _, _ = generate_data(
+        MersenneTwister(1); network = net, truth_params = schema,
+        noise_σ = 0.0, n_points = 8, tspan = (0.0, 1.0))
+    _, clean_reordered, _, _ = generate_data(
+        MersenneTwister(1); network = net, truth_params = reordered,
+        noise_σ = 0.0, n_points = 8, tspan = (0.0, 1.0))
+    @test clean_schema ≈ clean_reordered
+    @test_throws ArgumentError generate_data(
+        MersenneTwister(1); network = net,
+        truth_params = (k_ba = 0.8, k_a = 1.2),
+        noise_σ = 0.0, n_points = 8, tspan = (0.0, 1.0))
+end
+
 @testset "GroundTruthModel integrates the stored compiled model" begin
     rng = MersenneTwister(41)
     net = build_linear_test_network()

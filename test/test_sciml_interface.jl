@@ -93,6 +93,53 @@ end
     @test all(isfinite, Array(sol))
 end
 
+@testset "linear A/B fast path is name- and scale-safe" begin
+    rng = MersenneTwister(0)
+    network = build_linear_test_network()
+    model, default_p = build_ude_model(rng, network)
+    @test model.is_linear_ab
+    x = [0.3, 0.4]
+    phys = (k_ba = 0.8, k_a = 1.2, k_b = 0.4)
+    reordered = (k_b = 0.4, k_a = 1.2, k_ba = 0.8)
+    p_schema = pack_parameters(phys, default_p.nn)
+    p_reordered = pack_parameters(reordered, default_p.nn)
+    dx_schema = ude_system(x, p_schema, 0.0, model)
+    dx_reordered = ude_system(x, p_reordered, 0.0, model)
+    dx_generic = BioDynaX._ude_system_impl(x, p_schema, model.impl, nothing)
+    @test dx_schema ≈ dx_reordered
+    @test dx_schema ≈ dx_generic
+    cache = allocate_cache(model, Float64)
+    ude_rhs!(cache.du, x, p_reordered, 0.0, model, cache)
+    @test cache.du ≈ dx_schema
+    p_partial = pack_parameters((k_ba = 0.8, k_a = 1.2), default_p.nn)
+    @test_throws ArgumentError ude_system(x, p_partial, 0.0, model)
+
+    scaled = BiologicalNetwork(
+        [NodeSpec(name = :A), NodeSpec(name = :B)],
+        EdgeSpec[];
+        reactions = [
+            ReactionSpec(name = :b_drives_a,
+                stoichiometry = Dict(1 => 2.0), regulators = [2],
+                metadata = MassActionMetadata(rate_param = :k_ba)),
+            ReactionSpec(name = :a_decay,
+                stoichiometry = Dict(1 => -1.0), regulators = Int[],
+                metadata = LinearDecayMetadata(rate_param = :k_a)),
+            ReactionSpec(name = :b_decay,
+                stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                metadata = LinearDecayMetadata(rate_param = :k_b))])
+    scaled_model, scaled_p = build_ude_model(MersenneTwister(1), scaled)
+    @test !scaled_model.is_linear_ab
+    dx_scaled = ude_system(x, scaled_p, 0.0, scaled_model)
+    dx_scaled_generic = BioDynaX._ude_system_impl(
+        x, scaled_p, scaled_model.impl, nothing)
+    @test dx_scaled ≈ dx_scaled_generic
+    k_ba = BioDynaX.positive_parameter(scaled_p.phys.k_ba)
+    k_a = BioDynaX.positive_parameter(scaled_p.phys.k_a)
+    k_b = BioDynaX.positive_parameter(scaled_p.phys.k_b)
+    @test dx_scaled[1] ≈ 2 * k_ba * x[2] - k_a * x[1]
+    @test dx_scaled[2] ≈ -k_b * x[2]
+end
+
 @testset "SciML ODEProblem on remapped multi-head and two-regulator D(S,I)" begin
     remap = remapped_two_regulator_compiled_path()
     @test remap.holds
