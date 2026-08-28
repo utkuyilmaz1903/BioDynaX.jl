@@ -4,7 +4,7 @@ overview: "Mevcut 0.9.2 one-hole iş akışını vizyonun tamamını uygulamadan
 todos:
   - id: m0-contract
     content: "M0: docs/src/design/v1_contract.md — P-D·u, Q1–Q7, kapalı iddialar; vizyon denklemini ürün yapma"
-    status: pending
+    status: completed
   - id: m1-pipeline
     content: "M1: run_recovery_suite ayrıştır + MechanismRecoveryResult; honesty string silme yok"
     status: pending
