@@ -4,7 +4,8 @@ v0.9.x is a **research preview**. A green `recovery` CI job is **necessary, not
 sufficient** for v1.0. Green CI today proves the method skeleton (hybrid compile,
 `D(z)` discovery, graph vs global ablation, 6-state prior), not that every
 printed equation is canonical Hill, and not that a biologist should run this
-on an arbitrary CSV.
+on an arbitrary CSV. The scientific contract for what is implemented today is
+[v1.0 scientific contract](design/v1_contract.md).
 
 Documentation for this preview is published at
 [https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/).
@@ -15,10 +16,14 @@ there is no git tag, so that bot has not been proven.
 
 - Unknown-edge UDE combined support F1 is **not** the analytical Hill gate.
   One same-library attempt (`benchmark/ude_f1_attempt.jl`) left extras `1`
-  and `r`. The locked UDE claim is true-monomial recall + hybrid residual
-  versus data on **Hill-class** unknown destruction. Re-opening a
-  “canonical Hill from a trained NN” sentence requires a new major scientific
-  gate, not a README edit.
+  and `r`. The current unique-claim hold on **Hill-class** unknown
+  destruction is the Q3 practical scale/identifiability warning
+  (`unidentifiable_edge == true`) together with the Q1 hybrid residual
+  versus observed data on the training/reference IC and Q5 true-monomial
+  recall. Q3 is a local practical warning (Fisher condition number **or**
+  \(k_{\mathrm{prod}}/D\) scale cosine), not a structural certificate and
+  not the whole product. Re-opening a “canonical Hill from a trained NN”
+  sentence requires a new major scientific gate, not a README edit.
 - External graph vs global (optional DataDrivenSparse) baseline table is frozen
   in `docs/src/benchmarks.md`. Loosening a locked number is breaking. The
   2-state F1 gap is **not** the prior. The locked prior is library membership
@@ -36,16 +41,18 @@ there is no git tag, so that bot has not been proven.
 
 Loosening `RECOVERY_THRESHOLDS` is a breaking change. Tightening UDE combined
 F1 toward `support_f1_clean` was attempted on the same library and did not
-hold. The scientific claim stays recall + residual until a new major gate.
+hold. The current unique-claim hold stays Q3 + Q1 residual + Q5 recall
+until a new major gate. The older shorthand “recall + residual” omitted
+Q3 and is incomplete.
 
 ## JOSS / register (maintainer gate, not this work)
 
 All of the following must already be true, and CI must be able to go red if
 any of them regresses:
 
-1. The public claim is recall + data residual on Hill-class unknown edges
-   (this preview). A canonical-Hill-from-NN sentence is closed until a new
-   major gate.
+1. The public hold is Q3 (`unidentifiable_edge`) + Q1 data residual + Q5
+   true-monomial recall on Hill-class unknown edges (this preview). A
+   canonical-Hill-from-NN sentence is closed until a new major gate.
 2. Graph vs global (optional DataDrivenSparse) table is frozen in
    [Recovery benchmarks](benchmarks.md). 6-state + wrong-graph are the prior
    evidence beyond the 3-state toy. Loosening a locked number is breaking.

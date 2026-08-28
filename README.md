@@ -9,11 +9,18 @@ recall. Not a general network solver.
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Research preview. Not v1.0.** One-hole instrument: known graph, compiled
-known `P` / known `D`, exactly one unknown destruction `D(z)`. The product is
-practical identifiability (`unidentifiable_edge`; coefficients are not
-biological constants) together with a gated hybrid residual versus data and
-true-monomial recall. Canonical Hill from a trained NN is closed. This is not
-a general CRN solver or a global SINDy replacement.
+known `P` / known `D`, exactly one unknown destruction `D(z)`. Compiled
+dynamics are `du_i = P_i - D_i * u_i`. The current unique-claim hold is
+the Q3 practical scale warning (`unidentifiable_edge`; coefficients are
+not biological constants) together with a gated Q1 hybrid residual versus
+observed data and Q5 true-monomial recall. Q3 is a local practical warning,
+not the whole product and not a structural certificate. Trajectory residual
+is not mechanistic recovery. Canonical Hill from a trained NN is closed.
+This is not a general CRN solver or a global SINDy replacement. The
+scientific contract is
+[`docs/src/design/v1_contract.md`](docs/src/design/v1_contract.md)
+(Q1–Q7 stay conceptually separate; some operational measurements remain
+incomplete; Q4 and Q7 are not implemented).
 
 Requires **Julia ≥ 1.10**.
 
@@ -27,15 +34,18 @@ Requires **Julia ≥ 1.10**.
 1. **Scope** — known graph, compiled known kinetics, exactly one unknown
    destruction `D(z)`. Zero or two-or-more holes are out of claim; the golden
    path errors.
-2. **Identifiability (primary, first printed block)** —
-   `unidentifiable_edge` and `coefficients_are_biological_constants`. `k_prod`
-   and the scale of `D(z)` are not separately identifiable from observed
-   concentrations. Practical Fisher/Jacobian, not StructuralIdentifiability.jl.
-3. **Fit (gated)** — hybrid residual versus data and true-monomial recall on
-   synthetic Hill truth.
-4. **Discovery (tertiary)** — a symbolic `D(z)` string. Combined F1 is a
-   skeleton floor (0.50), not 0.99. Extras `1` and `r` remain.
-   `canonical_hill_from_nn` is false and closed.
+2. **Q3 scale warning (first printed block)** —
+   `unidentifiable_edge` and `coefficients_are_biological_constants`. The
+   flag is a local practical warning: Fisher condition number **or**
+   `k_prod`/`D` scale cosine. It is not the product by itself and not a
+   structural certificate. `k_prod` and the scale of `D(z)` are not
+   separately identifiable from observed concentrations.
+3. **Q1 fit (gated)** — hybrid residual versus observed data on the current
+   protocol / training IC. Not held-out generalization, and not mechanistic
+   recovery.
+4. **Q5 symbolic support (gated)** — true-monomial recall on grid-sampled
+   learned `D`. Combined F1 is a skeleton floor (0.50), not 0.99. Extras
+   `1` and `r` remain. `canonical_hill_from_nn` is false and closed.
 
 MM unknown edges gate NN RMSE and data residual only. Combined F1 from a
 trained NN is not canonical Hill.
@@ -83,7 +93,7 @@ println(BioDynaX.format_protocol_result(ident; residual = residual))
 
 | Topic | Implementation |
 |--------|----------------|
-| **Dynamics** | Compiled `MechanismCompiler` IR → `ude_system` / `ude_rhs!` |
+| **Dynamics** | Compiled `P_i - D_i u_i` IR → `ude_system` / `ude_rhs!` |
 | **Unknown biology** | `NeuralDestructionTerm` with a softplus-headed Lux MLP |
 | **Positivity** | States through `max(0, x)`; optional augmented Lagrangian |
 | **Parameters** | `ComponentVector` with `phys` / `nn` axes |
@@ -149,7 +159,9 @@ package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
 
 - **GPU** copies experiment arrays with `cu`. There is no batched GPU ODE/training stack.
 - **SBML** import does not parse kinetic MathML into Hill/MM.
-- **Identifiability** is the product (practical Fisher/Jacobian). It is not a structural certificate.
+- **Identifiability (Q3)** is a practical Fisher/Jacobian warning (condition
+  number or scale cosine), not a structural certificate and not the whole
+  unique-claim hold. Trajectory residual is not mechanistic recovery.
 - **Partial observation:** discovery from subsampled `D` plus hybrid residual versus data is gated. UDE training on missing states is not claimed.
 - **No licensed experimental CSV** matches the unique-claim protocol (known graph, exactly one unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
 - Target regime is **2–20 states** with a known interaction graph.

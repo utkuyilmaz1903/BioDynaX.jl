@@ -164,8 +164,9 @@ Producer: `run_recovery_suite(...; sections = (:ident_interventions,))`.
 | Production rate 0.9 vs 1.8 | cosine still ≥ 0.95 |
 | `tradeoff_broken` | **false** (locked) |
 
-Reporting `unidentifiable_edge` is the product. Claiming the scale is
-identified is not.
+Reporting `unidentifiable_edge` is the required Q3 practical warning in
+the unique-claim hold (condition number **or** scale cosine). It is not
+the whole product. Claiming the scale is identified is not.
 
 ## Frozen analytical noise grid
 

@@ -55,8 +55,9 @@ TagBot is configured; do not claim a release tag until one exists.
 
 - **Loosening** a locked number is a **breaking** change.
 - Combined F1 toward `support_f1_clean` was attempted on the same library
-  (`benchmark/ude_f1_attempt.jl`). Extras remained. The locked UDE claim is
-  recall + data residual until a new major gate.
+  (`benchmark/ude_f1_attempt.jl`). Extras remained. The locked UDE hold is
+  Q3 (`unidentifiable_edge`) + Q1 data residual + Q5 recall until a new
+  major gate.
 - Do not grow the STLSQ dictionary to buy F1.
 - Do not add DataDrivenDiffEq as a CI dependency.
 - Do not write “canonical Hill from a trained NN”.

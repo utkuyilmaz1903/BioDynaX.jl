@@ -3,6 +3,11 @@
 BioDynaX separates biological semantics, numerical execution, optimization and
 equation discovery.
 
+The authoritative scientific contract is
+[v1.0 scientific contract](design/v1_contract.md). Compiled dynamics are
+\(\dot u_i = P_i(u,p,t) - D_i(u,p,t)\, u_i\). The vision form
+\(\dot x = f_{\mathrm{known}} + D\) is not the v1.0 product.
+
 ## Data flow
 
 1. `BiologicalNetwork` defines typed nodes, interactions and reactions.
@@ -19,16 +24,24 @@ equation discovery.
    state to the multi-IC stage. See [Training reuse](training-reuse.md).
 6. `local_basis` derives candidate variables from each target's graph parents
    (`scope = :graph`, or `:global` for ablations).
-7. `discover_equations` fits `D(z)ẋ-N(z)=0`, validates denominators and reports
-   bootstrap term-selection frequencies. Failures set `DiscoveryRetcode`.
+7. `discover_equations` fits `D(z)ẋ-N(z)=0` on a **state-derivative** path,
+   validates denominators and reports bootstrap term-selection frequencies.
+   Failures set `DiscoveryRetcode`. Unique-claim
+   `discover_unknown_rate` instead regresses sampled \(\hat D\) with a
+   dummy sample index \(t\in[0,1]\). That is function regression of the
+   learned destruction rate, not trajectory \(\dot x\)-SINDy.
 
-The unique-claim product is printed and stored in that same order:
+The unique-claim hold is printed and stored in that same order:
 
-1. **IDENTIFIABILITY** — `unidentifiable_edge` and
-   `coefficients_are_biological_constants`. Practical Fisher/Jacobian.
-2. **FIT** — hybrid residual versus data and true-monomial recall.
-3. **DISCOVERY** — symbolic `D(z)`, live extras, skeleton combined F1.
-   `canonical_hill_from_nn` stays false.
+1. **IDENTIFIABILITY (Q3)** — `unidentifiable_edge` and
+   `coefficients_are_biological_constants`. Local practical warning
+   (Fisher condition number **or** \(k_{\mathrm{prod}}/D\) scale cosine),
+   not the whole product and not a structural certificate.
+2. **FIT (Q1 + Q5)** — hybrid residual versus observed data on the
+   training/reference IC, and true-monomial recall. Residual is not
+   mechanistic recovery and is not held-out generalization.
+3. **DISCOVERY** — symbolic `D(z)` from grid-sampled learned \(D\), live
+   extras, skeleton combined F1. `canonical_hill_from_nn` stays false.
 4. **REPRODUCTION** — seed 103, 9 ICs, 50 points. Smoke is labeled
    separately and is not this fingerprint.
 
@@ -92,8 +105,9 @@ The default UDE uses
 \dot{x}_i = P_i(x,p,t) - D_i(x,p,t)x_i,\qquad P_i,D_i\geq 0.
 ```
 
-This points inward at `x_i=0`. Non-structural inequalities use a smooth
-Powell–Hestenes–Rockafellar Augmented Lagrangian.
+This points inward at `x_i=0`. That is an architectural / numerical
+constraint, not a formal positivity theorem. Non-structural inequalities
+use a smooth Powell–Hestenes–Rockafellar Augmented Lagrangian.
 
 ## Rational discovery
 

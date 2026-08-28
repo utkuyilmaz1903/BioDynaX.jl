@@ -1,5 +1,11 @@
 # BioDynaX.jl Unreleased
 
+- v1.0 scientific contract: `docs/src/design/v1_contract.md` records the
+  implemented \(P-D\cdot u\) form, keeps Q1–Q7 conceptually separate
+  (operational measurements remain incomplete), and writes the current
+  unique-claim hold as Q3 practical warning + Q1 training-IC residual +
+  Q5 support recall. Q4 / Q7 stay not implemented. Unique-claim gates,
+  `RECOVERY_THRESHOLDS`, and the public export list are unchanged.
 - Aqua / SciML standards bar: `test/quality.jl` turns on the previously
   skipped Aqua checks (they pass on this tree). `standards` CI runs
   `test/run_standards.jl` (export docstrings, JET on `train_ude` /
