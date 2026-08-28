@@ -7,7 +7,19 @@ todos:
     status: completed
   - id: m1-pipeline
     content: "M1: ince gated dispatcher + composer koru; MechanismRecoveryResult; DestructionSamples yok"
+    status: pending
+  - id: m1a-result
+    content: "M1-A: internal MechanismRecoveryResult foundation"
     status: completed
+  - id: m1b-generate-fit
+    content: "M1-B: generate_recovery_experiments + shared RNG + fit_unknown_destruction"
+    status: completed
+  - id: m1c-recovery-stages
+    content: "M1-C: sample_destruction + evaluate_recovery + report_recovery + composer wiring"
+    status: pending
+  - id: m1d-validation
+    content: "M1-D: final validation, docs, hard recovery, benchmark, scientific/software audit"
+    status: pending
   - id: m2-heldout
     content: "M2: ExperimentSplit + holdout residual ve D hatası; 0.30’u körlemesine sıkılaştırma"
     status: pending
@@ -223,50 +235,143 @@ flowchart TD
 
 ---
 
-## Milestone 1 — Recovery mimarisini ayrıştır (P1)
+## Milestone 1 — Recovery pipeline mimarisini ayrıştır (P1)
 
-M0 sözleşmesi durur. Bu milestone **yalnızca altyapıdır**. M2/M3/M4 bilimsel problemleri çözülmez.
+### M1 genel bakış
 
-- **Hedef:** Unique-claim yolunu çağrılabilir aşamalara ayırmak; `run_recovery_suite` **ince gated dispatcher** kalsın. Suite keşif dizisini **öğrenmez**.
-- **Bilimsel soru:** Yok (altyapı). Sonraki M2–M5’in yığına yama olmadan test edilebilir olması.
-- **Sorun:** [src/Recovery.jl](src/Recovery.jl) tek yığın; dummy RNG consume; `Dict{Symbol,Any}`; [src/RecoverySuiteSkip.jl](src/RecoverySuiteSkip.jl) kaynak gövdesine bağlı.
-- **Neden önemli:** Held-out ve fonksiyonel ID bu yığına yama olarak girerse yeni sızıntı doğar. Suite’e `discover_unknown_rate` çekmek `training_ok` erken çıkışını bozar.
-- **Dosyalar:** [src/Recovery.jl](src/Recovery.jl), [src/TrainingReuse.jl](src/TrainingReuse.jl), [src/UniqueClaim.jl](src/UniqueClaim.jl), [src/RecoveryAdmission.jl](src/RecoveryAdmission.jl), [src/RecoverySuiteSkip.jl](src/RecoverySuiteSkip.jl), [src/DataGen.jl](src/DataGen.jl); yeni ince [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl) (aşamalar + `MechanismRecoveryResult`; honesty taşımaz).
-- **Matematik:** Yok; \(P-D\cdot u\) ve unique-claim semantiği değişmez.
-- **API:** Public export **büyümesin**. `MechanismRecoveryResult` ve aşamalar `BioDynaX.foo` iç. `RECOVERY_THRESHOLDS`, `hybrid_data_residual`, `compose_hybrid_rhs`, `discover_unknown_rate`, `sample_unknown_destruction` dursun.
-- **Ertelenen:** `ExperimentSplit`, held-out, fonksiyonel identifiability, occupancy/domain, hypothesis, uncertainty, `UDEModel` rewrite, honesty silme, `MechanismHypothesis`, `DestructionSamples`.
+M0 sözleşmesi durur. M1 **yalnızca altyapıdır**. Unique-claim bilimsel semantiği,
+eşikler, export listesi, stdout ve \(P-D\cdot u\) değişmez. M2/M3/M4 bilimsel
+problemleri M1 içinde çözülmez; bu milestone onları “kanca” diye de eklemez.
 
-### Post-M0 gerçek durum
+Eski M1 tasarımı suite kabuğuna `sample → discover ×2 → evaluate` dizisini
+yazıyordu. Onaylı revize mimari bunu **reddeder**. Keşif dizisini suite’e
+çekmek, `training_ok == false` iken bile iki `discover_unknown_rate`
+çalıştırırdı: RNG, süre, `DiscoveryResult` ve residual semantiği değişirdi.
 
-- [src/Recovery.jl](src/Recovery.jl) **1564 satır**; `RecoveryPipeline.jl` ve `MechanismRecoveryResult` yok.
-- `run_recovery_suite` (~978–1564) `Dict{Symbol,Any}` döner; 16 gated section. Unique-claim eğitimi yalnızca `:ude_discovery` ve `:mm_unknown`.
-- Unique-claim çekirdeği **iki yığında**: [`_train_unknown_edge`](src/Recovery.jl) (609–632) ve [`_evaluate_unknown_rate_recovery`](src/Recovery.jl) (644–734).
-- Composer bugün şunları **sahiptir**: `sample_unknown_destruction_grid`, `training_ok` eşiği, erken dönüş (`discovery = nothing`, residual `Inf`), sahte `times = range(0,1)`, `unique_claim_discovery_config()`, ham + normalize `discover_unknown_rate`, `data_residual_fn`, mevcut NamedTuple alanları.
-- Suite kabuğu composer’ı **çağırır**; keşif dizisini **inline etmez**.
-- [examples/unknown_inhibition.jl](examples/unknown_inhibition.jl) suite’i çağırmaz; ayrı public yol bilinçli kalır.
-- [src/HybridCompose.jl](src/HybridCompose.jl) / [src/HybridResidual.jl](src/HybridResidual.jl) / [src/IdentifiabilityProduct.jl](src/IdentifiabilityProduct.jl) **taşınmaz, birleştirilmez**.
+`run_recovery_suite` **ince gated dispatcher** olarak kalır. Unique-claim
+kontrol akışının sahibi `_evaluate_unknown_rate_recovery` olarak kalır.
+Suite unique-claim için yalnızca şunu çağırır:
 
-### Zorunlu tasarım kilitleri
+`_train_unknown_edge` → `_evaluate_unknown_rate_recovery` → mevcut ident/rapor yolu
 
-**Davranış korunumu:** Unique-claim erken-çıkış, normalizasyon, çift keşif, residual kapanışı ve NamedTuple alanları `_evaluate_unknown_rate_recovery` içinde kalır. Suite bu diziyi öğrenmez ve `discover_unknown_rate` çağırmaz.
+Suite **doğrudan çağırmaz:**
 
-**`Dict{Symbol,Any}`:** Dış dönüş tipi değişmez. Yalnızca `:ude_discovery` / `:mm_unknown` değerleri `MechanismRecoveryResult` olur; mevcut alan erişimi (`ude.nn_correlation`, `ude.locked_kpis`, `haskey || hasproperty`) durur.
+- `sample_destruction`
+- `discover_unknown_rate`
+- `evaluate_recovery`
+- `normalize_destruction_samples`
 
-**Fikstür-özel mantık:** Hill/MM truth, 9 IC, `fill_value=0.3`, graph-prior, ablation suite gövdesinde kalır. Aşama fonksiyonları fikstür alabilir, içermez. `build_*_network` taşınmaz.
+Aşama fonksiyonları (generate / fit / sample / evaluate / report) unexported
+yardımcılardır. Public `discover_unknown_rate` durur; çağrı yeri composer’dır.
 
-**Örnekleme:** Unique-claim `sample_learned_function` kullanmaz. Yol: `_regulator_grid` → `sample_unknown_destruction_grid` → `(R, D, term)`. `DestructionSamples` **yoktur**. Yeni ızgara/domain tipi yok.
+### Korunacak bilimsel davranış
 
-**Dummy RNG:** `:ude_discovery` / `:mm_unknown` atılan `build_ude_model(rng, truth_net)` tüketimini korur. **Per-section `MersenneTwister(seed)` yok.** Hard job seed 103/113 buna bağlı.
+M1 boyunca değişmez:
 
-**Sayaçlar:** `TRAIN_UNKNOWN_EDGE_COUNTER` yalnızca `_train_unknown_edge` girişinde artar. `COMPILE_NETWORK_COUNTER` dokunulmaz.
+- \(\dot u_i = P_i - D_i u_i\)
+- `RECOVERY_THRESHOLDS` sayıları (residual 0.30 körlemesine sıkılaştırılmaz)
+- unique-claim kapıları (recall, residual, F1 bandı, `unidentifiable_edge`)
+- paylaşılan dummy RNG tüketimi (`consume_shared_suite_rng!`); **per-section
+  `MersenneTwister(seed)` yok** — hard job seed 103/113 buna bağlıdır
+- training configuration ve warmup (`lock_training_config` +
+  `train_experiments_with_warmup`)
+- ham + normalize çift keşif (composer içinde, aynı sıra ve argümanlar)
+- `training_ok` erken çıkışı: keşif çalışmaz; erken NamedTuple alanları aynıdır
+- `first(experiments)` residual semantiği (Q1 hâlâ IC[1])
+- stdout bölüm isimleri ve sırası (IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION)
+- public export listesi / `LOCKED_PUBLIC_EXPORTS`
+- dış suite dönüşü `Dict{Symbol,Any}`
+- `TRAIN_UNKNOWN_EDGE_COUNTER` yalnızca `_train_unknown_edge` girişinde artar
+- `COMPILE_NETWORK_COUNTER` dokunulmaz
+- `examples/unknown_inhibition.jl` suite’e bağlanmaz (ayrı public yol)
+- HybridCompose / HybridResidual / IdentifiabilityProduct taşınmaz, birleştirilmez
+- `sample_learned_function` unique-claim yoluna alınmaz
+- `canonical_hill_from_nn === false` durur
 
-**Honesty:** [`recovery_suite_section_body`](src/RecoverySuiteSkip.jl) suite gövdesini parse eder. Needle’lar (`_train_unknown_edge`, `admit_recovery_suite_network(:ude_discovery)`, `UNIQUE_CLAIM_PROTOCOL.tspan/n_points`, `family = :mm`) literal kalır. `_train_unknown_edge` tanımı [src/Recovery.jl](src/Recovery.jl) içinde kalır. Yeni `occursin("function …")` eklenmez. Aynı PR’da honesty silinmez.
+### Kesinlikle M1 dışında (M2 / M3 / M4 kapsamı)
 
-**Include:** [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl) [src/Recovery.jl](src/Recovery.jl) / [src/TrainingReuse.jl](src/TrainingReuse.jl) sonrası, [src/RecoverySuiteSkip.jl](src/RecoverySuiteSkip.jl) öncesi. [src/Recovery.jl](src/Recovery.jl) aşamaları late-bind ile çağırır; imzalara `::MechanismRecoveryResult` yazılmaz.
+M1 bunları implemente etmez ve “hazır kanca” diye dondurmaz:
+
+- `ExperimentSplit`, held-out residual, held-out \(D\) (M2)
+- fonksiyonel identifiability / Q4 tanı (M3)
+- uncertainty, hypothesis ranking
+- domain occupancy / yörünge-örnekli `D` (M4)
+- yeni discovery algoritması
+- yeni public API
+- threshold değişikliği
+- \(P-Du\) rewrite; `UDEModel` redesign
+- graph-local trained-UDE bilim iddiası
+- multi-hole inference
+- honesty yığınını silme; HybridCompose birleştirme
+- dummy RNG kaldırma; per-section RNG
+- suite gövdesine keşif dizisi yazma
+- yeni genel `occursin("function …")` kaynak-string envanteri
+- yeni örnekleme struct’ı / `MechanismRecoveryResult` üzerinde `samples` alanı
+  (örnekleme çıktısı mevcut `(R, D, term)` kalır)
+
+M2/M3 işlevi **yoktur**. `v1_contract.md` Q4/Q7 “not implemented” kalır.
+
+### Mevcut gerçek durum
+
+M0 tamamlandı.
+
+`src/Recovery.jl` hâlâ büyük recovery orchestration katmanıdır.
+`run_recovery_suite` gated `Dict{Symbol,Any}` dispatcher’dır. Unique-claim
+eğitimi yalnızca `:ude_discovery` ve `:mm_unknown` section’larındadır.
+
+**M1-A tamamlandı (tarihsel):**
+
+- internal / unexported `MechanismRecoveryResult`
+- `getindex` / `haskey` / `keys` uyumu (`hasproperty`)
+- public export değişmedi
+
+**M1-B tamamlandı (tarihsel):**
+
+- `generate_recovery_experiments`
+- `consume_shared_suite_rng!`
+- `fit_unknown_destruction`
+- `_train_unknown_edge` compatibility wrapper
+- TrainingReuse warmup kilidi `fit_unknown_destruction` gövdesine retarget edildi
+
+**M1-C tamamlanmadı:**
+
+- `sample_destruction` yok
+- `evaluate_recovery` yok
+- `report_recovery` yok
+- composer hâlâ `sample_unknown_destruction_grid` + satır içi metrik
+- suite hâlâ NamedTuple splat + `locked_ude_kpis` + `build_protocol_result`
+
+**M1-D tamamlanmadı:**
+
+- final validation
+- docs
+- hard recovery
+- benchmark
+- scientific audit
+- software audit
+
+Bugünkü unique-claim kabuğu (kaynak sırası):
+
+1. `admit_recovery_suite_network` + `consume_shared_suite_rng!` + `build_ude_model`
+2. `_train_unknown_edge`
+3. `only_unknown_destruction` + `first(experiments)` residual kapanışı + `_regulator_grid`
+4. `_evaluate_unknown_rate_recovery(...)` — **tek orkestrasyon çağrısı**
+5. `report_production_destruction_tradeoff` on `first(experiments)` (eğitim/keşif
+   başarısız olsa da)
+6. NamedTuple splat + `locked_ude_kpis` + `build_protocol_result`
+
+Composer bugün şunların **sahibidir:** grid örnekleme, `training_ok`, erken
+NamedTuple (`discovery = nothing`, residual `Inf`; erken yolda
+`extras_denominator` alanı yoktur), sahte `times = range(0,1)`,
+`unique_claim_discovery_config()`, ham + normalize `discover_unknown_rate`,
+satır içi Q1/Q2/Q5 metrikleri, mevcut NamedTuple alan listesi.
 
 ### Hedef mimari
 
-`run_recovery_suite` **ince gated dispatcher** kalır. Unique-claim section gövdesi keşif dizisini **yazmaz**. `:ude_discovery` ve `:mm_unknown` mevcut `_evaluate_unknown_rate_recovery` yolunu çağırır. `_evaluate_unknown_rate_recovery` `training_ok`, erken çıkış, örnekleme, çift keşif, normalizasyon ve değerlendirme sırasını **sahiptir**.
+`run_recovery_suite` ince gated dispatcher kalır. Unique-claim section gövdesi
+keşif dizisini **yazmaz**. `_evaluate_unknown_rate_recovery` Recovery.jl’de
+kalır ve kontrol akışının sahibidir: örnekleme, `training_ok`, erken çıkış,
+ham keşif, `normalize_destruction_samples`, normalize keşif, metrik sırası.
 
 ```mermaid
 flowchart TD
@@ -276,62 +381,90 @@ flowchart TD
     fit[fit_unknown_destruction]
     composer[_evaluate_unknown_rate_recovery]
     sample[sample_destruction]
-    gate[training_ok gate]
-    early[early return NamedTuple]
-    disc1[discover_unknown_rate]
+    gate[training_ok]
+    early[early return]
+    disc1[discover_unknown_rate raw]
+    norm[normalize_destruction_samples]
     disc2[discover_unknown_rate normalized]
     evalR[evaluate_recovery]
-    ident[ident on first IC]
+    ident[existing identifiability path]
     report[report_recovery]
     result[MechanismRecoveryResult]
+
     suite -->|"ude_discovery or mm_unknown"| train
     train --> gen
     gen --> fit
     train --> composer
+
     composer --> sample
     sample -->|"returns R D term"| gate
+
     gate -->|false| early
     gate -->|true| disc1
-    disc1 --> disc2
+    disc1 --> norm
+    norm --> disc2
     disc2 --> evalR
-    evalR --> ident
+
     early --> ident
+    evalR --> ident
+
     ident --> report
     report --> result
-    suite -->|other 14 sections unchanged| suite
+
+    suite -->|other sections unchanged| suite
 ```
 
-Suite’in unique-claim kabuğu (kaynak sırası, bugünküyle aynı semantik):
+Hedef unique-claim kabuğu (semantik bugünküyle aynı; 6. adım M1-C’de tiplenir):
 
 1. `admit_recovery_suite_network` + dummy RNG consume + `build_ude_model`
 2. `_train_unknown_edge` (sayaç + needle)
 3. `only_unknown_destruction` + `first(experiments)` residual kapanışı + `_regulator_grid`
 4. `_evaluate_unknown_rate_recovery(...)` — **tek orkestrasyon çağrısı**
-5. `report_production_destruction_tradeoff` on `first(experiments)` (eğitim/keşif başarısız olsa da bugün olduğu gibi çalışır)
+5. `report_production_destruction_tradeoff` on `first(experiments)`
 6. `report_recovery` → `report[:ude_discovery]` / `report[:mm_unknown]`
 
-Suite **şunları çağırmaz:** `sample_destruction`, `discover_unknown_rate`, `evaluate_recovery`, `normalize_destruction_samples`.
+`report_recovery` yasak listede değildir; ident/rapor yolunun typed adımıdır.
+Composer `::MechanismRecoveryResult` yazmaz (late-bind; NamedTuple evaled döner).
 
-### Aşama çıkarımları
+Fikstür-özel mantık (Hill/MM truth, 9 IC, `fill_value=0.3`, graph-prior, ablation)
+suite / Recovery.jl gövdesinde kalır. Aşama fonksiyonları fikstür alabilir, içermez.
+`build_*_network` taşınmaz. Diğer 14 section çıkarılmaz.
 
-Hepsi unexported (`BioDynaX.foo`). Public export / `LOCKED_PUBLIC_EXPORTS` değişmez.
+### M1-A — `MechanismRecoveryResult` temeli (tamamlandı)
 
-#### 1. Deney üretimi
+Tarihsel iş; yeniden açılmaz.
 
-- **Mevcut:** `_train_unknown_edge` içindeki `generate_experiment_set` + `_unknown_edge_ics`
-- **Hedef:** `generate_recovery_experiments(rng, truth_net, truth_params; tspan, n_points, noise_σ, initial_conditions = _unknown_edge_ics())`
-- **Sorumluluk:** 9-IC sentetik set. `unique_claim_experiment_set` ile birleşmez.
-- **Çıktı:** `ExperimentSet`
-- **Kim çağırır:** yalnızca `_train_unknown_edge`. Suite doğrudan çağırmaz.
-- **Dosyalar:** `RecoveryPipeline.jl`; `_unknown_edge_ics` Recovery.jl’de kalır
-- **Yapılmaz:** `ExperimentSplit`, holdout indeks, split provenance
+- [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl): yalnızca internal
+  `MechanismRecoveryResult` + `getindex` / `haskey` / `keys`
+- Include: Recovery.jl / TrainingReuse.jl sonrası, RecoverySuiteSkip.jl öncesi
+- Recovery.jl imzalarına `::MechanismRecoveryResult` yazılmaz (late-bind)
+- Public export / `LOCKED_PUBLIC_EXPORTS` değişmedi
+- `haskey` / `hasproperty` **alanın varlığıdır**, değerin anlamlı olduğu
+  anlamına gelmez (`discovery` / `protocol_result` / `locked_kpis` `nothing`
+  olabilir)
 
-#### 2. UDE fit
+Mevcut alanlar (property erişimi): `nn_correlation`, `nn_rate_rmse`, `success`,
+`retcode`, `message`, `support_f1`, `support_recall`, `discovered_rate_rmse`,
+`data_residual`, `denominator_violations`, `normalized_support_f1`,
+`normalized_support_recall`, `extras`, `extras_denominator`, `discovery`,
+`term`, `identifiability`, `locked_kpis`, `protocol_result`, isteğe `model`,
+`params`, `experiments::ExperimentSet`.
 
-- **Mevcut:** `_train_unknown_edge` (warmup + `train_experiments_with_warmup`)
-- **Hedef:** `fit_unknown_destruction(ude_model, ude_p0, set; adam, bfgs, frozen_phys, phys_init)`
-- **Çıktı:** mevcut `TrainingResult`
-- **Kim çağırır:** yalnızca `_train_unknown_edge`
+`protocol_result` + `PROTOCOL_RESULT_FIELDS` sırası değişmedi.
+`experiments` M2 split’i değildir.
+
+### M1-B — generate / shared RNG / fit (tamamlandı)
+
+Tarihsel iş; yeniden açılmaz.
+
+- `generate_recovery_experiments(rng, truth_net, truth_params; tspan, n_points,
+  noise_σ, initial_conditions = _unknown_edge_ics())` → `ExperimentSet`.
+  `unique_claim_experiment_set` ile birleşmez. Holdout / split yok.
+- `consume_shared_suite_rng!(rng, truth_net)` aynı atılan
+  `build_ude_model(rng, truth_net)` tüketimi. Per-section seed yoktur.
+- `fit_unknown_destruction(...)` → mevcut `TrainingResult`. Yeni optimizer /
+  loss / `UDEModel` redesign yok.
+- `_train_unknown_edge` Recovery.jl’de kalır; sarmalayıcı:
 
 ```julia
 function _train_unknown_edge(...)
@@ -342,162 +475,174 @@ function _train_unknown_edge(...)
 end
 ```
 
-- **Tek honesty retarget:** [`train_unknown_edge_reuses_warmup_source`](src/TrainingReuse.jl) (L500–511) `train_experiments_with_warmup` + `lock_training_config` aramayı `fit_unknown_destruction` gövdesine (`RecoveryPipeline.jl`) taşır. Yeni `occursin("function …")` değil.
-- **Yapılmaz:** yeni optimizer, yeni loss, `UDEModel` redesign
+- Suite generate/fit’i doğrudan çağırmaz; yalnızca `_train_unknown_edge` çağırır.
+- Tek honesty retarget: `train_unknown_edge_reuses_warmup_source`
+  (`TrainingReuse.jl`) `train_experiments_with_warmup` + `lock_training_config`
+  aramasını `fit_unknown_destruction` gövdesine taşıdı. Yeni
+  `occursin("function …")` eklenmedi.
 
-#### 3. Öğrenilmiş D örnekleme
+### M1-C — sample / evaluate / report + composer kablolama (bekliyor)
 
-- **Mevcut:** composer içindeki `sample_unknown_destruction_grid` + suite’in verdiği `r_range = _regulator_grid(...)`
-- **Hedef:** isteğe bağlı unexported `sample_destruction(model, params, term; r_range)` → **`(R, D, term)`**
-- **Sorumluluk:** derlenmiş `D` ızgarası. `sample_learned_function` yok.
-- **Kim çağırır:** **yalnızca** `_evaluate_unknown_rate_recovery`. Wrapper davranış eklemiyorsa composer mevcut `sample_unknown_destruction_grid` çağırabilir.
-- **Temsil:** mevcut 3-tuple / eşdeğer NamedTuple. Yeni struct yok.
-- **Yapılmaz:** `r_range`/occupancy/domain/held-out metadata dondurma; `DestructionSamples`
+Yalnızca üç unexported yardımcı ve mevcut unique-claim yoluna bağlama.
+Bilimsel semantik değişmez.
 
-#### 4. Sembolik keşif — yeni fonksiyon yok
+**`sample_destruction(model, params, term; r_range)` → `(R, D, term)`**
 
-- Public `discover_unknown_rate` ([src/Recovery.jl](src/Recovery.jl) 524–541) durur.
-- Çağrı yeri: **yalnızca composer**, `training_ok` **sonrası**.
-- `times = range(0,1)`, `unique_claim_discovery_config()`, `normalize_destruction_samples` composer içinde kalır.
-- Suite gövdesine `discover_unknown_rate(` yazılmaz (`:competitive_unknown` mevcut needle’ı ayrı ve değişmez).
+- İnce sarmalayıcı; mevcut `sample_unknown_destruction_grid` yolu.
+- `fill_value` varsayılanı `0.3` olduğu gibi geçer.
+- `sample_learned_function` yok. Yeni struct / `r_range` dondurma / occupancy yok.
+  Örnekleme temsili yalnızca `(R, D, term)`.
+- **Yalnızca** `_evaluate_unknown_rate_recovery` çağırır.
+- İsim: [src/HybridCompose.jl](src/HybridCompose.jl)
+  `sample_destruction_matches_identity_row` ile önek çakışması; kaynak
+  taramalarında tam isim kullan.
 
-#### 5. Composer — uyumluluk / kontrol akışı katmanı
+**`evaluate_recovery` yalnızca metrik**
 
-`_evaluate_unknown_rate_recovery` Recovery.jl’de **kalır** (suite çağrı + kaynak uyumu). İnce composer olur; semantik gövde durur:
+- Sahip olmaz: `discover_unknown_rate`, `training_ok`, erken çıkış, `times`,
+  `unique_claim_discovery_config`, `normalize_destruction_samples`, residual
+  kapanışı inşası.
+- Girdi: `R`, `D` matrisleri, iki `DiscoveryResult`, truth rate/support,
+  residual kapanışı.
+- Çıktı: mevcut eval alanlarının metrik altkümesi (`support_f1` / recall,
+  `discovered_rate_rmse`, `data_residual`, `denominator_violations`, `extras`,
+  `extras_denominator`, normalize F1/recall).
+- Yalnızca composer, kapı geçildikten sonra çağırır.
+- Held-out residual, held-out `D`, Q4 yoktur.
 
-1. `(R, D, term) =` mevcut grid örneklemesi
-2. `nn_corr` / `nn_rmse`; `training_ok` eşiği (`RECOVERY_THRESHOLDS` sayıları değişmez)
-3. `!training_ok` → **bugünkü erken NamedTuple** (`success=false`, `retcode=DiscoveryFailed`, `support_*=0`, `data_residual=Inf`, `discovery=nothing`, …). Bu yolda `discover_unknown_rate` **yok**.
-4. `training_ok` → ham keşif, normalize, ikinci keşif
-5. `evaluate_recovery` yalnızca metrik üretir
-6. Mevcut alan listesi birebir döner
+**`report_recovery(evaled, ident; model, params, experiments)` → internal
+`MechanismRecoveryResult`**
 
-#### 6. Metrik yardımcısı `evaluate_recovery`
+- Suite, composer’dan sonra mevcut ident yolunu çağırır; sonra `report_recovery`.
+- `locked_ude_kpis` + `build_protocol_result` **her zaman** doldurulur
+  (`nothing` bırakılmaz). `canonical_hill_from_nn === false` /
+  `PROTOCOL_RESULT_FIELDS` sırası korunur.
+- Format fonksiyonları Recovery.jl / UniqueClaim.jl’de kalır.
+- Yeni alan yok (`holdout`, `functional_identifiability`, `uncertainty`,
+  `hypothesis`, occupancy metadata).
 
-- **Sorumluluk:** Q2 ızgara + Q5 destek + Q1 residual (`data_residual_fn`, bugün IC[1]). **Keşif çalıştırmaz. `training_ok` kapısını sahip olmaz.**
-- **Girdi:** `R`, `D` (matrisler), iki `DiscoveryResult`, truth rate/support, residual kapanışı
-- **Çıktı:** mevcut eval alanlarının metrik altkümesi
-- **Kim çağırır:** yalnızca composer, kapı geçildikten sonra
-- **Yapılmaz:** held-out residual, held-out `D`, Q4
+**`haskey` / `nothing` tuzağı:** `haskey(result, :discovery)` keşif çalıştı
+demez. Keşif: `result.discovery !== nothing`. Protokol:
+`hasproperty(...) && value !== nothing`. Erken `evaled` NamedTuple
+`extras_denominator` **taşımaz**.
 
-#### 7. Raporlama
+**Composer kontrol akışı sahibi kalır** ([src/Recovery.jl](src/Recovery.jl)
+`_evaluate_unknown_rate_recovery`):
 
-- **Hedef:** `report_recovery(evaled, ident; model, params, experiments) -> MechanismRecoveryResult`
-- Suite, composer’dan sonra mevcut ident yolunu çağırır; stdout `format_protocol_result` (IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION) değişmez.
-- Format fonksiyonları Recovery.jl’de kalır (IdentifiabilityProduct / FailureModes kilitleri).
-- `canonical_hill_from_nn === false` durur.
+1. `sample_destruction` → `(R, D, term)`
+2. `nn_corr` / `nn_rmse`; `training_ok` (eşik sayıları aynı)
+3. `!training_ok` → **bugünkü erken NamedTuple birebir** (`success=false`,
+   `retcode=DiscoveryFailed`, `support_*=0`, residual `Inf`,
+   `discovery=nothing`, …). Bu yolda `discover_unknown_rate` ve
+   `evaluate_recovery` **yoktur**. Erken NamedTuple’ta `extras_denominator`
+   alanı yoktur.
+4. `training_ok` → `times`, `unique_claim_discovery_config()`, ham
+   `discover_unknown_rate`, `normalize_destruction_samples`, ikinci keşif
+5. `evaluate_recovery` yalnızca kapı sonrası
+6. Mevcut alan listesi NamedTuple
 
-#### `MechanismRecoveryResult` (internal)
+Ham + normalize keşif **composer’da** kalır. Suite gövdesine
+`discover_unknown_rate(` yazılmaz (`:competitive_unknown` needle’ı ayrı ve
+değişmez). `first(experiments)` residual kapanışı suite’te kalır; composer’a
+`data_residual_fn` olarak geçer.
 
-Mevcut alanlar (property erişimi):
+**Payda kaynak sözleşmesi (M1-C kilitleri):**
 
-`nn_correlation`, `nn_rate_rmse`, `success`, `retcode`, `message`, `support_f1`, `support_recall`, `discovered_rate_rmse`, `data_residual`, `denominator_violations`, `normalized_support_f1`, `normalized_support_recall`, `extras`, `extras_denominator`, `discovery`, `term`, `identifiability`, `locked_kpis`, `protocol_result`
+- `function ude_extras_denominator_row` tanımı [src/Recovery.jl](src/Recovery.jl)
+  içinde kalır (`ude_extras_denominator_source_holds`).
+- Taşınan çağrı yeri (`extras_denominator = ude_extras_denominator_row(`)
+  ayrı izlenir: [test/test_denominator_domain.jl](test/test_denominator_domain.jl).
+  `evaluate_recovery` çıkarımı bu satırı Recovery.jl’den alırsa iğne
+  `RecoveryPipeline.jl` / `evaluate_recovery` gövdesine retarget edilir.
+- `recovery_jl_source_path_for_denominator()` küresel olarak Pipeline’a
+  çevrilmez.
+- Yeni genel kaynak-string envanteri eklenmez.
+- [src/DenominatorDomain.jl](src/DenominatorDomain.jl)
+  `extras_path_calls_split_source_holds` /
+  `ude_path_field_source_holds` iğneleri `evaluate_recovery` gövdesine
+  retarget edilir (M1-B TrainingReuse kalıbı). Yeni `occursin("function …")`
+  yoktur.
 
-İsteğe bağlı, **zaten suite kapsamında olan** nesneler (yeni bilim tipi değil): `model`, `params`, `experiments::ExperimentSet`.
+### M1-D — final doğrulama (bekliyor)
 
-Uyum: `Base.getindex` / `Base.haskey` / `Base.keys` → `hasproperty`. `protocol_result` + `PROTOCOL_RESULT_FIELDS` sırası değişmez.
+M1-C kablolamasından sonra, bilimsel iddia değiştirilmeden:
 
-**Konmaz:** `DestructionSamples`, `samples`, `r_range`, occupancy, domain metadata, held-out domain, `ExperimentSplit`, `holdout`, functional identifiability, Q4/Q7 alanları, hypothesis, uncertainty. [test/test_v1_contract.jl](test/test_v1_contract.jl) bunları “implemented” sanmasın.
+- Fast: [test/test_recovery_pipeline.jl](test/test_recovery_pipeline.jl) —
+  `(R, D, term)` 3-tuple; composer erken çıkış (`discovery === nothing`,
+  residual `Inf`, keşif yok); `evaluate_recovery` metrik-only; `haskey` /
+  `nothing`; unexported; suite gövdesinde `sample_destruction(` /
+  `evaluate_recovery(` / `discover_unknown_rate(` yok; mevcut honesty / v1
+  contract / skip / TrainingReuse / DenominatorDomain yeşil
+- Docs: [docs/src/architecture.md](docs/src/architecture.md) dört cümle —
+  suite = gated dispatcher; unique-claim =
+  `_train_unknown_edge` → composer → ident → `report_recovery`; composer =
+  örnekle → kapı → (erken | çift keşif → metrik); Q1 hâlâ IC[1]. Landing
+  yasaklı cümlelere ve skip kilit cümlesine dokunma. Suite’in keşif dizisini
+  yaptığını söyleme.
+- Hard recovery: [test/test_recovery_hard.jl](test/test_recovery_hard.jl)
+  seed 103 Hill (recall / residual 0.30 / `unidentifiable_edge` /
+  F1 ∈ [0.50, 0.99) / extras); σ=0.02 seed 113; MM `nn_rmse` + residual
+  (Hill recall yok). Kapılar değişmez.
+- Benchmark: [benchmark/recovery_suite.jl](benchmark/recovery_suite.jl) aynı
+  section adları ve dört stdout bloğu. Script semantiği değişmez.
+- Scientific audit: Q1–Q7 iddiası kaymadı mı; held-out / fonksiyonel ID
+  “implemented” sanılmadı mı; eşikler aynı mı.
+- Software audit: export, Dict dış kabuk, skip needle, dummy RNG, include
+  sırası, honesty envanteri şişmedi mi.
 
-### Dummy RNG
+Fast testler unique-claim UDE eğitmez; erken çıkış eğitilmemiş modelle sınanır.
 
-`consume_shared_suite_rng!(rng, truth_net)` aynı `build_ude_model(rng, truth_net)` tüketimi. Kaldırılmaz. Per-section RNG yok. [docs/src/architecture.md](docs/src/architecture.md) bir cümle; skip kilit cümlesi durur.
+### Honesty / kaynak-sözleşme kuralları
 
-### Bilinçli olarak yapılmayacaklar (M1)
-
-`ExperimentSplit`; fonksiyonel identifiability; held-out metrikler; domain occupancy; hypothesis nesneleri; uncertainty; yeni public export; yeni keşif algoritması; `DestructionSamples`; `RECOVERY_THRESHOLDS` / unique-claim kapı değişimi; \(P-D\cdot u\) rewrite; `MechanismHypothesis`; `UDEModel` redesign; honesty silme; HybridCompose birleştirme; `sample_learned_function` birleştirme; örneği suite’e bağlama; fixture taşıma; residual 0.30 sıkılaştırma; dummy RNG kaldırma; per-section RNG; suite gövdesine keşif dizisi; yeni `occursin("function …")`.
-
-### Test planı
-
-Fast (yeni [test/test_recovery_pipeline.jl](test/test_recovery_pipeline.jl); unique-claim UDE eğitmez):
-
-- `generate_recovery_experiments`: 9 IC, protokol tspan/n_points
-- `sample_destruction` / grid: `(R, D, term)` 3-değer; derlenmiş yol (`sample_learned_function` değil) — typed
-- Composer erken çıkış: `training_ok == false` → `discovery === nothing`, residual `Inf`, `discover_unknown_rate` çalışmaz (eğitilmemiş/zayıf NN)
-- `evaluate_recovery` yalnızca metrik; keşif çağırmaz
-- `MechanismRecoveryResult` property + `haskey`; mevcut alanlar; `DestructionSamples` / `samples` / holdout / Q4 yok
-- Yeni fonksiyonlar `names(BioDynaX)` içinde değil
-- Mevcut: `test_v1_contract.jl`, `recovery_suite_skip_contract_holds()`, `training_reuse_contract_holds()`, admission, MM `family = :mm`, HybridCompose/Residual, protocol surface
-
-Needle büyütme (isteğe, yeni function-inventory değil): `:ude_discovery` / `:mm_unknown` gövdesinde `_evaluate_unknown_rate_recovery` literal’i. Bu gövdelere `discover_unknown_rate(` **eklenmez**.
-
-Hard (kapılar değişmez, bit-eşitlik şart değil):
-
-- [test/test_recovery_hard.jl](test/test_recovery_hard.jl) seed 103 Hill: recall / residual 0.30 / `unidentifiable_edge` / F1 ∈ [0.50, 0.99) / extras
-- σ=0.02 seed 113; MM `nn_rmse` + residual (Hill recall yok)
-
-Benchmark: [benchmark/recovery_suite.jl](benchmark/recovery_suite.jl) aynı section adları ve dört stdout bloğu.
-
-**Yok:** `DestructionSamples` testi; occupancy/domain testi; held-out testi.
-
-### Dokümantasyon
-
-[docs/src/architecture.md](docs/src/architecture.md) data-flow (M1 uygulamasında, bu belgeden sonra):
-
-- suite = gated dispatcher
-- unique-claim = `_train_unknown_edge` → `_evaluate_unknown_rate_recovery` → mevcut rapor
-- composer = örnekle → kapı → (erken çıkış | çift keşif → metrik)
-- dummy RNG bir cümle; Q1 hâlâ IC[1]; `discover_unknown_rate` fonksiyon regresyonu
-
-Landing forbidden phrase’lere ve skip kilit cümlesine dokunma. `v1_contract.md` Q4/Q7 “not implemented” kalır. Metin, suite’in keşif dizisini yaptığını **söylemez**.
-
-### Uygulama sırası
-
-1. `MechanismRecoveryResult` + `hasproperty`/`haskey` uyumu — **`DestructionSamples` yok**
-2. `generate_recovery_experiments` + `consume_shared_suite_rng!`
-3. `fit_unknown_destruction`; `_train_unknown_edge` sarmalayıcı; TrainingReuse warmup retarget
-4. `sample_destruction` (`(R, D, term)`) + `evaluate_recovery` (yalnızca metrik) + `report_recovery`
-5. `_evaluate_unknown_rate_recovery` içine helper çağrıları — **kapı ve çift keşif composer’da kalır**
-6. Unique-claim kabuğu: hâlâ `_train_unknown_edge` + `_evaluate_unknown_rate_recovery` + ident + `report_recovery`. Keşif dizisi suite’e **taşınmaz**
-7. Fast testler + mevcut honesty; sonra hard job
-8. architecture.md — composer akışı; suite-keşif cümlesi yok
+- [`recovery_suite_section_body`](src/RecoverySuiteSkip.jl) suite gövdesini
+  parse eder. Needle’lar literal kalır: `_train_unknown_edge`,
+  `admit_recovery_suite_network(:ude_discovery|:mm_unknown)`,
+  `UNIQUE_CLAIM_PROTOCOL.tspan/n_points`, `family = :mm`.
+- `_train_unknown_edge` tanımı Recovery.jl içinde kalır.
+- Yeni genel `occursin("function …")` envanteri eklenmez. Aynı PR’da honesty
+  silinmez.
+- [`sample_unknown_destruction_source_holds`](src/HybridCompose.jl)
+  `sample_unknown_destruction` tanımında kalır; `sample_destruction`
+  sarmalayıcısı onu taşımaz.
+- Skip `discovers` bayrağı `discover_unknown_rate(` / `discover_equations(`
+  arar; unique-claim section’a bunları eklemek skip matrisini bozar.
+- M1-B TrainingReuse retarget’i durur; geri alınmaz.
+- M1-C payda çağrı-yeri retarget’i yukarıdaki kilitlere uyar.
 
 ### Kabul
 
-- Unique-claim aşamaları suite dışında çağrılabilir; suite yine de unique-claim için composer’ı kullanır
+M1 ancak M1-A…M1-D birlikte yeşil olduğunda biter. M1-A/B tek başına M1
+değildir.
+
+- Unique-claim aşamaları suite dışında çağrılabilir; suite yine de
+  unique-claim için composer’ı kullanır
 - `run_recovery_suite` gated `Dict{Symbol,Any}` dispatcher
-- `:ude_discovery` / `:mm_unknown` kaynakta `_evaluate_unknown_rate_recovery` çağırır; `discover_unknown_rate` suite gövdesinde değildir
-- `training_ok == false` yolunda keşif çalışmaz; alanlar bugünkü erken dönüşle aynıdır
+- `:ude_discovery` / `:mm_unknown` kaynakta `_evaluate_unknown_rate_recovery`
+  çağırır; suite gövdesinde `sample_destruction`, `discover_unknown_rate`,
+  `evaluate_recovery`, `normalize_destruction_samples` yoktur
+- `training_ok == false` yolunda keşif çalışmaz; alanlar bugünkü erken
+  dönüşle aynıdır
 - Çift keşif (ham + normalize) composer içindedir
+- `first(experiments)` residual semantiği aynıdır
 - Seed 103 kapıları yeşil; stdout blok adları aynı
 - Dummy RNG belgelenmiş ve semantik duruyor
-- Skip sayacı + needle matrix yeşil; yeni `occursin("function …")` yok
+- Skip sayacı + needle matrix yeşil; yeni genel `occursin("function …")` yok
+- `function ude_extras_denominator_row` Recovery.jl’de; taşınan çağrı yeri
+  `test_denominator_domain.jl` ile izlenir
 - Public export ve `RECOVERY_THRESHOLDS` bit-eşit
-- `MechanismRecoveryResult` internal kalır; mevcut alan erişimini bozmaz; `DestructionSamples` yok
+- `MechanismRecoveryResult` mevcut alan erişimini bozmaz
 - M2/M3/M4 tipleri, held-out metrikleri, occupancy ve yeni keşif algoritması yok
 
 ### Rollback
 
-Suite kabuğunu mevcut `_train_unknown_edge` + `_evaluate_unknown_rate_recovery` + NamedTuple splat’e döndür. Composer’ı tekrar inline `sample_unknown_destruction_grid` + çift `discover_unknown_rate` yap. `_train_unknown_edge` içine generate/fit’i geri yapıştır; TrainingReuse kilidini eski path’e al. `RecoveryPipeline.jl` include’u kalkar. Dict/stdout/export gerilemez.
-
-### Önceki M1 planından farklar
-
-- Suite kabuğundaki `sample_destruction → discover_unknown_rate ×2 → evaluate_recovery` **kaldırıldı**. Unique-claim section yalnızca `_train_unknown_edge` + `_evaluate_unknown_rate_recovery` + mevcut ident/rapor yolunu çağırır.
-- `_evaluate_unknown_rate_recovery` kontrol akışı sahibidir: `training_ok`, erken çıkış, `times`/`config`/normalize, çift keşif.
-- `evaluate_recovery` keşfi zorunlu kılan orkestratör değil; **kapı sonrası metrik yardımcısı**.
-- `DestructionSamples` tipi, testleri ve `MechanismRecoveryResult.samples` **yoktur**. Örnekleme `(R, D, term)`.
-- Per-section `MersenneTwister` tercihi **yoktur**; dummy RNG durur.
-
-### Kontrol akışı neden davranış-koruyucu
-
-Bugünkü başarısız NN yolu composer içinde keşfi atlar (`discovery = nothing`). Keşif suite’e çekilseydi `training_ok` false iken bile iki `discover_unknown_rate` çalışırdı. Revize planda keşif **yalnızca** composer’da ve **yalnızca** `training_ok` sonrası çalışır. Ident, composer’dan sonra `first(experiments)` üzerinde bugün olduğu gibi her zaman çalışır.
-
-### `DestructionSamples` neden yok
-
-`sample_unknown_destruction` / `sample_unknown_destruction_grid` zaten `(R, D, term)` döndürüyor. Yeni ızgara-şekilli struct M3/M4 domain semantiğini (`r_range`, occupancy, held-out domain) erken dondurur. M4 yörünge occupancy gerektiğinde örnekleme temsilini yeniden tasarlar.
-
-### Kalan M1 riskleri
-
-- Honesty parse: suite gövdesi aşırı incelirse needle kaybı. `_evaluate_unknown_rate_recovery` literal’i section gövdesinde kalmalı.
-- TrainingReuse warmup retarget yanlış path’e giderse `training_reuse_contract_holds` kırmızı.
-- `MechanismRecoveryResult` `haskey`/`getindex` eksikse hard job alan erişimi kırılır.
-- Include sırası / late-bind: Recovery.jl imzalarına henüz yok struct yazılırsa yükleme hatası.
-- `evaluate_recovery` yanlışlıkla kapı/keşif sahibi yapılırsa erken-çıkış bozulur.
-- Composer çıkarılırken `times`/`config`/normalize sırası kayarsa hard KPI kayar — mevcut 644–734 sırasını kopyala.
-- Dummy RNG kaldırılır veya per-section seed konursa seed 103/113 kırılır.
-- `sample_destruction` adı [src/HybridCompose.jl](src/HybridCompose.jl) `sample_destruction_matches_identity_row` ile önek çakışması; kaynak taramalarında tam isim kullan.
-- Fast testlerin unique-claim UDE eğitmesi CI maliyetini şişirir; erken-çıkış eğitilmemiş modelle sınanmalı.
-- M2’nin `experiments` alanına split yamalaması hâlâ M2 işidir.
+Suite kabuğunu mevcut `_train_unknown_edge` + `_evaluate_unknown_rate_recovery`
++ NamedTuple splat’e döndür. Composer’ı tekrar inline
+`sample_unknown_destruction_grid` + satır içi metrik + çift
+`discover_unknown_rate` yap. `_train_unknown_edge` içine generate/fit’i geri
+yapıştırma — M1-B sarmalayıcısı durabilir; M1-C geri alınırken üç yardımcı
+ve composer/suite kablolaması kalkar. DenominatorDomain / 
+`test_denominator_domain.jl` iğnelerini Recovery.jl composer çağrı yerine
+al. Dict / stdout / export / eşikler gerilemez.
 
 ---
 
