@@ -498,9 +498,9 @@ function train_experiments_accepts_optimizer_state_source()
 end
 
 function train_unknown_edge_reuses_warmup_source()
-    path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
     src = read(path, String)
-    start = findfirst("function _train_unknown_edge", src)
+    start = findfirst("function fit_unknown_destruction", src)
     start === nothing && return false
     rest = src[first(start):end]
     nxt = findnext(r"\nfunction ", rest, 2)

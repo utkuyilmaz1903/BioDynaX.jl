@@ -1,4 +1,6 @@
-using BioDynaX: MechanismRecoveryResult
+using BioDynaX: MechanismRecoveryResult,
+    generate_recovery_experiments,
+    consume_shared_suite_rng!
 
 function _mechanism_recovery_result(;
         extras = ["1", "r"],
@@ -36,11 +38,70 @@ end
     @test public_export_list_holds()
     @test !isdefined(BioDynaX, :DestructionSamples)
     @test !isdefined(BioDynaX, :ExperimentSplit)
-    @test !isdefined(BioDynaX, :generate_recovery_experiments)
-    @test !isdefined(BioDynaX, :fit_unknown_destruction)
+    @test isdefined(BioDynaX, :generate_recovery_experiments)
+    @test isdefined(BioDynaX, :consume_shared_suite_rng!)
+    @test isdefined(BioDynaX, :fit_unknown_destruction)
+    @test !(:generate_recovery_experiments in names(BioDynaX))
+    @test !(:consume_shared_suite_rng! in names(BioDynaX))
+    @test !(:fit_unknown_destruction in names(BioDynaX))
     @test !isdefined(BioDynaX, :sample_destruction)
     @test !isdefined(BioDynaX, :evaluate_recovery)
     @test !isdefined(BioDynaX, :report_recovery)
+end
+
+@testset "generate_recovery_experiments is the 9-IC unique-claim set" begin
+    truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
+    truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
+    proto = UNIQUE_CLAIM_PROTOCOL
+    ics = BioDynaX._unknown_edge_ics()
+    set = generate_recovery_experiments(
+        MersenneTwister(7), truth_net, truth;
+        tspan = proto.tspan, n_points = proto.n_points,
+        noise_σ = proto.observation_noise)
+    legacy = generate_experiment_set(
+        MersenneTwister(7); network = truth_net, initial_conditions = ics,
+        tspan = proto.tspan, n_points = proto.n_points,
+        noise_σ = proto.observation_noise, truth_params = truth)
+    @test length(set.experiments) == proto.n_ics
+    @test length(set.experiments) == 9
+    @test length(ics) == 9
+    @test set.metadata[:n_ics] == 9
+    @test set.metadata[:n_points] == proto.n_points
+    @test set.metadata[:tspan] == proto.tspan
+    @test !haskey(set.metadata, :unique_claim_fingerprint_kind)
+    for (generated, expected, u0) in zip(set.experiments, legacy.experiments, ics)
+        @test generated.u0 == u0
+        @test length(generated.times) == proto.n_points
+        @test first(generated.times) == first(proto.tspan)
+        @test last(generated.times) == last(proto.tspan)
+        @test generated.observations ≈ expected.observations
+    end
+end
+
+@testset "consume_shared_suite_rng! matches discarded build_ude_model" begin
+    truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    seed = 103
+    discarded = build_ude_model(MersenneTwister(seed), truth_net)
+    consumed = consume_shared_suite_rng!(MersenneTwister(seed), truth_net)
+    @test discarded[2].nn ≈ consumed[2].nn
+    rng_dummy = MersenneTwister(seed)
+    rng_consume = MersenneTwister(seed)
+    rng_skip = MersenneTwister(seed)
+    build_ude_model(rng_dummy, truth_net)
+    consume_shared_suite_rng!(rng_consume, truth_net)
+    _, p_dummy = build_ude_model(rng_dummy, ude_net)
+    _, p_consume = build_ude_model(rng_consume, ude_net)
+    _, p_skip = build_ude_model(rng_skip, ude_net)
+    @test p_dummy.nn ≈ p_consume.nn
+    @test Vector(p_dummy.phys) ≈ Vector(p_consume.phys)
+    @test !(p_skip.nn ≈ p_dummy.nn)
+end
+
+@testset "_train_unknown_edge remains the Recovery.jl compatibility wrapper" begin
+    @test isdefined(BioDynaX, :_train_unknown_edge)
+    @test !(:_train_unknown_edge in names(BioDynaX))
+    @test BioDynaX.train_unknown_edge_reuses_warmup_source()
 end
 
 @testset "MechanismRecoveryResult keeps the current field surface" begin

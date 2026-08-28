@@ -611,23 +611,13 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
                              frozen_phys::Vector{Symbol} = Symbol[],
                              phys_init = nothing)
     _note_train_unknown_edge()
-    set = generate_experiment_set(
-        rng; network = truth_net, initial_conditions = _unknown_edge_ics(),
-        tspan = tspan, n_points = n_points, noise_σ = noise_σ,
-        truth_params = truth_params)
-    names = Tuple(parameter_schema(ude_model).phys_names)
-    guess = phys_init === nothing ?
-        NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
-    ude_init = pack_parameters(guess, ude_p0.nn)
-    config = unique_claim_training_config(
-        model = ude_model,
-        adam_iterations = adam,
-        bfgs_iterations = bfgs,
-        frozen_phys = frozen_phys)
-    fit = train_experiments_with_warmup(
-        ude_init, set, ude_model;
-        config = lock_training_config(ude_model, config),
-        verbose = false)
+    set = generate_recovery_experiments(
+        rng, truth_net, truth_params;
+        tspan = tspan, n_points = n_points, noise_σ = noise_σ)
+    fit = fit_unknown_destruction(
+        ude_model, ude_p0, set;
+        adam = adam, bfgs = bfgs,
+        frozen_phys = frozen_phys, phys_init = phys_init)
     return fit, set
 end
 
@@ -1076,7 +1066,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     ude_net = admit_recovery_suite_network(:ude_discovery)
     # Consume the same RNG stream as known-kinetics fixtures so UDE init stays stable.
-    build_ude_model(rng, truth_net)
+    consume_shared_suite_rng!(rng, truth_net)
     hill_truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     ude_fit, ude_set = _train_unknown_edge(
@@ -1109,7 +1099,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     if :mm_unknown in wanted
     truth_net = build_mm_recovery_network(; known = true)
     ude_net = admit_recovery_suite_network(:mm_unknown)
-    build_ude_model(rng, truth_net)
+    consume_shared_suite_rng!(rng, truth_net)
     mm_truth = (k_prod = 0.9, vmax = 1.6, km = 0.45, k_rs = 1.0, k_r = 0.6)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     ude_fit, ude_set = _train_unknown_edge(
