@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: m1c-recovery-stages
     content: "M1-C: sample_destruction + evaluate_recovery + report_recovery + composer wiring"
-    status: pending
+    status: completed
   - id: m1d-validation
     content: "M1-D: final validation, docs, hard recovery, benchmark, scientific/software audit"
     status: pending
