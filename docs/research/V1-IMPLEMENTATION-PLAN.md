@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: m1-pipeline
     content: "M1: ince gated dispatcher + composer koru; MechanismRecoveryResult; DestructionSamples yok"
-    status: pending
+    status: completed
   - id: m1a-result
     content: "M1-A: internal MechanismRecoveryResult foundation"
     status: completed
@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: m1d-validation
     content: "M1-D: final validation, docs, hard recovery, benchmark, scientific/software audit"
-    status: pending
+    status: completed
   - id: m2-heldout
     content: "M2: ExperimentSplit + holdout residual ve D hatası; 0.30’u körlemesine sıkılaştırma"
     status: pending
@@ -333,22 +333,19 @@ eğitimi yalnızca `:ude_discovery` ve `:mm_unknown` section’larındadır.
 - `_train_unknown_edge` compatibility wrapper
 - TrainingReuse warmup kilidi `fit_unknown_destruction` gövdesine retarget edildi
 
-**M1-C tamamlanmadı:**
+**M1-C tamamlandı (tarihsel):**
 
-- `sample_destruction` yok
-- `evaluate_recovery` yok
-- `report_recovery` yok
-- composer hâlâ `sample_unknown_destruction_grid` + satır içi metrik
-- suite hâlâ NamedTuple splat + `locked_ude_kpis` + `build_protocol_result`
+- `sample_destruction`, `evaluate_recovery`, `report_recovery`
+- composer `_evaluate_unknown_rate_recovery` kontrol akışının sahibi
+- unique-claim suite gövdesi `report_recovery` ile `MechanismRecoveryResult` yazar
 
-**M1-D tamamlanmadı:**
+**M1-D tamamlandı:**
 
-- final validation
-- docs
-- hard recovery
-- benchmark
-- scientific audit
-- software audit
+- pipeline / denominator / recovery / unique-claim / `runtests.jl`
+- architecture + training-reuse docs
+- hard recovery seed 103 / 113 / MM
+- `benchmark/recovery_suite.jl` dört stdout bloğu
+- scientific / software audit: Q1 hâlâ IC[1]; M2/M3 yok
 
 Bugünkü unique-claim kabuğu (kaynak sırası):
 
@@ -358,13 +355,13 @@ Bugünkü unique-claim kabuğu (kaynak sırası):
 4. `_evaluate_unknown_rate_recovery(...)` — **tek orkestrasyon çağrısı**
 5. `report_production_destruction_tradeoff` on `first(experiments)` (eğitim/keşif
    başarısız olsa da)
-6. NamedTuple splat + `locked_ude_kpis` + `build_protocol_result`
+6. `report_recovery` → `report[:ude_discovery]` / `report[:mm_unknown]`
 
 Composer bugün şunların **sahibidir:** grid örnekleme, `training_ok`, erken
 NamedTuple (`discovery = nothing`, residual `Inf`; erken yolda
 `extras_denominator` alanı yoktur), sahte `times = range(0,1)`,
 `unique_claim_discovery_config()`, ham + normalize `discover_unknown_rate`,
-satır içi Q1/Q2/Q5 metrikleri, mevcut NamedTuple alan listesi.
+kapı sonrası `evaluate_recovery`, mevcut NamedTuple alan listesi.
 
 ### Hedef mimari
 
@@ -481,7 +478,7 @@ end
   aramasını `fit_unknown_destruction` gövdesine taşıdı. Yeni
   `occursin("function …")` eklenmedi.
 
-### M1-C — sample / evaluate / report + composer kablolama (bekliyor)
+### M1-C — sample / evaluate / report + composer kablolama (tamamlandı)
 
 Yalnızca üç unexported yardımcı ve mevcut unique-claim yoluna bağlama.
 Bilimsel semantik değişmez.
@@ -563,7 +560,7 @@ değişmez). `first(experiments)` residual kapanışı suite’te kalır; compos
   retarget edilir (M1-B TrainingReuse kalıbı). Yeni `occursin("function …")`
   yoktur.
 
-### M1-D — final doğrulama (bekliyor)
+### M1-D — final doğrulama (tamamlandı)
 
 M1-C kablolamasından sonra, bilimsel iddia değiştirilmeden:
 

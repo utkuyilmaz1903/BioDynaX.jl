@@ -91,6 +91,23 @@ function _real_composer_early_evaled()
     return evaled, residual_calls[], term
 end
 
+function _train_unknown_edge_function_body()
+    src = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    start = findfirst("function _train_unknown_edge", src)
+    start === nothing && return ""
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+end
+
+function _first_needle(text, needles)
+    for needle in needles
+        at = findfirst(needle, text)
+        at === nothing || return first(at)
+    end
+    return nothing
+end
+
 @testset "MechanismRecoveryResult stays internal" begin
     @test !(:MechanismRecoveryResult in names(BioDynaX))
     @test isdefined(BioDynaX, :MechanismRecoveryResult)
@@ -164,6 +181,14 @@ end
     @test isdefined(BioDynaX, :_train_unknown_edge)
     @test !(:_train_unknown_edge in names(BioDynaX))
     @test BioDynaX.train_unknown_edge_reuses_warmup_source()
+    body = _train_unknown_edge_function_body()
+    @test occursin("_note_train_unknown_edge", body)
+    @test occursin("generate_recovery_experiments", body)
+    @test occursin("fit_unknown_destruction", body)
+    @test !occursin("train_experiments_with_warmup", body)
+    @test !occursin("lock_training_config", body)
+    @test findfirst("generate_recovery_experiments", body) <
+          findfirst("fit_unknown_destruction", body)
 end
 
 @testset "MechanismRecoveryResult keeps the current field surface" begin
@@ -659,4 +684,81 @@ end
     @test !isdefined(BioDynaX, :ExperimentSplit)
     @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
     @test public_export_list_holds()
+end
+
+@testset "composer owns sample, training gate, early exit, and evaluation" begin
+    composer = _composer_function_body()
+    sample_at = _first_needle(composer,
+        ("sample_destruction(", "sample_unknown_destruction_grid"))
+    gate_at = findfirst("training_ok", composer)
+    early_at = findfirst("discovery = nothing", composer)
+    disc_at = findfirst("discover_unknown_rate", composer)
+    norm_at = findfirst("normalize_destruction_samples", composer)
+    eval_at = findfirst("evaluate_recovery(", composer)
+    @test sample_at !== nothing
+    @test gate_at !== nothing
+    @test early_at !== nothing
+    @test disc_at !== nothing
+    @test norm_at !== nothing
+    @test eval_at !== nothing
+    @test sample_at < first(gate_at) < first(early_at) < first(disc_at)
+    @test first(disc_at) < first(norm_at) < first(eval_at)
+    @test occursin("if !training_ok", composer)
+    @test !occursin("evaluate_recovery(", composer[1:first(early_at)])
+    @test !occursin("discover_unknown_rate", composer[1:first(early_at)])
+    @test count("discover_unknown_rate", composer) == 2
+end
+
+@testset "unique-claim suite shells stay a gated dispatcher" begin
+    @test recovery_suite_all_sections_gated()
+    ude_body = recovery_suite_section_body(:ude_discovery)
+    mm_body = recovery_suite_section_body(:mm_unknown)
+    for body in (ude_body, mm_body)
+        @test startswith(body, "if :") && occursin(" in wanted", body)
+        @test occursin("consume_shared_suite_rng!", body)
+        @test !occursin("MersenneTwister(", body)
+        @test occursin("ref_exp = first(ude_set.experiments)", body)
+        @test occursin("hybrid_data_residual", body)
+        @test occursin("ref_exp.u0", body)
+        @test occursin("ref_exp.observations", body)
+        @test findfirst("_train_unknown_edge", body) <
+              findfirst("_evaluate_unknown_rate_recovery", body)
+        @test findfirst("_evaluate_unknown_rate_recovery", body) <
+              findfirst("report_recovery(", body)
+        @test !occursin("sample_destruction(", body)
+        @test !occursin("evaluate_recovery(", body)
+        @test !occursin("discover_unknown_rate(", body)
+        @test !occursin("normalize_destruction_samples", body)
+        @test !occursin("generate_recovery_experiments(", body)
+        @test !occursin("fit_unknown_destruction(", body)
+    end
+end
+
+@testset "landing docs describe the current M1 unique-claim path" begin
+    architecture = read(joinpath(@__DIR__, "..", "docs", "src", "architecture.md"),
+        String)
+    @test occursin("gated `Dict{Symbol,Any}` dispatcher", architecture)
+    @test occursin("_train_unknown_edge", architecture)
+    @test occursin("_evaluate_unknown_rate_recovery", architecture)
+    @test occursin("report_recovery", architecture)
+    @test occursin("MechanismRecoveryResult", architecture)
+    @test occursin("consume_shared_suite_rng!", architecture)
+    @test occursin("training IC[1]", architecture)
+    @test occursin("first(experiments)", architecture)
+    @test occursin("metric-only `evaluate_recovery`", architecture)
+    @test occursin("A skipped recovery-suite section does not call _train_unknown_edge.",
+        architecture)
+    reuse = read(joinpath(@__DIR__, "..", "docs", "src", "training-reuse.md"),
+        String)
+    @test occursin("fit_unknown_destruction", reuse)
+    @test occursin("generate_recovery_experiments", reuse)
+    @test occursin("train_experiments_with_warmup", reuse)
+    @test occursin("lock_training_config", reuse)
+    @test occursin("_train_unknown_edge` is a Recovery.jl compatibility wrapper",
+        reuse)
+    @test !occursin("_train_unknown_edge` now calls `train_experiments_with_warmup`",
+        reuse)
+    @test occursin(
+        "First-IC warmup hands its Optimisers state to train_experiments; Adam momentum is not discarded.",
+        reuse)
 end

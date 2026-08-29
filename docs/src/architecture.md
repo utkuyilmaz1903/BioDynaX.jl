@@ -38,12 +38,43 @@ The unique-claim hold is printed and stored in that same order:
    (Fisher condition number **or** \(k_{\mathrm{prod}}/D\) scale cosine),
    not the whole product and not a structural certificate.
 2. **FIT (Q1 + Q5)** — hybrid residual versus observed data on the
-   training/reference IC, and true-monomial recall. Residual is not
-   mechanistic recovery and is not held-out generalization.
+   current training IC[1] (`first(experiments)`), and true-monomial
+   recall. Residual is not mechanistic recovery and is not held-out
+   generalization.
 3. **DISCOVERY** — symbolic `D(z)` from grid-sampled learned \(D\), live
    extras, skeleton combined F1. `canonical_hill_from_nn` stays false.
 4. **REPRODUCTION** — seed 103, 9 ICs, 50 points. Smoke is labeled
    separately and is not this fingerprint.
+
+## Unique-claim recovery pipeline
+
+`run_recovery_suite` is a gated `Dict{Symbol,Any}` dispatcher. A
+requested section runs only inside `if :name in wanted`. Unique-claim
+sections (`:ude_discovery`, `:mm_unknown`) do not sample, discover, or
+score in the suite body. They call `_train_unknown_edge` then
+`_evaluate_unknown_rate_recovery`, then the existing identifiability
+path, then `report_recovery`.
+
+`_evaluate_unknown_rate_recovery` owns unique-claim control flow:
+sample the learned destruction rate on the regulator grid (the existing
+`(R, D, term)` path), apply the neural-rate training gate, and either
+return the early NamedTuple (`discovery === nothing`, residual `Inf`,
+no discovery) or run raw then normalized `discover_unknown_rate` and
+metric-only `evaluate_recovery`.
+
+`report_recovery` builds the internal `MechanismRecoveryResult` and
+always fills `locked_kpis` and `protocol_result`. The type is not
+exported. `haskey` / `hasproperty` mean the field exists, not that
+discovery ran or that a KPI is meaningful.
+
+Unique-claim shells consume the shared suite RNG through
+`consume_shared_suite_rng!` (the discarded dummy `build_ude_model`
+draw). That path does not construct a per-section
+`MersenneTwister(seed)`.
+
+Q1 remains the hybrid residual on the current reference IC
+(`first(experiments)` / training IC[1]). It is not held-out
+generalization.
 
 The SciML solve surface agrees `ude_system`, `ODEFunction`,
 `ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and
