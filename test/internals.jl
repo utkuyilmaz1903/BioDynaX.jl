@@ -77,6 +77,7 @@ using BioDynaX:
     monomial_key_label,
     build_protocol_result,
     only_unknown_destruction,
+    _evaluate_unknown_rate_recovery,
     unique_claim_kpis_hold,
     assert_unique_claim_residual,
     UNIQUE_CLAIM_PRODUCT_BLOCKS,

@@ -37,3 +37,32 @@ A skip is not a win.
 
 The red gate remains single-seed 103/104; recovery_seeds.jl --ude is a report, not a gate.
 Do not add N × 40 min recovery jobs to CI.
+
+## Also unsupported in this preview
+
+See [v1.0 scientific contract](design/v1_contract.md). These remain
+unsupported:
+
+- structural identifiability certificates
+- unknown topology discovery
+- general CRN solving
+- arbitrary multi-hole discovery
+- canonical Hill recovery from a trained NN
+- biological-constant parameter claims under scale non-identifiability
+- general missing-state UDE training
+- wet-lab decision making
+- general experimental-design engine
+- LLM integration
+- GPU training stack
+- broad SBML kinetic parsing
+
+Q4 (practical functional-identifiability diagnostic) and Q7 (held-out
+generalization) are v1.0 goals. They are not implemented.
+
+Current Q1 is a hybrid residual versus observed data on the training IC,
+not a held-out predictive metric. Current Q2 is a partial regulator-grid
+`D` diagnostic, not held-out mechanism validation. Current Q3
+`unidentifiable_edge` is a local practical warning (Fisher condition
+number **or** `k_prod`/`D` scale cosine), not a structural certificate.
+Current Q5 support recovery is performed on grid-sampled learned `D` and
+is not canonical Hill recovery.

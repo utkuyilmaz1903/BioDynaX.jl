@@ -612,10 +612,10 @@ function format_recovery_protocol(ude;
         discovery_seed = UNIQUE_CLAIM_PROTOCOL.discovery_seed,
         smoke::Bool = false,
         equations = nothing)
-    ident = hasproperty(ude, :identifiability) ? ude.identifiability :
-            (; unidentifiable_edge = false)
-    result = hasproperty(ude, :protocol_result) ? ude.protocol_result :
-             build_protocol_result(ude)
+    ident = hasproperty(ude, :identifiability) && ude.identifiability !== nothing ?
+            ude.identifiability : (; unidentifiable_edge = false)
+    result = hasproperty(ude, :protocol_result) && ude.protocol_result !== nothing ?
+             ude.protocol_result : build_protocol_result(ude)
     extras = hasproperty(result, :extras) ? result.extras : nothing
     eqs = if equations !== nothing
         equations

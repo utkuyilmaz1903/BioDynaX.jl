@@ -611,23 +611,13 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
                              frozen_phys::Vector{Symbol} = Symbol[],
                              phys_init = nothing)
     _note_train_unknown_edge()
-    set = generate_experiment_set(
-        rng; network = truth_net, initial_conditions = _unknown_edge_ics(),
-        tspan = tspan, n_points = n_points, noise_σ = noise_σ,
-        truth_params = truth_params)
-    names = Tuple(parameter_schema(ude_model).phys_names)
-    guess = phys_init === nothing ?
-        NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
-    ude_init = pack_parameters(guess, ude_p0.nn)
-    config = unique_claim_training_config(
-        model = ude_model,
-        adam_iterations = adam,
-        bfgs_iterations = bfgs,
-        frozen_phys = frozen_phys)
-    fit = train_experiments_with_warmup(
-        ude_init, set, ude_model;
-        config = lock_training_config(ude_model, config),
-        verbose = false)
+    set = generate_recovery_experiments(
+        rng, truth_net, truth_params;
+        tspan = tspan, n_points = n_points, noise_σ = noise_σ)
+    fit = fit_unknown_destruction(
+        ude_model, ude_p0, set;
+        adam = adam, bfgs = bfgs,
+        frozen_phys = frozen_phys, phys_init = phys_init)
     return fit, set
 end
 
@@ -683,52 +673,24 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
         R_grid, times, reshape(vec(D_norm), size(D_nn));
         config = unique_claim_discovery_config(),
         verbose = false, strict = false)
-    f1 = 0.0
-    recall = 0.0
-    rate_rmse = Inf
-    residual = Inf
-    den_violations = typemax(Int)
-    extras = String[]
-    extras_denominator = nothing
-    if discovery.success
-        candidate = discovery.candidates[1]
-        metrics = support_f1(candidate, truth_support.numerator,
-                             truth_support.denominator)
-        f1 = metrics.combined.f1
-        recall = metrics.combined.recall
-        extras = discovered_support_extras(
-            candidate, truth_support.numerator, truth_support.denominator)
-        d_hat = equation_to_function(candidate)
-        D_hat = [d_hat([rj]) for rj in r]
-        rate_rmse = rate_rel_rmse(D_hat, D_true)
-        den_violations = denominator_violation_count(candidate, R_grid)
-        extras_denominator = ude_extras_denominator_row(
-            candidate, R_grid; extras = extras)
-        residual = data_residual_fn(d_hat)
-    end
-    norm_f1 = 0.0
-    norm_recall = 0.0
-    if discovery_norm.success
-        metrics_n = support_f1(discovery_norm.candidates[1],
-                               truth_support.numerator, truth_support.denominator)
-        norm_f1 = metrics_n.combined.f1
-        norm_recall = metrics_n.combined.recall
-    end
+    metrics = evaluate_recovery(
+        R_grid, D_nn, discovery, discovery_norm, truth_rate, truth_support,
+        data_residual_fn)
     return (;
         nn_correlation = nn_corr,
         nn_rate_rmse = nn_rmse,
         success = discovery.success,
         retcode = discovery.retcode,
         message = discovery.message,
-        support_f1 = f1,
-        support_recall = recall,
-        discovered_rate_rmse = rate_rmse,
-        data_residual = residual,
-        denominator_violations = den_violations,
-        normalized_support_f1 = norm_f1,
-        normalized_support_recall = norm_recall,
-        extras,
-        extras_denominator,
+        support_f1 = metrics.support_f1,
+        support_recall = metrics.support_recall,
+        discovered_rate_rmse = metrics.discovered_rate_rmse,
+        data_residual = metrics.data_residual,
+        denominator_violations = metrics.denominator_violations,
+        normalized_support_f1 = metrics.normalized_support_f1,
+        normalized_support_recall = metrics.normalized_support_recall,
+        extras = metrics.extras,
+        extras_denominator = metrics.extras_denominator,
         discovery = discovery,
         term = term)
 end
@@ -1076,7 +1038,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     ude_net = admit_recovery_suite_network(:ude_discovery)
     # Consume the same RNG stream as known-kinetics fixtures so UDE init stays stable.
-    build_ude_model(rng, truth_net)
+    consume_shared_suite_rng!(rng, truth_net)
     hill_truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     ude_fit, ude_set = _train_unknown_edge(
@@ -1099,17 +1061,15 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
-    ude_row = (; evaled..., identifiability = ident_ude)
-    report[:ude_discovery] = (;
-        ude_row...,
-        locked_kpis = locked_ude_kpis(ude_row),
-        protocol_result = build_protocol_result(ude_row))
+    report[:ude_discovery] = report_recovery(
+        evaled, ident_ude;
+        model = ude_model, params = ude_fit.params, experiments = ude_set)
     end
 
     if :mm_unknown in wanted
     truth_net = build_mm_recovery_network(; known = true)
     ude_net = admit_recovery_suite_network(:mm_unknown)
-    build_ude_model(rng, truth_net)
+    consume_shared_suite_rng!(rng, truth_net)
     mm_truth = (k_prod = 0.9, vmax = 1.6, km = 0.45, k_rs = 1.0, k_r = 0.6)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     ude_fit, ude_set = _train_unknown_edge(
@@ -1132,11 +1092,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
-    mm_row = (; evaled..., identifiability = ident_mm)
-    report[:mm_unknown] = (;
-        mm_row...,
-        locked_kpis = locked_ude_kpis(mm_row),
-        protocol_result = build_protocol_result(mm_row))
+    report[:mm_unknown] = report_recovery(
+        evaled, ident_mm;
+        model = ude_model, params = ude_fit.params, experiments = ude_set)
     end
 
     if :ablation in wanted

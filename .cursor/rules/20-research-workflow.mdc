@@ -1,0 +1,49 @@
+---
+description: Research development workflow for BioDynaX
+alwaysApply: true
+---
+
+# Research Development Workflow
+
+For non-trivial work, follow:
+
+AUDIT
+→ PLAN
+→ REVIEW
+→ IMPLEMENT
+→ TEST
+→ SCIENTIFIC VALIDATION
+→ BENCHMARK
+→ DOCUMENT
+→ COMMIT
+
+Do not skip planning for architectural or scientific changes.
+
+Do not implement a large milestone directly from a vague request.
+
+Prefer small coherent changes.
+
+Every significant algorithmic change should include:
+
+- mathematical/scientific motivation
+- implementation
+- targeted tests
+- scientific validation where applicable
+- benchmark evidence where applicable
+- documentation
+
+When a change affects a scientific claim, explicitly check whether the
+claim remains valid.
+
+When a change affects the public API, assess compatibility.
+
+When a change affects performance, measure it.
+
+Do not mark a milestone complete merely because unit tests pass.
+
+A milestone is complete only when implementation, tests, scientific
+interpretation, and documentation agree.
+
+Use Plan Mode for multi-file or architectural work.
+
+Use Agent/Build only after an implementation plan has been reviewed.

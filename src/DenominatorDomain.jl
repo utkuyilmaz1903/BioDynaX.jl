@@ -645,11 +645,17 @@ function ude_extras_denominator_source_holds()
 end
 
 function extras_path_calls_split_source_holds()
-    src = read(recovery_jl_source_path_for_denominator(), String)
+    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
+    src = read(path, String)
+    start = findfirst("function evaluate_recovery", src)
+    start === nothing && return false
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
     return occursin(
-        "extras_denominator = ude_extras_denominator_row(", src) &&
+        "extras_denominator = ude_extras_denominator_row(", body) &&
            occursin(
-        "den_violations = denominator_violation_count(candidate, R_grid)", src)
+        "den_violations = denominator_violation_count(candidate, R_grid)", body)
 end
 
 function implicit_discovery_uses_domain_grid_source_holds()
@@ -1164,9 +1170,15 @@ function combined_f1_not_a_denominator_kpi_row()
 end
 
 function ude_path_field_source_holds()
-    src = read(recovery_jl_source_path_for_denominator(), String)
-    return occursin("extras_denominator,", src) &&
-           occursin("extras_denominator = ude_extras_denominator_row(", src)
+    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
+    src = read(path, String)
+    start = findfirst("function evaluate_recovery", src)
+    start === nothing && return false
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+    return occursin("extras_denominator,", body) &&
+           occursin("extras_denominator = ude_extras_denominator_row(", body)
 end
 
 function single_sample_split_row()

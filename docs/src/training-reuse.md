@@ -115,8 +115,13 @@ BioDynaX.recommend_sensealg_honesty_row(model).neural
 
 `warmup_first_experiment` trains IC 1 with `bfgs_iterations = 0` and
 returns the Optimisers state. `train_experiments` accepts that state.
-`_train_unknown_edge` now calls `train_experiments_with_warmup` so the
-unique-claim path does not discard Adam momentum.
+The unique-claim trainer path is `_train_unknown_edge` →
+`fit_unknown_destruction` → `train_experiments_with_warmup`.
+`_train_unknown_edge` is a Recovery.jl compatibility wrapper: it notes
+the train counter, calls `generate_recovery_experiments`, then
+`fit_unknown_destruction`. Warmup and `lock_training_config` live in
+`fit_unknown_destruction`, not in the wrapper body. The unique-claim
+path does not discard Adam momentum.
 
 ```@example training-warmup
 using BioDynaX, Random
@@ -189,7 +194,8 @@ BioDynaX.session_predicts_without_compile(session, params, [0.2, 0.1], (0.0, 0.5
 ## Contract
 
 `training_reuse_contract_holds()` joins source locks, the AL model pass,
-warmup wiring in `_train_unknown_edge`, docs, the export list, and
+warmup wiring in `fit_unknown_destruction` (reached through the
+`_train_unknown_edge` wrapper), docs, the export list, and
 `RECOVERY_THRESHOLDS`. It does not train the 9-IC protocol.
 
 ```@repl training-reuse-contract

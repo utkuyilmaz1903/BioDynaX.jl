@@ -31,8 +31,10 @@ not the IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION printer.
 Unknown-edge recovery reports a practical `k_prod` ↔ `D(z)` scale
 collinearity (`BioDynaX.production_destruction_tradeoff`). The golden path
 prints that as the first product block (`format_protocol_result`), not a
-footnote. The Hill UDE recovery job requires
-`unidentifiable_edge == true`. Pinning `k_prod`, normalizing sampled `D`, or
+footnote. `unidentifiable_edge` is true when the Fisher condition number
+**or** the scale cosine exceeds its threshold. The Hill UDE recovery job
+requires `unidentifiable_edge == true`. That is the Q3 warning in the
+hold, not the whole product. Pinning `k_prod`, normalizing sampled `D`, or
 changing the production rate does **not** remove the Jacobian collinearity.
 That is the locked finding. The flag is not a structural certificate and is
 not on the freeze list. The product-block helpers live on

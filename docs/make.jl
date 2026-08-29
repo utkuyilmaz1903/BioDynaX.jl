@@ -19,6 +19,7 @@ makedocs(
         "Tutorial" => "tutorial.md",
         "How-to" => "howto.md",
         "Unique claim" => "unique-claim.md",
+        "v1.0 scientific contract" => "design/v1_contract.md",
         "Compiled experiment path" => "compiled-path.md",
         "Discovery streaming" => "discovery-streaming.md",
         "Training reuse" => "training-reuse.md",

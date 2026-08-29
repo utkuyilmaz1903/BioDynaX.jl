@@ -9,6 +9,10 @@ coefficients_are_biological_constants is false exactly when unidentifiable_edge 
 format_protocol_result prints collinearity only when the cosine is finite.
 The tradeoff is a practical Fisher/Jacobian cosine, not StructuralIdentifiability.jl.
 
+`unidentifiable_edge` can still be triggered by the practical Fisher
+condition-number threshold **or** that cosine threshold. The flag is a
+local practical warning, not structural identifiability.
+
 This page does not change `RECOVERY_THRESHOLDS`, the unique-claim protocol
 (seed 103 / 9 ICs), or `validate_network`. Combined F1 stays a skeleton
 floor (0.50). Hill-from-NN stays closed.

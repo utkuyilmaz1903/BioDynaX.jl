@@ -10,6 +10,31 @@ BIODYNAX_SMOKE=1 (1 IC / 8 points) is not the seed-103 / 9-IC protocol.
 Helpers on this page are **not exported**. Call them as `BioDynaX.foo`.
 They do not grow the public freeze list.
 
+The authoritative scientific contract is
+[v1.0 scientific contract](design/v1_contract.md). Compiled dynamics are
+\(\dot u_i = P_i - D_i u_i\). Current gates map to Q1 (training IC[1]
+residual), Q3 (practical scale warning), and Q5 (true-monomial recall).
+Q4 and Q7 are not implemented. Trajectory fit is not proof of mechanism
+recovery.
+
+Current Q1 evidence is the hybrid residual against observed data on the
+current protocol, conditionally produced after successful
+recovery/discovery, using the reference/training IC. It is not a held-out
+predictive generalization metric and not a fully independent validation
+layer.
+
+Current Q2 is only a partial mechanism-function diagnostic on the sampled
+regulator domain. It is not held-out mechanism validation and is not a
+hold input.
+
+Q3 `unidentifiable_edge` can be triggered by the practical condition-number
+threshold or the `k_prod`/`D` scale cosine threshold. It is a local
+practical warning, not structural identifiability, and not the whole
+product.
+
+Current Q5 symbolic support is recovered from grid-sampled learned `D`.
+That is not equivalent to canonical Hill recovery.
+
 ## Product block order
 
 Stdout and `build_protocol_result` use the same order:

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Document the implemented v1.0 scientific contract
+  (`docs/src/design/v1_contract.md`): compiled \(P-D\cdot u\), Q1–Q7
+  kept conceptually separate (operational Q1/Q2/Q4/Q7 measurements
+  remain incomplete), current unique-claim hold written as Q3 practical
+  warning + Q1 training-IC residual + Q5 support recall. Q4 and Q7
+  marked not implemented. Unique-claim gates, `RECOVERY_THRESHOLDS`,
+  and the export list are unchanged.
 - Raise Aqua in `test/quality.jl` to the default `test_all` surface
   (ambiguities, unbound_args, persistent_tasks, piracies without
   `treat_as_own`, undocumented_names). Those checks currently pass on

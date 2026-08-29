@@ -1,0 +1,53 @@
+---
+description: Scientific integrity rules for BioDynaX
+alwaysApply: true
+---
+
+# Scientific Integrity
+
+Scientific claims must be evidence-driven.
+
+Never equate trajectory fit with mechanism recovery.
+
+Always distinguish:
+
+- predictive fit
+- mechanistic recovery
+- parameter identifiability
+- functional identifiability
+- uncertainty
+- extrapolation
+- symbolic support
+- biological/physical validity
+
+Never call a practical Fisher/Jacobian diagnostic a structural
+identifiability certificate.
+
+Never claim functional identifiability unless a functional-identifiability
+procedure has actually been implemented and validated.
+
+Never weaken thresholds, alter benchmark definitions, remove difficult
+seeds, or modify evaluation data merely to make CI pass.
+
+Never hide failed optimization, failed solver runs, or failed recovery cases.
+
+Do not invent scientific novelty.
+
+Before claiming a methodological contribution is new, investigate
+closely related literature.
+
+A negative scientific result is valid.
+
+If the available evidence cannot distinguish mechanisms, report ambiguity
+rather than forcing a single answer.
+
+Do not call a heuristic confidence number a statistical confidence interval
+unless its statistical meaning is justified.
+
+Do not claim biological causality merely from graph locality.
+
+Do not claim biological constants when parameter/function scale is
+non-identifiable.
+
+Every major scientific claim should have corresponding tests and,
+where appropriate, reproducible benchmark evidence.

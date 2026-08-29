@@ -9,6 +9,11 @@ At noise 0 the identity residual agrees with predict_ude versus the same observa
 A failed compose path returns Inf or throws; it does not paint UDE F1 as 0.99.
 Smoke residual (1 IC / 8 points) is not the seed-103 / 9-IC protocol residual.
 
+The unique-claim residual is a hybrid residual versus observed data on
+the current protocol / training IC. It is produced after successful
+recovery/discovery. It is not a held-out predictive generalization
+metric and not a fully independent validation layer.
+
 This page does not change `RECOVERY_THRESHOLDS`, the unique-claim protocol
 (seed 103 / 9 ICs), or `validate_network`. Combined F1 stays a skeleton
 floor (0.50). Hill-from-NN stays closed.
