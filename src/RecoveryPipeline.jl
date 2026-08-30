@@ -3,7 +3,9 @@
 #
 # This file does not change RECOVERY_THRESHOLDS, public exports, or
 # run_recovery_suite control flow beyond named generate / dummy-RNG /
-# fit / sample / evaluate / report helpers. Held-out, functional
+# fit / sample / evaluate / report helpers. ExperimentSplit is the
+# locked 7/2 view of an already-generated set; it is not wired into
+# the live unique-claim path. Held-out evaluation, functional
 # identifiability, and DestructionSamples are out of scope.
 ###############################################################################
 
@@ -120,6 +122,54 @@ function generate_recovery_experiments(rng, truth_net, truth_params;
         rng; network = truth_net, initial_conditions = initial_conditions,
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
         truth_params = truth_params)
+end
+
+"""Locked unique-claim train indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
+const UNIQUE_CLAIM_TRAIN_INDICES = (1, 2, 3, 4, 5, 6, 7)
+
+"""Locked unique-claim holdout indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
+const UNIQUE_CLAIM_HOLDOUT_INDICES = (8, 9)
+
+"""
+    ExperimentSplit
+
+Locked unique-claim 7/2 view of an already-generated 9-IC `ExperimentSet`.
+Train indices are `(1, 2, 3, 4, 5, 6, 7)`; holdout indices are `(8, 9)`.
+The wrapped `Experiment` objects are the original generated objects.
+Not a second generated set. Not exported.
+"""
+struct ExperimentSplit
+    train_indices::NTuple{7,Int}
+    holdout_indices::NTuple{2,Int}
+    train::ExperimentSet
+    holdout::ExperimentSet
+end
+
+"""
+    unique_claim_experiment_split(set::ExperimentSet) -> ExperimentSplit
+
+Partition a 9-IC unique-claim `ExperimentSet` into the locked 7/2 view.
+Requires `length(set) == 9`. Consumes the already-generated set: it does
+not generate experiments and does not mutate `set`.
+"""
+function unique_claim_experiment_split(set::ExperimentSet)
+    length(set) == 9 || throw(ArgumentError(
+        "unique_claim_experiment_split requires exactly 9 experiments; got $(length(set))"))
+    train = ExperimentSet(
+        [set.experiments[i] for i in UNIQUE_CLAIM_TRAIN_INDICES],
+        set.state_names;
+        units = set.units,
+        metadata = set.metadata)
+    holdout = ExperimentSet(
+        [set.experiments[i] for i in UNIQUE_CLAIM_HOLDOUT_INDICES],
+        set.state_names;
+        units = set.units,
+        metadata = set.metadata)
+    return ExperimentSplit(
+        UNIQUE_CLAIM_TRAIN_INDICES,
+        UNIQUE_CLAIM_HOLDOUT_INDICES,
+        train,
+        holdout)
 end
 
 """

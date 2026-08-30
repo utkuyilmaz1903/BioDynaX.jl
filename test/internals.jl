@@ -885,4 +885,8 @@ using BioDynaX:
     quality_gates_ude_rhs_live_row,
     allocation_gates_live_reuse_row,
     allocation_gates_report_holds,
-    assert_allocation_under
+    assert_allocation_under,
+    ExperimentSplit,
+    unique_claim_experiment_split,
+    UNIQUE_CLAIM_TRAIN_INDICES,
+    UNIQUE_CLAIM_HOLDOUT_INDICES

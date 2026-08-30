@@ -113,7 +113,9 @@ end
     @test isdefined(BioDynaX, :MechanismRecoveryResult)
     @test public_export_list_holds()
     @test !isdefined(BioDynaX, :DestructionSamples)
-    @test !isdefined(BioDynaX, :ExperimentSplit)
+    @test isdefined(BioDynaX, :ExperimentSplit)
+    @test !(:ExperimentSplit in names(BioDynaX))
+    @test !(:unique_claim_experiment_split in names(BioDynaX))
     @test isdefined(BioDynaX, :generate_recovery_experiments)
     @test isdefined(BioDynaX, :consume_shared_suite_rng!)
     @test isdefined(BioDynaX, :fit_unknown_destruction)
@@ -548,7 +550,8 @@ end
     @test :samples ∉ keys(reported)
     @test :functional_identifiability ∉ keys(reported)
     @test !isdefined(BioDynaX, :DestructionSamples)
-    @test !isdefined(BioDynaX, :ExperimentSplit)
+    @test isdefined(BioDynaX, :ExperimentSplit)
+    @test !(:ExperimentSplit in names(BioDynaX))
     @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
     @test public_export_list_holds()
 end
@@ -681,7 +684,8 @@ end
         @test proto_row.kpis === row.locked_kpis
     end
     @test !isdefined(BioDynaX, :DestructionSamples)
-    @test !isdefined(BioDynaX, :ExperimentSplit)
+    @test isdefined(BioDynaX, :ExperimentSplit)
+    @test !(:ExperimentSplit in names(BioDynaX))
     @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
     @test public_export_list_holds()
 end
