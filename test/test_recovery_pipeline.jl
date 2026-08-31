@@ -1,4 +1,5 @@
 using BioDynaX: MechanismRecoveryResult,
+    ExperimentSplit,
     generate_recovery_experiments,
     consume_shared_suite_rng!,
     sample_destruction,
@@ -217,14 +218,19 @@ end
     @test result.model === nothing
     @test result.params === nothing
     @test result.experiments === nothing
+    @test result.split === nothing
+    @test result.holdout === nothing
     fields = fieldnames(MechanismRecoveryResult)
     @test :nn_correlation in fields
     @test :locked_kpis in fields
     @test :protocol_result in fields
+    @test :split in fields
+    @test :holdout in fields
     @test :samples ∉ fields
     @test :r_range ∉ fields
-    @test :holdout ∉ fields
     @test :train ∉ fields
+    @test :data_residual_holdout ∉ fields
+    @test :d_rmse_holdout ∉ fields
     @test :functional_identifiability ∉ fields
     @test :independently_trained_D ∉ fields
     @test :uncertainty ∉ fields
@@ -244,10 +250,12 @@ end
     @test hasproperty(result, :support_f1)
     @test :nn_correlation in keys(result)
     @test :protocol_result in keys(result)
+    @test haskey(result, :split)
+    @test haskey(result, :holdout)
+    @test result[:split] === nothing
+    @test result[:holdout] === nothing
     @test :samples ∉ keys(result)
-    @test :holdout ∉ keys(result)
     @test :functional_identifiability ∉ keys(result)
-    @test_throws KeyError result[:holdout]
     @test_throws KeyError result[:samples]
 end
 
@@ -483,6 +491,8 @@ end
     @test reported isa MechanismRecoveryResult
     @test reported.discovery === nothing
     @test reported.extras_denominator === nothing
+    @test reported.split === nothing
+    @test reported.holdout === nothing
     @test reported.locked_kpis !== nothing
     @test reported.protocol_result !== nothing
     @test reported.success == false
@@ -527,13 +537,24 @@ end
     @test reported.discovery === nothing
     @test haskey(reported, :extras_denominator)
     @test reported.extras_denominator === nothing
+    @test haskey(reported, :split)
+    @test hasproperty(reported, :split)
+    @test reported.split === nothing
+    @test haskey(reported, :holdout)
+    @test hasproperty(reported, :holdout)
+    @test reported.holdout === nothing
 end
 
-@testset "report_recovery does not introduce M2 or M3 fields" begin
+@testset "report_recovery M2 fields default to nothing; no M3 fields" begin
     reported = report_recovery(
         _composer_valid_evaled(), (; unidentifiable_edge = true))
     fields = fieldnames(typeof(reported))
-    @test :holdout ∉ fields
+    @test :split in fields
+    @test :holdout in fields
+    @test reported.split === nothing
+    @test reported.holdout === nothing
+    @test haskey(reported, :holdout)
+    @test reported[:holdout] === nothing
     @test :train ∉ fields
     @test :samples ∉ fields
     @test :r_range ∉ fields
@@ -546,12 +567,12 @@ end
     @test :q7 ∉ fields
     @test :data_residual_holdout ∉ fields
     @test :d_rmse_holdout ∉ fields
-    @test :holdout ∉ keys(reported)
     @test :samples ∉ keys(reported)
     @test :functional_identifiability ∉ keys(reported)
     @test !isdefined(BioDynaX, :DestructionSamples)
     @test isdefined(BioDynaX, :ExperimentSplit)
     @test !(:ExperimentSplit in names(BioDynaX))
+    @test !(:HoldoutEvidence in names(BioDynaX))
     @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
     @test public_export_list_holds()
 end
@@ -564,6 +585,8 @@ end
         @test occursin("_train_unknown_edge", body)
         @test occursin("_evaluate_unknown_rate_recovery", body)
         @test occursin("report_production_destruction_tradeoff", body)
+        @test occursin("evaluate_holdout(", body)
+        @test occursin("if evaled.discovery === nothing", body)
         @test !occursin("(; evaled..., identifiability", body)
         @test !occursin("locked_ude_kpis(ude_row)", body)
         @test !occursin("locked_ude_kpis(mm_row)", body)
@@ -586,12 +609,16 @@ end
     @test findfirst("_evaluate_unknown_rate_recovery", ude_body) <
           findfirst("report_production_destruction_tradeoff", ude_body)
     @test findfirst("report_production_destruction_tradeoff", ude_body) <
+          findfirst("evaluate_holdout(", ude_body)
+    @test findfirst("evaluate_holdout(", ude_body) <
           findfirst("report_recovery(", ude_body)
     @test findfirst("_train_unknown_edge", mm_body) <
           findfirst("_evaluate_unknown_rate_recovery", mm_body)
     @test findfirst("_evaluate_unknown_rate_recovery", mm_body) <
           findfirst("report_production_destruction_tradeoff", mm_body)
     @test findfirst("report_production_destruction_tradeoff", mm_body) <
+          findfirst("evaluate_holdout(", mm_body)
+    @test findfirst("evaluate_holdout(", mm_body) <
           findfirst("report_recovery(", mm_body)
 end
 
@@ -612,6 +639,8 @@ end
     @test reported.discovery === nothing
     @test reported.data_residual === Inf
     @test reported.extras_denominator === nothing
+    @test reported.split === nothing
+    @test reported.holdout === nothing
     @test hasproperty(reported, :locked_kpis) && reported.locked_kpis !== nothing
     @test hasproperty(reported, :protocol_result) &&
           reported.protocol_result !== nothing
@@ -651,11 +680,17 @@ end
         @test haskey(row, :support_f1)
         @test row.data_residual === Inf
         @test row.discovery === nothing
+        @test row.split isa ExperimentSplit
+        @test row.holdout === nothing
+        @test haskey(row, :split)
+        @test haskey(row, :holdout)
+        @test row[:holdout] === nothing
         @test row.protocol_result.canonical_hill_from_nn === false
         @test row.protocol_result.claim === :recall_plus_data_residual
         @test Tuple(keys(row.protocol_result)) == PROTOCOL_RESULT_FIELDS
         fields = fieldnames(typeof(row))
-        @test :holdout ∉ fields
+        @test :split in fields
+        @test :holdout in fields
         @test :train ∉ fields
         @test :samples ∉ fields
         @test :r_range ∉ fields
@@ -668,7 +703,6 @@ end
         @test :q7 ∉ fields
         @test :data_residual_holdout ∉ fields
         @test :d_rmse_holdout ∉ fields
-        @test :holdout ∉ keys(row)
         @test :samples ∉ keys(row)
         @test :functional_identifiability ∉ keys(row)
         txt = format_recovery_protocol(row)

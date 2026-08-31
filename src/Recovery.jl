@@ -1074,9 +1074,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     term = only_unknown_destruction(ude_model)
     ref_exp = first(ude_set.experiments)
     split = unique_claim_experiment_split(ude_set)
+    truth_rate = r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2)
     evaled = _evaluate_unknown_rate_recovery(
-        ude_model, ude_fit.params, term,
-        r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2);
+        ude_model, ude_fit.params, term, truth_rate;
         order = 2, family = :hill, noise_σ = ude_noise_σ,
         r_range = _regulator_grid(split.train, term),
         data_residual_fn = d_hat -> hybrid_data_residual(
@@ -1087,9 +1087,16 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
+    if evaled.discovery === nothing
+        holdout = nothing
+    else
+        holdout = evaluate_holdout(
+            split, evaled, ude_model, ude_fit.params, term, truth_rate)
+    end
     report[:ude_discovery] = report_recovery(
         evaled, ident_ude;
-        model = ude_model, params = ude_fit.params, experiments = ude_set)
+        model = ude_model, params = ude_fit.params, experiments = ude_set,
+        split = split, holdout = holdout)
     end
 
     if :mm_unknown in wanted
@@ -1106,9 +1113,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
     term = only_unknown_destruction(ude_model)
     ref_exp = first(ude_set.experiments)
     split = unique_claim_experiment_split(ude_set)
+    truth_rate = r -> mm_rate_truth(r; vmax = 1.6, km = 0.45)
     evaled = _evaluate_unknown_rate_recovery(
-        ude_model, ude_fit.params, term,
-        r -> mm_rate_truth(r; vmax = 1.6, km = 0.45);
+        ude_model, ude_fit.params, term, truth_rate;
         order = 1, family = :mm, noise_σ = ude_noise_σ,
         r_range = _regulator_grid(split.train, term),
         data_residual_fn = d_hat -> hybrid_data_residual(
@@ -1119,9 +1126,16 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
         ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
         term = term, verbose = false)
+    if evaled.discovery === nothing
+        holdout = nothing
+    else
+        holdout = evaluate_holdout(
+            split, evaled, ude_model, ude_fit.params, term, truth_rate)
+    end
     report[:mm_unknown] = report_recovery(
         evaled, ident_mm;
-        model = ude_model, params = ude_fit.params, experiments = ude_set)
+        model = ude_model, params = ude_fit.params, experiments = ude_set,
+        split = split, holdout = holdout)
     end
 
     if :ablation in wanted

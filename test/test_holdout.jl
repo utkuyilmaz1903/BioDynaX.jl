@@ -39,6 +39,8 @@ using BioDynaX: ExperimentSplit,
     hybrid_data_residual,
     unique_claim_discovery_config,
     hill_rate_truth,
+    unique_claim_kpis_hold,
+    PROTOCOL_RESULT_FIELDS,
     Experiment,
     ExperimentSet
 
@@ -308,7 +310,7 @@ function _m2c_consumed_discovery_range(set, term, model, params)
     return captured[]
 end
 
-function _m2c_assert_domain_source(body)
+function _m2c_assert_domain_source(body; allow_evaluate_holdout::Bool = false)
     @test count(r"r_range\s*=", body) == 1
     @test occursin(_M2C_DOMAIN_TOKEN, body)
     assign_at = findfirst(_M2C_DOMAIN_TOKEN, body)
@@ -319,7 +321,11 @@ function _m2c_assert_domain_source(body)
     for token in _M2C_WRONG_DOMAIN_TOKENS
         @test !occursin(token, body)
     end
-    @test !occursin("evaluate_holdout(", body)
+    if allow_evaluate_holdout
+        @test count("evaluate_holdout(", body) == 1
+    else
+        @test !occursin("evaluate_holdout(", body)
+    end
     @test !occursin("HoldoutEvidence", body)
     @test !occursin("d_rmse_holdout", body)
     @test !occursin("generate_recovery_experiments(", body)
@@ -661,15 +667,15 @@ end
         read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
 end
 
-@testset "M2-D evaluator exists and stays off the unique-claim suite path" begin
+@testset "M2-D evaluator exists; suite calls it once after ident" begin
     @test isdefined(BioDynaX, :HoldoutEvidence)
     @test isdefined(BioDynaX, :evaluate_holdout)
     @test isdefined(BioDynaX, :_holdout_observed_regulators)
     @test isdefined(BioDynaX, :_unique_claim_external_regulator_band)
     @test isdefined(BioDynaX, :_finite_rate_rel_rmse)
     @test isdefined(BioDynaX, :_mean_hybrid_residual)
-    @test :split ∉ fieldnames(MechanismRecoveryResult)
-    @test :holdout ∉ fieldnames(MechanismRecoveryResult)
+    @test :split in fieldnames(MechanismRecoveryResult)
+    @test :holdout in fieldnames(MechanismRecoveryResult)
     @test :data_residual_holdout ∉ fieldnames(MechanismRecoveryResult)
     @test :d_rmse_holdout ∉ fieldnames(MechanismRecoveryResult)
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
@@ -700,7 +706,7 @@ end
         @test occursin("_evaluate_unknown_rate_recovery(", body)
         @test occursin("report_recovery(", body)
         @test occursin("unique_claim_experiment_split(ude_set)", body)
-        @test !occursin("evaluate_holdout(", body)
+        @test count("evaluate_holdout(", body) == 1
         @test !occursin("HoldoutEvidence", body)
     end
 end
@@ -914,7 +920,7 @@ end
     @test !occursin("split = split", helper)
     for section in (:ude_discovery, :mm_unknown)
         body = recovery_suite_section_body(section)
-        _m2c_assert_domain_source(body)
+        _m2c_assert_domain_source(body; allow_evaluate_holdout = true)
         @test occursin("split = unique_claim_experiment_split(ude_set)", body)
         @test count("unique_claim_experiment_split(", body) == 1
         @test count("_evaluate_unknown_rate_recovery(", body) == 1
@@ -1077,7 +1083,7 @@ end
         @test !occursin("generate_recovery_experiments(", body)
         @test !occursin("generate_experiment_set(", body)
         @test !occursin("generate_data(", body)
-        @test !occursin("evaluate_holdout(", body)
+        @test count("evaluate_holdout(", body) == 1
         @test !occursin("HoldoutEvidence", body)
         @test !occursin("d_rmse_holdout", body)
     end
@@ -1480,4 +1486,307 @@ end
     @test !hasfield(ExperimentSet, :holdout)
     @test split.holdout[1] === set.experiments[8]
     @test split.holdout[2] === set.experiments[9]
+end
+
+const _M2E_M1_FIELDS = (
+    :nn_correlation, :nn_rate_rmse, :success, :retcode, :message,
+    :support_f1, :support_recall, :discovered_rate_rmse, :data_residual,
+    :denominator_violations, :normalized_support_f1,
+    :normalized_support_recall, :extras, :extras_denominator, :discovery,
+    :term, :identifiability, :locked_kpis, :protocol_result, :model,
+    :params, :experiments)
+
+const _M2E_FORBIDDEN_RESULT_FIELDS = (
+    :functional_identifiability, :occupancy, :uncertainty, :hypothesis,
+    :train, :holdout_indices, :q7, :validation_report, :restart_agreement,
+    :data_residual_holdout, :d_rmse_holdout, :d_rmse_holdout_domain,
+    :data_residual_train, :data_residual_holdout_domain_extra,
+    :independently_trained_D, :samples, :domain, :q4,
+    :trajectory, :trajectory_domain)
+
+function _m2e_holdout_fixture()
+    model, params, term = _m2c_probe_models()
+    set = _m2d_synthetic_set()
+    split = unique_claim_experiment_split(set)
+    ident = (; unidentifiable_edge = true, production_param = :k_prod)
+    return model, params, term, set, split, ident
+end
+
+function _m2e_decide_holdout(evaled, split, model, params, term, truth_rate)
+    if evaled.discovery === nothing
+        holdout = nothing
+    else
+        holdout = evaluate_holdout(
+            split, evaled, model, params, term, truth_rate)
+    end
+    return holdout
+end
+
+function _m2e_decision_window(body)
+    ident_at = findfirst("report_production_destruction_tradeoff", body)
+    report_at = findfirst("report_recovery(", body)
+    ident_at === nothing && return ""
+    report_at === nothing && return ""
+    return body[first(ident_at):first(report_at)]
+end
+
+@testset "M2-E TEST 1 result surface is split plus HoldoutEvidence" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled = _m2d_evaled(term)
+    ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
+    result = report_recovery(
+        evaled, ident; model = model, params = params, split = split,
+        holdout = ev)
+    @test hasproperty(result, :split)
+    @test hasproperty(result, :holdout)
+    @test haskey(result, :split)
+    @test haskey(result, :holdout)
+    @test result.split isa ExperimentSplit
+    @test result.holdout isa HoldoutEvidence
+    @test result.split === split
+    @test result.holdout === ev
+    @test fieldnames(MechanismRecoveryResult) == (_M2E_M1_FIELDS..., :split, :holdout)
+    @test fieldnames(HoldoutEvidence) == (
+        :data_residual_train, :data_residual_holdout,
+        :d_rmse_holdout, :d_rmse_holdout_domain)
+    @test length(fieldnames(HoldoutEvidence)) == 4
+    for name in _M2E_FORBIDDEN_RESULT_FIELDS
+        @test name ∉ fieldnames(MechanismRecoveryResult)
+    end
+end
+
+@testset "M2-E TEST 2 Case A training failure keeps holdout nothing" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled = _m2d_evaled(term; success = false, discovery = nothing,
+        data_residual = Inf)
+    @test evaled.discovery === nothing
+    holdout = _m2e_decide_holdout(
+        evaled, split, model, params, term, _m2d_unit_truth)
+    @test holdout === nothing
+    result = report_recovery(
+        evaled, ident; model = model, params = params, split = split,
+        holdout = holdout)
+    @test result.holdout === nothing
+    @test result.split === split
+    @test result.data_residual === Inf
+    @test result.identifiability === ident
+    @test result.locked_kpis !== nothing
+    @test result.protocol_result !== nothing
+    @test result.discovery === nothing
+    defaulted = report_recovery(evaled, ident)
+    @test defaulted.holdout === nothing
+    @test defaulted.split === nothing
+    @test defaulted.data_residual === Inf
+end
+
+@testset "M2-E TEST 3 Case B discovery failure still reports holdout" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
+    @test evaled_b.discovery !== nothing
+    @test evaled_b.discovery.success == false
+    @test evaled_b.success == false
+    if evaled_b.discovery === nothing
+        holdout = nothing
+    else
+        holdout = evaluate_holdout(
+            split, evaled_b, model, params, term, _m2d_unit_truth)
+    end
+    @test holdout !== nothing
+    ev = holdout
+    @test ev isa HoldoutEvidence
+    @test isfinite(ev.data_residual_train)
+    @test isfinite(ev.data_residual_holdout)
+    @test isfinite(ev.d_rmse_holdout)
+    @test isfinite(ev.d_rmse_holdout_domain)
+    result = report_recovery(
+        evaled_b, ident; split = split, holdout = ev)
+    @test result.holdout !== nothing
+    @test result.holdout === ev
+    @test result.holdout.data_residual_train === ev.data_residual_train
+    @test result.holdout.data_residual_holdout === ev.data_residual_holdout
+    @test result.holdout.d_rmse_holdout === ev.d_rmse_holdout
+    @test result.holdout.d_rmse_holdout_domain === ev.d_rmse_holdout_domain
+    @test result.success == false
+end
+
+@testset "M2-E TEST 4 Case C matches Case B holdout scalars" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
+    evaled_c = _m2d_evaled(term; success = true, discovery = :ok)
+    ev_b = _m2e_decide_holdout(
+        evaled_b, split, model, params, term, _m2d_unit_truth)
+    ev_c = _m2e_decide_holdout(
+        evaled_c, split, model, params, term, _m2d_unit_truth)
+    @test ev_b !== nothing
+    @test ev_c !== nothing
+    @test ev_b.data_residual_train === ev_c.data_residual_train
+    @test ev_b.data_residual_holdout === ev_c.data_residual_holdout
+    @test ev_b.d_rmse_holdout === ev_c.d_rmse_holdout
+    @test ev_b.d_rmse_holdout_domain === ev_c.d_rmse_holdout_domain
+    result_b = report_recovery(evaled_b, ident; split = split, holdout = ev_b)
+    result_c = report_recovery(evaled_c, ident; split = split, holdout = ev_c)
+    @test result_b.holdout !== nothing
+    @test result_c.holdout !== nothing
+    @test result_b.holdout.data_residual_train ===
+          result_c.holdout.data_residual_train
+    @test result_b.holdout.data_residual_holdout ===
+          result_c.holdout.data_residual_holdout
+    @test result_b.holdout.d_rmse_holdout === result_c.holdout.d_rmse_holdout
+    @test result_b.holdout.d_rmse_holdout_domain ===
+          result_c.holdout.d_rmse_holdout_domain
+    @test result_b.success == false
+    @test result_c.success == true
+end
+
+@testset "M2-E TEST 5 holdout residual is not a 0.30 gate" begin
+    model, params, term, set, _, ident = _m2e_holdout_fixture()
+    legacy = 0.01
+    set.experiments[8].observations .+= 8.0
+    set.experiments[9].observations .+= 9.0
+    split = unique_claim_experiment_split(set)
+    evaled = _m2d_evaled(term; data_residual = legacy)
+    rho8 = _m2d_experiment_residual(model, params, term, set.experiments[8])
+    rho9 = _m2d_experiment_residual(model, params, term, set.experiments[9])
+    ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
+    @test ev.data_residual_holdout === (rho8 + rho9) / 2
+    @test ev.data_residual_holdout > 0.30
+    @test isfinite(ev.data_residual_holdout)
+    result = report_recovery(evaled, ident; split = split, holdout = ev)
+    @test result.holdout !== nothing
+    @test result.holdout === ev
+    @test result.holdout.data_residual_holdout === ev.data_residual_holdout
+    @test result.data_residual === legacy
+    @test result.data_residual === evaled.data_residual
+    @test result.data_residual != result.holdout.data_residual_holdout
+    @test result.success == evaled.success
+    @test unique_claim_kpis_hold(result.locked_kpis) === true
+end
+
+@testset "M2-E TEST 6 report_recovery forwards holdout without recomputing" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled = _m2d_evaled(term)
+    ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
+    forwarded = report_recovery(evaled, ident; split = split, holdout = ev)
+    @test forwarded.holdout === ev
+    @test forwarded.holdout.data_residual_train === ev.data_residual_train
+    @test forwarded.holdout.data_residual_holdout === ev.data_residual_holdout
+    @test forwarded.holdout.d_rmse_holdout === ev.d_rmse_holdout
+    @test forwarded.holdout.d_rmse_holdout_domain === ev.d_rmse_holdout_domain
+    sentinel = HoldoutEvidence(1.11, 2.22, 3.33, 4.44)
+    replaced = report_recovery(
+        evaled, ident; split = split, holdout = sentinel)
+    @test replaced.holdout === sentinel
+    @test replaced.holdout.data_residual_train === 1.11
+    @test replaced.holdout.data_residual_holdout === 2.22
+    @test replaced.holdout.d_rmse_holdout === 3.33
+    @test replaced.holdout.d_rmse_holdout_domain === 4.44
+    skipped = report_recovery(evaled, ident; split = split, holdout = nothing)
+    @test skipped.holdout === nothing
+    report_body = _m2a_source_function_body(
+        joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"),
+        "report_recovery")
+    @test report_body !== nothing
+    @test !occursin("evaluate_holdout(", report_body)
+    @test !occursin("_ensure_holdout", report_body)
+    @test !occursin("HoldoutEvidence(", report_body)
+    @test !occursin("hybrid_data_residual(", report_body)
+    @test !occursin("sample_unknown_destruction", report_body)
+end
+
+@testset "M2-E TEST 7 unique-claim path evaluates holdout once" begin
+    ude = recovery_suite_section_body(:ude_discovery)
+    mm = recovery_suite_section_body(:mm_unknown)
+    rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    pipe = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
+    @test count("evaluate_holdout(", ude) == 1
+    @test count("evaluate_holdout(", mm) == 1
+    @test count("evaluate_holdout(", rec) == 2
+    @test count("evaluate_holdout(", pipe) == 1
+    report_body = _m2a_source_function_body(
+        joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"),
+        "report_recovery")
+    composer = _m2c_composer_body()
+    @test !occursin("evaluate_holdout(", report_body)
+    @test !occursin("evaluate_holdout(", composer)
+    @test !occursin("_ensure_holdout", rec)
+    @test !occursin("_ensure_holdout", pipe)
+    for body in (ude, mm)
+        window = _m2e_decision_window(body)
+        @test occursin("if evaled.discovery === nothing", window)
+        @test occursin("holdout = nothing", window)
+        @test occursin("holdout = evaluate_holdout(", window)
+        @test !occursin("evaled.success", window)
+        @test !occursin("discovery.success", window)
+        @test !occursin("_ensure_holdout", window)
+        @test findfirst("report_production_destruction_tradeoff", body) <
+              findfirst("evaluate_holdout(", body)
+        @test findfirst("evaluate_holdout(", body) <
+              findfirst("report_recovery(", body)
+    end
+end
+
+@testset "M2-E TEST 8 legacy M1 property access stays valid" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled = _m2d_evaled(term)
+    ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
+    result = report_recovery(
+        evaled, ident; model = model, params = params, split = split,
+        holdout = ev)
+    @test result.nn_correlation == evaled.nn_correlation
+    @test result.nn_rate_rmse == evaled.nn_rate_rmse
+    @test result.data_residual === evaled.data_residual
+    @test result.locked_kpis !== nothing
+    @test result.protocol_result !== nothing
+    @test result.locked_kpis.data_residual === result.data_residual
+    @test result.protocol_result.data_residual === result.data_residual
+    @test result.protocol_result.canonical_hill_from_nn === false
+    @test Tuple(keys(result.protocol_result)) == PROTOCOL_RESULT_FIELDS
+    kpis = locked_ude_kpis(result)
+    proto = build_protocol_result(result)
+    @test kpis.data_residual === result.data_residual
+    @test proto.data_residual === result.data_residual
+    @test unique_claim_kpis_hold(result.locked_kpis)
+    txt = format_recovery_protocol(result)
+    @test occursin("IDENTIFIABILITY", txt)
+    @test occursin("FIT", txt)
+    @test occursin("DISCOVERY", txt)
+    @test occursin("REPRODUCTION", txt)
+    @test occursin("canonical_hill_from_nn: false", txt)
+end
+
+@testset "M2-E TEST 9 public API and thresholds stay locked" begin
+    @test !(:ExperimentSplit in names(BioDynaX))
+    @test !(:HoldoutEvidence in names(BioDynaX))
+    @test !(:evaluate_holdout in names(BioDynaX))
+    @test !(:unique_claim_experiment_split in names(BioDynaX))
+    @test !(:UNIQUE_CLAIM_TRAIN_INDICES in names(BioDynaX))
+    @test !(:UNIQUE_CLAIM_HOLDOUT_INDICES in names(BioDynaX))
+    @test !(:_holdout_observed_regulators in names(BioDynaX))
+    @test !(:_unique_claim_external_regulator_band in names(BioDynaX))
+    @test !(:_finite_rate_rel_rmse in names(BioDynaX))
+    @test !(:_mean_hybrid_residual in names(BioDynaX))
+    @test !(:report_recovery in names(BioDynaX))
+    @test !(:ExperimentSplit in LOCKED_PUBLIC_EXPORTS)
+    @test !(:HoldoutEvidence in LOCKED_PUBLIC_EXPORTS)
+    @test !(:evaluate_holdout in LOCKED_PUBLIC_EXPORTS)
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+    @test RECOVERY_THRESHOLDS.data_residual == 0.30
+    @test !haskey(RECOVERY_THRESHOLDS, :data_residual_holdout)
+    @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
+end
+
+@testset "M2-E TEST 10 result has no M3 or M4 fields" begin
+    result = report_recovery(
+        _m2d_evaled(:term), (; unidentifiable_edge = true))
+    fields = fieldnames(typeof(result))
+    @test fields == (_M2E_M1_FIELDS..., :split, :holdout)
+    for name in _M2E_FORBIDDEN_RESULT_FIELDS
+        @test name ∉ fields
+        @test name ∉ keys(result)
+    end
+    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test !isdefined(BioDynaX, :DestructionSamples)
+    @test !hasfield(ExperimentSet, :train)
+    @test !hasfield(ExperimentSet, :holdout)
 end

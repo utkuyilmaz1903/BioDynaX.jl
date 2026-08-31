@@ -20,8 +20,10 @@ suite row: `result.nn_correlation`, `result[:locked_kpis]`,
 `getindex` / `haskey` / `keys` follow `hasproperty`. `protocol_result`
 keeps `PROTOCOL_RESULT_FIELDS` order when present.
 
-Not exported. This is not a held-out, functional-identifiability,
-hypothesis, uncertainty, or destruction-sample object.
+Optional `split` and `holdout` are the approved M2 fields. `haskey`
+is field presence; Q7 evidence is `holdout !== nothing`. Not exported.
+Not a functional-identifiability, hypothesis, uncertainty, occupancy,
+or destruction-sample object.
 """
 struct MechanismRecoveryResult
     nn_correlation::Float64
@@ -46,6 +48,8 @@ struct MechanismRecoveryResult
     model
     params
     experiments
+    split
+    holdout
 end
 
 function MechanismRecoveryResult(;
@@ -70,7 +74,9 @@ function MechanismRecoveryResult(;
         protocol_result = nothing,
         model = nothing,
         params = nothing,
-        experiments = nothing)
+        experiments = nothing,
+        split = nothing,
+        holdout = nothing)
     return MechanismRecoveryResult(
         float(nn_correlation),
         float(nn_rate_rmse),
@@ -93,7 +99,9 @@ function MechanismRecoveryResult(;
         protocol_result,
         model,
         params,
-        experiments)
+        experiments,
+        split,
+        holdout)
 end
 
 function Base.getindex(result::MechanismRecoveryResult, key::Symbol)
@@ -416,15 +424,17 @@ function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
 end
 
 """
-    report_recovery(evaled, ident; model, params, experiments)
+    report_recovery(evaled, ident; model, params, experiments, split, holdout)
 
 Typed unique-claim report. Builds an internal `MechanismRecoveryResult`
 from composer output and the existing identifiability object. Always
-fills `locked_kpis` and `protocol_result`. Not exported. Not a held-out,
+fills `locked_kpis` and `protocol_result`. Writes the given `split` and
+`holdout` as-is. Does not evaluate holdout. Not exported. Not a
 functional-identifiability, hypothesis, or uncertainty object.
 """
 function report_recovery(evaled, ident;
-        model = nothing, params = nothing, experiments = nothing)
+        model = nothing, params = nothing, experiments = nothing,
+        split = nothing, holdout = nothing)
     extras_denominator = hasproperty(evaled, :extras_denominator) ?
                          getproperty(evaled, :extras_denominator) : nothing
     discovery = hasproperty(evaled, :discovery) ? getproperty(evaled, :discovery) :
@@ -458,7 +468,9 @@ function report_recovery(evaled, ident;
         protocol_result = build_protocol_result(kpi_src),
         model = model,
         params = params,
-        experiments = experiments)
+        experiments = experiments,
+        split = split,
+        holdout = holdout)
 end
 
 """
