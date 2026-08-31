@@ -4,7 +4,7 @@ overview: "Onaylı V1 M2 semantiğinin M2-A…M2-H uygulama dilimleri. Kaynak ko
 todos:
   - id: m2-heldout-impl
     content: "M2-A…H: 7/2 split; tek onaylı eğitmen fit(split.train); dış bant train-türevli; Case B Q7 açık; ev.d_rmse_* üretim yolu; 0.30 holdout kapısı değil; geçici set mutasyonu yok"
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -17,6 +17,11 @@ belgede V1 ile çelişen bayat semantik yoktur.
 
 M2-A…M2-H **iç uygulama dilimleridir**. `LOCKED_PUBLIC_EXPORTS` /
 semver yüzeyi değildir. Ayrı public API dilimi açılmaz.
+
+**Durum (M2-H sonrası): M2-A…M2-H complete.** Canlı kod onaylı
+7/2 semantiğini uygular. Q7 raporlanan kanıttır, kapı değildir. Q4
+implemented değildir. Aşağıdaki reddedilmiş / bayat ayrıntılar
+provenance için durur; silinmez.
 
 ## Belge otoritesi
 
@@ -657,7 +662,7 @@ M2-D ile aynı dosyada doğabilir; alan kilidi M2-E’dedir.
 
 ---
 
-### M2-A — `ExperimentSplit`
+### M2-A — `ExperimentSplit` (complete)
 
 Dosyalar: [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl);
 [test/test_holdout.jl](test/test_holdout.jl);
@@ -1036,7 +1041,7 @@ end
 
 ---
 
-### M2-B — train-only fitting
+### M2-B — train-only fitting (complete)
 
 Dosya: [src/Recovery.jl](src/Recovery.jl) `_train_unknown_edge`.
 `fit_unknown_destruction` imzası durur. TrainingReuse iğnesi durur.
@@ -1155,7 +1160,7 @@ L-RNG (kaynak `count == 1` + davranışsal provenance).
 
 ---
 
-### M2-C — train-derived regulator domain
+### M2-C — train-derived regulator domain (complete)
 
 Dosya: [src/Recovery.jl](src/Recovery.jl) `:ude_discovery` ve
 `:mm_unknown`. Composer imzası durur. `ExperimentSplit` /
@@ -1341,7 +1346,7 @@ tam-set extrema metadata / cache; keyfi sabit aralık
 
 ---
 
-### M2-D — `evaluate_holdout`
+### M2-D — `evaluate_holdout` (complete)
 
 Dosya: [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl).
 
@@ -1783,7 +1788,7 @@ L-RES-HOLD, L-OVERFIT, L-EARLY (Case B), L-GATE.
 
 ---
 
-### M2-E — `HoldoutEvidence` alan kilidi
+### M2-E — `HoldoutEvidence` alan kilidi (complete)
 
 Dosya: [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl).
 Occupancy / uncertainty / hypothesis / Q4 çerçevesi değildir.
@@ -1793,7 +1798,7 @@ Test: L-FIELDS, L-M34.
 
 ---
 
-### M2-F — `MechanismRecoveryResult` / `report_recovery` / tek çağrı yeri
+### M2-F — `MechanismRecoveryResult` / `report_recovery` / tek çağrı yeri (complete)
 
 Dosyalar: [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl);
 [src/Recovery.jl](src/Recovery.jl) unique-claim kabuğu.
@@ -1828,7 +1833,7 @@ end
 
 ---
 
-### M2-G — sızıntı / overfitting
+### M2-G — sızıntı / overfitting (complete; G1 unit + G2 live hard)
 
 Dosya: [test/test_holdout.jl](test/test_holdout.jl) (hızlı, UDE
 eğitimsiz). L-DISC-A, L-DISC-B-1/2/3, L-BAND, L-D-OCC, L-OVERFIT,
@@ -2135,7 +2140,7 @@ yapmak; yalnız struct kurup production karar yolunu atlamak.
 
 ---
 
-### M2-H — hard / benchmark / docs / son denetim
+### M2-H — hard / benchmark / docs / son denetim (complete)
 
 [test/test_recovery_hard.jl](test/test_recovery_hard.jl): legacy
 kapılar + `holdout !== nothing` iken sonlu `data_residual_holdout`
@@ -2146,8 +2151,10 @@ ve `d_rmse_holdout`; 0.30 kopyalanmaz; fail ⇒ indeks oynanmaz.
 protokol satırına değil.
 
 Doküman: [docs/src/design/v1_contract.md](docs/src/design/v1_contract.md)
-Q7 “not implemented” → “reported, not a gate”; Q4 “not implemented”
-kalır. architecture / unique-claim / benchmarks.
+Q7 “not implemented” → “Q7 is reported held-out generalization
+evidence, not an additional success gate”; Q4 “not implemented”
+kalır. architecture / unique-claim / benchmarks. M2-H dokümantasyon
+revizyonu bu sözleşme dilini mevcut yüzeye hizalar.
 
 Dokunulmayacak kilitler: export, eşik, `PROTOCOL_RESULT_FIELDS`,
 Skip `ref_exp = first(...)`, TrainingReuse iğnesi,

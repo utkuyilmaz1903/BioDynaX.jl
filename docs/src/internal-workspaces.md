@@ -9,7 +9,7 @@ locked.
 
 | name | file | role |
 |------|------|------|
-| `train_experiments_with_warmup` | `src/TrainingReuse.jl` | First-IC Adam state is reused on the 9-IC unique-claim train |
+| `train_experiments_with_warmup` | `src/TrainingReuse.jl` | First-IC Adam state is reused on unique-claim training (ICs 1–7 after a 9-IC generate) |
 | `TrainingSolveSession` | `src/TrainingReuse.jl` | One `ODEProblem` remade across ICs |
 | `denominator_split_counts` | `src/DenominatorDomain.jl` | Train / validation / orthant violation split |
 | `compose_hybrid_rhs` | public + `src/HybridCompose.jl` | Neural destruction term recovers `ude_system` |

@@ -39,42 +39,76 @@ The unique-claim hold is printed and stored in that same order:
    not the whole product and not a structural certificate.
 2. **FIT (Q1 + Q5)** — hybrid residual versus observed data on the
    current training IC[1] (`first(experiments)`), and true-monomial
-   recall. Residual is not mechanistic recovery and is not held-out
-   generalization.
+   recall. Residual is not mechanistic recovery. Separate train and
+   holdout aggregates are reported later; they are not this gate.
 3. **DISCOVERY** — symbolic `D(z)` from grid-sampled learned \(D\), live
    extras, skeleton combined F1. `canonical_hill_from_nn` stays false.
-4. **REPRODUCTION** — seed 103, 9 ICs, 50 points. Smoke is labeled
-   separately and is not this fingerprint.
+4. **REPRODUCTION** — seed 103, nine ICs generated once, 50 points;
+   unique-claim training uses ICs 1..7 and holds out ICs 8 and 9.
+   Smoke is labeled separately and is not this fingerprint.
 
 ## Unique-claim recovery pipeline
 
 `run_recovery_suite` is a gated `Dict{Symbol,Any}` dispatcher. A
 requested section runs only inside `if :name in wanted`. Unique-claim
 sections (`:ude_discovery`, `:mm_unknown`) do not sample, discover, or
-score in the suite body. They call `_train_unknown_edge` then
-`_evaluate_unknown_rate_recovery`, then the existing identifiability
-path, then `report_recovery`.
+score in the suite body. They generate nine experiments once, split
+7/2, then follow:
+
+```
+generate 9
+    ↓
+split 7 / 2
+    ↓
+train 1..7
+    ↓
+M1 recovery / discovery
+    ↓
+identifiability
+    ↓
+holdout evaluation 8..9
+    ↓
+report_recovery
+```
+
+M1 composer / discovery is not the M2 holdout evaluator. Holdout
+evaluation does not perform symbolic discovery. Discovery
+stays in `_evaluate_unknown_rate_recovery` on the train-derived
+regulator grid. `evaluate_holdout` does not call
+`discover_unknown_rate`, `discover_unknown`, `discover_equations`, or
+`discover_unknown_destruction`.
 
 `_evaluate_unknown_rate_recovery` owns unique-claim control flow:
-sample the learned destruction rate on the regulator grid (the existing
-`(R, D, term)` path), apply the neural-rate training gate, and either
-return the early NamedTuple (`discovery === nothing`, residual `Inf`,
-no discovery) or run raw then normalized `discover_unknown_rate` and
-metric-only `evaluate_recovery`.
+sample the learned destruction rate on the **train** regulator grid
+(the existing `(R, D, term)` path), apply the neural-rate training
+gate, and either return the early NamedTuple (`discovery === nothing`,
+residual `Inf`, no discovery) or run raw then normalized
+`discover_unknown_rate` and metric-only `evaluate_recovery`.
+
+After ident, Case A (`training_ok == false`, `discovery === nothing`)
+leaves `holdout === nothing`. Cases B and C call `evaluate_holdout`
+once per unique-claim section and pass the already-computed evidence
+to `report_recovery`. Symbolic discovery failure does not suppress Q7
+evidence.
 
 `report_recovery` builds the internal `MechanismRecoveryResult` and
-always fills `locked_kpis` and `protocol_result`. The type is not
-exported. `haskey` / `hasproperty` mean the field exists, not that
-discovery ran or that a KPI is meaningful.
+always fills `locked_kpis` and `protocol_result`. It writes the given
+`split` and `holdout` as-is and does not evaluate holdout. The type is
+not exported. `haskey` / `hasproperty` mean the field exists, not that
+discovery ran or that a KPI is meaningful. Q7 evidence is
+`holdout !== nothing`.
 
 Unique-claim shells consume the shared suite RNG through
 `consume_shared_suite_rng!` (the discarded dummy `build_ude_model`
 draw). That path does not construct a per-section
 `MersenneTwister(seed)`.
 
-Q1 remains the hybrid residual on the current reference IC
-(`first(experiments)` / training IC[1]). It is not held-out
-generalization.
+The gated Q1 number remains the hybrid residual on the current
+reference IC (`first(experiments)` / training IC[1]). M2 reports
+separate arithmetic-mean train (ICs 1..7) and holdout (ICs 8, 9)
+residuals and neural \(D\) holdout error. Those Q7 numbers are
+reported evidence, not an additional success gate. Q4 remains not
+implemented. The original `ExperimentSet` is not mutated.
 
 The SciML solve surface agrees `ude_system`, `ODEFunction`,
 `ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and

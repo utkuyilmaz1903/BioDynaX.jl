@@ -8,13 +8,17 @@ One command, one product block, one thing this package does not claim.
 julia --project=. examples/unknown_inhibition.jl
 ```
 
-That script is the protocol: **seed 103**, **9 initial conditions**, Adam 100 /
-BFGS 50, `train_experiments`, then regulator-grid
-`sample_unknown_destruction_grid` → `discover_unknown_rate` (bootstrap 8,
-seed 3) → `compose_hybrid_rhs` versus **data**. The proof is the `recovery`
-CI job plus the protocol string test in `test/test_recovery.jl`.
-`BIODYNAX_SMOKE=1` and a shortened single-IC `train_ude` snippet are not
-the protocol.
+That script is the standalone / legacy example: **seed 103**, **9 initial conditions**
+generated once, Adam 100 / BFGS 50, `train_experiments` on all nine
+generated ICs. This is **not** the M2 recovery-suite train/holdout
+protocol. The unique-claim recovery suite generates nine ICs once;
+ICs 1–7 are used for training and ICs 8–9 are held out. Then
+regulator-grid `sample_unknown_destruction_grid` →
+`discover_unknown_rate` (bootstrap 8, seed 3) → `compose_hybrid_rhs`
+versus **data**. The suite proof is the `recovery` CI job plus the
+protocol string test in `test/test_recovery.jl`. `BIODYNAX_SMOKE=1`
+and a shortened single-IC `train_ude` snippet are not the suite
+protocol.
 
 ```text
 CSV / time series
@@ -30,14 +34,18 @@ CSV / time series
 
 ## Product block (expected values)
 
-The example prints identifiability first. Measured Hill UDE on this protocol
-(the one command, seed 103, zero observation noise):
+The example prints identifiability first. Measured Hill UDE on this
+standalone / legacy example path (the one command, seed 103, zero
+observation noise) still trains all nine generated ICs. That path is
+**not** the M2 recovery-suite train/holdout protocol. Unique-claim
+suite M2 validated IC[1] `data_residual` = 0.004195 after training
+ICs 1–7.
 
 | field | typical value | gated? |
 |-------|---------------|--------|
 | `unidentifiable_edge` | `true` | yes |
 | `coefficients_are_biological_constants` | `false` | derived |
-| hybrid residual vs data | ≈ 0.003 | yes (`data_residual`) |
+| hybrid residual vs data | ≈ 0.003 (standalone / legacy example that trains all nine generated ICs) | yes (`data_residual`) |
 | true-monomial recall | 1.0 | yes (`support_recall`) |
 | combined support F1 | ≈ 0.57 | skeleton floor 0.50, **not** 0.99 |
 | extras that remain | `1`, `r` | reported, not removed |
@@ -141,11 +149,12 @@ residual = hybrid_data_residual(
 ```
 
 That single-trajectory `sample_unknown_destruction` block is a sketch.
-The protocol uses `sample_unknown_destruction_grid` over the nine ICs
-from `unique_claim_fingerprint()` (see the example and
-[Unique claim](unique-claim.md)). The example builds the experiment set
-with `unique_claim_experiment_set` so IC and point counts stay on that
-fingerprint. That helper compiles one ground-truth model
+The example uses `sample_unknown_destruction_grid` over the nine
+generated ICs from `unique_claim_fingerprint()` (legacy full-set grid;
+see the example and [Unique claim](unique-claim.md)). The unique-claim
+suite derives that grid from train ICs 1–7 only. The example builds the
+experiment set with `unique_claim_experiment_set` so IC and point counts
+stay on that fingerprint. That helper compiles one ground-truth model
 (`compile_ground_truth_model`) and then calls
 `generate_experiment_set_from_compiled_model` so every IC shares the
 stored NN tree. `BIODYNAX_SMOKE=1` is not that fingerprint.

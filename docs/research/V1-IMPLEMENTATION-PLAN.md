@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: m2-heldout
     content: "M2: 7/2 kimlik split; tek onaylı eğitmen fit(split.train); dış bant train-türevli (sabit aralık değil); Case B Q7 açık; ev.d_rmse_* üretim yolu; 0.30 holdout kapısı değil; geçici set mutasyonu yok"
-    status: pending
+    status: completed
   - id: m3-functional-id
     content: "M3: FunctionalIdentifiabilityDiagnostic; Q3 ölçek uyarısı vs Q4 fonksiyon tanısı; Fisher’a credible deme"
     status: pending
@@ -309,7 +309,10 @@ M1 bunları implemente etmez ve “hazır kanca” diye dondurmaz:
 - yeni örnekleme struct’ı / `MechanismRecoveryResult` üzerinde `samples` alanı
   (örnekleme çıktısı mevcut `(R, D, term)` kalır)
 
-M2/M3 işlevi **yoktur**. `v1_contract.md` Q4/Q7 “not implemented” kalır.
+M2/M3 işlevi **yoktur**. M1-era sözleşme anı: o sırada
+`v1_contract.md` Q4/Q7 “not implemented” der. M2 sonra Q7’yi
+raporlanan, kapı olmayan held-out kanıt olarak ekler; Q4 not
+implemented kalır.
 
 ### Mevcut gerçek durum
 
@@ -645,6 +648,21 @@ al. Dict / stdout / export / eşikler gerilemez.
 
 ## Milestone 2 — Held-out çoklu-deney doğrulama (P0, P2)
 
+**Durum (M2-H sonrası): completed.** M2-A…M2-H uygulanmıştır. Q7
+held-out generalization **raporlanan kanıttır, kapı değildir**.
+Tercih edilen güncel sözleşme cümlesi: “Q7 is reported held-out
+generalization evidence, not an additional success gate.” Q4
+fonksiyonel identifiability **not implemented** kalır. M3 / M4 ve
+sonraki milestone’lar pending / future work’tür; implemented değildir.
+v1.0 kesilmez. M2-H dokümantasyon revizyonu mevcut yüzeyi bu Q4/Q7
+sözleşmesine hizalar; M0/M1 “Q7 not implemented” metni tarihsel
+anıttır, silinmez.
+
+Aşağıdaki “Mevcut pre-M2 davranış” alt başlığı tarihsel ön-M2
+kaydıdır; silinmez. Onaylı semantik bu bölümün geri kalanında ve
+[M2-HELDOUT-IMPLEMENTATION-PLAN.md](M2-HELDOUT-IMPLEMENTATION-PLAN.md)
+içindedir.
+
 ### M2 genel bakış
 
 M0 sözleşmesi ve M1 pipeline ayrışması durur. M2 **yalnızca dürüst Q7
@@ -755,7 +773,9 @@ M2 boyunca bit-eşit veya semantik-eşit durur:
 
 ### Mevcut pre-M2 davranış
 
-M1 tamamlandı; M2 kodu yoktur.
+**Tarihsel ön-M2 kayıt.** M1 tamamlanmıştı; M2 kodu yoktu. M2-H
+sonrası bu alt başlık provenance için durur; canlı durum yukarıdaki
+M2-H tamamlanma notudur.
 
 `ExperimentSet` paylaşılan durum boyutlu bir `Experiment` listesidir.
 Bir deney = bir IC yörüngesi. Alt küme API’si yoktur. İki üretim yolu

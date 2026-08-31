@@ -45,6 +45,30 @@ hold. The current unique-claim hold stays Q3 + Q1 residual + Q5 recall
 until a new major gate. The older shorthand “recall + residual” omitted
 Q3 and is incomplete.
 
+M2 adds reported evidence beside that locked M1 product. It does **not**
+silently add holdout to the M1 success gate.
+
+**M1 locked product**
+
+- existing unique-claim gates: Q3 `unidentifiable_edge`, Q1 IC[1]
+  residual \(\le 0.30\), Q5 Hill-class recall \(\ge 0.99\)
+
+**M2 additional evidence (reported, not a gate)**
+
+- train aggregate residual (ICs 1..7 arithmetic mean)
+- holdout residual (ICs 8, 9 arithmetic mean)
+- holdout neural \(D\) error at observed holdout regulator coordinates
+- external train-derived \(D\)-domain error
+
+A holdout residual greater than 0.30 does not fail the M1 hold. Q7 is
+reported held-out generalization evidence, not an additional success
+gate. Q4 remains not implemented.
+
+**Next milestones (pending / future work, not implemented)**
+
+- M3 — Practical Functional Identifiability
+- M4 — Robustness / Trajectory-Context Validation
+
 ## JOSS / register (maintainer gate, not this work)
 
 All of the following must already be true, and CI must be able to go red if

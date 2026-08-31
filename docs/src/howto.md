@@ -3,11 +3,16 @@
 Research-preview recipes around the [tutorial](tutorial.md). GPU, SBML, and
 Fisher identifiability are not on this path; see [Experimental](experimental.md).
 
-The golden path is the **multi-IC** protocol in
-`examples/unknown_inhibition.jl` (seed 103, same ICs, horizon, regulator-grid
-discovery, residual gate, and identifiability as the first printed block).
-`BIODYNAX_SMOKE=1` is a 1-IC / 8-point fast check and is not that protocol.
-A single-IC `train_ude` snippet below is a sketch, not the CI protocol.
+The golden-path script is the **standalone / legacy** example in
+`examples/unknown_inhibition.jl` (seed 103, nine ICs generated, same
+horizon, regulator-grid discovery, residual gate, and identifiability as
+the first printed block). That example still trains all nine generated
+ICs. It is **not** the M2 recovery-suite train/holdout protocol. The
+unique-claim recovery suite generates nine ICs once; ICs 1–7 are used
+for training and ICs 8–9 are held out.
+`BIODYNAX_SMOKE=1` is a 1-IC / 8-point fast check and is not that suite
+protocol. A single-IC `train_ude` snippet below is a sketch, not the
+CI protocol.
 
 ## Load a CSV experiment
 
@@ -63,7 +68,10 @@ in the example (fingerprint ICs and point counts). That path calls
 `compile_ground_truth_model` once. A raw
 `generate_experiment_set` snippet below is a sketch; it now also
 compiles once and then uses `generate_experiment_set_from_compiled_model`.
-Adam may be minibatched; BFGS refines the joint loss over every IC.
+Adam may be minibatched; BFGS refines the joint loss over the ICs in
+the set that is passed in. Unique-claim suite training uses ICs 1..7
+and reports holdout residual / neural `D` error on ICs 8 and 9. That
+holdout report is not a 0.30 success gate.
 
 ```julia
 model, params = build_ude_model(rng, network)
