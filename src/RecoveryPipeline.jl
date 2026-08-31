@@ -6,7 +6,8 @@
 # fit / sample / evaluate / report helpers. ExperimentSplit is the
 # locked 7/2 view of an already-generated set. `_train_unknown_edge`
 # fits on `split.train` and still returns the original 9-IC set.
-# Held-out evaluation lives here as an evaluator, not a suite step.
+# Held-out evaluation is defined here. Unique-claim sections call it
+# once after ident and pass the result to report_recovery.
 # Functional identifiability and DestructionSamples are out of scope.
 ###############################################################################
 
@@ -127,6 +128,7 @@ const EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER = Ref{Any}(nothing)
 const SAMPLE_UNKNOWN_DESTRUCTION_GRID_OBSERVER = Ref{Any}(nothing)
 const DISCOVER_UNKNOWN_RATE_OBSERVER = Ref{Any}(nothing)
 const DISCOVER_EQUATIONS_OBSERVER = Ref{Any}(nothing)
+const EVALUATE_HOLDOUT_OBSERVER = Ref{Any}(nothing)
 
 function _note_generate_recovery_experiments(set)
     observer = GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[]
@@ -171,6 +173,12 @@ function _note_equation_discovery_entry(X, times, derivatives)
     observer = DISCOVER_EQUATIONS_OBSERVER[]
     observer === nothing && return nothing
     return observer(X, times, derivatives)
+end
+
+function _note_holdout_eval(split, evaled, model, params, term, truth_rate)
+    observer = EVALUATE_HOLDOUT_OBSERVER[]
+    observer === nothing && return nothing
+    return observer(split, evaled, model, params, term, truth_rate)
 end
 
 function with_generate_recovery_experiments_observer(f::Function, observer)
@@ -240,6 +248,16 @@ function with_discover_equations_observer(f::Function, observer)
         return f()
     finally
         DISCOVER_EQUATIONS_OBSERVER[] = previous
+    end
+end
+
+function with_evaluate_holdout_observer(f::Function, observer)
+    previous = EVALUATE_HOLDOUT_OBSERVER[]
+    EVALUATE_HOLDOUT_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        EVALUATE_HOLDOUT_OBSERVER[] = previous
     end
 end
 
@@ -535,6 +553,8 @@ Not exported.
 """
 function evaluate_holdout(split::ExperimentSplit, evaled, model, params, term,
         truth_rate)
+    observed = _note_holdout_eval(split, evaled, model, params, term, truth_rate)
+    observed isa HoldoutEvidence && return observed
     D_hat_fn = neural_identity_rate(model, params, term)
     data_residual_train = _mean_hybrid_residual(
         split.train.experiments, model, params, term, D_hat_fn)

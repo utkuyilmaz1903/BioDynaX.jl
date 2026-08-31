@@ -897,6 +897,7 @@ using BioDynaX:
     with_sample_unknown_destruction_grid_observer,
     with_discover_unknown_rate_observer,
     with_discover_equations_observer,
+    with_evaluate_holdout_observer,
     HoldoutEvidence,
     evaluate_holdout,
     _holdout_observed_regulators,
