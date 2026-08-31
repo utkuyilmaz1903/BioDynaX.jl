@@ -44,7 +44,8 @@ using BioDynaX: ExperimentSplit,
     unique_claim_kpis_hold,
     PROTOCOL_RESULT_FIELDS,
     Experiment,
-    ExperimentSet
+    ExperimentSet,
+    recovery_thresholds_lock
 
 const _M2A_FORBIDDEN_MUTATORS = (
     "splice!", "deleteat!", "pop!", "push!", "insert!",
@@ -2182,4 +2183,953 @@ end
     @test :q7_success ∉ fieldnames(MechanismRecoveryResult)
     @test :functional_identifiability ∉ fieldnames(MechanismRecoveryResult)
     @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+end
+
+# =============================================================================
+# M2-G1 — adversarial leakage / contract tests
+#
+# These tests do not change M2 science. They close remaining holes that a
+# plausible wrong unique-claim implementation can still keep green:
+# non-underscore local helpers, warmup-as-training, second generate on the
+# suite path, wrong D grids, fake scalars, and lock edits.
+# =============================================================================
+
+const _M2G1_LOCKED_PUBLIC_EXPORTS = (
+    :ACTIVATION,
+    :AbstractADPolicy,
+    :AbstractConstraintStrategy,
+    :AugmentedLagrangianConfig,
+    :BiologicalNetwork,
+    :COMPETITIVE,
+    :CUSTOM_KINETIC,
+    :CompetitiveMetadata,
+    :CustomKineticMetadata,
+    :DenominatorUnsafe,
+    :DiscoveryConfig,
+    :DiscoveryFailed,
+    :DiscoveryResult,
+    :DiscoveryRetcode,
+    :DiscoverySuccess,
+    :EdgeKind,
+    :EdgeSpec,
+    :EmptyMetadata,
+    :EmptySupport,
+    :Experiment,
+    :ExperimentSet,
+    :ExplicitCandidate,
+    :ExplicitSTLSQ,
+    :HILL,
+    :HillMetadata,
+    :HorizonCurriculum,
+    :INHIBITION,
+    :INPUT,
+    :ImplicitCandidate,
+    :ImplicitSINDyPI,
+    :InputDriveMetadata,
+    :InsufficientSamples,
+    :KineticFamily,
+    :KineticMetadata,
+    :LATENT,
+    :LinearDecayMetadata,
+    :MASS_ACTION,
+    :MassActionMetadata,
+    :MetadataLike,
+    :NeuralDestructionTerm,
+    :NodeKind,
+    :NodeSpec,
+    :ParameterSchema,
+    :ProductionAD,
+    :RECOVERY_THRESHOLDS,
+    :ReactionSpec,
+    :SATURATION,
+    :STATE,
+    :SaturationMetadata,
+    :SingularLibrary,
+    :SolverConfig,
+    :StructuralPositivity,
+    :TrainingConfig,
+    :TrainingResult,
+    :TrainingRetcode,
+    :UDEModel,
+    :UNKNOWN_NN,
+    :ZygoteAD,
+    :allocate_cache,
+    :auto_sensealg,
+    :build_ude_function,
+    :build_ude_model,
+    :candidate_parents,
+    :compile_mechanism,
+    :compose_hybrid_rhs,
+    :default_solver_config,
+    :discover_equations,
+    :discover_unknown_rate,
+    :equation_to_function,
+    :equation_to_latex,
+    :estimate_derivatives,
+    :experiment_from_csv,
+    :export_rhs,
+    :generate_experiment_set,
+    :hybrid_data_residual,
+    :local_basis,
+    :pack_parameters,
+    :parameter_schema,
+    :positive_parameter,
+    :predict_ude,
+    :sample_unknown_destruction,
+    :state_nodes,
+    :train_experiments,
+    :train_ude,
+    :ude_rhs!,
+    :ude_system,
+    :validate_network,
+    :write_experiment_csv)
+
+const _M2G1_TRAIN_EDGE_STOP = Set((
+    "generate_recovery_experiments",
+    "unique_claim_experiment_split",
+    "fit_unknown_destruction",
+    "_note_train_unknown_edge",
+    "_note_generate_recovery_experiments",
+    "_note_unique_claim_experiment_split",
+    "_note_fit_unknown_destruction"))
+
+const _M2G1_SPLIT_STOP = Set((
+    "generate_recovery_experiments",
+    "generate_experiment_set",
+    "generate_data",
+    "_note_unique_claim_experiment_split"))
+
+const _M2G1_HOLDOUT_STOP = Set((
+    "sample_unknown_destruction_grid",
+    "sample_unknown_destruction",
+    "sample_destruction",
+    "neural_identity_rate",
+    "hybrid_data_residual",
+    "rate_rel_rmse",
+    "_note_holdout_eval",
+    "_note_sample_unknown_destruction_grid",
+    "generate_recovery_experiments",
+    "generate_experiment_set",
+    "generate_data",
+    "fit_unknown_destruction",
+    "discover_unknown_rate",
+    "discover_unknown",
+    "discover_equations",
+    "discover_unknown_destruction",
+    "evaluate_recovery",
+    "report_recovery",
+    "train_experiments_with_warmup",
+    "train_experiments",
+    "train_ude",
+    "warmup_first_experiment"))
+
+const _M2G1_SECTION_STOP = Set((
+    "_train_unknown_edge",
+    "unique_claim_experiment_split",
+    "_evaluate_unknown_rate_recovery",
+    "evaluate_holdout",
+    "report_recovery",
+    "report_production_destruction_tradeoff",
+    "hybrid_data_residual",
+    "only_unknown_destruction",
+    "hill_rate_truth",
+    "mm_rate_truth",
+    "_regulator_grid",
+    "admit_recovery_suite_network",
+    "consume_shared_suite_rng!",
+    "build_ude_model",
+    "build_hill_recovery_network",
+    "build_mm_recovery_network"))
+
+const _M2G1_SECOND_TRAINER = (
+    "train_ude(",
+    "train_experiments(",
+    "train_experiments_with_warmup(",
+    "warmup_first_experiment(",
+    "_polish_full(",
+    "fit_unknown_destruction(")
+
+const _M2G1_GENERATE = (
+    "generate_recovery_experiments(",
+    "generate_experiment_set(",
+    "generate_data(")
+
+const _M2G1_DISCOVERY = (
+    "discover_unknown_rate(",
+    "discover_unknown(",
+    "discover_equations(",
+    "discover_unknown_destruction(")
+
+const _M2G1_MUTATORS = (
+    "splice!", "deleteat!", "pop!", "push!", "insert!",
+    "append!", "resize!", "setindex!", "replace!")
+
+function _m2g_normalize(src)
+    return replace(src, "\r\n" => "\n")
+end
+
+function _m2g_function_body_from_src(src, name)
+    needle = "function " * name * "("
+    start = findfirst(needle, src)
+    start === nothing && return nothing
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+end
+
+function _m2g_index_functions(src)
+    src = _m2g_normalize(src)
+    index = Dict{String,String}()
+    for m in eachmatch(r"^function ([A-Za-z_][A-Za-z0-9_!]*)\("m, src)
+        name = String(m.captures[1])
+        body = _m2g_function_body_from_src(src, name)
+        body !== nothing && (index[name] = body)
+    end
+    return index
+end
+
+function _m2g_callees(body)
+    return [String(m.captures[1])
+            for m in eachmatch(r"\b([A-Za-z_][A-Za-z0-9_!]*)\(", body)]
+end
+
+function _m2g_production_index()
+    root = joinpath(@__DIR__, "..", "src")
+    rec = _m2g_normalize(read(joinpath(root, "Recovery.jl"), String))
+    pipe = _m2g_normalize(read(joinpath(root, "RecoveryPipeline.jl"), String))
+    return _m2g_index_functions(rec * "\n" * pipe)
+end
+
+function _m2g_pipeline_names()
+    pipe = _m2g_normalize(read(
+        joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
+    return Set(keys(_m2g_index_functions(pipe)))
+end
+
+function _m2g_allow_m2_helper(name, pipeline_names)
+    return name in pipeline_names || startswith(name, "_")
+end
+
+function _m2g_reachable(entry, index; stop = Set{String}(), allow = nothing)
+    queue = String[entry]
+    seen = Set{String}()
+    bodies = Dict{String,String}()
+    while !isempty(queue)
+        name = popfirst!(queue)
+        name in seen && continue
+        push!(seen, name)
+        name in stop && continue
+        allow !== nothing && !allow(name) && continue
+        haskey(index, name) || continue
+        body = index[name]
+        bodies[name] = body
+        for callee in _m2g_callees(body)
+            callee in seen && continue
+            callee in stop && continue
+            allow !== nothing && !allow(callee) && continue
+            haskey(index, callee) || continue
+            push!(queue, callee)
+        end
+    end
+    return bodies
+end
+
+function _m2g_trainer_source(name)
+    src = _m2g_normalize(read(
+        joinpath(@__DIR__, "..", "src", "TrainingReuse.jl"), String))
+    body = _m2g_function_body_from_src(src, name)
+    return body === nothing ? "" : body
+end
+
+function _m2g_section_after_train(section)
+    body = recovery_suite_section_body(section)
+    at = findfirst("_train_unknown_edge", body)
+    at === nothing && return ""
+    return body[last(at):end]
+end
+
+function _m2g_section_local_helpers(section, index)
+    after = _m2g_section_after_train(section)
+    bodies = Dict{String,String}()
+    for callee in unique(_m2g_callees(after))
+        callee in _M2G1_SECTION_STOP && continue
+        haskey(index, callee) || continue
+        merge!(bodies, _m2g_reachable(callee, index; stop = _M2G1_SECTION_STOP))
+    end
+    return bodies
+end
+
+function _m2g_has_token(bodies, token)
+    return any(occursin(token, body) for body in values(bodies))
+end
+
+function _m2g_median(xs)
+    s = sort(collect(xs))
+    n = length(s)
+    return isodd(n) ? s[(n + 1) ÷ 2] : (s[n ÷ 2] + s[n ÷ 2 + 1]) / 2
+end
+
+function _m2g_grid_rmse(model, params, term, truth_rate, r_range)
+    (R, D_hat_vals, _) = sample_unknown_destruction_grid(
+        model, params, term; r_range = r_range, fill_value = 0.3)
+    return _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))
+end
+
+function _m2g_snapshot(set)
+    n = length(set)
+    return (;
+        vec = set.experiments,
+        ids = [set.experiments[i] for i in 1:n],
+        names = copy(set.state_names),
+        units = copy(set.units),
+        meta = deepcopy(set.metadata),
+        fp = experiment_fingerprint(set),
+        obs = [set.experiments[i].observations for i in 1:n],
+        times = [set.experiments[i].times for i in 1:n],
+        u0 = [set.experiments[i].u0 for i in 1:n],
+        mask = [set.experiments[i].mask for i in 1:n],
+        exp_names = [set.experiments[i].name for i in 1:n],
+        exp_meta = [copy(set.experiments[i].metadata) for i in 1:n],
+        n = n)
+end
+
+@testset "M2-G1 walker is transitive on hidden local helpers" begin
+    dirty_split = """
+function unique_claim_experiment_split(set)
+    return hidden_helper(set)
+end
+function hidden_helper(set)
+    return _prepare!(set)
+end
+function _prepare!(set)
+    return _partition!(set)
+end
+function _partition!(set)
+    held9 = pop!(set.experiments)
+    held8 = pop!(set.experiments)
+    insert!(set.experiments, 8, held8)
+    insert!(set.experiments, 9, held9)
+    return set
+end
+"""
+    dirty_train = """
+function _train_unknown_edge()
+    set = generate_recovery_experiments()
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(ude_model, ude_p0, split.train)
+    return fit, hidden_helper(set)
+end
+function hidden_helper(set)
+    return train_experiments_with_warmup(p, set, model)
+end
+"""
+    dirty_regen = """
+function _train_unknown_edge()
+    set = generate_recovery_experiments()
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(ude_model, ude_p0, split.train)
+    return fit, _regen()
+end
+function _regen()
+    return generate_recovery_experiments()
+end
+"""
+    dirty_holdout = """
+function evaluate_holdout(split, evaled, model, params, term, truth_rate)
+    return peek_holdout(split)
+end
+function peek_holdout(split)
+    return discover_unknown_destruction(split.holdout)
+end
+"""
+    split_bodies = _m2g_reachable(
+        "unique_claim_experiment_split", _m2g_index_functions(dirty_split))
+    @test haskey(split_bodies, "hidden_helper")
+    @test haskey(split_bodies, "_prepare!")
+    @test haskey(split_bodies, "_partition!")
+    @test _m2g_has_token(split_bodies, "pop!(")
+    @test _m2g_has_token(split_bodies, "insert!(")
+
+    train_bodies = _m2g_reachable(
+        "_train_unknown_edge", _m2g_index_functions(dirty_train);
+        stop = _M2G1_TRAIN_EDGE_STOP)
+    @test haskey(train_bodies, "hidden_helper")
+    @test _m2g_has_token(train_bodies, "train_experiments_with_warmup(")
+    @test !haskey(train_bodies, "fit_unknown_destruction")
+
+    regen_bodies = _m2g_reachable(
+        "_train_unknown_edge", _m2g_index_functions(dirty_regen);
+        stop = _M2G1_TRAIN_EDGE_STOP)
+    @test haskey(regen_bodies, "_regen")
+    @test _m2g_has_token(regen_bodies, "generate_recovery_experiments(")
+
+    hold_bodies = _m2g_reachable(
+        "evaluate_holdout", _m2g_index_functions(dirty_holdout);
+        stop = _M2G1_HOLDOUT_STOP)
+    @test haskey(hold_bodies, "peek_holdout")
+    @test _m2g_has_token(hold_bodies, "discover_unknown_destruction(")
+end
+
+@testset "M2-G1 ATTACK 1 second trainer is forbidden on the unique-claim path" begin
+    index = _m2g_production_index()
+    edge = _m2g_reachable("_train_unknown_edge", index; stop = _M2G1_TRAIN_EDGE_STOP)
+    @test haskey(edge, "_train_unknown_edge")
+    @test count("fit_unknown_destruction(", edge["_train_unknown_edge"]) == 1
+    @test occursin("fit_unknown_destruction(\n        ude_model, ude_p0, split.train;",
+        edge["_train_unknown_edge"]) ||
+          occursin(r"fit_unknown_destruction\(\s*ude_model,\s*ude_p0,\s*split\.train;",
+        edge["_train_unknown_edge"])
+    for (name, body) in edge
+        if name == "_train_unknown_edge"
+            after = body[last(findfirst("fit_unknown_destruction(", body)):end]
+            for token in _M2G1_SECOND_TRAINER
+                token == "fit_unknown_destruction(" && continue
+                @test !occursin(token, after)
+            end
+            @test !occursin("fit_unknown_destruction(", after)
+        else
+            for token in _M2G1_SECOND_TRAINER
+                @test !occursin(token, body)
+            end
+        end
+    end
+    for section in (:ude_discovery, :mm_unknown)
+        after = _m2g_section_after_train(section)
+        for token in ("train_ude(", "train_experiments(",
+                      "train_experiments_with_warmup(",
+                      "warmup_first_experiment(",
+                      "fit_unknown_destruction(", "_polish_full(")
+            @test !occursin(token, after)
+        end
+        helpers = _m2g_section_local_helpers(section, index)
+        for (_, helper) in helpers
+            for token in _M2G1_SECOND_TRAINER
+                @test !occursin(token, helper)
+            end
+        end
+    end
+    probe = _m2b_probe_train_unknown_edge()
+    @test length(probe.fit_sets) == 1
+    @test probe.fit_sets[1] === probe.splits[1].train
+    @test length(probe.fit_sets[1]) == 7
+    @test all(probe.fit_sets[1][i] === probe.generated[1].experiments[i] for i in 1:7)
+    @test objectid(probe.generated[1].experiments[8]) ∉
+          objectid.([probe.fit_sets[1][i] for i in 1:7])
+end
+
+@testset "M2-G1 ATTACK 2 warmup is training and receives only split.train" begin
+    fit_body = _m2g_function_body_from_src(
+        _m2g_normalize(read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
+        "fit_unknown_destruction")
+    @test fit_body !== nothing
+    @test count("train_experiments_with_warmup(", fit_body) == 1
+    @test occursin(r"train_experiments_with_warmup\(\s*ude_init,\s*set,\s*ude_model;",
+        fit_body)
+    @test !occursin("warmup_first_experiment(", fit_body)
+    @test !occursin("train_ude(", fit_body)
+    @test !occursin("train_experiments(", fit_body)
+    @test !occursin("generate_recovery_experiments(", fit_body)
+    @test !occursin("unique_claim_experiment_split(", fit_body)
+    warmup_body = _m2g_trainer_source("train_experiments_with_warmup")
+    @test occursin(r"warmup_first_experiment\(\s*p_init,\s*set,\s*model", warmup_body)
+    @test occursin(r"train_experiments\(\s*p_init,\s*set,\s*model", warmup_body)
+    @test occursin(r"train_experiments\(\s*warm\.params,\s*set,\s*model", warmup_body)
+    @test !occursin("generate_recovery_experiments(", warmup_body)
+    @test !occursin("unique_claim_experiment_split(", warmup_body)
+    @test !occursin("split.holdout", warmup_body)
+    first_warm = _m2g_trainer_source("warmup_first_experiment")
+    @test occursin("first(set.experiments)", first_warm)
+    @test !occursin("generate_recovery_experiments(", first_warm)
+    edge = _m2g_reachable(
+        "_train_unknown_edge", _m2g_production_index();
+        stop = _M2G1_TRAIN_EDGE_STOP)
+    for (_, body) in edge
+        @test !occursin("warmup_first_experiment(", body)
+        @test !occursin("train_experiments_with_warmup(", body)
+        @test !occursin("train_ude(", body)
+        @test !occursin("train_experiments(", body)
+    end
+    probe = _m2b_probe_train_unknown_edge()
+    @test probe.fit_sets[1] === probe.splits[1].train
+    @test first(probe.fit_sets[1]) === probe.generated[1].experiments[1]
+end
+
+@testset "M2-G1 ATTACK 3 one generate and the original 9-IC identity" begin
+    index = _m2g_production_index()
+    edge = _m2g_reachable("_train_unknown_edge", index; stop = _M2G1_TRAIN_EDGE_STOP)
+    @test count("generate_recovery_experiments(", edge["_train_unknown_edge"]) == 1
+    @test occursin("return fit, set", edge["_train_unknown_edge"])
+    @test !occursin("return fit, generate_recovery_experiments",
+        edge["_train_unknown_edge"])
+    for (name, body) in edge
+        if name == "_train_unknown_edge"
+            continue
+        end
+        for token in _M2G1_GENERATE
+            @test !occursin(token, body)
+        end
+    end
+    pipeline = _m2g_pipeline_names()
+    allow = name -> _m2g_allow_m2_helper(name, pipeline)
+    split_bodies = _m2g_reachable(
+        "unique_claim_experiment_split", index; stop = _M2G1_SPLIT_STOP,
+        allow = allow)
+    hold_bodies = _m2g_reachable(
+        "evaluate_holdout", index; stop = _M2G1_HOLDOUT_STOP, allow = allow)
+    for bodies in (split_bodies, hold_bodies)
+        for (_, body) in bodies
+            for token in _M2G1_GENERATE
+                @test !occursin(token, body)
+            end
+        end
+    end
+    for section in (:ude_discovery, :mm_unknown)
+        after = _m2g_section_after_train(section)
+        for token in _M2G1_GENERATE
+            @test !occursin(token, after)
+        end
+        helpers = _m2g_section_local_helpers(section, index)
+        for (_, helper) in helpers
+            for token in _M2G1_GENERATE
+                @test !occursin(token, helper)
+            end
+        end
+    end
+
+    probe = _m2b_probe_train_unknown_edge()
+    @test length(probe.generated) == 1
+    ids_gen = [probe.generated[1].experiments[i] for i in 1:9]
+    @test length(unique(objectid.(ids_gen))) == 9
+    @test probe.result[2] === probe.generated[1]
+    @test all(probe.fit_sets[1][i] === ids_gen[i] for i in 1:7)
+    model, params, term = _m2c_probe_models()
+    regenerated = Any[]
+    ev = with_generate_recovery_experiments_observer(
+            s -> (push!(regenerated, s); error("second generate"))) do
+        split = unique_claim_experiment_split(probe.result[2])
+        evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
+    end
+    @test isempty(regenerated)
+    @test ev isa HoldoutEvidence
+    split = unique_claim_experiment_split(probe.result[2])
+    @test split.holdout[1] === ids_gen[8]
+    @test split.holdout[2] === ids_gen[9]
+    @test all(split.train[i] === ids_gen[i] for i in 1:7)
+
+    generated = Any[]
+    fit_sets = Any[]
+    holdout_splits = Any[]
+    evaled_b = _m2d_evaled(:term; success = false, discovery = :failed)
+    report = with_generate_recovery_experiments_observer(s -> push!(generated, s)) do
+        with_fit_unknown_destruction_observer(set -> begin
+                push!(fit_sets, set)
+                return nothing
+            end) do
+            with_evaluate_unknown_rate_recovery_range_observer(_ -> evaled_b) do
+                with_evaluate_holdout_observer((split, args...) -> begin
+                        push!(holdout_splits, split)
+                        return HoldoutEvidence(0.11, 0.22, 0.33, 0.44)
+                    end) do
+                    run_recovery_suite(MersenneTwister(19);
+                        ude_adam = 0, ude_bfgs = 0,
+                        sections = (:ude_discovery,))
+                end
+            end
+        end
+    end
+    @test length(generated) == 1
+    suite_ids = [generated[1].experiments[i] for i in 1:9]
+    @test length(fit_sets) == 1
+    @test all(fit_sets[1][i] === suite_ids[i] for i in 1:7)
+    @test length(holdout_splits) == 1
+    @test holdout_splits[1].holdout[1] === suite_ids[8]
+    @test holdout_splits[1].holdout[2] === suite_ids[9]
+    @test all(holdout_splits[1].train[i] === suite_ids[i] for i in 1:7)
+    @test report[:ude_discovery].experiments === generated[1]
+    @test report[:ude_discovery].split.holdout[1] === suite_ids[8]
+    @test report[:ude_discovery].split.holdout[2] === suite_ids[9]
+end
+
+@testset "M2-G1 ATTACK 4 original ExperimentSet is never carved" begin
+    index = _m2g_production_index()
+    pipeline = _m2g_pipeline_names()
+    allow = name -> _m2g_allow_m2_helper(name, pipeline)
+    for (entry, stop) in (
+            ("unique_claim_experiment_split", _M2G1_SPLIT_STOP),
+            ("evaluate_holdout", _M2G1_HOLDOUT_STOP))
+        bodies = _m2g_reachable(entry, index; stop = stop, allow = allow)
+        @test haskey(bodies, entry)
+        for (_, body) in bodies
+            for mutator in _M2G1_MUTATORS
+                @test !occursin(mutator * "(", body)
+            end
+            @test !occursin(r"\.experiments\s*\[[^\]]+\]\s*=", body)
+        end
+    end
+    model, params, term = _m2c_probe_models()
+    set = _m2a_nine_ic_set(47)
+    snap = _m2g_snapshot(set)
+    split = unique_claim_experiment_split(set)
+    ev = evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
+    @test ev isa HoldoutEvidence
+    @test set.experiments === snap.vec
+    @test length(set.experiments) == snap.n == 9
+    @test all(set.experiments[i] === snap.ids[i] for i in 1:9)
+    @test set.state_names == snap.names
+    @test set.units == snap.units
+    @test set.metadata == snap.meta
+    @test experiment_fingerprint(set) == snap.fp
+    for i in 1:9
+        @test set.experiments[i].observations === snap.obs[i]
+        @test set.experiments[i].times === snap.times[i]
+        @test set.experiments[i].u0 === snap.u0[i]
+        @test set.experiments[i].mask === snap.mask[i]
+        @test set.experiments[i].name === snap.exp_names[i]
+        @test set.experiments[i].metadata == snap.exp_meta[i]
+    end
+end
+
+@testset "M2-G1 ATTACK 5 production domain is exactly split.train" begin
+    index = _m2g_production_index()
+    helper = index["_unique_claim_rate_recovery"]
+    @test count(r"r_range\s*=", helper) == 1
+    @test occursin(_M2C_DOMAIN_TOKEN, helper)
+    after = helper[(last(findfirst(_M2C_DOMAIN_TOKEN, helper)) + 1):end]
+    @test !occursin(r"r_range\s*=", after)
+    @test !occursin("union(", helper)
+    for token in _M2C_WRONG_DOMAIN_TOKENS
+        @test !occursin(token, helper)
+    end
+    model, params, term = _m2c_probe_models()
+    set = _m2a_nine_ic_set(23)
+    split = unique_claim_experiment_split(set)
+    consumed = _m2c_consumed_discovery_range(set, term, model, params)
+    @test consumed == collect(_regulator_grid(split.train, term))
+    @test consumed != collect(_regulator_grid(split.holdout, term))
+    @test consumed != collect(_regulator_grid(set, term))
+end
+
+@testset "M2-G1 ATTACK 6 discovery domain is not a constant" begin
+    model, params, term = _m2c_probe_models()
+    baseline = _m2a_nine_ic_set(23)
+    r0 = _m2c_consumed_discovery_range(baseline, term, model, params)
+    hold_only = _m2a_nine_ic_set(23)
+    _m2c_apply_holdout_sentinel!(hold_only, term)
+    r_hold = _m2c_consumed_discovery_range(hold_only, term, model, params)
+    @test r_hold == r0
+    train_only = _m2a_nine_ic_set(23)
+    _m2c_apply_train_sentinel!(train_only, term)
+    r_train = _m2c_consumed_discovery_range(train_only, term, model, params)
+    @test r_train != r0
+    @test r_train == collect(_regulator_grid(
+        unique_claim_experiment_split(train_only).train, term))
+    @test collect(_regulator_grid(hold_only, term)) != r_hold
+    @test collect(_regulator_grid(baseline, term)) != r0 ||
+          collect(_regulator_grid(hold_only, term)) !=
+          collect(_regulator_grid(unique_claim_experiment_split(hold_only).train, term))
+    @test collect(_regulator_grid(hold_only, term)) !=
+          collect(_regulator_grid(unique_claim_experiment_split(hold_only).train, term))
+end
+
+@testset "M2-G1 ATTACK 7/8 holdout D RMSE is the production calculation" begin
+    model0, params, term = _m2c_probe_models()
+    model = _m2d_memorization_model(model0)
+    set = _m2d_synthetic_set()
+    split = unique_claim_experiment_split(set)
+    truth_rate = r -> fill(1.0, length(r))
+    ev, consumed = _m2d_capture_grid_ranges() do
+        evaluate_holdout(split, _m2d_evaled(term), model, params, term, truth_rate)
+    end
+    @test length(consumed) == 2
+    r_holdout = _holdout_observed_regulators(split.holdout, term)
+    r_band = consumed[2]
+    @test collect(consumed[1]) == collect(r_holdout)
+    @test collect(r_band) == collect(range(1.65, 1.85; length = 80))
+    expected_holdout = _m2g_grid_rmse(model, params, term, truth_rate, r_holdout)
+    expected_band = _m2g_grid_rmse(model, params, term, truth_rate, r_band)
+    wrong_train = _m2g_grid_rmse(
+        model, params, term, truth_rate, range(0.50, 1.50; length = 80))
+    wrong_full = _m2g_grid_rmse(
+        model, params, term, truth_rate, _regulator_grid(set, term))
+    wrong_fixed = _m2g_grid_rmse(
+        model, params, term, truth_rate, range(0.05, 2.0; length = 80))
+    @test ev.d_rmse_holdout === expected_holdout
+    @test ev.d_rmse_holdout_domain === expected_band
+    @test ev.d_rmse_holdout != wrong_train
+    @test ev.d_rmse_holdout != wrong_full
+    @test ev.d_rmse_holdout != wrong_fixed
+    @test ev.d_rmse_holdout != 0.6
+    @test ev.d_rmse_holdout_domain != 0.6
+    @test ev.d_rmse_holdout !== ev.d_rmse_holdout_domain ||
+          expected_holdout === expected_band
+    @test wrong_train < 1e-8
+    @test ev.d_rmse_holdout > 0.5
+    @test ev.d_rmse_holdout_domain > 0.5
+    @test ev.d_rmse_holdout != wrong_fixed
+    report = report_recovery(
+        _m2d_evaled(term), (; unidentifiable_edge = true);
+        split = split, holdout = ev)
+    @test report.holdout === ev
+    @test report.holdout.d_rmse_holdout === expected_holdout
+    @test report.holdout.d_rmse_holdout_domain === expected_band
+end
+
+@testset "M2-G1 ATTACK 9 residual aggregation is the arithmetic mean" begin
+    model, params, term = _m2c_probe_models()
+    set = _m2d_synthetic_set()
+    split = unique_claim_experiment_split(set)
+    rhos = [_m2d_experiment_residual(model, params, term, set.experiments[i])
+            for i in 1:9]
+    @test all(isfinite, rhos)
+    @test rhos[8] != rhos[9]
+    ev = evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
+    @test ev.data_residual_holdout === (rhos[8] + rhos[9]) / 2
+    @test ev.data_residual_train === sum(rhos[1:7]) / 7
+    @test ev.data_residual_holdout != sqrt((rhos[8]^2 + rhos[9]^2) / 2)
+    @test ev.data_residual_holdout != rhos[8]
+    @test ev.data_residual_holdout != rhos[9]
+    @test ev.data_residual_holdout != rhos[1]
+    @test ev.data_residual_holdout != (2 * rhos[8] + rhos[9]) / 3
+    @test ev.data_residual_holdout != (rhos[8] + 2 * rhos[9]) / 3
+    train_median = _m2g_median(rhos[1:7])
+    @test ev.data_residual_train != train_median
+    @test ev.data_residual_train != rhos[1]
+    evaled = _m2d_evaled(term; data_residual = rhos[1])
+    result = report_recovery(evaled, (; unidentifiable_edge = true);
+        split = split, holdout = ev)
+    @test result.data_residual === rhos[1]
+    @test result.data_residual != ev.data_residual_train
+    @test result.data_residual != ev.data_residual_holdout
+end
+
+@testset "M2-G1 ATTACK 10 holdout 0.30 is not a Q7 gate" begin
+    model, params, term = _m2c_probe_models()
+    set = _m2d_synthetic_set()
+    legacy = _m2d_legacy_ic1_residual(model, params, term, set)
+    set.experiments[8].observations .+= 8.0
+    set.experiments[9].observations .+= 9.0
+    split = unique_claim_experiment_split(set)
+    @test legacy <= 0.30
+    @test _m2d_legacy_ic1_residual(model, params, term, set) === legacy
+    rho8 = _m2d_experiment_residual(model, params, term, set.experiments[8])
+    rho9 = _m2d_experiment_residual(model, params, term, set.experiments[9])
+    evaled = _m2d_evaled(term; data_residual = legacy)
+    ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
+    @test ev.data_residual_holdout === (rho8 + rho9) / 2
+    @test ev.data_residual_holdout > 0.30
+    @test ev.data_residual_holdout > RECOVERY_THRESHOLDS.data_residual
+    result = report_recovery(evaled, (; unidentifiable_edge = true);
+        split = split, holdout = ev)
+    @test result.holdout !== nothing
+    @test result.holdout === ev
+    @test result.data_residual === legacy
+    @test result.data_residual <= 0.30
+    @test result.success == evaled.success
+    @test unique_claim_kpis_hold(result.locked_kpis) === true
+    pipeline = _m2g_pipeline_names()
+    bodies = _m2g_reachable(
+        "evaluate_holdout", _m2g_production_index();
+        stop = _M2G1_HOLDOUT_STOP,
+        allow = name -> _m2g_allow_m2_helper(name, pipeline))
+    report_body = _m2g_function_body_from_src(
+        _m2g_normalize(read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
+        "report_recovery")
+    for body in (values(bodies)..., report_body)
+        @test !occursin("RECOVERY_THRESHOLDS", body)
+        @test !occursin("> 0.30", body)
+        @test !occursin(">0.30", body)
+    end
+end
+
+@testset "M2-G1 ATTACK 11 Case B does not suppress holdout" begin
+    model, params, term, _, split, ident = _m2e_holdout_fixture()
+    evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
+    @test evaled_b.discovery !== nothing
+    @test evaled_b.discovery.success == false
+    @test evaled_b.success == false
+    result, ev = _m2f_production_report(
+        evaled_b, ident, split, model, params, term, _m2d_unit_truth)
+    @test ev !== nothing
+    @test result.holdout !== nothing
+    @test result.holdout === ev
+    @test isfinite(ev.data_residual_train)
+    @test isfinite(ev.data_residual_holdout)
+    @test isfinite(ev.d_rmse_holdout)
+    @test isfinite(ev.d_rmse_holdout_domain)
+    evaled_c = _m2d_evaled(term; success = true, discovery = :ok)
+    ev_c = evaluate_holdout(split, evaled_c, model, params, term, _m2d_unit_truth)
+    @test ev.data_residual_train === ev_c.data_residual_train
+    @test ev.data_residual_holdout === ev_c.data_residual_holdout
+    @test ev.d_rmse_holdout === ev_c.d_rmse_holdout
+    @test ev.d_rmse_holdout_domain === ev_c.d_rmse_holdout_domain
+    index = _m2g_production_index()
+    pipeline = _m2g_pipeline_names()
+    hold_bodies = _m2g_reachable(
+        "evaluate_holdout", index; stop = _M2G1_HOLDOUT_STOP,
+        allow = name -> _m2g_allow_m2_helper(name, pipeline))
+    for (_, body) in hold_bodies
+        @test !occursin("evaled.success", body)
+        @test !occursin("discovery.success", body)
+    end
+    for section in (:ude_discovery, :mm_unknown)
+        window = _m2e_decision_window(recovery_suite_section_body(section))
+        @test occursin("if evaled.discovery === nothing", window)
+        for token in _M2F_FORBIDDEN_DECISION
+            @test !occursin(token, window)
+        end
+    end
+end
+
+@testset "M2-G1 ATTACK 12 evaluate_holdout does not discover" begin
+    index = _m2g_production_index()
+    pipeline = _m2g_pipeline_names()
+    bodies = _m2g_reachable(
+        "evaluate_holdout", index; stop = _M2G1_HOLDOUT_STOP,
+        allow = name -> _m2g_allow_m2_helper(name, pipeline))
+    @test haskey(bodies, "evaluate_holdout")
+    @test haskey(bodies, "_mean_hybrid_residual")
+    for (_, body) in bodies
+        for token in _M2G1_DISCOVERY
+            @test !occursin(token, body)
+        end
+        @test !occursin("normalize_destruction_samples(", body)
+        @test !occursin("equation_to_function(", body)
+        @test !occursin("sample_learned_function(", body)
+        @test !occursin("_peek_holdout", body)
+    end
+    model, params, term = _m2c_probe_models()
+    set = _m2d_synthetic_set()
+    split = unique_claim_experiment_split(set)
+    ev = with_discover_unknown_rate_observer(
+            (_...) -> error("discover_unknown_rate entered")) do
+        with_discover_equations_observer(
+                (_...) -> error("discover_equations entered")) do
+            evaluate_holdout(
+                split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
+        end
+    end
+    @test ev isa HoldoutEvidence
+    pipe = _m2g_normalize(read(
+        joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
+    @test count("discover_equations(", pipe) == 0
+    @test count("discover_unknown_rate(", pipe) == 0
+    @test count("discover_unknown_destruction(", pipe) == 0
+end
+
+@testset "M2-G1 ATTACK 13 evaluate_holdout is called once per unique-claim section" begin
+    ude = recovery_suite_section_body(:ude_discovery)
+    mm = recovery_suite_section_body(:mm_unknown)
+    rec = _m2g_normalize(read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String))
+    pipe = _m2g_normalize(read(
+        joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
+    @test count("evaluate_holdout(", ude) == 1
+    @test count("evaluate_holdout(", mm) == 1
+    @test count("evaluate_holdout(", rec) == 2
+    @test count("evaluate_holdout(", pipe) == 1
+    index = _m2g_production_index()
+    for (entry, stop) in (
+            ("_evaluate_unknown_rate_recovery", Set(["evaluate_recovery",
+                "discover_unknown_rate", "sample_unknown_destruction_grid",
+                "normalize_destruction_samples", "evaluate_holdout"])),
+            ("report_recovery", Set(["locked_ude_kpis", "build_protocol_result",
+                "evaluate_holdout", "MechanismRecoveryResult"])))
+        bodies = _m2g_reachable(entry, index; stop = stop)
+        @test haskey(bodies, entry)
+        for (name, body) in bodies
+            if name == entry
+                @test !occursin("evaluate_holdout(", body)
+            else
+                @test count("evaluate_holdout(", body) == 0
+            end
+        end
+    end
+    pipeline = _m2g_pipeline_names()
+    hold_bodies = _m2g_reachable(
+        "evaluate_holdout", index; stop = _M2G1_HOLDOUT_STOP,
+        allow = name -> _m2g_allow_m2_helper(name, pipeline))
+    for (name, body) in hold_bodies
+        n = count("evaluate_holdout(", body)
+        @test name == "evaluate_holdout" ? n == 1 : n == 0
+    end
+end
+
+@testset "M2-G1 ATTACK 14 MechanismRecoveryResult has only approved M2 fields" begin
+    fields = fieldnames(MechanismRecoveryResult)
+    @test fields == (_M2E_M1_FIELDS..., :split, :holdout)
+    for name in _M2E_FORBIDDEN_RESULT_FIELDS
+        @test name ∉ fields
+    end
+    @test fieldnames(HoldoutEvidence) == (
+        :data_residual_train, :data_residual_holdout,
+        :d_rmse_holdout, :d_rmse_holdout_domain)
+    @test :functional_identifiability ∉ fieldnames(HoldoutEvidence)
+    @test :occupancy ∉ fieldnames(HoldoutEvidence)
+    @test :uncertainty ∉ fieldnames(HoldoutEvidence)
+    @test :hypothesis ∉ fieldnames(HoldoutEvidence)
+    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test !isdefined(BioDynaX, :DestructionSamples)
+    @test !hasfield(ExperimentSet, :train)
+    @test !hasfield(ExperimentSet, :holdout)
+end
+
+@testset "M2-G1 ATTACK 15 public API and thresholds stay locked" begin
+    @test LOCKED_PUBLIC_EXPORTS === _M2G1_LOCKED_PUBLIC_EXPORTS
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+    @test RECOVERY_THRESHOLDS == recovery_thresholds_lock()
+    @test RECOVERY_THRESHOLDS.data_residual == 0.30
+    @test !haskey(RECOVERY_THRESHOLDS, :data_residual_holdout)
+    @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
+    for name in (_M2A_INTERNAL_NAMES..., _M2F_INTERNAL_NAMES...,
+                 :_train_unknown_edge, :_regulator_grid,
+                 :_unique_claim_rate_recovery)
+        @test !(name in names(BioDynaX))
+        @test !(name in LOCKED_PUBLIC_EXPORTS)
+    end
+    @test !(:ExperimentSplit in names(BioDynaX))
+    @test !(:HoldoutEvidence in names(BioDynaX))
+    @test !(:evaluate_holdout in names(BioDynaX))
+end
+
+@testset "M2-G1 ATTACK 16/17 experiment identity and original set integrity" begin
+    model, params, term = _m2c_probe_models()
+    set = _m2a_nine_ic_set(53)
+    for i in 1:9
+        set.experiments[i].metadata[:probe] = i
+    end
+    snap = _m2g_snapshot(set)
+    split = unique_claim_experiment_split(set)
+    @test split.train_indices === (1, 2, 3, 4, 5, 6, 7)
+    @test split.holdout_indices === (8, 9)
+    for i in 1:7
+        @test split.train[i] === set.experiments[i] === snap.ids[i]
+        @test split.train[i].observations === snap.obs[i]
+        @test split.train[i].times === snap.times[i]
+        @test split.train[i].u0 === snap.u0[i]
+    end
+    @test split.holdout[1] === set.experiments[8] === snap.ids[8]
+    @test split.holdout[2] === set.experiments[9] === snap.ids[9]
+    @test split.holdout[1].observations === snap.obs[8]
+    @test split.holdout[2].observations === snap.obs[9]
+    ev = evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
+    @test ev isa HoldoutEvidence
+    @test set.experiments === snap.vec
+    @test length(set) == 9
+    @test all(set.experiments[i] === snap.ids[i] for i in 1:9)
+    @test [set.experiments[i].metadata[:probe] for i in 1:9] == 1:9
+    @test [split.holdout[i].metadata[:probe] for i in 1:2] == [8, 9]
+    @test split.holdout[1] === set.experiments[8]
+    @test split.holdout[2] === set.experiments[9]
+    @test set.state_names == snap.names
+    @test set.units == snap.units
+    @test set.metadata == snap.meta
+    @test experiment_fingerprint(set) == snap.fp
+    for i in 1:9
+        @test set.experiments[i].observations === snap.obs[i]
+        @test set.experiments[i].times === snap.times[i]
+        @test set.experiments[i].u0 === snap.u0[i]
+        @test set.experiments[i].mask === snap.mask[i]
+        @test set.experiments[i].name === snap.exp_names[i]
+        @test set.experiments[i].metadata == snap.exp_meta[i]
+    end
 end
