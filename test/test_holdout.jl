@@ -10,7 +10,11 @@ using BioDynaX: ExperimentSplit,
     RECOVERY_THRESHOLDS,
     experiment_fingerprint,
     public_export_list_holds,
-    build_hill_recovery_network
+    build_hill_recovery_network,
+    with_generate_recovery_experiments_observer,
+    with_unique_claim_experiment_split_observer,
+    with_fit_unknown_destruction_observer,
+    _train_unknown_edge
 
 const _M2A_FORBIDDEN_MUTATORS = (
     "splice!", "deleteat!", "pop!", "push!", "insert!",
@@ -27,6 +31,33 @@ const _M2A_INTERNAL_NAMES = (
     :_unique_claim_external_regulator_band,
     :_finite_rate_rel_rmse,
     :_mean_hybrid_residual)
+
+const _M2B_INTERNAL_NAMES = (
+    :with_generate_recovery_experiments_observer,
+    :with_unique_claim_experiment_split_observer,
+    :with_fit_unknown_destruction_observer,
+    :_note_generate_recovery_experiments,
+    :_note_unique_claim_experiment_split,
+    :_note_fit_unknown_destruction,
+    :GENERATE_RECOVERY_EXPERIMENTS_OBSERVER,
+    :UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER,
+    :FIT_UNKNOWN_DESTRUCTION_OBSERVER)
+
+const _M2B_APPROVED_EDGE_HELPERS = (
+    "_note_train_unknown_edge",)
+
+const _M2B_SECOND_TRAINER_TOKENS = (
+    "train_ude(",
+    "train_experiments(",
+    "train_experiments_with_warmup(",
+    "_polish_full(",
+    "_hidden_full_fit(",
+    "warmup_first_experiment(")
+
+const _M2B_GENERATE_TOKENS = (
+    "generate_recovery_experiments(",
+    "generate_experiment_set(",
+    "generate_data(")
 
 function _m2a_source_function_body(path, name)
     src = read(path, String)
@@ -80,6 +111,81 @@ function _m2a_nine_ic_set(seed)
     return generate_recovery_experiments(
         MersenneTwister(seed), truth_net, truth;
         tspan = (0.0, 1.0), n_points = 5, noise_σ = 0.0)
+end
+
+function _m2b_fit_unknown_destruction_body()
+    body = _m2a_source_function_body(
+        joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"),
+        "fit_unknown_destruction")
+    return body === nothing ? "" : body
+end
+
+function _m2b_reachable_unknown_edge_helpers()
+    queue = ["_train_unknown_edge"]
+    seen = Set{String}()
+    bodies = Dict{String,String}()
+    approved = Set(_M2B_APPROVED_EDGE_HELPERS)
+    while !isempty(queue)
+        name = popfirst!(queue)
+        name in seen && continue
+        push!(seen, name)
+        body = _m2a_lookup_local_function(name)
+        body === nothing && continue
+        bodies[name] = body
+        for match in eachmatch(r"\b([A-Za-z_][A-Za-z0-9_!]*)\(", body)
+            callee = String(match.captures[1])
+            startswith(callee, "_") || continue
+            callee in approved && continue
+            callee in seen && continue
+            push!(queue, callee)
+        end
+    end
+    delete!(bodies, "_train_unknown_edge")
+    return bodies
+end
+
+function _m2b_dummy_training_result(set)
+    return TrainingResult(
+        Float64[], Float64[], 0.0, 0.0,
+        RunMetadata(seed = 0),
+        (; experiment_count = length(set)),
+        true, BioDynaX.Success)
+end
+
+function _m2b_mark_holdout!(set)
+    for i in 8:9
+        set.experiments[i].metadata[:m2b_holdout_sentinel] = i
+    end
+    return set
+end
+
+function _m2b_probe_train_unknown_edge(; seed = 17, mark_holdout::Bool = false)
+    generated = Any[]
+    splits = Any[]
+    fit_sets = Any[]
+    truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
+    rng = MersenneTwister(seed)
+    ude_model, ude_p0 = build_ude_model(rng, ude_net)
+    result = with_generate_recovery_experiments_observer(set -> begin
+            push!(generated, set)
+            mark_holdout && _m2b_mark_holdout!(set)
+            nothing
+        end) do
+        with_unique_claim_experiment_split_observer(split -> push!(splits, split)) do
+            with_fit_unknown_destruction_observer(set -> begin
+                    push!(fit_sets, set)
+                    _m2b_dummy_training_result(set)
+                end) do
+                _train_unknown_edge(
+                    rng, ude_model, ude_p0, truth_net, truth;
+                    adam = 0, bfgs = 0, noise_σ = 0.0,
+                    tspan = (0.0, 1.0), n_points = 5)
+            end
+        end
+    end
+    return (; generated, splits, fit_sets, result)
 end
 
 @testset "L-FIELDS ExperimentSplit surface is exactly 7/2" begin
@@ -251,7 +357,7 @@ end
         read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
 end
 
-@testset "M2-A does not add M2-B/C/D behavior or change the live M1 path" begin
+@testset "M2-A/B do not add M2-C/D holdout evaluation or change M1 locks" begin
     @test !isdefined(BioDynaX, :HoldoutEvidence)
     @test !isdefined(BioDynaX, :evaluate_holdout)
     @test !isdefined(BioDynaX, :_holdout_observed_regulators)
@@ -273,8 +379,6 @@ end
     @test occursin("fit_unknown_destruction(", train_body)
     @test occursin("return fit, set", train_body)
     @test count("generate_recovery_experiments(", train_body) == 1
-    @test !occursin("unique_claim_experiment_split", train_body)
-    @test !occursin("split.train", train_body)
     @test !occursin("evaluate_holdout(", train_body)
     @test !occursin("generate_experiment_set(", train_body)
     @test !occursin("generate_data(", train_body)
@@ -286,5 +390,188 @@ end
         @test !occursin("unique_claim_experiment_split(", body)
         @test !occursin("evaluate_holdout(", body)
         @test !occursin("HoldoutEvidence", body)
+    end
+end
+
+@testset "L-API M2-B seams stay unexported" begin
+    for name in _M2B_INTERNAL_NAMES
+        @test isdefined(BioDynaX, name)
+        @test !(name in names(BioDynaX))
+        @test !(name in LOCKED_PUBLIC_EXPORTS)
+    end
+    @test !(:_train_unknown_edge in names(BioDynaX))
+    @test public_export_list_holds()
+end
+
+@testset "L-FIT-A unique-claim path has one fit_unknown_destruction(split.train)" begin
+    body = _m2a_train_unknown_edge_body()
+    @test count("fit_unknown_destruction(", body) == 1
+    @test occursin("unique_claim_experiment_split(set)", body)
+    @test count("unique_claim_experiment_split(", body) == 1
+    @test occursin(r"fit_unknown_destruction\(\s*ude_model,\s*ude_p0,\s*split\.train;",
+        body)
+    @test !occursin(r"fit_unknown_destruction\(\s*ude_model,\s*ude_p0,\s*set;", body)
+    @test occursin("return fit, set", body)
+    gen_at = findfirst("generate_recovery_experiments(", body)
+    split_at = findfirst("unique_claim_experiment_split(", body)
+    fit_at = findfirst("fit_unknown_destruction(", body)
+    return_at = findfirst("return fit, set", body)
+    @test gen_at !== nothing && split_at !== nothing && fit_at !== nothing
+    @test return_at !== nothing
+    @test first(gen_at) < first(split_at) < first(fit_at) < first(return_at)
+    after_fit = body[last(fit_at):end]
+    for token in _M2B_SECOND_TRAINER_TOKENS
+        @test !occursin(token, body)
+        @test !occursin(token, after_fit)
+    end
+    @test !occursin("fit_unknown_destruction(", after_fit)
+    helpers = _m2b_reachable_unknown_edge_helpers()
+    for (name, helper) in helpers
+        for token in _M2B_SECOND_TRAINER_TOKENS
+            @test !occursin(token, helper)
+        end
+        @test !occursin("fit_unknown_destruction(", helper)
+        for token in _M2B_GENERATE_TOKENS
+            @test !occursin(token, helper)
+        end
+    end
+    fit_body = _m2b_fit_unknown_destruction_body()
+    @test count("train_experiments_with_warmup(", fit_body) == 1
+    @test occursin(r"train_experiments_with_warmup\(\s*ude_init,\s*set,\s*ude_model;",
+        fit_body)
+    @test !occursin("unique_claim_experiment_split(", fit_body)
+    @test !occursin("generate_recovery_experiments(", fit_body)
+    @test !occursin("generate_experiment_set(", fit_body)
+    @test !occursin("generate_data(", fit_body)
+    for section in (:ude_discovery, :mm_unknown)
+        section_body = recovery_suite_section_body(section)
+        train_at = findfirst("_train_unknown_edge", section_body)
+        @test train_at !== nothing
+        after = section_body[last(train_at):end]
+        for token in ("train_ude(", "train_experiments(",
+                      "train_experiments_with_warmup",
+                      "fit_unknown_destruction(", "_polish_full(")
+            @test !occursin(token, section_body)
+            @test !occursin(token, after)
+        end
+    end
+end
+
+@testset "L-FIT-A / L-FIT-B trainer receives exactly experiments 1:7" begin
+    probe = _m2b_probe_train_unknown_edge()
+    @test length(probe.generated) == 1
+    @test length(probe.splits) == 1
+    @test length(probe.fit_sets) == 1
+    set = probe.result[2]
+    split = probe.splits[1]
+    fit_set = probe.fit_sets[1]
+    @test probe.result[1] isa TrainingResult
+    @test set isa ExperimentSet
+    @test set === probe.generated[1]
+    @test length(set) == 9
+    @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+    @test split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    @test 1 ∈ split.train_indices
+    @test fit_set === split.train
+    @test length(fit_set) == 7
+    @test fit_set !== set
+    ids = [set.experiments[i] for i in 1:9]
+    @test length(unique(objectid.(ids))) == 9
+    for i in 1:7
+        @test fit_set[i] === set.experiments[i] === ids[i] === split.train[i]
+    end
+    @test first(fit_set) === set.experiments[1]
+    @test !(fit_set[1] === set.experiments[8])
+    @test !(fit_set[1] === set.experiments[9])
+    fit_ids = objectid.([fit_set[i] for i in 1:7])
+    @test !(objectid(set.experiments[8]) in fit_ids)
+    @test !(objectid(set.experiments[9]) in fit_ids)
+    @test all(set.experiments[i] === ids[i] for i in 1:9)
+    @test set.experiments === probe.generated[1].experiments
+end
+
+@testset "L-FIT-B holdout sentinel cannot enter the trainer input" begin
+    probe = _m2b_probe_train_unknown_edge(; mark_holdout = true)
+    set = probe.result[2]
+    split = probe.splits[1]
+    fit_set = probe.fit_sets[1]
+    ids_train = [set.experiments[i] for i in 1:7]
+    @test fit_set === split.train
+    @test length(fit_set) == 7
+    @test all(fit_set[i] === ids_train[i] === set.experiments[i] for i in 1:7)
+    @test set.experiments[8].metadata[:m2b_holdout_sentinel] == 8
+    @test set.experiments[9].metadata[:m2b_holdout_sentinel] == 9
+    @test !any(haskey(fit_set[i].metadata, :m2b_holdout_sentinel) for i in 1:7)
+    @test !any(haskey(split.train[i].metadata, :m2b_holdout_sentinel) for i in 1:7)
+    @test haskey(split.holdout[1].metadata, :m2b_holdout_sentinel)
+    @test haskey(split.holdout[2].metadata, :m2b_holdout_sentinel)
+    @test !(fit_set[7] === set.experiments[8])
+    @test objectid(set.experiments[8]) ∉ objectid.([fit_set[i] for i in 1:7])
+    @test objectid(set.experiments[9]) ∉ objectid.([fit_set[i] for i in 1:7])
+end
+
+@testset "L-RNG _train_unknown_edge generates the 9-IC set once" begin
+    body = _m2a_train_unknown_edge_body()
+    @test count("generate_recovery_experiments(", body) == 1
+    @test !occursin("generate_experiment_set(", body)
+    @test !occursin("generate_data(", body)
+    @test occursin("return fit, set", body)
+    @test !occursin("return fit, generate_recovery_experiments", body)
+    @test !occursin("return fit, generate_experiment_set", body)
+    @test !occursin("return fit, generate_data", body)
+    @test !occursin("evaluate_holdout", body)
+    @test !occursin("HoldoutEvidence", body)
+    @test !occursin("d_rmse_holdout", body)
+    @test !occursin("data_residual_holdout", body)
+    for mutator in _M2A_FORBIDDEN_MUTATORS
+        @test !occursin(mutator * "(", body)
+    end
+    @test !occursin(r"\.experiments\s*\[[^\]]+\]\s*=", body)
+    helpers = _m2b_reachable_unknown_edge_helpers()
+    for (_, helper) in helpers
+        for token in _M2B_GENERATE_TOKENS
+            @test !occursin(token, helper)
+        end
+    end
+    for section in (:ude_discovery, :mm_unknown)
+        section_body = recovery_suite_section_body(section)
+        @test !occursin("generate_recovery_experiments(", section_body)
+        @test !occursin("generate_experiment_set(", section_body)
+        @test !occursin("generate_data(", section_body)
+    end
+    probe = _m2b_probe_train_unknown_edge()
+    @test length(probe.generated) == 1
+    ids_gen = [probe.generated[1].experiments[i] for i in 1:9]
+    @test length(unique(objectid.(ids_gen))) == 9
+    fit, set = probe.result
+    @test fit isa TrainingResult
+    @test set === probe.generated[1]
+    @test all(set.experiments[i] === ids_gen[i] for i in 1:9)
+    @test all(probe.fit_sets[1][i] === ids_gen[i] for i in 1:7)
+    @test probe.splits[1].train[1] === ids_gen[1]
+    @test probe.splits[1].holdout[1] === ids_gen[8]
+    @test probe.splits[1].holdout[2] === ids_gen[9]
+end
+
+@testset "L-SET-INTACT M2-B leaves the original nine Experiment objects" begin
+    probe = _m2b_probe_train_unknown_edge()
+    set = probe.result[2]
+    vec_before = probe.generated[1].experiments
+    ids = [probe.generated[1].experiments[i] for i in 1:9]
+    @test set.experiments === vec_before
+    @test length(set.experiments) == 9
+    @test all(set.experiments[i] === ids[i] for i in 1:9)
+    @test !hasfield(ExperimentSet, :train)
+    @test !hasfield(ExperimentSet, :holdout)
+    @test !haskey(set.metadata, :train)
+    @test !haskey(set.metadata, :holdout)
+    split = probe.splits[1]
+    for i in 1:7
+        @test split.train[i] === set.experiments[i]
+        @test split.train[i].observations === set.experiments[i].observations
+    end
+    for i in 1:2
+        @test split.holdout[i] === set.experiments[7 + i]
+        @test split.holdout[i].observations === set.experiments[7 + i].observations
     end
 end

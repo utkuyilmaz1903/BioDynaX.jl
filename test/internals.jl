@@ -889,4 +889,8 @@ using BioDynaX:
     ExperimentSplit,
     unique_claim_experiment_split,
     UNIQUE_CLAIM_TRAIN_INDICES,
-    UNIQUE_CLAIM_HOLDOUT_INDICES
+    UNIQUE_CLAIM_HOLDOUT_INDICES,
+    with_generate_recovery_experiments_observer,
+    with_unique_claim_experiment_split_observer,
+    with_fit_unknown_destruction_observer,
+    _train_unknown_edge

@@ -614,8 +614,9 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
     set = generate_recovery_experiments(
         rng, truth_net, truth_params;
         tspan = tspan, n_points = n_points, noise_σ = noise_σ)
+    split = unique_claim_experiment_split(set)
     fit = fit_unknown_destruction(
-        ude_model, ude_p0, set;
+        ude_model, ude_p0, split.train;
         adam = adam, bfgs = bfgs,
         frozen_phys = frozen_phys, phys_init = phys_init)
     return fit, set

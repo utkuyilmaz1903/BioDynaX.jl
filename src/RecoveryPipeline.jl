@@ -4,9 +4,10 @@
 # This file does not change RECOVERY_THRESHOLDS, public exports, or
 # run_recovery_suite control flow beyond named generate / dummy-RNG /
 # fit / sample / evaluate / report helpers. ExperimentSplit is the
-# locked 7/2 view of an already-generated set; it is not wired into
-# the live unique-claim path. Held-out evaluation, functional
-# identifiability, and DestructionSamples are out of scope.
+# locked 7/2 view of an already-generated set. `_train_unknown_edge`
+# fits on `split.train` and still returns the original 9-IC set.
+# Held-out evaluation, functional identifiability, and
+# DestructionSamples are out of scope.
 ###############################################################################
 
 """
@@ -108,6 +109,62 @@ function Base.keys(result::MechanismRecoveryResult)
     return propertynames(result)
 end
 
+# Test seams for the unique-claim generate → split → fit path. Production
+# training is unchanged unless a test observer is installed.
+const GENERATE_RECOVERY_EXPERIMENTS_OBSERVER = Ref{Any}(nothing)
+const UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER = Ref{Any}(nothing)
+const FIT_UNKNOWN_DESTRUCTION_OBSERVER = Ref{Any}(nothing)
+
+function _note_generate_recovery_experiments(set)
+    observer = GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[]
+    observer === nothing && return nothing
+    observer(set)
+    return nothing
+end
+
+function _note_unique_claim_experiment_split(split)
+    observer = UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[]
+    observer === nothing && return nothing
+    observer(split)
+    return nothing
+end
+
+function _note_fit_unknown_destruction(set)
+    observer = FIT_UNKNOWN_DESTRUCTION_OBSERVER[]
+    observer === nothing && return nothing
+    return observer(set)
+end
+
+function with_generate_recovery_experiments_observer(f::Function, observer)
+    previous = GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[]
+    GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[] = previous
+    end
+end
+
+function with_unique_claim_experiment_split_observer(f::Function, observer)
+    previous = UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[]
+    UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[] = previous
+    end
+end
+
+function with_fit_unknown_destruction_observer(f::Function, observer)
+    previous = FIT_UNKNOWN_DESTRUCTION_OBSERVER[]
+    FIT_UNKNOWN_DESTRUCTION_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        FIT_UNKNOWN_DESTRUCTION_OBSERVER[] = previous
+    end
+end
+
 """
     generate_recovery_experiments(rng, truth_net, truth_params; tspan, n_points,
                                  noise_σ, initial_conditions)
@@ -118,10 +175,12 @@ Nine-IC synthetic set used by unique-claim training. This is not
 function generate_recovery_experiments(rng, truth_net, truth_params;
         tspan, n_points, noise_σ,
         initial_conditions = _unknown_edge_ics())
-    return generate_experiment_set(
+    set = generate_experiment_set(
         rng; network = truth_net, initial_conditions = initial_conditions,
         tspan = tspan, n_points = n_points, noise_σ = noise_σ,
         truth_params = truth_params)
+    _note_generate_recovery_experiments(set)
+    return set
 end
 
 """Locked unique-claim train indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
@@ -165,11 +224,13 @@ function unique_claim_experiment_split(set::ExperimentSet)
         set.state_names;
         units = set.units,
         metadata = set.metadata)
-    return ExperimentSplit(
+    split = ExperimentSplit(
         UNIQUE_CLAIM_TRAIN_INDICES,
         UNIQUE_CLAIM_HOLDOUT_INDICES,
         train,
         holdout)
+    _note_unique_claim_experiment_split(split)
+    return split
 end
 
 """
@@ -195,6 +256,8 @@ function fit_unknown_destruction(ude_model, ude_p0, set;
         adam, bfgs,
         frozen_phys::Vector{Symbol} = Symbol[],
         phys_init = nothing)
+    observed = _note_fit_unknown_destruction(set)
+    observed isa TrainingResult && return observed
     names = Tuple(parameter_schema(ude_model).phys_names)
     guess = phys_init === nothing ?
             NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
