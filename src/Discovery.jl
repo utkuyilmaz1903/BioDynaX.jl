@@ -1057,6 +1057,8 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
                             config::DiscoveryConfig = DiscoveryConfig(),
                             verbose::Bool = true,
                             strict::Bool = false)
+    observed = _note_equation_discovery_entry(X, times, derivatives)
+    observed !== nothing && return observed
     size(X, 2) == length(times) ||
         throw(DimensionMismatch("X columns must match times"))
     dX = derivatives === nothing ?

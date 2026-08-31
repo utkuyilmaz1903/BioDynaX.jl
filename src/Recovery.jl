@@ -452,6 +452,7 @@ end
 function sample_unknown_destruction_grid(model::UDEModel, p, term;
                                          r_range = range(0.05, 2.0; length = 80),
                                          fill_value = 0.3)
+    _note_sample_unknown_destruction_grid(r_range)
     nstates = model.compiled.nstates
     r = collect(r_range)
     X = fill(float(fill_value), nstates, length(r))
@@ -525,6 +526,8 @@ function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
                                network = nothing,
                                config::DiscoveryConfig = rate_discovery_config(),
                                verbose::Bool = false, strict::Bool = false)
+    observed = _note_rate_discovery_entry(R, times, D, config)
+    observed !== nothing && return observed
     net = network === nothing ? _rate_network_from_samples(R) : network
     nreg = size(R, 1)
     D_full = if size(D, 1) == nreg

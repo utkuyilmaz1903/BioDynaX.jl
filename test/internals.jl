@@ -894,6 +894,17 @@ using BioDynaX:
     with_unique_claim_experiment_split_observer,
     with_fit_unknown_destruction_observer,
     with_evaluate_unknown_rate_recovery_range_observer,
+    with_sample_unknown_destruction_grid_observer,
+    with_discover_unknown_rate_observer,
+    with_discover_equations_observer,
+    HoldoutEvidence,
+    evaluate_holdout,
+    _holdout_observed_regulators,
+    _unique_claim_external_regulator_band,
+    _finite_rate_rel_rmse,
+    _mean_hybrid_residual,
     _train_unknown_edge,
     _regulator_grid,
-    _unique_claim_rate_recovery
+    _unique_claim_rate_recovery,
+    report_recovery,
+    sample_unknown_destruction_grid
