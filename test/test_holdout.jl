@@ -14,7 +14,13 @@ using BioDynaX: ExperimentSplit,
     with_generate_recovery_experiments_observer,
     with_unique_claim_experiment_split_observer,
     with_fit_unknown_destruction_observer,
-    _train_unknown_edge
+    with_evaluate_unknown_rate_recovery_range_observer,
+    _train_unknown_edge,
+    _regulator_grid,
+    _unique_claim_rate_recovery,
+    _evaluate_unknown_rate_recovery,
+    only_unknown_destruction,
+    DiscoveryFailed
 
 const _M2A_FORBIDDEN_MUTATORS = (
     "splice!", "deleteat!", "pop!", "push!", "insert!",
@@ -42,6 +48,24 @@ const _M2B_INTERNAL_NAMES = (
     :GENERATE_RECOVERY_EXPERIMENTS_OBSERVER,
     :UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER,
     :FIT_UNKNOWN_DESTRUCTION_OBSERVER)
+
+const _M2C_INTERNAL_NAMES = (
+    :with_evaluate_unknown_rate_recovery_range_observer,
+    :_note_evaluate_unknown_rate_recovery_range,
+    :EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER,
+    :_unique_claim_rate_recovery)
+
+const _M2C_DOMAIN_TOKEN = "r_range = _regulator_grid(split.train, term)"
+
+const _M2C_WRONG_DOMAIN_TOKENS = (
+    "_regulator_grid(ude_set, term)",
+    "_regulator_grid(set, term)",
+    "_regulator_grid(split.holdout, term)",
+    "_regulator_grid(holdout, term)")
+
+const _M2C_HOLDOUT_SENTINEL = 50.0
+const _M2C_TRAIN_SENTINEL_LO = 0.0
+const _M2C_TRAIN_SENTINEL_HI = 8.0
 
 const _M2B_APPROVED_EDGE_HELPERS = (
     "_note_train_unknown_edge",)
@@ -186,6 +210,104 @@ function _m2b_probe_train_unknown_edge(; seed = 17, mark_holdout::Bool = false)
         end
     end
     return (; generated, splits, fit_sets, result)
+end
+
+function _m2c_composer_body()
+    body = _m2a_source_function_body(
+        joinpath(@__DIR__, "..", "src", "Recovery.jl"),
+        "_evaluate_unknown_rate_recovery")
+    return body === nothing ? "" : body
+end
+
+function _m2c_rate_recovery_body()
+    body = _m2a_source_function_body(
+        joinpath(@__DIR__, "..", "src", "Recovery.jl"),
+        "_unique_claim_rate_recovery")
+    return body === nothing ? "" : body
+end
+
+function _m2c_composer_call(body)
+    start = findfirst("_evaluate_unknown_rate_recovery(", body)
+    start === nothing && return ""
+    stop = findfirst("report_production_destruction_tradeoff", body)
+    stop === nothing && return body[first(start):end]
+    return body[first(start):(first(stop) - 1)]
+end
+
+function _m2c_probe_models()
+    rng = MersenneTwister(1)
+    net = build_hill_recovery_network(; known = false, hill_order = 2)
+    model, params = build_ude_model(rng, net)
+    term = only_unknown_destruction(model)
+    return model, params, term
+end
+
+function _m2c_dummy_evaled(term)
+    return (;
+        nn_correlation = 0.0,
+        nn_rate_rmse = Inf,
+        success = false,
+        retcode = DiscoveryFailed,
+        message = "m2c domain probe",
+        support_f1 = 0.0,
+        support_recall = 0.0,
+        discovered_rate_rmse = Inf,
+        data_residual = Inf,
+        denominator_violations = typemax(Int),
+        normalized_support_f1 = 0.0,
+        normalized_support_recall = 0.0,
+        extras = String[],
+        discovery = nothing,
+        term = term)
+end
+
+function _m2c_apply_holdout_sentinel!(set, term)
+    for i in 8:9
+        set.experiments[i].observations[term.regulator, :] .= _M2C_HOLDOUT_SENTINEL
+    end
+    return set
+end
+
+function _m2c_apply_train_sentinel!(set, term)
+    set.experiments[1].observations[term.regulator, :] .= _M2C_TRAIN_SENTINEL_LO
+    set.experiments[7].observations[term.regulator, :] .= _M2C_TRAIN_SENTINEL_HI
+    return set
+end
+
+function _m2c_consumed_discovery_range(set, term, model, params)
+    captured = Ref{Any}()
+    with_evaluate_unknown_rate_recovery_range_observer(r_range -> begin
+            captured[] = collect(r_range)
+            _m2c_dummy_evaled(term)
+        end) do
+        _unique_claim_rate_recovery(
+            model, params, term, _ -> 0.0, set;
+            order = 2, family = :hill, noise_σ = 0.0,
+            data_residual_fn = _ -> 0.0)
+    end
+    return captured[]
+end
+
+function _m2c_assert_domain_source(body)
+    @test count(r"r_range\s*=", body) == 1
+    @test occursin(_M2C_DOMAIN_TOKEN, body)
+    assign_at = findfirst(_M2C_DOMAIN_TOKEN, body)
+    @test assign_at !== nothing
+    after = body[(last(assign_at) + 1):end]
+    @test !occursin(r"r_range\s*=", after)
+    @test !occursin("union(", body)
+    for token in _M2C_WRONG_DOMAIN_TOKENS
+        @test !occursin(token, body)
+    end
+    @test !occursin("evaluate_holdout(", body)
+    @test !occursin("HoldoutEvidence", body)
+    @test !occursin("d_rmse_holdout", body)
+    @test !occursin("generate_recovery_experiments(", body)
+    @test !occursin("generate_experiment_set(", body)
+    @test !occursin("generate_data(", body)
+    for mutator in _M2A_FORBIDDEN_MUTATORS
+        @test !occursin(mutator * "(", body)
+    end
 end
 
 @testset "L-FIELDS ExperimentSplit surface is exactly 7/2" begin
@@ -357,7 +479,7 @@ end
         read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
 end
 
-@testset "M2-A/B do not add M2-C/D holdout evaluation or change M1 locks" begin
+@testset "M2-A/B/C do not add M2-D holdout evaluation or change M1 locks" begin
     @test !isdefined(BioDynaX, :HoldoutEvidence)
     @test !isdefined(BioDynaX, :evaluate_holdout)
     @test !isdefined(BioDynaX, :_holdout_observed_regulators)
@@ -387,7 +509,7 @@ end
         @test occursin("_train_unknown_edge", body)
         @test occursin("_evaluate_unknown_rate_recovery(", body)
         @test occursin("report_recovery(", body)
-        @test !occursin("unique_claim_experiment_split(", body)
+        @test occursin("unique_claim_experiment_split(ude_set)", body)
         @test !occursin("evaluate_holdout(", body)
         @test !occursin("HoldoutEvidence", body)
     end
@@ -573,5 +695,200 @@ end
     for i in 1:2
         @test split.holdout[i] === set.experiments[7 + i]
         @test split.holdout[i].observations === set.experiments[7 + i].observations
+    end
+end
+
+@testset "L-API M2-C domain seam stays unexported" begin
+    for name in _M2C_INTERNAL_NAMES
+        @test isdefined(BioDynaX, name)
+        @test !(name in names(BioDynaX))
+        @test !(name in LOCKED_PUBLIC_EXPORTS)
+    end
+    @test !(:_regulator_grid in names(BioDynaX))
+    @test !(:_evaluate_unknown_rate_recovery in names(BioDynaX))
+    @test public_export_list_holds()
+    @test RECOVERY_THRESHOLDS.data_residual == 0.30
+    @test RECOVERY_THRESHOLDS.nn_correlation == 0.90
+    @test :train_indices ∉ keys(UNIQUE_CLAIM_PROTOCOL)
+    @test :holdout_indices ∉ keys(UNIQUE_CLAIM_PROTOCOL)
+end
+
+@testset "L-DOM-A unique-claim production domain is _regulator_grid(split.train, term)" begin
+    helper = _m2c_rate_recovery_body()
+    _m2c_assert_domain_source(helper)
+    @test occursin("unique_claim_experiment_split(set)", helper)
+    @test occursin("_evaluate_unknown_rate_recovery(", helper)
+    @test occursin(_M2C_DOMAIN_TOKEN, helper)
+    @test count("_evaluate_unknown_rate_recovery(", helper) == 1
+    @test !occursin("holdout =", helper)
+    @test !occursin("split = split", helper)
+    for section in (:ude_discovery, :mm_unknown)
+        body = recovery_suite_section_body(section)
+        _m2c_assert_domain_source(body)
+        @test occursin("split = unique_claim_experiment_split(ude_set)", body)
+        @test count("unique_claim_experiment_split(", body) == 1
+        @test count("_evaluate_unknown_rate_recovery(", body) == 1
+        call = _m2c_composer_call(body)
+        @test occursin(_M2C_DOMAIN_TOKEN, call)
+        @test count(r"r_range\s*=", call) == 1
+        @test !occursin(r"\bholdout\s*=", call)
+        @test !occursin(r"\bsplit\s*=", call)
+        @test !occursin("ExperimentSplit", call)
+        @test !occursin("HoldoutEvidence", call)
+        @test occursin("order =", call)
+        @test occursin("family =", call)
+        @test occursin("noise_σ =", call)
+        @test occursin("data_residual_fn =", call)
+        @test occursin("ref_exp = first(ude_set.experiments)", body)
+        @test !occursin("split.holdout", body)
+        @test !occursin("ude_set.experiments[8]", body)
+        @test !occursin("ude_set.experiments[9]", body)
+        train_at = findfirst("_train_unknown_edge", body)
+        split_at = findfirst("unique_claim_experiment_split(ude_set)", body)
+        eval_at = findfirst("_evaluate_unknown_rate_recovery(", body)
+        @test train_at !== nothing && split_at !== nothing && eval_at !== nothing
+        @test first(train_at) < first(split_at) < first(eval_at)
+    end
+end
+
+@testset "L-DISC-B-1 composer call site has no split/holdout argument" begin
+    composer = _m2c_composer_body()
+    @test occursin("function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate;",
+        composer)
+    @test occursin("r_range = range(0.05, 2.0; length = 80)", composer)
+    @test !occursin("split=", composer)
+    @test !occursin("holdout=", composer)
+    @test !occursin("ExperimentSplit", composer)
+    @test !occursin("HoldoutEvidence", composer)
+    @test !occursin("evaluate_holdout", composer)
+    @test !occursin("split.holdout", composer)
+    @test !occursin("split.train", composer)
+    @test !occursin(".holdout", composer)
+    @test occursin("times = collect(range(0.0, 1.0; length = length(r)))", composer)
+    @test count("discover_unknown_rate(", composer) == 2
+    @test occursin("normalize_destruction_samples", composer)
+    @test occursin("evaluate_recovery(", composer)
+    @test occursin("if !training_ok", composer)
+    @test occursin("sample_unknown_destruction_grid(", composer)
+    note_at = findfirst("_note_evaluate_unknown_rate_recovery_range(r_range)", composer)
+    sample_at = findfirst("sample_unknown_destruction_grid(", composer)
+    @test note_at !== nothing && sample_at !== nothing
+    @test first(note_at) < first(sample_at)
+    for section in (:ude_discovery, :mm_unknown)
+        call = _m2c_composer_call(recovery_suite_section_body(section))
+        @test occursin(_M2C_DOMAIN_TOKEN, call)
+        @test !occursin(r"\bholdout\s*=", call)
+        @test !occursin(r"\bsplit\s*=", call)
+    end
+end
+
+@testset "L-DOM-B holdout sentinel cannot change consumed discovery domain" begin
+    model, params, term = _m2c_probe_models()
+    set = _m2a_nine_ic_set(23)
+    ids = [set.experiments[i] for i in 1:9]
+    obs = [set.experiments[i].observations for i in 1:9]
+    split0 = unique_claim_experiment_split(set)
+    @test split0.train_indices === UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+    @test split0.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    @test length(split0.train) == 7
+    @test length(split0.holdout) == 2
+    r0 = _m2c_consumed_discovery_range(set, term, model, params)
+    @test r0 == collect(_regulator_grid(split0.train, term))
+    @test all(set.experiments[i] === ids[i] for i in 1:9)
+    @test all(set.experiments[i].observations === obs[i] for i in 1:9)
+
+    _m2c_apply_holdout_sentinel!(set, term)
+    split1 = unique_claim_experiment_split(set)
+    r1 = _m2c_consumed_discovery_range(set, term, model, params)
+    @test r1 == r0
+    @test r1 == collect(_regulator_grid(split1.train, term))
+    r_full = collect(_regulator_grid(set, term))
+    @test r_full != collect(_regulator_grid(split1.train, term))
+    @test r_full != r1
+    @test r_full != r0
+    @test all(set.experiments[i] === ids[i] for i in 1:9)
+    @test all(set.experiments[i].observations === obs[i] for i in 1:9)
+    @test !any(==( _M2C_HOLDOUT_SENTINEL),
+        reduce(vcat, (exp.observations[term.regulator, :] for exp in split1.train)))
+    @test all(==( _M2C_HOLDOUT_SENTINEL),
+        reduce(vcat, (exp.observations[term.regulator, :] for exp in split1.holdout)))
+end
+
+@testset "L-DOM-B train sentinel must change consumed discovery domain" begin
+    model, params, term = _m2c_probe_models()
+    baseline = _m2a_nine_ic_set(23)
+    r0 = _m2c_consumed_discovery_range(baseline, term, model, params)
+    set = _m2a_nine_ic_set(23)
+    _m2c_apply_train_sentinel!(set, term)
+    split = unique_claim_experiment_split(set)
+    r2 = _m2c_consumed_discovery_range(set, term, model, params)
+    @test r2 != r0
+    @test r2 == collect(_regulator_grid(split.train, term))
+    holdout_vals = reduce(vcat,
+        (exp.observations[term.regulator, :] for exp in split.holdout))
+    baseline_holdout = unique_claim_experiment_split(baseline)
+    @test holdout_vals == reduce(vcat,
+        (exp.observations[term.regulator, :] for exp in baseline_holdout.holdout))
+end
+
+@testset "L-SET-INTACT M2-C domain path leaves the original nine experiments" begin
+    model, params, term = _m2c_probe_models()
+    set = _m2a_nine_ic_set(29)
+    vec_before = set.experiments
+    ids = [set.experiments[i] for i in 1:9]
+    obs_before = [set.experiments[i].observations for i in 1:9]
+    times_before = [set.experiments[i].times for i in 1:9]
+    meta_before = deepcopy(set.metadata)
+    r0 = _m2c_consumed_discovery_range(set, term, model, params)
+    @test r0 !== nothing
+    @test set.experiments === vec_before
+    @test length(set.experiments) == 9
+    @test all(set.experiments[i] === ids[i] for i in 1:9)
+    @test all(set.experiments[i].observations === obs_before[i] for i in 1:9)
+    @test all(set.experiments[i].times === times_before[i] for i in 1:9)
+    @test set.metadata == meta_before
+    @test !hasfield(ExperimentSet, :train)
+    @test !hasfield(ExperimentSet, :holdout)
+    @test !haskey(set.metadata, :train)
+    @test !haskey(set.metadata, :holdout)
+    split = unique_claim_experiment_split(set)
+    for i in 1:7
+        @test split.train[i] === set.experiments[i]
+        @test split.train[i].observations === set.experiments[i].observations
+    end
+    for i in 1:2
+        @test split.holdout[i] === set.experiments[7 + i]
+        @test split.holdout[i].observations === set.experiments[7 + i].observations
+    end
+end
+
+@testset "L-RNG / L-DISC-B M2-C does not regenerate or evaluate holdout" begin
+    helper = _m2c_rate_recovery_body()
+    @test occursin("return _evaluate_unknown_rate_recovery(", helper) ||
+          occursin("_evaluate_unknown_rate_recovery(", helper)
+    @test !occursin("generate_recovery_experiments(", helper)
+    @test !occursin("generate_experiment_set(", helper)
+    @test !occursin("generate_data(", helper)
+    @test !occursin("evaluate_holdout(", helper)
+    @test !occursin("HoldoutEvidence", helper)
+    @test !occursin("d_rmse_holdout", helper)
+    @test !occursin("data_residual_holdout", helper)
+    @test !occursin("_unique_claim_external_regulator_band", helper)
+    composer = _m2c_composer_body()
+    @test !occursin("evaluate_holdout(", composer)
+    @test !occursin("HoldoutEvidence", composer)
+    @test !occursin("discover_equations(", composer)
+    @test !occursin("discover_unknown_destruction(", composer)
+    train_body = _m2a_train_unknown_edge_body()
+    @test occursin("return fit, set", train_body)
+    @test !occursin("return fit, split", train_body)
+    for section in (:ude_discovery, :mm_unknown)
+        body = recovery_suite_section_body(section)
+        @test !occursin("generate_recovery_experiments(", body)
+        @test !occursin("generate_experiment_set(", body)
+        @test !occursin("generate_data(", body)
+        @test !occursin("evaluate_holdout(", body)
+        @test !occursin("HoldoutEvidence", body)
+        @test !occursin("d_rmse_holdout", body)
     end
 end

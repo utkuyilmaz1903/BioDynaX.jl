@@ -109,11 +109,13 @@ function Base.keys(result::MechanismRecoveryResult)
     return propertynames(result)
 end
 
-# Test seams for the unique-claim generate → split → fit path. Production
-# training is unchanged unless a test observer is installed.
+# Test seams for the unique-claim generate → split → fit → domain path.
+# Production training and discovery are unchanged unless a test observer
+# is installed.
 const GENERATE_RECOVERY_EXPERIMENTS_OBSERVER = Ref{Any}(nothing)
 const UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER = Ref{Any}(nothing)
 const FIT_UNKNOWN_DESTRUCTION_OBSERVER = Ref{Any}(nothing)
+const EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER = Ref{Any}(nothing)
 
 function _note_generate_recovery_experiments(set)
     observer = GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[]
@@ -133,6 +135,12 @@ function _note_fit_unknown_destruction(set)
     observer = FIT_UNKNOWN_DESTRUCTION_OBSERVER[]
     observer === nothing && return nothing
     return observer(set)
+end
+
+function _note_evaluate_unknown_rate_recovery_range(r_range)
+    observer = EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER[]
+    observer === nothing && return nothing
+    return observer(r_range)
 end
 
 function with_generate_recovery_experiments_observer(f::Function, observer)
@@ -162,6 +170,16 @@ function with_fit_unknown_destruction_observer(f::Function, observer)
         return f()
     finally
         FIT_UNKNOWN_DESTRUCTION_OBSERVER[] = previous
+    end
+end
+
+function with_evaluate_unknown_rate_recovery_range_observer(f::Function, observer)
+    previous = EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER[]
+    EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER[] = previous
     end
 end
 

@@ -632,10 +632,31 @@ function _regulator_grid(set::ExperimentSet, term; npoints::Int = 80)
     return range(start, stop; length = npoints)
 end
 
+"""
+    _unique_claim_rate_recovery(ude_model, ude_params, term, truth_rate, set;
+                               order, family, noise_σ, data_residual_fn)
+
+Unique-claim production domain + composer step. The discovery domain is
+exactly `_regulator_grid(split.train, term)`. The composer signature is
+unchanged and does not receive `split` or `holdout`. Not exported.
+"""
+function _unique_claim_rate_recovery(ude_model, ude_params, term, truth_rate, set;
+                                     order, family::Symbol, noise_σ,
+                                     data_residual_fn)
+    split = unique_claim_experiment_split(set)
+    return _evaluate_unknown_rate_recovery(
+        ude_model, ude_params, term, truth_rate;
+        order = order, family = family, noise_σ = noise_σ,
+        r_range = _regulator_grid(split.train, term),
+        data_residual_fn = data_residual_fn)
+end
+
 function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate;
                                          order, family::Symbol, noise_σ,
                                          data_residual_fn,
                                          r_range = range(0.05, 2.0; length = 80))
+    observed = _note_evaluate_unknown_rate_recovery_range(r_range)
+    observed !== nothing && return observed
     R_grid, D_nn, _ = sample_unknown_destruction_grid(
         ude_model, ude_params, term; r_range = r_range)
     r = vec(R_grid)
@@ -1049,11 +1070,12 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
     term = only_unknown_destruction(ude_model)
     ref_exp = first(ude_set.experiments)
+    split = unique_claim_experiment_split(ude_set)
     evaled = _evaluate_unknown_rate_recovery(
         ude_model, ude_fit.params, term,
         r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2);
         order = 2, family = :hill, noise_σ = ude_noise_σ,
-        r_range = _regulator_grid(ude_set, term),
+        r_range = _regulator_grid(split.train, term),
         data_residual_fn = d_hat -> hybrid_data_residual(
             ude_model, ude_fit.params, term, d_hat,
             ref_exp.u0, (first(ref_exp.times), last(ref_exp.times)),
@@ -1080,11 +1102,12 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
     term = only_unknown_destruction(ude_model)
     ref_exp = first(ude_set.experiments)
+    split = unique_claim_experiment_split(ude_set)
     evaled = _evaluate_unknown_rate_recovery(
         ude_model, ude_fit.params, term,
         r -> mm_rate_truth(r; vmax = 1.6, km = 0.45);
         order = 1, family = :mm, noise_σ = ude_noise_σ,
-        r_range = _regulator_grid(ude_set, term),
+        r_range = _regulator_grid(split.train, term),
         data_residual_fn = d_hat -> hybrid_data_residual(
             ude_model, ude_fit.params, term, d_hat,
             ref_exp.u0, (first(ref_exp.times), last(ref_exp.times)),

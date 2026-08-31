@@ -893,4 +893,7 @@ using BioDynaX:
     with_generate_recovery_experiments_observer,
     with_unique_claim_experiment_split_observer,
     with_fit_unknown_destruction_observer,
-    _train_unknown_edge
+    with_evaluate_unknown_rate_recovery_range_observer,
+    _train_unknown_edge,
+    _regulator_grid,
+    _unique_claim_rate_recovery
