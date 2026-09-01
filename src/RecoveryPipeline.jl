@@ -166,13 +166,15 @@ end
 function _note_rate_discovery_entry(R, times, D, config)
     observer = DISCOVER_UNKNOWN_RATE_OBSERVER[]
     observer === nothing && return nothing
-    return observer(R, times, D, config)
+    # `Base.invokelatest` is a concrete Base call. JET cannot specialize
+    # through the dynamically installed test observer (`Ref{Any}`).
+    return Base.invokelatest(observer, R, times, D, config)
 end
 
 function _note_equation_discovery_entry(X, times, derivatives)
     observer = DISCOVER_EQUATIONS_OBSERVER[]
     observer === nothing && return nothing
-    return observer(X, times, derivatives)
+    return Base.invokelatest(observer, X, times, derivatives)
 end
 
 function _note_holdout_eval(split, evaled, model, params, term, truth_rate)
