@@ -1,11 +1,19 @@
 # BioDynaX.jl Unreleased
 
+- Milestone 2 held-out validation is documented as implemented: true
+  7/2 split, train-only fitting and discovery domain, actual neural
+  \(D\) holdout metrics, and Q7 reporting. Q7 is reported held-out
+  generalization evidence, not an additional success gate. Holdout is
+  not a new 0.30 gate. Q4 remains not implemented. This is not a v1.0
+  release. M3 and M4 remain pending future work.
 - v1.0 scientific contract: `docs/src/design/v1_contract.md` records the
-  implemented \(P-D\cdot u\) form, keeps Q1–Q7 conceptually separate
-  (operational measurements remain incomplete), and writes the current
-  unique-claim hold as Q3 practical warning + Q1 training-IC residual +
-  Q5 support recall. Q4 / Q7 stay not implemented. Unique-claim gates,
-  `RECOVERY_THRESHOLDS`, and the public export list are unchanged.
+  implemented \(P-D\cdot u\) form, keeps Q1–Q7 conceptually separate,
+  and writes the current unique-claim hold as Q3 practical warning + Q1
+  training-IC residual + Q5 support recall. At M0, Q4 and Q7 were not
+  implemented. M2 subsequently introduced reported Q7 held-out
+  evidence; Q7 remains non-gating. Q4 remains not implemented.
+  Unique-claim gates, `RECOVERY_THRESHOLDS`, and the public export list
+  are unchanged.
 - Aqua / SciML standards bar: `test/quality.jl` turns on the previously
   skipped Aqua checks (they pass on this tree). `standards` CI runs
   `test/run_standards.jl` (export docstrings, JET on `train_ude` /
@@ -131,7 +139,8 @@
   `unique_claim_experiment_set`; not exported).
 - `run_recovery_suite` admits unique-claim sections through
   `admit_recovery_suite_network`. Zero- and two-hole networks fail closed
-  on that path without a 9-IC train; `validate_network` stays open.
+  on that path without unique-claim training (nine ICs generated;
+  ICs 1–7 trained); `validate_network` stays open.
   `UniqueClaimProtocolRow` joins `UniqueClaimFingerprint`,
   `protocol_result`, `extras_print_label`, and named KPI failures
   (`:unidentifiable_edge`, `:data_residual`, `:support_recall`).

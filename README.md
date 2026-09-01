@@ -19,8 +19,11 @@ is not mechanistic recovery. Canonical Hill from a trained NN is closed.
 This is not a general CRN solver or a global SINDy replacement. The
 scientific contract is
 [`docs/src/design/v1_contract.md`](docs/src/design/v1_contract.md)
-(Q1–Q7 stay conceptually separate; some operational measurements remain
-incomplete; Q4 and Q7 are not implemented).
+(Q1–Q7 stay conceptually separate; Q4 remains not implemented; Q7 is
+reported held-out generalization evidence, not an additional success
+gate). Nine ICs are generated once; ICs 1–7 are used for training and
+ICs 8–9 are held out. M3 (practical functional identifiability) and M4
+(robustness / trajectory-context validation) remain pending future work.
 
 Requires **Julia ≥ 1.10**.
 
@@ -41,11 +44,17 @@ Requires **Julia ≥ 1.10**.
    structural certificate. `k_prod` and the scale of `D(z)` are not
    separately identifiable from observed concentrations.
 3. **Q1 fit (gated)** — hybrid residual versus observed data on the current
-   protocol / training IC. Not held-out generalization, and not mechanistic
-   recovery.
+   protocol / training IC[1]. Not mechanistic recovery. Separate train
+   (ICs 1..7) and holdout (ICs 8, 9) residuals are reported; they are
+   not this gate.
 4. **Q5 symbolic support (gated)** — true-monomial recall on grid-sampled
    learned `D`. Combined F1 is a skeleton floor (0.50), not 0.99. Extras
    `1` and `r` remain. `canonical_hill_from_nn` is false and closed.
+5. **Q7 holdout (reported, not a gate)** — after a train-only fit on ICs
+   1..7, residual and neural `D` error on ICs 8 and 9 are reported. The
+   0.30 residual gate is not copied to holdout. Q7 is reported held-out
+   generalization evidence, not an additional success gate. Q4
+   functional identifiability is not implemented.
 
 MM unknown edges gate NN RMSE and data residual only. Combined F1 from a
 trained NN is not canonical Hill.
@@ -54,22 +63,28 @@ trained NN is not canonical Hill.
 
 ## Quick start (15 minutes)
 
-**One command** (same protocol as the recovery CI job: seed 103, 9 ICs,
-adam 100 / bfgs 50, regulator-grid discovery). `BIODYNAX_SMOKE=1` is a
-1-IC compile check, not that protocol.
+**One command** (standalone / legacy example: seed 103, nine ICs
+generated and still trained on this example path. This is **not** the
+M2 recovery-suite train/holdout protocol. The unique-claim recovery
+suite generates nine ICs once; ICs 1–7 are used for training and
+ICs 8–9 are held out. Adam 100 / BFGS 50, regulator-grid discovery).
+`BIODYNAX_SMOKE=1` is a 1-IC compile check, not that suite protocol.
 
 ```bash
 julia --project=. examples/unknown_inhibition.jl
 ```
 
 **Product block** (that command prints identifiability first; seed 103, zero
-observation noise):
+observation noise). The residual row is the standalone / legacy example,
+which still trains all nine generated ICs. That path is **not** the M2
+recovery-suite train/holdout protocol. The unique-claim suite M2
+validated IC[1] `data_residual` is 0.004195 after training ICs 1–7.
 
 | field | typical value |
 |-------|---------------|
 | `unidentifiable_edge` | `true` (gated) |
 | `coefficients_are_biological_constants` | `false` |
-| hybrid residual vs data | ≈ 0.003 (gated) |
+| hybrid residual vs data | ≈ 0.003 (standalone / legacy example that trains all nine generated ICs; gated) |
 | true-monomial recall | 1.0 (gated) |
 | combined support F1 | ≈ 0.57 (skeleton floor 0.50, not 0.99) |
 | extras | `1`, `r` remain |
@@ -166,6 +181,9 @@ package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
 - **No licensed experimental CSV** matches the unique-claim protocol (known graph, exactly one unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
 - Target regime is **2–20 states** with a known interaction graph.
 - A green `recovery` CI job is **necessary, not sufficient** for v1.0. See [API stability](docs/src/stability.md).
+- **M3 / M4** (pending / future work, not implemented): practical
+  functional identifiability, then robustness / trajectory-context
+  validation.
 
 ---
 

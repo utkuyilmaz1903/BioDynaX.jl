@@ -21,8 +21,8 @@ todos:
     content: "M1-D: final validation, docs, hard recovery, benchmark, scientific/software audit"
     status: completed
   - id: m2-heldout
-    content: "M2: ExperimentSplit + holdout residual ve D hatası; 0.30’u körlemesine sıkılaştırma"
-    status: pending
+    content: "M2: 7/2 kimlik split; tek onaylı eğitmen fit(split.train); dış bant train-türevli (sabit aralık değil); Case B Q7 açık; ev.d_rmse_* üretim yolu; 0.30 holdout kapısı değil; geçici set mutasyonu yok"
+    status: completed
   - id: m3-functional-id
     content: "M3: FunctionalIdentifiabilityDiagnostic; Q3 ölçek uyarısı vs Q4 fonksiyon tanısı; Fisher’a credible deme"
     status: pending
@@ -111,7 +111,7 @@ v1.0’ı gerçekten araştırma kalitesine taşıyan minimum:
 
 1. Yazılı v1.0 sözleşmesi (\(P-D\cdot u\), Q1–Q7, kapalı iddialar).
 2. `run_recovery_suite` ayrışması + tipli recovery sonucu.
-3. `ExperimentSet` train/holdout + held-out residual **ve** `D` hatası.
+3. Ayrı internal `ExperimentSplit` (kilitli 7/2) + held-out residual **ve** `D` hatası. `ExperimentSet` değişmez; train/holdout set’in alanı değildir.
 4. Pratik fonksiyonel identifiability tanısı (sertifika değil).
 5. Çok tohum başarı oranı (release artifact; her PR’da N×40 dk değil).
 6. Graph-local’ın **eğitilmiş** `D` üzerinde tekrarı.
@@ -125,7 +125,7 @@ Bunun dışı (Bayes, OED, multi-hole, SBML, GPU, LLM, JOSS) research-grade v1.0
 
 - **`MechanismRecoveryResult` — A, evet.** `run_recovery_suite` `Dict{Symbol,Any}` + `build_protocol_result` NamedTuple karışımı Q1–Q7’yi ayıramaz. Tek bilimsel çıktı nesnesi olsun. [src/RecoveryAdmission.jl](src/RecoveryAdmission.jl) `UniqueClaimProtocolRow` yazıcı/parmak izi olarak kalsın.
 - **`FunctionalIdentifiabilityDiagnostic` — A, evet.** `IdentifiabilityReport` parametre-only’dir. Yeni nesne: yörünge anlaşması, fonksiyon anlaşmazlığı, tohum listesi, domain tanımı. Adında “certificate” / “structural” olmasın.
-- **`ExperimentSplit` — A, evet; `ExperimentSet`’i şişirmeyin.** `split_experiments(set; train, holdout)` + hangi IC’lerin nereye gittiğinin provenance’ı. `ExperimentSet` semantiğini bozmayın.
+- **`ExperimentSplit` — A, evet; `ExperimentSet`’i şişirmeyin.** Yalnızca unexported `unique_claim_experiment_split(set)` ve kilitli 7/2 indeksler. `ExperimentSet` semantiğini bozmayın; set train/holdout sahibi değildir.
 - **`RunMetadata` — A, mevcut tipi güçlendirin.** Yeni `Provenance` icat etmeyin. `config::Any`’yi typed/named yapın; golden path’e bağlayın; `data_hash` doldurun.
 - **`ValidationReport` — B, ayrı tip değil.** `MechanismRecoveryResult` üzerinde Q-katman görünümü + `format_*`. İkinci paralel bilim nesnesi doğurmayın.
 - **`MechanismHypothesis` — D / ertele.** Tek aday + `ImplicitCandidate` + `DiscoveryResult` var. Tam sıralama v1.0 dışı. Şimdi sarmak spekülatif zarafettir.
@@ -309,7 +309,10 @@ M1 bunları implemente etmez ve “hazır kanca” diye dondurmaz:
 - yeni örnekleme struct’ı / `MechanismRecoveryResult` üzerinde `samples` alanı
   (örnekleme çıktısı mevcut `(R, D, term)` kalır)
 
-M2/M3 işlevi **yoktur**. `v1_contract.md` Q4/Q7 “not implemented” kalır.
+M2/M3 işlevi **yoktur**. M1-era sözleşme anı: o sırada
+`v1_contract.md` Q4/Q7 “not implemented” der. M2 sonra Q7’yi
+raporlanan, kapı olmayan held-out kanıt olarak ekler; Q4 not
+implemented kalır.
 
 ### Mevcut gerçek durum
 
@@ -645,22 +648,3205 @@ al. Dict / stdout / export / eşikler gerilemez.
 
 ## Milestone 2 — Held-out çoklu-deney doğrulama (P0, P2)
 
-- **Hedef:** Residual ve `D` hatasını eğitim dağıtımından ayırmak.
-- **Bilimsel soru:** Q7 — aday görülmeyen IC / \(r\) bölgesinde yaşar mı? Q1 ile Q2 ayrılır mı?
-- **Sorun:** 9 IC’nin 8’i residual’da yok; `r` ızgarası eğitim extrema’sından şişer (`_regulator_grid`).
-- **Neden önemli:** extras’lı `D` eğitim IC[1] residual 0.30’u kolay geçer; bu “mekanizma kurtarıldı” değildir.
-- **Dosyalar:** [src/Experiments.jl](src/Experiments.jl), [src/Recovery.jl](src/Recovery.jl), [src/Identifiability.jl](src/Identifiability.jl), [src/DataGen.jl](src/DataGen.jl), [examples/unknown_inhibition.jl](examples/unknown_inhibition.jl), [test/test_recovery_hard.jl](test/test_recovery_hard.jl), [test/test_experiments.jl](test/test_experiments.jl).
-- **Mimari:** `ExperimentSplit` (train / holdout IC indeksleri, isteğe holdout \(r\) aralığı). Değerlendirme: `hybrid_data_residual` train ve holdout; `rate_rel_rmse` / korelasyon train ızgarası, holdout ızgarası, yörünge occupancy. Identifiability hem ref IC hem holdout IC’de raporlanır (tek IC Fisher’ın zayıflığı belgelenir).
-- **Matematik:** Holdout IC protokolü önceden kilitlenir (ör. 9 IC’den 2–3 holdout, seed’den bağımsız indeks — sızıntı yok). Holdout \(r\): eğitim `[lo,hi]` dışına taşan bant veya ayrı IC occupancy. `D` hatası scale-invariant olmalı (`normalize_destruction_samples` zaten var); hem ham hem normalize raporlanır.
-- **API:** `split_experiments` iç. Public `ExperimentSet` kırılmasın.
-- **Testler:** Split provenance; holdout’un train IC’leriyle kesişmediği; sentetik “ezberleyen” extras `D`’nin holdout `D` RMSE’de yakalanabileceği bir birim senaryo (fikstür-özel sihir değil).
-- **Bilimsel doğrulama:** Seed 103 Hill: holdout residual ve holdout `D` RMSE raporlanır. İlk v1.0 kapısı: holdout `D` hatası sonlu + train’den sistematik olarak gizlenmez. 0.30’u holdout’a kopyalamayın.
-- **Benchmark:** Holdout sütunları [docs/src/benchmarks.md](docs/src/benchmarks.md) ve persist tablo.
-- **Dokümantasyon:** Sözleşme Q1 vs Q2 vs Q7; “IC[1] residual = protokol” cümlesi kalkar.
-- **Kabul:** Unique-claim çıktısı `data_residual_train` ve `data_residual_holdout` + `d_rmse_holdout` taşır. Tek sayı 0.30 artık tek başarı anlatısı değildir.
-- **Riskler:** Kötü split şansı. İndeksleri protokole kilitleyin, optimize etmeyin. Holdout çok küçükse gürültü; 9 IC’de 6/3 veya 7/2 makul.
-- **Rollback:** Eski `ref_exp = first(...)` alanını `legacy_data_residual` olarak bir süre tutun.
-- **Ertelenen:** Zaman penceresi holdout, girdi rejimi, kısmi gözlem UDE.
+**Durum (M2-H sonrası): completed.** M2-A…M2-H uygulanmıştır. Q7
+held-out generalization **raporlanan kanıttır, kapı değildir**.
+Tercih edilen güncel sözleşme cümlesi: “Q7 is reported held-out
+generalization evidence, not an additional success gate.” Q4
+fonksiyonel identifiability **not implemented** kalır. M3 / M4 ve
+sonraki milestone’lar pending / future work’tür; implemented değildir.
+v1.0 kesilmez. M2-H dokümantasyon revizyonu mevcut yüzeyi bu Q4/Q7
+sözleşmesine hizalar; M0/M1 “Q7 not implemented” metni tarihsel
+anıttır, silinmez.
+
+Aşağıdaki “Mevcut pre-M2 davranış” alt başlığı tarihsel ön-M2
+kaydıdır; silinmez. Onaylı semantik bu bölümün geri kalanında ve
+[M2-HELDOUT-IMPLEMENTATION-PLAN.md](M2-HELDOUT-IMPLEMENTATION-PLAN.md)
+içindedir.
+
+### M2 genel bakış
+
+M0 sözleşmesi ve M1 pipeline ayrışması durur. M2 **yalnızca dürüst Q7
+kanıtı** ekler: görülmeyen IC residual’ı ve görülmeyen-IC occupancy
+üzerinde \(D\) hatası. Bilimsel hedef (Q1 ile Q7’yi ayırmak) doğrudur.
+Onaylı bilimsel tasarım **yeniden çizilmez**.
+
+Bu revizyonun kabul eşiği metinsel yasak değildir. Bir yanlış gövde
+yazılı teste yeşil kalabiliyorsa plan yanlıştır. Her sızıntı kuralı
+aşağıdaki test kataloğunda, o yanlışı kırmızıya düşüren bir davranış
+**ve** dar production çağrı sözleşmesine bağlanır.
+
+**Uzunluk-yalnız testler yetersizdir.** `length == 7` / `length == 2`
+kanıtı, nesne kimliği, fit girdisi, domain, generate veya metrik
+koordinatını kanıtlamaz.
+
+M2 şunları **yapmaz:**
+
+- `ExperimentSet`’e `train` / `holdout` alanı eklemek
+- `data_residual`’ı yeniden adlandırmak veya silmek
+- 0.30 eşiğini holdout’a kopyalamak veya sıkılaştırmak
+- holdout metriklerini `UNIQUE_CLAIM_PROTOCOL`, `PROTOCOL_RESULT_FIELDS`
+  veya `unique_claim_kpis_hold` kapısına sokmak
+- ikinci bir recovery pipeline / orkestratör
+- M3 fonksiyonel identifiability
+- M4 yörünge-örnekli keşif
+- belirsizlik veya hipotez sıralama
+- `DestructionSamples` yaratmak
+- mevcut keşif algoritmasını değiştirmek
+- public API eklemek
+
+`run_recovery_suite` gated dispatcher kalır.
+`_evaluate_unknown_rate_recovery` M1 composer / kontrol-akışı sahibidir.
+`ExperimentSplit` / `HoldoutEvidence` / `split` / `holdout` almaz.
+`holdout=` / `split=` anahtarı **yoktur**. Holdout metriği / Q7
+hesaplamaz. `evaluate_recovery` M1’in metrik-only yardımcısı kalır;
+holdout mantığının sahibi olmaz.
+
+Holdout için dar, unexported `evaluate_holdout` eklenir.
+
+**Tek onaylı üretim yolu** (ikinci yorum yoktur):
+
+`run_recovery_suite`
+→ `_train_unknown_edge`
+→ `_evaluate_unknown_rate_recovery`
+→ mevcut identifiability
+→ `evaluate_holdout`
+→ `report_recovery`
+
+`evaluate_holdout` şuralarda **değildir**:
+
+- `_evaluate_unknown_rate_recovery` gövdesi
+- `report_recovery` gövdesi
+- herhangi bir residual kapanışı
+- başka bir M2 yardımcısı
+- gizli `_ensure_holdout` sarmalayıcısı
+- çoğaltılmış ikinci çağrı
+
+Üretim kaynak sözleşmesi (L-SITE):
+
+- `:ude_discovery` section gövdesinde `evaluate_holdout(` **tam 1**
+- `:mm_unknown` section gövdesinde `evaluate_holdout(` **tam 1**
+- [src/Recovery.jl](src/Recovery.jl) içinde `evaluate_holdout(` **tam 2**
+  (tanım bu dosyada yoktur; iki occurrence iki unique-claim çağrısıdır)
+- [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl) içinde
+  `evaluate_holdout(` **tam 1** ve bu occurrence **tanımdır**
+
+Göreli sıra her unique-claim section’da zorunludur:
+
+mevcut ident çağrısı
+→ `evaluate_holdout(...)`
+→ `report_recovery(...)`
+
+`report_recovery` **önceden hesaplanmış** holdout sonucunu alır.
+`report_recovery` holdout **hesaplamaz**. `report_recovery` içinde
+`evaluate_holdout` çağıran bir gövde L-SITE kırmızısıdır.
+
+### Korunacak M1 kilitleri
+
+M2 boyunca bit-eşit veya semantik-eşit durur:
+
+- \(P-D\cdot u\)
+- `ExperimentSet` public / mevcut semantiği; `holdout` / `train` alanı
+  **yoktur** (`!hasfield(ExperimentSet, :holdout)` kiliti kalkmaz)
+- `run_recovery_suite` gated dispatcher
+- `_evaluate_unknown_rate_recovery` M1 composer
+- `report_recovery` typed reporting
+- `data_residual` anlamı: IC[1] hybrid residual
+- `first(experiments)` legacy yolu: warmup, Q1 / `data_residual`,
+  Q3 Fisher / kosinüs, stdout FIT, RecoverySuiteSkip
+  `ref_exp = first(ude_set.experiments)` iğnesi
+- `RECOVERY_THRESHOLDS` sayıları (`data_residual = 0.30` değişmez)
+- `PROTOCOL_RESULT_FIELDS` sırası ve üyeleri
+- stdout IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION
+- `LOCKED_PUBLIC_EXPORTS`; varsayılan **yeni public export yok**
+- dummy RNG (`consume_shared_suite_rng!`); per-section seed yok
+- mevcut discovery algoritması
+- M1 erken-dönüş semantiği
+- M1 public API
+- `UNIQUE_CLAIM_PROTOCOL` NamedTuple’ı (yeni alan yok; `n_ics = 9`)
+- `evaluate_recovery` metrik-only (keşif, `training_ok`, times, holdout yok)
+- `TRAIN_UNKNOWN_EDGE_COUNTER` yalnızca `_train_unknown_edge` girişinde
+- `_train_unknown_edge` dış dönüş şekli `(fit, set)` — `set` tam 9 IC
+- ham + normalize çift keşif composer içinde, aynı sıra
+- `canonical_hill_from_nn === false`
+- HybridCompose / HybridResidual birleştirilmez
+- `examples/unknown_inhibition.jl` suite’e bağlanmak zorunda değildir
+
+### Mevcut pre-M2 davranış
+
+**Tarihsel ön-M2 kayıt.** M1 tamamlanmıştı; M2 kodu yoktu. M2-H
+sonrası bu alt başlık provenance için durur; canlı durum yukarıdaki
+M2-H tamamlanma notudur.
+
+`ExperimentSet` paylaşılan durum boyutlu bir `Experiment` listesidir.
+Bir deney = bir IC yörüngesi. Alt küme API’si yoktur. İki üretim yolu
+birleşmez:
+
+| Yol | Kim kullanır | 9 IC | parmak izi |
+|---|---|---|---|
+| `generate_recovery_experiments` → `generate_experiment_set` | suite / `_train_unknown_edge` | evet | hayır |
+| `unique_claim_experiment_set` | örnek, honesty, HybridResidual | evet (smoke: 1) | evet |
+
+Bugünkü unique-claim eğitim yolu:
+
+```
+generate 9 IC
+  → fit_unknown_destruction(set)          # 9 IC kayıpta
+      → warmup = first(set.experiments)   # IC[1]
+      → train_experiments(set)            # Adam: 9 minibatch
+  → r_range = _regulator_grid(ude_set, term)    # 9 IC extrema + %10 şişirme
+  → composer: sample → training_ok → (erken | çift keşif → evaluate_recovery)
+  → data_residual = hybrid residual on first(experiments)   # IC[1]
+  → ident = report_production_destruction_tradeoff(ref_exp) # IC[1]
+  → report_recovery(evaled, ident)
+```
+
+`experiment_batches` Adam minibatch’idir; discovery
+`validation_fraction` ızgara **sütun** dilimidir;
+`extras_denominator.train/val` da sütun dilimidir. Hiçbiri deney
+split’i değildir.
+
+`generate_data` `σ=0` iken bile `randn` tüketir. 9 IC’yi tek seferde
+üretmek seed 113 gürültü akışını sabitler.
+
+M1 testleri bilinçli olarak yasaklar: `ExperimentSplit` tanımlı değildir;
+`MechanismRecoveryResult` üzerinde `:holdout`, `:data_residual_holdout`,
+`:d_rmse_holdout` yoktur. `v1_contract.md` Q7 “not implemented” der.
+
+### Bilimsel sorun
+
+Q7 henüz yoktur. Unique-claim 9 IC üretir ve 9’unda eğitir; residual ve
+ident yalnızca IC[1] üzerindedir. Diğer 8 IC kayıptadır ama Q1 kapısına
+girmez. `_regulator_grid` tüm setin regülatör extrema’sını kullanır;
+keşif, `training_ok` ve `discovered_rate_rmse` bu tam-set ızgarasındadır.
+
+extras’lı \(\hat D\) eğitim IC[1] residual 0.30’u kolay geçebilir. Bu
+“mekanizma kurtarıldı” değildir ve “görülmeyen IC’de yaşar” değildir.
+9’da eğitip 8–9’u sonradan holdout yazmak da Q7 değildir (sahte holdout).
+
+### Hedef tasarım
+
+Onaylı seçenek **B:** aynı 9 IC’yi tek RNG yolunda üret, önceden kilitli
+indekslerle böl, **yalnızca train’de fit et**. Holdout yörüngeleri üretilir
+ama `train_experiments` / warmup / BFGS / keşif onları görmez.
+
+`ExperimentSet` değişmez. İnce, **internal** `ExperimentSplit`
+`ExperimentSet` dışında yaşar; tercih edilen yer
+[src/RecoveryPipeline.jl](src/RecoveryPipeline.jl) (`Experiments.jl`
+değil — set yeniden tasarımı gibi görünmesin).
+
+`ExperimentSplit` ikinci üretilmiş bir veri seti değildir. Aynı 9
+`Experiment` nesnesinin kilitli indeksle **görünüm / referans
+bölmesidir**. Train ve holdout `ExperimentSet` alanları değildir; set
+bu alt kümelerin sahibi değildir. Split metadata’ya gizlenmez.
+
+`HoldoutEvidence` zorunludur; NamedTuple / düz MRR alanı değildir.
+Occupancy / uncertainty / hypothesis / fonksiyonel-identifiability
+çerçevesi değildir.
+
+`MechanismRecoveryResult` yalnızca şu M2-özel iç alanları kazanabilir
+(mevcut M1 alanlarından sonra, `experiments`’ın ardından):
+
+- `split::Union{Nothing,ExperimentSplit}`
+- `holdout::Union{Nothing,HoldoutEvidence}`
+
+Kazanamayacağı alanlar: `functional_identifiability`, `uncertainty`,
+`hypothesis`, occupancy çerçevesi, Q4 yapıları, `q4` / `q7` catch-all,
+`train_experiments` / `all_experiments` çoğaltması, genel validation
+kabı.
+
+`UNIQUE_CLAIM_PROTOCOL`’a split alanı eklenmez (parmak izi yüzeyi).
+
+M2’ye özel unexported yardımcılar (yeni ızgara / occupancy / keşif
+API’si değildir; kilitli formülü testin production’dan bağımsız
+yeniden yazmasını yasaklar):
+
+| Yardımcı | Girdi | Çıktı | Gerekçe |
+|---|---|---|---|
+| `_holdout_observed_regulators` | `holdout::ExperimentSet`, `term` | `r_holdout` vektörü | Occupancy koordinatı tek yerde |
+| `_unique_claim_external_regulator_band` | `train::ExperimentSet`, `term` | `r_band_external` (`range`) | Kilitli dış bant tek yerde |
+| `_finite_rate_rel_rmse` | `estimate`, `truth` | `Float64` | Sonlu / `Inf` kuralı tek yerde |
+| `_mean_hybrid_residual` | deneyler + nöral `D_hat_fn` | `Float64` | `(ρ_1+…+ρ_n)/n` ve `Inf` kuralı tek yerde |
+
+`evaluate_holdout` bu dört yardımcıyı **çağırır**. Test, aynı
+formülü test dosyasında kopyalamaz; production fonksiyonunu çağırır.
+
+### ExperimentSplit — kesin alan yüzeyi
+
+Yer: [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl). Unexported.
+
+```julia
+struct ExperimentSplit
+    train_indices::NTuple{7,Int}
+    holdout_indices::NTuple{2,Int}
+    train::ExperimentSet
+    holdout::ExperimentSet
+end
+```
+
+`fieldnames(ExperimentSplit)` / `propertynames` **tam olarak**:
+
+`(:train_indices, :holdout_indices, :train, :holdout)`
+
+Ek alan varsa L-FIELDS kırmızı olur.
+
+Sabitler splitter yanında durur; `UNIQUE_CLAIM_PROTOCOL` içine girmez:
+
+- `UNIQUE_CLAIM_TRAIN_INDICES = (1, 2, 3, 4, 5, 6, 7)`
+- `UNIQUE_CLAIM_HOLDOUT_INDICES = (8, 9)`
+
+Tek üretici: unexported
+`unique_claim_experiment_split(set::ExperimentSet) → ExperimentSplit`.
+`length(set) == 9` zorunludur; aksi `ArgumentError`. Genel public
+splitter API (`split_experiments` dahil) eklenmez.
+
+Her üretilen split için **bit-eşit** kilit:
+
+```
+split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+```
+
+Nesne-kimliği sözleşmesi (değer eşitliği / uzunluk **yetmez**;
+yeniden kurulum / ikinci generate yasak):
+
+```
+split.train !== set
+split.holdout !== set
+length(split.train) == 7
+length(split.holdout) == 2
+split.train[i] === set.experiments[split.train_indices[i]]     # i = 1:7
+split.holdout[i] === set.experiments[split.holdout_indices[i]] # i = 1:2
+```
+
+`ExperimentSet` `getindex` `experiments[i]` olduğu için bu,
+`split.train[i] === set[UNIQUE_CLAIM_TRAIN_INDICES[i]]` ile aynıdır.
+IC[1] kiliti bunun özel halidir:
+
+```
+split.train[1] === set.experiments[1] === first(set)
+1 ∈ split.train_indices
+```
+
+`split.train` / `split.holdout` constructor’ı mevcut `ExperimentSet(...)`
+ile, **aynı** `Experiment` nesnelerini (`set.experiments[i]`) sırayı
+koruyarak sarar. `Experiment(...)` ile kopya, `generate_data` /
+`generate_recovery_experiments` / `generate_experiment_set` ile ikinci
+üretim **yoktur**. `observations` matrisleri orijinal nesnelerdir
+(`split.holdout[1].observations === set.experiments[8].observations`).
+
+Orijinal `set` bütünlüğü:
+
+- `length(set) == 9` split’ten önce ve sonra
+- `set.experiments[i] ===` split öncesi aynı 9 nesne, aynı sıra
+- `set.experiments` vektör kimliği aynı kalır (yeni vektör atanamaz)
+- public alanlar yalnızca `experiments`, `state_names`, `units`,
+  `metadata` — `!hasfield(ExperimentSet, :train)` ve
+  `!hasfield(ExperimentSet, :holdout)` kalkmaz
+- `set.metadata` mutasyona uğramaz; `:train`, `:holdout`, `:split`,
+  `:train_indices`, `:holdout_indices` anahtarı **yoktur**
+- `split.train.metadata !== set.metadata` ve
+  `split.holdout.metadata !== set.metadata` (yeni `Dict`; orijinal
+  dict paylaşılmaz)
+
+M2 üretim yolunda orijinal `ExperimentSet` deney koleksiyonu
+(`set.experiments`) üzerinde şu mutasyonlar **yoktur**:
+
+- `splice!`
+- `deleteat!`
+- `pop!`
+- `push!`
+- `insert!`
+- `append!`
+- `resize!`
+- `setindex!` (indeksli atama `set.experiments[i] = …` dahil)
+- `replace!`
+- mevcut `Experiment` nesnesini yenisiyle değiştirmek
+- holdout’u yeniden `generate_*` etmek
+- split verisini `metadata` içine gizlemek
+
+Anlık görüntü (sayı / kimlik / sıra / metadata / public alanlar)
+eşitliği **yetmez**: `pop!` / `insert!` / `resize!` / restore geçici
+mutasyonu son görüntüyü koruyabilir. before/after equality is
+insufficient by itself because temporary mutation followed by
+restoration can leave the final state unchanged.
+
+Boşluğu kapatan sözleşme giriş-noktası-yalnız gövde taraması
+**değildir**. L-SET-INTACT geçişli saflık sözleşmesidir: iki M2
+giriş noktasından (`unique_claim_experiment_split`,
+`evaluate_holdout`) erişilebilir yerel M2 split / evaluation
+yardımcı çağrı grafını inceler. Depo-geneli mutator yasağı
+**yoktur**. Depo-geneli AST taraması **yoktur**. Yeni bir vektörü
+comprehension / indeksleme ile kurmak yasak değildir; orijinal
+`ExperimentSet` / orijinal `set.experiments` üzerinde mutasyon
+yasaktır. Yardımcı dolayımı kaçış kapağı **değildir**.
+
+`!hasfield(ExperimentSet, :holdout)` **tek başına yetersizdir**.
+
+### HoldoutEvidence — kesin alan yüzeyi
+
+Yer: [src/RecoveryPipeline.jl](src/RecoveryPipeline.jl). Unexported.
+Çağrıldığında `evaluate_holdout` **her zaman** bu tipi döner; `nothing`
+dönmez.
+
+```julia
+struct HoldoutEvidence
+    data_residual_train::Float64
+    data_residual_holdout::Float64
+    d_rmse_holdout::Float64
+    d_rmse_holdout_domain::Float64
+end
+```
+
+`fieldnames(HoldoutEvidence)` / `propertynames` **tam olarak**:
+
+`(:data_residual_train, :data_residual_holdout, :d_rmse_holdout, :d_rmse_holdout_domain)`
+
+`length(fieldnames(HoldoutEvidence)) == 4`. Ek alan L-FIELDS’i kırmızı
+yapar.
+
+Yasak alanlar (M3/M4 kaçakları):
+
+- `restart_agreement`, `functional_rmse`, `pairwise` D anlaşması
+- `uncertainty`, `hypothesis`, occupancy çerçevesi
+- fonksiyonel-identifiability alanları
+- per-IC vektörleri, `samples`, `domain`, `q4`, `q7`
+
+`haskey(result, :holdout)` MRR alanının **varlığıdır**. Q7 kanıtı
+üretildi demek için `result.holdout !== nothing`.
+
+### MechanismRecoveryResult — minimal M2 uzantısı
+
+Yalnızca iki yeni alan, kesin tipler:
+
+```
+split::Union{Nothing,ExperimentSplit} = nothing
+holdout::Union{Nothing,HoldoutEvidence} = nothing
+```
+
+M1 alan listesi durur. M2 ekleri **yalnızca** bu ikisidir:
+
+```
+fieldnames(MechanismRecoveryResult) ==
+    (M1_FIELDS..., :split, :holdout)
+```
+
+`M1_FIELDS` M1 tamamlanmış listedir:
+
+`(:nn_correlation, :nn_rate_rmse, :success, :retcode, :message,
+ :support_f1, :support_recall, :discovered_rate_rmse, :data_residual,
+ :denominator_violations, :normalized_support_f1,
+ :normalized_support_recall, :extras, :extras_denominator, :discovery,
+ :term, :identifiability, :locked_kpis, :protocol_result, :model,
+ :params, :experiments)`
+
+Genel validation kabı eklenmez. `report_recovery` imzası:
+
+```
+report_recovery(evaled, ident; model, params, experiments,
+                split = nothing, holdout = nothing)
+```
+
+`report_recovery` `evaluate_holdout` **çağırmaz**. `_ensure_holdout`
+**yoktur**. `HoldoutEvidence` **üretmez**. Verilen `split` / `holdout`
+değerlerini olduğu gibi yazar.
+
+```
+report_recovery(..., holdout = nothing)  ⇒  result.holdout === nothing
+```
+
+`holdout = nothing` Q7 kanıtı imal etmez. KPI / `protocol_result` /
+stdout hâlâ IC[1] `data_residual` okur. `unique_claim_kpis_hold` M1
+unexported kapısıdır; holdout okumaz; silinmez; yeni M2 kapısı olmaz.
+
+### Tam 7/2 split
+
+Seed’den bağımsız, veriden optimize edilmeyen, peek yasaklı protokol.
+İndeksler yukarıdaki `UNIQUE_CLAIM_*_INDICES` sabitleridir.
+
+Bu depoda deney indeksi ve IC aynı nesnedir. Sütun /
+`validation_fraction` / minibatch split’i değildir.
+
+İndeks 1 **zorunlu train’dedir**, çünkü IC[1] şunlara bağlıdır:
+
+- warmup (`train_experiments_with_warmup` → `first(split.train)` = IC[1])
+- legacy `data_residual` / Q1 / stdout FIT
+- Q3 identifiability (`report_production_destruction_tradeoff`)
+
+Son iki satır konumsal holdout’tur; regülatör ekstremasına göre
+seçilmez. `_unknown_edge_ics()` satır 8–9 (`[0.20, 0.50]`,
+`[1.50, 1.20]`) \(R_0\in\{0.50, 1.20\}\) train kutusunun **içinde**
+kalabilir. Bu yüzden IC-holdout ≠ domain-holdout. Production 9-IC
+tablosu domain-sızıntı testini **taşıyamaz**; sentinel fikstür
+zorunludur.
+
+```
+train ∩ holdout = ∅
+train ∪ holdout = 1:9
+```
+
+6/3 **yoktur**. İndeksler fail olursa gevşetilmez, veriden yeniden
+seçilmez.
+
+### Sızıntı kuralları
+
+Aşağıdaki yasaklar tek başına “must not leak” cümlesi değildir. Her
+satırın öldürücü testi “Test kataloğu”ndadır.
+
+| Yasak gövde | Öldüren test |
+|---|---|
+| Yanlış 7 IC; indeks doğru ama nesne yanlış | L-SPLIT-ID |
+| Holdout `Experiment(...)` / değer-eşit kopya (splitter) | L-SPLIT-ID |
+| `return fit, generate_recovery_experiments(...)` / ikinci generate / gizli `_regen` / section-split-eval generate | L-RNG |
+| `set.experiments` splice / delete / pop / insert / resize / restore; `_carve_and_restore!` / `_split_impl` / `_prepare!` / `_partition!` / `_prepare_holdout` / `_temporary_partition` dolayımı | L-SET-INTACT |
+| Train/holdout `set.metadata` içinde | L-SET-META, L-SPLIT-META |
+| `fit_unknown_destruction(..., set)` | L-FIT-A |
+| `fit(..., split.train)` sonra `train_experiments_with_warmup(..., set, ...)` | L-FIT-A |
+| `fit(..., split.train)` sonra `_polish_full(..., set, ...)` | L-FIT-A |
+| Suite’te `_train_unknown_edge` sonrası tam-set `train_experiments*` | L-FIT-A |
+| `length(fit_set)==7` ama IC 2–8 | L-FIT-B |
+| `_regulator_grid(ude_set, term)` / `_regulator_grid(set, term)` | L-DOM-A, L-DOM-B |
+| `r_range` overwrite / `union` / holdout extrema / inline tam-set | L-DOM-A, L-DOM-B |
+| `discover_equations(R_holdout, holdout_times, ...)` `evaluate_holdout` içinde veya ondan erişilebilir yerel yardımcıda | L-DISC-A |
+| `evaluate_holdout` → `_peek_holdout` → `discover_equations` | L-DISC-A |
+| `evaluate_holdout` → `helper` → `discover_unknown_destruction` | L-DISC-A |
+| `_evaluate_unknown_rate_recovery(...; holdout = split.holdout)` / `split = split` | L-DISC-B-1 |
+| `data_residual_fn = d_hat -> something_using(split.holdout)` | L-DISC-B-1 |
+| Composer → `_composer_helper` → `discover_unknown_rate(... split.holdout.observations ...)` | L-DISC-B-2 |
+| Composer → `_helper` → `discover_equations(holdout.times, holdout.derivatives, ...)` | L-DISC-B-2 |
+| Composer → `helper` → `discover_unknown_destruction(...)` | L-DISC-B-2 |
+| Composer keşfine holdout `times` / türev / occupancy (doğrudan veya yardımcı) | L-DISC-B-2, L-DISC-B-3 |
+| Holdout extrema dış bandı tanımlar / birleşir | L-BAND |
+| Dış bant `range(a,b)` train’den bağımsız sabit | L-BAND |
+| `d_rmse_holdout` train ızgarası / sembolik `D` / sahte keşif | L-D-OCC, L-OVERFIT |
+| `data_residual = data_residual_train` | L-RES-LEGACY |
+| `data_residual_holdout = data_residual_fn(d_hat)` IC[1] üzerinde | L-RES-HOLD |
+| Holdout residual RMS / concat | L-RES-HOLD |
+| Holdout residual > 0.30 iken Q7 yok sayılır | L-GATE |
+| `evaluate_holdout` içinde `ρh > 0.30` ⇒ `Inf` | L-GATE |
+| `evaluate_holdout` composer / `report_recovery` / residual kapanışı içinde | L-SITE |
+| `report_recovery` → `_ensure_holdout` → `evaluate_holdout` | L-SITE |
+| `_peek_holdout!` / `discover_equations(...holdout...)` / `discover_unknown_destruction(` değerlendirme yolunda | L-DISC-A |
+| `if evaled.success == false; holdout = nothing` | L-EARLY |
+| `if !evaled.success; holdout = nothing` | L-EARLY |
+| `if !evaled.discovery.success; holdout = nothing` | L-EARLY |
+| `if !evaled.discovery.success; return HoldoutEvidence(Inf, Inf, Inf, Inf)` | L-EARLY |
+| Test `ev.d_rmse_*` okumadan `_finite_rate_rel_rmse` hesaplar | L-D-OCC, L-OVERFIT |
+| `normalize_destruction_samples` / `equation_to_function` holdout \(D\) | L-D-OCC, L-OVERFIT |
+
+Holdout verisi keşfe, `training_ok` kararına, optimizer’a, train
+regülatör domain’ine ve dış değerlendirme bandına **girmez**.
+
+**Split-provenance testleri tek başına YETERSİZDİR.** Örtüşmezlik,
+birleşim ve `1 ∈ train` kanıtı, production fit’in veya production
+domain’in train-only olduğunu kanıtlamaz.
+
+### Kilitli unique-claim kontrol sırası
+
+Unique-claim suite yolu (`:ude_discovery` ve `:mm_unknown`) için **tek**
+sahiplik ve **tek** çağrı yeri vardır. İkinci yorum yoktur.
+
+```
+run_recovery_suite
+    ↓
+_train_unknown_edge
+    ↓
+_evaluate_unknown_rate_recovery
+    ↓
+mevcut identifiability değerlendirmesi
+    ↓
+evaluate_holdout
+    ↓
+report_recovery
+```
+
+Sıra sabittir:
+
+composer → ident → evaluate_holdout → report_recovery
+
+`:ude_discovery` ve `:mm_unknown` **aynı** diziyi kullanır. Bu tek
+yorumun iki section kopyasıdır; iki sahiplik değildir.
+
+Yasak yerleşimler (L-SITE kırmızı olur):
+
+- `evaluate_holdout` `_evaluate_unknown_rate_recovery` gövdesinde
+- `evaluate_holdout` `report_recovery` gövdesinde
+- `evaluate_holdout` başka bir yardımcıda çoğaltılmış
+- `evaluate_holdout` `data_residual_fn` kapanışının içinde
+- `evaluate_holdout` `_ensure_holdout` içinde
+- ident’den önce
+- `report_recovery`’den sonra
+- Recovery.jl’de 2’den fazla `evaluate_holdout(`
+- RecoveryPipeline.jl’de tanımdan başka `evaluate_holdout(`
+
+`_evaluate_unknown_rate_recovery` M1 composer / kontrol-akışı sahibidir.
+Public / private imza ve sahiplik M2 için **genişlemez**. Composer
+Q7 sahibi **değil**.
+
+- `ExperimentSplit` **almaz**.
+- `HoldoutEvidence` **almaz**.
+- `split` / `holdout` **almaz**.
+- `holdout=` / `split=` anahtarı **yoktur** (L-DISC-B-1).
+- Holdout metriği **hesaplamaz**.
+- İmza M1’deki gibi kalır: konumsal `ude_model`, `ude_params`,
+  `term`, `truth_rate`; anahtar `order`, `family`, `noise_σ`,
+  `r_range`, `data_residual_fn`. Split / holdout nesnesi almaz.
+- İç dizisi değişmez: `sample_destruction` → `training_ok` →
+  (`training_ok == false` ise M1 erken NamedTuple;
+  `training_ok == true` ise ham+normalize dummy-time keşif →
+  `evaluate_recovery`).
+- M2 holdout değerlendirmesi composer’dan **sonra** ve mevcut
+  identifiability çağrısından **sonra** olur. Tek geçerli kenar:
+  `ident → evaluate_holdout → report_recovery`. `composer → holdout`
+  yasaktır.
+
+M1 identifiability çağrısı suite’te **mevcut yerinde** kalır
+(composer’dan sonra, `report_recovery`’den önce):
+`report_production_destruction_tradeoff` on `first(experiments)` (IC[1]).
+`evaluate_holdout` bu hesabı değiştirmez, `ident` nesnesini almaz,
+mutasyona uğratmaz, ikinci bir Fisher üretmez.
+
+`evaluate_holdout` unique-claim suite yolunun **tek** yeni
+orkestrasyon adımıdır. Suite, holdout değerlendirmesinin **tek**
+orkestratörüdür. İkinci recovery orkestratörü yoktur.
+
+`training_ok == false` iken (`evaled.discovery === nothing`, M1 kodlaması)
+aynı suite adımı `evaluate_holdout`’u **çağırmaz** ve
+`holdout === nothing` atar. Bu atlama ikinci bir çağrı yeri değildir.
+
+### Veri akışı
+
+```
+generate_recovery_experiments                 # 9 IC, tek RNG
+  → unique_claim_experiment_split(set)        # kilitli 7/2; _train_unknown_edge içinde
+  → fit_unknown_destruction(..., split.train)
+  → return (fit, full 9-IC set)
+  → suite: unique_claim_experiment_split(ude_set)   # aynı kilitli indeksler
+  → _regulator_grid(split.train, term)        # keşif + training_ok domain
+  → composer: sample → training_ok
+        → training_ok false: M1 erken NamedTuple
+        → training_ok true: M1 dummy-time çift keşif → evaluate_recovery
+  → ident on first(experiments)               # IC[1]; holdout Fisher yok
+  → evaluate_holdout                          # A atlar; B ve C çağırır
+  → report_recovery(..., split, holdout)
+```
+
+`_train_unknown_edge` içinde **tek** fitting girdisi vardır.
+`fit_unknown_destruction` imzası değişmez. Bu çağrıdan **sonra** tam-set
+veya holdout fitting **yoktur**. Unique-claim section gövdesinde de
+sonradan tam-set fitting **yoktur**.
+
+```julia
+function _train_unknown_edge(...)
+    _note_train_unknown_edge()
+    set = generate_recovery_experiments(...)
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(..., split.train)  # TEK fitting girdisi
+    return fit, set   # set = tam 9; aynı generate nesnesi; 3-tuple yok
+end
+```
+
+`_train_unknown_edge` generate sayısı **tam 1**
+(`generate_recovery_experiments(`). Dönüş **yalnız**
+`return fit, set`. İkinci generate L-RNG kırmızısıdır
+(Y-RNG-1…Y-RNG-7).
+
+Warmup `first(split.train) === set.experiments[1]`. Adam 7 minibatch.
+7-IC fit ≠ 9-IC ağırlık; bu Q7 bedelidir.
+
+Yasak gövdeler (L-FIT-A / L-FIT-B kırmızı olur):
+
+```julia
+# Y1 — tam-set fit
+split = unique_claim_experiment_split(set)
+fit = fit_unknown_destruction(..., set)
+
+# Y2 — önce train, sonra tam set (önceki denetimin kaçış yolu)
+split = unique_claim_experiment_split(set)
+fit = fit_unknown_destruction(..., split.train)
+fit = train_experiments_with_warmup(..., set, ude_model, ...)
+
+# Y2-POLISH — onaylı fit doğru, gizli tam-set cilası
+fit = fit_unknown_destruction(..., split.train)
+fit = _polish_full(..., set, ...)
+
+# Y2-SUITE — _train_unknown_edge doğru, suite ikinci eğitmen
+ude_fit, ude_set = _train_unknown_edge(...)
+ude_fit = train_experiments_with_warmup(ude_fit.params, ude_set, ude_model; ...)
+
+# Y3 — length==7 ama yanlış nesneler
+fit = fit_unknown_destruction(..., wrong_seven)
+```
+
+`_train_unknown_edge` gövdesinde `fit_unknown_destruction` **tam bir
+kez** geçer ve deney argümanı token’ı `split.train` olur. Aynı gövdede
+sonradan `train_experiments_with_warmup`, `train_experiments(`,
+`_polish_full`, ikinci `fit_unknown_destruction` veya eşdeğer gizli
+eğitmen **yoktur**.
+`fit_unknown_destruction` **içindeki** mevcut
+`train_experiments_with_warmup(ude_init, set, ...)` **tek onaylı
+eğitmen yoludur**; o `set` parametresi production’da `split.train`
+bağlanır. Bu, depo-geneli `train_experiments*` yokluğu **değildir**.
+
+Unique-claim `:ude_discovery` / `:mm_unknown` section gövdesinde
+`train_ude(`, `train_experiments(`, `train_experiments_with_warmup`,
+`fit_unknown_destruction(`, `_polish_full(` **yoktur**.
+`_train_unknown_edge` döndükten sonra unique-claim section tam 9
+deney üzerinde eşdeğer ikinci eğitim geçişi **yapmaz**.
+`_train_unknown_edge` kendisi gizli ikinci fit **yapmaz**.
+
+Suite aynı kilitli `unique_claim_experiment_split(ude_set)` çağrısını
+tekrarlar (indeks sapması yok). Suite gövdesine
+`sample_destruction` / `discover_unknown_rate` / `evaluate_recovery` /
+`normalize_destruction_samples` yazılmaz.
+
+Unique-claim suite kabuğu (her iki section, aynı sıra):
+
+```julia
+ude_fit, ude_set = _train_unknown_edge(...)
+term = only_unknown_destruction(ude_model)
+ref_exp = first(ude_set.experiments)
+split = unique_claim_experiment_split(ude_set)
+evaled = _evaluate_unknown_rate_recovery(
+    ude_model, ude_fit.params, term, truth_rate;
+    r_range = _regulator_grid(split.train, term),
+    data_residual_fn = d_hat -> hybrid_data_residual(..., ref_exp, ...))
+ident = report_production_destruction_tradeoff(
+    ude_model, ude_fit.params, ref_exp.observations, ref_exp.times,
+    ref_exp.u0, (first(ref_exp.times), last(ref_exp.times));
+    term = term, verbose = false)
+if evaled.discovery === nothing
+    holdout = nothing
+else
+    holdout = evaluate_holdout(
+        split, evaled, ude_model, ude_fit.params, term, truth_rate)
+end
+# TEK karar kuralı. success alanı yok. _ensure_holdout yok.
+# report_recovery holdout hesaplamaz.
+report[:ude_discovery] = report_recovery(
+    evaled, ident;
+    model = ude_model, params = ude_fit.params, experiments = ude_set,
+    split = split, holdout = holdout)
+```
+
+Production keşif / `training_ok` domain’i **yalnızca** şu token’dır.
+Ara değişken yok. Sonradan `r_range` ataması yok. Unique-claim
+section gövdesinde `r_range =` tam **bir** kez; sağ taraf
+**birebir** `_regulator_grid(split.train, term)`:
+
+```julia
+r_range = _regulator_grid(split.train, term)
+```
+
+`_evaluate_unknown_rate_recovery` çağrısının `r_range` anahtar
+argümanı **birebir** `_regulator_grid(split.train, term)` olur.
+Production path sonra başka domain ile değiştirmez. Domain
+`ude_set` / `set` / `holdout` / `union(...)` / holdout extrema /
+tam-set extrema’dan **türemez**.
+
+M2 suite çağrısı **yalnız** mevcut M1 anahtarlarını kullanır
+(`order`, `family`, `noise_σ`, `data_residual_fn`, `r_range`).
+`holdout=` / `split=` / `ExperimentSplit` / `HoldoutEvidence`
+L-DISC-B-1 kırmızısıdır. Residual kapanışı holdout yakalamaz
+(L-DISC-B-1). Composer keşif grafı geçişli L-DISC-B-2’dir.
+
+Yasak domain gövdeleri (L-DOM-A / L-DOM-B kırmızı olur):
+
+```julia
+# Y4 — tam set
+r_range = _regulator_grid(ude_set, term)
+
+# Y4b — set
+r_range = _regulator_grid(set, term)
+
+# Y5 — holdout extrema birleşimi
+r_train = _regulator_grid(split.train, term)
+r_holdout = _regulator_grid(split.holdout, term)
+r_range = union(r_train, r_holdout)
+
+# Y6 — token doğru, sonra overwrite / set
+r_range = _regulator_grid(split.train, term)
+r_range = _regulator_grid(set, term)
+
+# Y6b — token doğru, sonra union
+r_range = _regulator_grid(split.train, term)
+r_range = union(r_range, holdout_range)
+
+# Y6c — token doğru, sonra holdout extrema
+r_range = _regulator_grid(split.train, term)
+r_range = range(min(...holdout...), max(...holdout...))
+
+# Y6d — token doğru, sonra inline tam-set / holdout extrema
+r_range = _regulator_grid(split.train, term)
+lo, hi = extrema(vcat((e.observations[term.regulator, :]
+                       for e in split.holdout)...))
+r_range = range(min(first(r_range), lo), max(last(r_range), hi); length = 80)
+```
+
+`evaluate_holdout(split, evaled, model, params, term, truth_rate) →
+HoldoutEvidence`. Çağrıldığında her zaman `HoldoutEvidence` döner;
+`nothing` dönmez. Erken yolda suite fonksiyonu çağırmaz.
+`ident` almaz. `evaled` / `ident` mutasyona uğratmaz.
+Holdout değerlendirmesi keşif **aşaması değildir**.
+
+`evaluate_holdout` keşif **aşaması değildir**. `evaled` alır ama
+`evaled.discovery`, `evaled.success` veya sembolik `d_hat` holdout
+metrik girdisi **değildir**. Q5 (`support_recall`, sembolik keşif)
+Q7’yi kapılamaz.
+
+L-SET-INTACT: `evaluate_holdout` ikinci giriş noktasıdır. Ondan
+erişilebilir yerel yardımcılar (`_prepare_holdout`,
+`_temporary_partition` dahil) orijinal `ExperimentSet` /
+`set.experiments` üzerinde yasaklı mutator kullanamaz.
+Giriş-noktası-yalnız gövde taraması **yetersizdir**. Depo-geneli
+mutator yasağı **yoktur**.
+
+`evaluate_holdout` gövdesinde **ve** ondan erişilebilir yerel
+yardımcı çağrı grafında şu token’lar **yoktur**:
+
+- `discover_unknown_rate(`
+- `discover_unknown(`
+- `discover_equations(`
+- `discover_unknown_destruction(`
+- depoda halihazırda bulunan herhangi bir diğer sembolik keşif
+  yardımcısı
+- `_peek_holdout`
+- `normalize_destruction_samples(`
+- `equation_to_function(`
+- `sample_learned_function(`
+- `evaluate_recovery(`
+- `_ensure_holdout`
+- `evaled.success` / `discovery.success` kapısı
+- `RECOVERY_THRESHOLDS` holdout karşılaştırması
+- holdout metriği `> 0.30` / `<= 0.30` kapısı
+
+Bu, depo-geneli keşif yasağı **değildir**. Unique-claim composer’ın
+mevcut M1 dummy-time çift keşif yolu durur.
+
+`fill_value = 0.3` (`sample_unknown_destruction_grid`, M1) durur;
+bu 0.30 residual kapısı **değildir**.
+
+`D_hat` yolu **yalnızca** mevcut nöral
+`sample_unknown_destruction_grid` / `sample_unknown_destruction` /
+`_destruction_contribution` yoludur. Sembolik `D` rekonstrüksiyonu
+yoktur. Keyfi NN ızgarası yoktur
+(`range(0.05, 2.0; length=80)` dahil). Onaylı protokolle ilgisiz
+sabit ızgara yoktur.
+
+Holdout `observations` / `times` / türevleri keşif argümanı
+**değildir** (L-DISC-B-1/2/3; unique-claim composer keşif grafı
+geçişlidir). Bu, depo-geneli keşif yasağı **değildir**.
+`evaluate_recovery` imzası ve gövdesi holdout almaz.
+
+`Identifiability.jl` ve `DataGen.jl` M2-min’de değişmez.
+`Experiments.jl` `ExperimentSet` tanımı değişmez.
+`_regulator_grid` gövdesi M1 formülüdür: yalnız argüman
+`set.experiments` extrema’sı + %10 şişirme; cache / global extrema /
+holdout closure **yoktur**.
+
+```mermaid
+flowchart TD
+    suite[run_recovery_suite dispatcher]
+    train[_train_unknown_edge]
+    gen[generate_recovery_experiments 9 IC]
+    splitFit[unique_claim_experiment_split]
+    fit[fit_unknown_destruction split.train]
+    splitSuite[unique_claim_experiment_split on full set]
+    grid["_regulator_grid(split.train, term)"]
+    composer[_evaluate_unknown_rate_recovery]
+    ident[existing identifiability on IC1]
+    gate{discovery === nothing}
+    evalH[evaluate_holdout]
+    skipH["holdout === nothing"]
+    report[report_recovery]
+    result[MechanismRecoveryResult]
+
+    suite --> train
+    train --> gen --> splitFit --> fit
+    train -->|"return fit, full 9-IC set"| suite
+    suite --> splitSuite --> grid --> composer
+    composer --> ident --> gate
+    gate -->|training_ok false discovery nothing| skipH --> report
+    gate -->|training_ok true| evalH --> report
+    report --> result
+```
+
+Bu diyagram tek sıradır: composer → ident → evaluate_holdout →
+report_recovery. `gate` ikinci sahiplik değildir; aynı suite adımının
+tek karar kuralıdır. `training_ok == false` iken `evaluate_holdout`
+çağrılmaz ve `holdout === nothing` atar. `evaluate_holdout` şu
+gövdelerden çıkmaz: composer, `report_recovery`, residual kapanışı,
+`_ensure_holdout`.
+
+### Sonuç alanları
+
+Mevcut M1 alanları durur. `data_residual` **silinmez ve yeniden
+adlandırılmaz**; anlamı IC[1] hybrid residual’dır.
+
+Yeni Q7 sayıları `HoldoutEvidence` üzerindedir, protokol kapısında
+değildir:
+
+| Alan | Anlam | Kapı? |
+|---|---|---|
+| `data_residual` | IC[1] hybrid residual (legacy Q1; sembolik `d_hat`) | evet, 0.30 |
+| `data_residual_train` | train IC ortalama hybrid residual (`D_hat`) | hayır |
+| `data_residual_holdout` | holdout IC ortalama hybrid residual (`D_hat`) | hayır |
+| `d_rmse_holdout` | holdout-IC gözlenen \(r\) üzerinde `D_hat` vs `D_true` | hayır |
+| `d_rmse_holdout_domain` | kilitli dış \(r\) bandında `D_hat` vs `D_true` | hayır |
+| `discovered_rate_rmse` | train-ızgara Q2 (artık tam-set değil) | hayır |
+| `extras_denominator.train/val` | ızgara sütun dilimi | Q7 değil |
+
+`protocol_result` / `locked_kpis` / `unique_claim_kpis_hold` IC[1]
+`data_residual` okumaya devam eder. Holdout bu yüzeye girmez.
+
+`haskey(result, :holdout)` alanın **varlığıdır**. Q7 kanıtı üretildi
+demek için `result.holdout !== nothing`.
+
+### Train / holdout metrik semantiği
+
+Keşif **yalnızca train ızgarası** ve **yalnızca composer** içindedir.
+Mevcut dummy-time (`times = range(0,1)`) + `discover_unknown_rate`
+algoritması durur. M2 yörünge-örnekli keşif (M4) **açmaz**.
+`evaluate_holdout` keşif **değildir**; değerlendirme metriği üretir.
+
+Holdout \(D\) metrikleri **yalnızca değerlendirme metrikleridir**.
+Keşif girdisi, NN ızgarası, occupancy modeli veya sahte dummy-time
+keşif veri seti **değildir**.
+
+`D_hat` bu bölümde **eğitilmiş nöral yıkımdır**
+(`sample_unknown_destruction` / `_destruction_contribution`). Sembolik
+`equation_to_function` **değildir**.
+
+Üç ayrı \(D\) hatası karışmaz:
+
+1. **Train ızgara Q2 (composer):** `nn_rate_rmse` /
+   `discovered_rate_rmse`. Domain =
+   `_regulator_grid(split.train, term)`, `fill_value=0.3`.
+2. **`d_rmse_holdout`:** holdout yörüngelerinde **gözlenen**
+   regülatör değerlerinde `D_hat` vs `D_true`.
+3. **`d_rmse_holdout_domain`:** aşağıdaki kilitli dış \(r\) bandında
+   `D_hat` vs `D_true`. Holdout extrema bandı tanımlamaz.
+
+Minimum dürüst Q7 kanıtı (kapı değil): `data_residual_holdout` ve
+`d_rmse_holdout`. Domain hatası ayrıca belgelenir.
+
+#### Per-experiment residual ve agregasyon
+
+`D_hat_fn(rvec)` eğitilmiş nöral yıkımdır (regülatör vektörü).
+Tek deney residual’ı, mevcut `hybrid_data_residual` imzasıdır
+(onaylı M2 değerlendirme yolu; nöral `D`):
+
+```
+ρ_i = hybrid_data_residual(
+    model, params, term, D_hat_fn,
+    exp.u0, (first(exp.times), last(exp.times)),
+    exp.times, exp.observations;
+    mask = exp.mask)
+```
+
+`exp` deney \(i\)’dir. Başarısız solve → `ρ_i === Inf` (mevcut M1
+`hybrid_data_residual`).
+
+Agregasyon **aritmetik ortalamadır**. RMS yoktur. Birleşik vektör
+yoktur. Sıra kilitli indekstir.
+
+```
+data_residual_train   = (ρ_1 + ρ_2 + ρ_3 + ρ_4 + ρ_5 + ρ_6 + ρ_7) / 7
+data_residual_holdout = (ρ_8 + ρ_9) / 2
+```
+
+Herhangi bir `ρ_i === Inf` ise ilgili agrega `Inf`.
+
+`evaluate_holdout` bu iki sayıyı `_mean_hybrid_residual` ile üretir
+(`split.train.experiments` → train; `split.holdout.experiments` →
+holdout). Test, RMS / concat / medyan / ağırlıklı ortalama
+formülünü test dosyasında “doğru” diye yeniden yazmaz; production
+agregayı `(ρ_8 + ρ_9) / 2` ile karşılaştırır.
+
+Legacy `data_residual` **değişmez**, **yeniden adlandırılmaz**,
+`data_residual_train` ile **değiştirilmez**, holdout ortalaması
+**değildir**:
+
+```
+data_residual = data_residual_fn(d_hat_symbolic)   # yalnız IC[1]
+```
+
+`data_residual_fn` suite kapanışı M1’deki gibi
+`ref_exp = first(ude_set.experiments)` kullanır. `evaluate_holdout`
+bu kapanışı çağırmaz.
+
+Yanlış gövdeler (L-RES-LEGACY / L-RES-HOLD kırmızı olur):
+
+```
+data_residual = data_residual_train
+data_residual_holdout = data_residual_fn(d_hat)   # IC[1]
+data_residual_holdout = sqrt((ρ_8^2 + ρ_9^2) / 2)   # RMS
+data_residual_holdout = ρ_8                         # tek IC
+data_residual_holdout = median(ρ_8, ρ_9)
+data_residual_holdout = w8 * ρ_8 + w9 * ρ_9         # ağırlıklı
+```
+
+#### `d_rmse_holdout` — kesin formül
+
+`d_rmse_holdout` =
+\(\hat D\)’nin holdout yörüngelerinde **fiilen gözlenen** regülatör
+değerlerinde değerlendirilmesi; `D_true` ile **aynı** koordinatlarda
+karşılaştırılması.
+
+Nokta kurulumu, sıra, düzleştirme:
+
+```
+r_holdout = _holdout_observed_regulators(split.holdout, term)
+# =
+# vcat(
+#     split.holdout[1].observations[term.regulator, :],
+#     split.holdout[2].observations[term.regulator, :],
+# )
+```
+
+Sıra: önce deney 8’in tüm zaman sütunları, sonra deney 9’un tüm
+zaman sütunları; her deneyde sütun sırası korunur. Düzleştirme:
+`vec` / `vcat` tek 1-D `Float64` vektör.
+
+`evaluate_holdout` `D_hat`’i mevcut grid kuralıyla bu koordinatlarda
+örnekler (`fill_value = 0.3`); \(r\) noktaları ızgara **değil**
+`r_holdout` vektörüdür:
+
+```
+(R, D_hat_vals, _) = sample_unknown_destruction_grid(
+    model, params, term; r_range = r_holdout, fill_value = 0.3)
+d_rmse_holdout = _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))
+```
+
+`_finite_rate_rel_rmse` normalizasyonu mevcut `rate_rel_rmse`
+kuralıdır; ek `normalize_destruction_samples` **yoktur**:
+
+```
+scale = max(sqrt(mean(abs2, truth_vec)), eps(Float64))
+rate_rel_rmse = sqrt(mean(abs2, estimate − truth)) / scale
+```
+
+`estimate` veya `truth` içinde sonlu olmayan bir değer varsa metrik
+`Inf`. Boş `r_holdout` programlama hatasıdır (2 IC × `n_points` > 0).
+
+`d_rmse_holdout` şunlar **değildir:**
+
+- train ızgarası
+- tam-set ızgarası
+- keyfi NN ızgarası (`range(0.05, 2.0; length=80)` dahil)
+- sembolik `equation_to_function` fit’i
+- yeni keşfedilmiş occupancy modeli
+- sahte dummy-time keşif veri seti
+- `discover_equations` çıktısı
+
+#### `d_rmse_holdout_domain` — kesin formül
+
+`d_rmse_holdout_domain` =
+\(\hat D\)’nin **kilitli dış train-türevli bantta** değerlendirilmesi;
+`D_true` ile **aynı** bantta karşılaştırılması.
+
+Örnekleme noktaları **yalnızca** kilitli dış banttır
+(`collect(r_band_external)`, 80 nokta, `range` sırası). Holdout
+gözlemi bu koordinatlara girmez.
+
+```
+r_band_external = _unique_claim_external_regulator_band(split.train, term)
+(R, D_hat_vals, _) = sample_unknown_destruction_grid(
+    model, params, term; r_range = r_band_external, fill_value = 0.3)
+d_rmse_holdout_domain = _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))
+```
+
+`d_rmse_holdout_domain` hesabına **fiilen geçen** koordinatlar bu
+`r_band_external` değerleridir. Test, bandı test dosyasında formülden
+bağımsız yeniden türetmez; production yardımcısının çıktısını ve
+`evaluate_holdout`’un bu yardımcıyı `r_range` olarak kullanmasını
+zorlar.
+
+Aynı `_finite_rate_rel_rmse` normalizasyonu; aynı sonlu-değer kuralı.
+
+### Kilitli dış r-bandı formülü
+
+M2 iki domain’i karıştırmaz:
+
+1. **Holdout-IC yörünge domain’i:** holdout yörüngelerinde fiilen
+   gözlenen regülatör değerleri (`r_holdout` yukarıda). Yalnız
+   `d_rmse_holdout` örneklemesidir.
+2. **Dış regülatör domain’i:** aşağıdaki **tek** deterministik,
+   önceden kilitli bant. Yalnız train niceliklerinden türetilir.
+   Yalnız `d_rmse_holdout_domain` örneklemesidir.
+
+Yasak: holdout extrema’nın dış bandı tanımlaması; holdout
+değerlerinin dış banda `union` edilmesi; sonradan domain seçimi;
+tam-set extrema’nın metadata / cache’den okunması. Genel domain
+çerçevesi eklenmez.
+
+Bu formül M2 protokolünün parçasıdır. Sonuçlara bakılarak türetilmez,
+sonra sıkılaştırılmaz. Holdout gözlemine **hiç** bağlı değildir.
+
+Train-domain extrema, `_regulator_grid` ile aynı indirgeme ve yalnız
+`split.train` üzerindendir:
+
+```
+r_train = vcat(exp.observations[term.regulator, :]
+               for exp in split.train.experiments)
+r_lo_train, r_hi_train = extrema(r_train)
+span_train = max(r_hi_train - r_lo_train, 0.1)
+```
+
+**Tek** kilitli dış bant (alt sınır, üst sınır, nokta sayısı):
+
+```
+r_lo_external = r_hi_train + 0.15 * span_train
+r_hi_external = r_hi_train + 0.35 * span_train
+n_external    = 80
+r_band_external = range(r_lo_external, r_hi_external; length = n_external)
+```
+
+Sabitler: `0.15`, `0.35`, `length = 80`, `min_span = 0.1`.
+Sıra: `range` artan sırası. Koordinatlar: `collect(r_band_external)`
+— 80 `Float64`. Holdout incelenmez. Post-hoc sıkılaştırma yoktur.
+
+Bu formül **gizlenmiş sabit aralık değildir**.
+`range(1.65, 1.85; length = 80)` veya herhangi bir
+`range(a, b; length = 80)` train niceliğinden bağımsız gövde
+**yasaktır**. Train extrema değişince üretim bandı değişmek
+**zorundadır**. Holdout extrema değişince üretim bandı değişmemek
+**zorundadır**. Yalnız holdout-değişmezliği testi yetersizdir
+(L-BAND).
+
+`_unique_claim_external_regulator_band(split.train, term)` bu formülü
+uygular. `split.holdout` bu fonksiyona **argüman olarak girmez**.
+`evaluate_holdout` bandı `split.train`’den bu fonksiyonla hesaplar.
+Production `d_rmse_holdout_domain` ızgarası, testin formülü yeniden
+yazması değil, `evaluate_holdout` sırasında
+`sample_unknown_destruction_grid`’e fiilen geçen `r_range`’dir.
+
+Production keşif / `training_ok` ızgarası ayrıdır ve mevcut yardımcıdır:
+
+```
+r_range_train = _regulator_grid(split.train, term)
+```
+
+Bu, mevcut `_regulator_grid` formülüdür (train extrema + %10 şişirme,
+`max(0.05, lo - 0.1 * span)` … `hi + 0.1 * span`, `length=80`).
+Yeni ızgara formülü değildir. Tam 9-IC sete uygulanmaz.
+
+### Eşik politikası
+
+- `RECOVERY_THRESHOLDS`, `UNIQUE_CLAIM_PROTOCOL`,
+  `PROTOCOL_RESULT_FIELDS` korunur.
+- Mevcut 0.30 **yalnızca** legacy M1 / IC[1] `data_residual` kapısıdır.
+- Yeni holdout kapısı **yoktur**. Şunlarla holdout kapılanmaz:
+  `0.30`, `nn_rate_rmse`, `support_recall`, herhangi bir
+  `RECOVERY_THRESHOLDS` alanı.
+- Mevcut M1 `unique_claim_kpis_hold` durur; holdout okumaz; yeni
+  holdout kapısı **eklenmez**.
+- M2 yeni holdout eşiği **uydurmaz**.
+- L-GATE: `data_residual_holdout > 0.30` **üretim** `evaluate_holdout`
+  yolundan gelir; sentetik `HoldoutEvidence` enjeksiyonu tek koruma
+  **değildir**. `holdout !== nothing` kalır; `Inf`-as-failure yoktur;
+  `success = false` yapılmaz; M1 IC[1] `data_residual <= 0.30` kapısı
+  değişmez. `unique_claim_kpis_hold` mevcut M1 fonksiyonudur; holdout
+  okumaz. Metin `"0.30"` depo genelinde yasak **değildir**.
+- Hard job fail olursa split gevşetilmez, 0.30 düşürülmez, zor tohum
+  silinmez.
+
+### Uyumluluk politikası
+
+“Seed 103 legacy” = aynı tohum, aynı 9-IC tablo, aynı generate RNG,
+aynı kapı **sayıları**, aynı `data_residual` **anlamı** (IC[1]).
+Aynı UDE ağırlıkları **değildir**. 7 IC fit ≠ 9 IC fit; Adam 7
+minibatch’tir. Bu Q7’nin bedelidir. 9’da eğitip sayıları korumak
+legacy’yi sahte Q7 ile takas eder — yasaktır.
+
+`_train_unknown_edge` 3-tuple’a **dönmez**. `fit_unknown_destruction`
+imzası değişmez; yalnızca `split.train` alır.
+
+Public export eklenmez. L-API: aşağıdaki isimlerin **hiçbiri**
+`names(BioDynaX)` içinde değildir ve **hiçbiri**
+`LOCKED_PUBLIC_EXPORTS`’a eklenmez. Kilidi güncelleyip export etmek
+yasaktır.
+
+- `ExperimentSplit`
+- `HoldoutEvidence`
+- `evaluate_holdout`
+- `unique_claim_experiment_split`
+- `UNIQUE_CLAIM_TRAIN_INDICES`
+- `UNIQUE_CLAIM_HOLDOUT_INDICES`
+- `_holdout_observed_regulators`
+- `_unique_claim_external_regulator_band`
+- `_finite_rate_rel_rmse`
+- `_mean_hybrid_residual`
+- M2’ye özel diğer yardımcılar
+
+`examples/unknown_inhibition.jl` ilk dilimde 9-IC train legacy
+kalabilir. Suite ile sapma belgelenir; sessizce “holdout var” denmez.
+`UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN` iğneleri (`_regulator_grid`,
+`first` residual) durur.
+
+### RNG sözleşmesi
+
+M1 dummy / paylaşılan RNG durur. Per-section `MersenneTwister` yok.
+Yeni RNG soyutlaması **yoktur**. Depo-geneli RNG yasağı **yoktur**.
+Depo-geneli `generate_*` yasağı **yoktur**.
+
+Bu dar unique-claim production-path sözleşmesidir (L-RNG).
+Onaylı bilimsel tasarım yeniden çizilmez.
+
+Onaylı yol (dokuz deney **tam bir kez**, split’ten **önce**):
+
+```
+generate_recovery_experiments(...)
+    ↓
+unique_claim_experiment_split(set)
+    ↓
+fit_unknown_destruction(..., split.train)
+    ↓
+evaluation
+```
+
+`_train_unknown_edge` beklenen generate sayısı: **tam 1**.
+`_train_unknown_edge` beklenen dönüş: **`return fit, set`**
+(`set` = o tek generate’in `ExperimentSet`’i; 3-tuple yok).
+
+**L-RNG kaynak sözleşmesi** (yalnız unique-claim production path):
+
+1. `_train_unknown_edge` içinde `generate_recovery_experiments(`
+   **tam bir** kez.
+2. `_train_unknown_edge` dönüşü: `return fit, set`.
+3. `_train_unknown_edge` içinde yok: ikinci
+   `generate_recovery_experiments(`, `generate_experiment_set(`,
+   `generate_data(`.
+4. `_train_unknown_edge` sonrası unique-claim production path
+   ek deney / veri üretmez.
+5. `unique_claim_experiment_split` üretmez.
+6. `evaluate_holdout` üretmez.
+7. `:ude_discovery` ve `:mm_unknown` section gövdeleri üretmez.
+
+Yasak gövde (L-RNG kırmızı; Y-RNG-1):
+
+```julia
+function _train_unknown_edge(...)
+    set = generate_recovery_experiments(...)
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(..., split.train)
+    return fit, generate_recovery_experiments(...)
+end
+```
+
+Eşdeğerleri de kırmızı (Y-RNG-2…Y-RNG-7): `generate_experiment_set(...)`,
+`generate_data(...)`, başka bir data-generation yardımcısı, yerel
+`_regen` / `_fresh_set` / `_second_draw` dolayımı, section /
+splitter / `evaluate_holdout` içi ikinci generate.
+
+`generate_recovery_experiments` tanımı içindeki
+`generate_experiment_set(` M1 iç yoludur; ikinci üretim **değildir**.
+`unique_claim_experiment_set`, örnek, honesty, DataGen meşrudur.
+
+İkinci generate paylaşılan suite RNG durumunu ilerletir.
+`generate_data` `σ=0` iken bile `randn` tüketir. Bu hem ikinci
+set’in gürültü çekimini hem de sonraki dummy
+`consume_shared_suite_rng!` / diğer section davranışını kaydırır.
+Holdout, üretilmiş dokuz deneyin **referans** bölmesidir
+(`split.holdout[i] === set.experiments[UNIQUE_CLAIM_HOLDOUT_INDICES[i]]`).
+RNG yeniden tasarlanmaz. Mevcut dummy consume durur.
+
+### Erken dönüş — tek temsil ve karar tablosu
+
+Q7 holdout yokluğunun **tek** temsili:
+
+```
+holdout === nothing
+```
+
+`Inf`, eksik `HoldoutEvidence`’ın ikinci temsili **değildir**.
+`holdout === nothing` iken Q7 skalerleri `Inf` diye yazılmaz.
+`holdout === nothing` ile “Q7 skalerleri `Inf`” yan yana sunulmaz.
+
+M1 erken eğitim yolu korunur:
+
+```
+discovery === nothing
+data_residual === Inf
+```
+
+Üç durum **ayrı** durur. Case B, case A’ya çökertilmez. Case B sessizce
+sahte holdout kanıtı uydurmaz.
+
+Case B politikası **kilitli bilimsel karardır** (sessiz varsayılan
+değildir): `training_ok == true` iken holdout öngörü / mekanizma
+değerlendirmesi sembolik keşiften **bağımsızdır**.
+`discover_unknown_rate` başarısı **gerekmez**. Q7, Q5’ten ayrı kalır.
+M1 composer / kontrol-akışı değişmez.
+
+Aşağıdaki gövde **yasaktır** ve L-EARLY kırmızısıdır:
+
+```
+if !discovery.success
+    holdout = nothing
+end
+
+if evaled.discovery === nothing || evaled.success == false
+    holdout = nothing
+end
+
+if !evaled.success
+    holdout = nothing
+end
+
+if !evaled.discovery.success
+    return HoldoutEvidence(Inf, Inf, Inf, Inf)
+end
+```
+
+`success` alanı yeni M2 kapısı **değildir**. Holdout kararı `success`
+okumaz. `evaled.success` / `evaled.discovery.success` örtük Q7
+kapısı **değildir**.
+
+`evaled.discovery === nothing` M1’de `training_ok == false`
+kodlamasıdır. Suite kararı bu M1 sinyalini kullanır; bu “keşif
+başarısız diye Q7 atla” değildir.
+
+| | A | B | C |
+|---|---|---|---|
+| `training_ok` | `false` | `true` | `true` |
+| `discovery` | `=== nothing` | `!== nothing`, `success == false` | `!== nothing`, `success == true` |
+| composer | M1 erken NamedTuple; keşif yok; `data_residual === Inf`; `extras_denominator` yok | dummy-time çift keşif + `evaluate_recovery` | aynı + başarılı aday |
+| `data_residual` | `Inf` (M1; değişmez) | `evaluate_recovery` çıktısı (keşif fail ise M1’de `Inf` olabilir) | IC[1] hybrid, sembolik `d_hat` |
+| ident | mevcut yerinde, IC[1] | mevcut yerinde, IC[1] | mevcut yerinde, IC[1] |
+| `evaluate_holdout` | **çağrılmaz** | **çağrılır** | **çağrılır** |
+| `holdout` | `=== nothing` | `HoldoutEvidence` (`!== nothing`) | `HoldoutEvidence` (`!== nothing`) |
+| Q7 `D` / residual | yok | nöral `D_hat`; keşif gerekmez | nöral `D_hat`; keşif gerekmez |
+
+`evaled.success == false` tek başına atlama koşulu **değildir**
+(A ile B’yi çökertir).
+
+### Q5 / Q7 ayrımı
+
+`evaluate_holdout` sembolik keşif başarısına **bağımlı değildir**.
+
+| Kanıt | Soru | Kaynak |
+|---|---|---|
+| `data_residual` (legacy IC[1]) | Q1 kapısı | M1 `evaluate_recovery` + `data_residual_fn` |
+| `data_residual_holdout`, `d_rmse_holdout`, `d_rmse_holdout_domain` | Q1 / Q2 / Q7 | nöral `D_hat`; `evaluate_holdout` |
+| `support_recall`, sembolik keşif, `discovered_rate_rmse` | Q5 | composer dummy-time keşif |
+
+Yasak:
+
+- keşif başarısız ⇒ Q7 baskılama (`holdout = nothing` veya `Inf`-kapı)
+- keşif sonucu ⇒ holdout metrik girdisi (sembolik `d_hat`, aday, extras)
+- sembolik rekonstrüksiyon ⇒ holdout \(D\) değerlendirmesi
+- Q5 `support_recall` ⇒ Q7 kapısı
+
+Aynı `model` / `params` / `split` / `truth_rate` ile Case B ve
+Case C `evaluate_holdout` çağrıları **aynı** dört Q7 skalerini
+döner (keşif nesnesi metrik girdisi değildir).
+
+Suite’in tek karar kuralı (ident’den sonra, `report_recovery`’den önce):
+
+```
+if evaled.discovery === nothing
+    holdout = nothing          # evaluate_holdout çağrılmaz
+else
+    holdout = evaluate_holdout(
+        split, evaled, ude_model, ude_fit.params, term, truth_rate)
+end
+```
+
+Composer erken çıkış alan listesine Q4 / occupancy / holdout kapısı
+eklenmez.
+
+### Test kataloğu
+
+Split-provenance (örtüşmezlik / birleşim / `1 ∈ train`) tek başına
+**YETERSİZDİR**. **Uzunluk-yalnız testler yetersizdir.** L-RNG
+splitter birim testi **değildir**; observation `==` yetmez.
+Aşağıdaki her test, named yanlış gövdeyi kırmızıya düşürmek
+zorundadır. Hızlı testler unique-claim UDE eğitmez.
+
+Kaynak gövdesi çıkarma (yeni genel envanter yoktur; mevcut M1
+yardımcıları):
+
+- `_train_unknown_edge` tanımı: `function _train_unknown_edge` …
+  sonraki `\nfunction `
+- unique-claim section: mevcut `recovery_suite_section_body(:ude_discovery)`
+  ve `recovery_suite_section_body(:mm_unknown)`
+- `evaluate_holdout` tanımı: `function evaluate_holdout` … sonraki
+  `\nfunction `
+- `report_recovery` tanımı: `function report_recovery` … sonraki
+  `\nfunction `
+- `_evaluate_unknown_rate_recovery` tanımı: aynı kalıp
+- `unique_claim_experiment_split` tanımı:
+  `function unique_claim_experiment_split` … sonraki `\nfunction `
+
+`SENTINEL = 1.0e6` train unique-claim \(r\) kutusunda yoktur.
+
+#### L-SPLIT-ID — nesne kimliği (provenance yetmez)
+
+Fikstür: 9-IC `generate_recovery_experiments` (tek üretim). Split
+öncesi `ids = [set.experiments[i] for i in 1:9]` ve her deneye
+`metadata[:probe] = i`.
+
+Zorunlu assertler:
+
+```
+split.train_indices === (1, 2, 3, 4, 5, 6, 7)
+split.holdout_indices === (8, 9)
+split.train[i] === set.experiments[i]                      # i=1:7
+split.holdout[1] === set.experiments[8]
+split.holdout[2] === set.experiments[9]
+split.holdout[1].observations === set.experiments[8].observations
+[split.train[i].metadata[:probe] for i in 1:7] == 1:7
+[split.holdout[i].metadata[:probe] for i in 1:2] == [8, 9]
+issetequal(objectid.(ids), objectid.([split.train[i] for i in 1:7]) ∪
+                            objectid.([split.holdout[i] for i in 1:2]))
+isempty(objectid.([split.train[i] for i in 1:7]) ∩
+        objectid.([split.holdout[i] for i in 1:2]))
+length(unique(objectid.(ids))) == 9
+```
+
+Öldürür: yanlış 7 IC; sayısal indeks doğru ama yanlış `Experiment`;
+holdout `Experiment(...)` / `generate_*` kopyası; ikinci üretilmiş
+veri seti; değer-eşit kopya (`==` ama `!==`); metadata-gizli
+train/holdout.
+
+#### L-SPLIT-META / L-SET-META — metadata kaçak
+
+```
+!haskey(set.metadata, :train)
+!haskey(set.metadata, :holdout)
+!haskey(set.metadata, :split)
+!haskey(set.metadata, :train_indices)
+!haskey(set.metadata, :holdout_indices)
+split.train.metadata !== set.metadata
+split.holdout.metadata !== set.metadata
+```
+
+Öldürür: train/holdout verisinin `ExperimentSet.metadata`’da saklanması.
+
+#### L-SET-INTACT — set bütünlüğü
+
+İki katman **birlikte** zorunludur. Anlık görüntü kalır. Geçişli
+saflık sözleşmesi geçici mutasyonu kapatır.
+
+##### Anlık görüntü (kalır; tek başına yetmez)
+
+M2 **öncesi** (generate sonrası, split öncesi) anlık görüntü:
+
+```
+vec_before = set.experiments
+ids = [set.experiments[i] for i in 1:9]
+names_before = copy(set.state_names)
+units_before = copy(set.units)
+meta_before = deepcopy(set.metadata)
+fp_before = experiment_fingerprint(set)
+```
+
+M2 **sonrası** (`unique_claim_experiment_split` + `evaluate_holdout`):
+
+```
+set.experiments === vec_before
+length(set.experiments) == 9
+all(set.experiments[i] === ids[i] for i in 1:9)
+set.state_names == names_before
+set.units == units_before
+set.metadata == meta_before
+experiment_fingerprint(set) == fp_before
+!hasfield(ExperimentSet, :train)
+!hasfield(ExperimentSet, :holdout)
+!haskey(set.metadata, :train)
+!haskey(set.metadata, :holdout)
+```
+
+before/after equality is insufficient by itself because temporary
+mutation followed by restoration can leave the final state unchanged.
+
+Anlık görüntü **yetmez**. `pop!` / `insert!` / `resize!` / restore
+son görüntüyü koruyabilir. Geçişli saflık sözleşmesi bu boşluğu
+kapatır.
+
+##### Geçişli saflık sözleşmesi (AST / çağrı grafı)
+
+Depo-geneli mutator yasağı **yoktur**. Depo-geneli AST taraması
+**yoktur**. Yeni genel kaynak-string honesty envanteri **yoktur**.
+`push!` token’ının depo-geneli yokluğu **yanlış sözleşmedir**.
+Yeni bir vektörü comprehension / indeksleme ile kurmak yasak
+değildir. Onaylı M2 yardımcılarının
+(`_holdout_observed_regulators`,
+`_unique_claim_external_regulator_band`, `_finite_rate_rel_rmse`,
+`_mean_hybrid_residual`) yeni yerel sonuç vektörüne yazması bu
+sözleşmenin hedefi **değildir**.
+
+Kapsam yalnız M2 split / evaluation çağrı grafıdır.
+
+**Giriş noktaları** (orijinal `ExperimentSet`’i alan veya o seti
+bölen / değerlendiren iki M2 fonksiyonu):
+
+1. `unique_claim_experiment_split`
+2. `evaluate_holdout`
+
+Sözleşme (dar AST / çağrı-grafı; jenerik kaynak-string envanteri
+değil):
+
+1. M2 giriş noktasını tanır
+2. Ondan erişilebilir yerel yardımcı çağrılarını statik çözer
+3. Bu yardımcı gövdelerini geçişli inceler
+4. Orijinal `ExperimentSet` veya onun `set.experiments`
+   koleksiyonu üzerinde yasaklı bir mutator varsa kırmızı
+5. Bir-düzey veya çok-düzey yardımcı dolayımını reddeder
+
+**Geçişli kapsam.** Her giriş noktasından erişilebilir her yerel
+yardımcı ki:
+
+- orijinal `ExperimentSet` alır, **veya**
+- orijinal `set.experiments` koleksiyonunu alır, **veya**
+- o orijinal seti bölmek / değerlendirmekle yükümlüdür
+
+yasaklı mutator listesine tabidir. Giriş noktası gövdesi temiz
+görünüp işi bir yardımcıya devretmek kaçış **değildir**.
+
+**Yasaklı mutatorlar** (orijinal `ExperimentSet` / orijinal
+`set.experiments` üzerinde):
+
+- `splice!`
+- `deleteat!`
+- `pop!`
+- `push!`
+- `insert!`
+- `append!`
+- `resize!`
+- `setindex!` / `set.experiments[i] = …`
+- `replace!`
+
+Şu yardımcılar kaçış kapağı **değildir**:
+
+- `_carve_and_restore!`
+- `_split_impl`
+- `_prepare!`
+- `_partition!`
+- `_prepare_holdout`
+- `_temporary_partition`
+
+Öldürür: splice/delete/pop/insert/resize/append/setindex/replace/restore;
+yeni `Experiment` nesnesi; metadata mutasyonu; `!hasfield` tek
+başına yeşil kalan şişirme; giriş-noktası-yalnız taramanın
+kaçırdığı yardımcı dolayımı. `!hasfield(ExperimentSet, :holdout)`
+**yetersizdir**.
+
+```julia
+# L-SET-INTACT kırmızı — giriş noktası temiz, yardımcı kirli
+function unique_claim_experiment_split(set::ExperimentSet)
+    return _carve_and_restore!(set)
+end
+function _carve_and_restore!(set)
+    held = splice!(set.experiments, 8:9)
+    train = ExperimentSet(set.experiments, ...)
+    append!(set.experiments, held)
+    ...
+end
+
+# L-SET-INTACT kırmızı — çok-düzey dolayım
+function unique_claim_experiment_split(set::ExperimentSet)
+    return _prepare!(set)
+end
+function _prepare!(set)
+    return _partition!(set)
+end
+function _partition!(set)
+    held9 = pop!(set.experiments)
+    held8 = pop!(set.experiments)
+    train = ExperimentSet(set.experiments, ...)
+    insert!(set.experiments, 8, held8)
+    insert!(set.experiments, 9, held9)
+    ...
+end
+
+# L-SET-INTACT kırmızı — evaluate_holdout bir-düzey dolayım
+function evaluate_holdout(split, evaled, model, params, term, truth_rate)
+    return _prepare_holdout(set, split, evaled, model, params, term, truth_rate)
+end
+function _prepare_holdout(set, split, ...)
+    held = splice!(set.experiments, 8:9)
+    ...
+    append!(set.experiments, held)
+    ...
+end
+
+# L-SET-INTACT kırmızı — evaluate_holdout çok-düzey dolayım
+function evaluate_holdout(split, evaled, model, params, term, truth_rate)
+    return _temporary_partition(set, split, ...)
+end
+function _temporary_partition(set, split, ...)
+    held9 = pop!(set.experiments)
+    held8 = pop!(set.experiments)
+    insert!(set.experiments, 8, held8)
+    insert!(set.experiments, 9, held9)
+    ...
+end
+
+# L-SET-INTACT kırmızı — giriş noktası gövdesinde restore
+held = splice!(set.experiments, 8:9)
+train = ExperimentSet(set.experiments, ...)
+append!(set.experiments, held)
+
+held9 = pop!(set.experiments); held8 = pop!(set.experiments)
+train = ExperimentSet(set.experiments, ...)
+insert!(set.experiments, 8, held8); insert!(set.experiments, 9, held9)
+```
+
+#### L-RNG — tek üretim (production yolu)
+
+Splitter birim testi **yetmez**. L-SPLIT-ID L-RNG **değildir**.
+Observation `==` / `experiment_fingerprint` değer eşitliği
+**yetmez**. Depo-geneli `generate_*` yasağı **yoktur**.
+Depo-geneli RNG yasağı **yoktur**. Yeni generate çerçevesi /
+yeni RNG soyutlaması **yoktur**.
+
+Bu dar unique-claim production-path sözleşmesidir.
+
+Kapsam (yalnız şu siteler):
+
+1. `_train_unknown_edge` gövdesi
+2. `_train_unknown_edge`’den erişilebilir yerel yardımcılar
+   (dönüş set’ini üreten / tazeleyen)
+3. `:ude_discovery` ve `:mm_unknown` section gövdeleri
+4. `unique_claim_experiment_split` (+ erişilebilir yerel yardımcılar)
+5. `evaluate_holdout` (+ erişilebilir yerel yardımcılar)
+
+`:partial_obs`, `DataGen.jl`, `unique_claim_experiment_set`,
+örnekler, honesty — L-RNG hedefi **değildir**.
+`generate_recovery_experiments` tanımı içindeki
+`generate_experiment_set(` M1 iç yoludur; ikinci üretim
+**değildir**.
+
+##### Kaynak sözleşmesi
+
+`_train_unknown_edge` gövdesi:
+
+- `count("generate_recovery_experiments(", body) == 1`
+- `generate_experiment_set(` yok
+- `generate_data(` yok
+- ikinci `generate_recovery_experiments(` yok
+- dönüş token’ı birebir `return fit, set`
+- `return fit, generate_recovery_experiments` yok
+- `return fit, generate_experiment_set` yok
+- `return fit, generate_data` yok
+
+`unique_claim_experiment_split` ve ondan erişilebilir yerel
+yardımcılar: `generate_recovery_experiments(` /
+`generate_experiment_set(` / `generate_data(` yok.
+
+`evaluate_holdout` ve ondan erişilebilir yerel yardımcılar:
+aynı generate token’ları yok.
+
+`recovery_suite_section_body(:ude_discovery)` ve
+`recovery_suite_section_body(:mm_unknown)`:
+
+- `generate_recovery_experiments(` yok
+- `generate_experiment_set(` yok
+- `generate_data(` yok
+
+Giriş-noktası-yalnız `count == 1` **yetmez**: `_regen` /
+`_fresh_set` / `_second_draw` gövdesindeki ikinci generate
+kaçış kapağı **değildir**. Dar geçişli tarama (L-SET-INTACT
+tarzı; depo-geneli değil) bu yardımcıları kapsar.
+
+##### Davranışsal provenance (zorunlu; splitter birim testi değil)
+
+UDE eğitimi yok. Production unique-claim yolu **enstrümante**
+edilir veya doğrudan çalıştırılır:
+
+```
+generate_recovery_experiments   # tek; split’ten önce
+  → unique_claim_experiment_split
+  → fit_unknown_destruction(..., split.train)
+  → (suite) unique_claim_experiment_split(ude_set)
+  → evaluate_holdout
+```
+
+`_train_unknown_edge` yolu **ve** `_train_unknown_edge` sonrası
+unique-claim section yolu (split + evaluate_holdout) birlikte
+zorunludur. Yalnız `unique_claim_experiment_split` birim testi
+L-RNG **değildir**.
+
+Kanca (yeni soyutlama değil; L-FIT-A trainer kancası gibi):
+
+- `generate_recovery_experiments` giriş / çıkış
+- `fit_unknown_destruction` deney girdisi
+- `evaluate_holdout` `split.holdout` okuması
+
+Birinci (ve tek) `generate_recovery_experiments` dönüşünde:
+
+```
+ids_gen = [set.experiments[i] for i in 1:9]
+n_gen == 1
+length(unique(objectid.(ids_gen))) == 9
+```
+
+`_train_unknown_edge` sonrası:
+
+```
+n_gen == 1
+ude_fit, ude_set = _train_unknown_edge(...)
+all(ude_set.experiments[i] === ids_gen[i] for i in 1:9)
+all(fit_set[i] === ids_gen[i] for i in 1:7)
+```
+
+Suite split + `evaluate_holdout` sonrası:
+
+```
+n_gen == 1
+split.train[i] === ids_gen[i]                      # i = 1:7
+split.holdout[1] === ids_gen[8]
+split.holdout[2] === ids_gen[9]
+evaluate_holdout’un okuduğu holdout[i] === ids_gen[7 + i]
+```
+
+Aşağıdaki gövde **kırmızı** kalır, `set2` gözlemleri `set1`
+ile değer-eşit olsa bile:
+
+```julia
+set1 = generate_recovery_experiments(...)
+split = unique_claim_experiment_split(set1)
+fit = fit_unknown_destruction(..., split.train)
+set2 = generate_recovery_experiments(...)
+return fit, set2
+```
+
+çünkü `set2.experiments[i] !== ids_gen[i]` ve `n_gen == 2`.
+
+`experiment_fingerprint(set1) == experiment_fingerprint(set2)`
+veya `set1[i].observations == set2[i].observations` tek başına
+yeşil **bırakmaz**.
+
+##### Öldürülen gövdeler
+
+```julia
+# Y-RNG-1 — ikinci generate dönüşte
+function _train_unknown_edge(...)
+    set = generate_recovery_experiments(...)
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(..., split.train)
+    return fit, generate_recovery_experiments(...)
+end
+
+# Y-RNG-2 — generate_experiment_set ikinci üretim
+function _train_unknown_edge(...)
+    set = generate_recovery_experiments(...)
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(..., split.train)
+    return fit, generate_experiment_set(...)
+end
+
+# Y-RNG-3 — generate_data ikinci üretim
+function _train_unknown_edge(...)
+    set = generate_recovery_experiments(...)
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(..., split.train)
+    return fit, generate_data(...)
+end
+
+# Y-RNG-4 — yerel yardımcıda gizli ikinci generate
+function _train_unknown_edge(...)
+    set = generate_recovery_experiments(...)
+    split = unique_claim_experiment_split(set)
+    fit = fit_unknown_destruction(..., split.train)
+    return fit, _regen(...)
+end
+function _regen(...)
+    return generate_recovery_experiments(...)
+end
+
+# Y-RNG-5 — section’da ikinci generate
+ude_fit, ude_set = _train_unknown_edge(...)
+ude_set = generate_recovery_experiments(...)
+
+# Y-RNG-6 — splitter generate
+function unique_claim_experiment_split(set)
+    holdout = generate_recovery_experiments(...)
+    ...
+end
+
+# Y-RNG-7 — evaluate_holdout generate
+function evaluate_holdout(...)
+    fresh = generate_recovery_experiments(...)
+    ...
+end
+```
+
+##### RNG semantiği (korunur; yeniden tasarlanmaz)
+
+- dokuz IC **bir** generate
+- mevcut paylaşılan suite RNG
+- mevcut dummy `consume_shared_suite_rng!`
+- per-section `MersenneTwister` **yok**
+- ikinci generate **yok**
+- yenilenmiş deneylerin ikinci `randn` çekimi **yok**
+
+`generate_data` `σ=0` iken bile `randn` tüketir. İkinci
+`generate_recovery_experiments` paylaşılan RNG durumunu
+ilerletir; bu hem ikinci set’in verisini hem de sonraki
+dummy consume / diğer section davranışını kaydırır.
+
+#### L-FIT-A — dar production fit sözleşmesi
+
+**Tek onaylı eğitmen yolu** unique-claim için:
+
+```
+_train_unknown_edge
+  → fit_unknown_destruction(..., split.train)
+      → train_experiments_with_warmup(..., split.train, ...)
+```
+
+Sonra: tam-set eğitim yok; `train_experiments(` yok;
+`train_experiments_with_warmup(..., set, ...)` yok; eşdeğer gizli
+eğitmen yok; `_polish_full(..., set, ...)` yok; dokuz deney üzerinde
+ikinci optimizer/eğitim geçişi yok.
+
+Bu, depo-geneli `train_experiments*` yokluğu **değildir**.
+`:partial_obs`, `Training.jl`, `TrainingReuse.jl`,
+`ExperimentCheckpoint.jl` meşru çağrılar içerir.
+`count("train_experiments_with_warmup", repo) == 0` **yanlış
+sözleşmedir** ve yazılmaz.
+
+Kapsam (dar production-path; genel envanter yok):
+
+1. `_train_unknown_edge` gövdesi
+2. `_train_unknown_edge`’in doğrudan M2-yeni yardımcı zinciri
+   (`generate_recovery_experiments`, `unique_claim_experiment_split`,
+   `fit_unknown_destruction`, `_note_train_unknown_edge` hariç —
+   `fit_unknown_destruction` içindeki onaylı warmup durur)
+3. `:ude_discovery` ve `:mm_unknown` section gövdeleri
+
+`_train_unknown_edge` gövdesi:
+
+- `fit_unknown_destruction(` tam **bir** kez
+- o çağrının deney argümanı token’ı `split.train`
+- `fit_unknown_destruction(..., set)` yok
+- bu çağrıdan sonra `train_experiments_with_warmup` /
+  `train_experiments(` / `_polish_full` / ikinci
+  `fit_unknown_destruction` yok
+
+`recovery_suite_section_body(:ude_discovery)` ve
+`recovery_suite_section_body(:mm_unknown)`
+(`_train_unknown_edge` **döndükten sonra**):
+
+- `train_ude(` yok
+- `train_experiments(` yok
+- `train_experiments_with_warmup` yok
+- `fit_unknown_destruction(` yok
+- `_polish_full(` yok
+- tam 9 deney üzerinde eşdeğer ikinci eğitim geçişi yok
+
+`_train_unknown_edge` kendisi gizli ikinci fit **yapmaz**
+(onaylı `fit_unknown_destruction(..., split.train)` dışında
+`train_ude(` / `train_experiments(` /
+`train_experiments_with_warmup(..., set, ...)` / `_polish_full`
+yoktur).
+
+Davranışsal sentinel (UDE eğitimi yok; trainer kancası):
+
+unique-claim eğitim yolu boyunca `fit_unknown_destruction` /
+`train_experiments` / `train_experiments_with_warmup` girişleri
+kaydedilir. Tam olarak **bir** fitting işlemi vardır:
+`fit_unknown_destruction(..., split.train)` (içindeki warmup bu
+tek işlemin parçasıdır; ikinci sayılmaz). Bu kayıttan sonra
+`set` (9 IC) veya holdout nesnesi taşıyan trainer girişi **0**’dır.
+Holdout `SENTINEL` mutasyonu hiçbir trainer setinde görünmez ve
+nihai training sonucunu değiştiremez.
+
+`length(split.train) == 7` tek başına yetmez: ikinci tam-set
+eğitmen sonra gelebilir.
+
+Öldürür: Y1 tam-set fit; Y2
+`fit_unknown_destruction(..., split.train)` ardından
+`train_experiments_with_warmup(..., set, ...)`; Y2-POLISH
+`fit_unknown_destruction(..., split.train)` ardından
+`_polish_full(..., set, ...)`; Y2-SUITE
+
+```
+ude_fit, ude_set = _train_unknown_edge(...)
+ude_fit = train_experiments_with_warmup(
+    ude_fit.params, ude_set, ude_model; ...)
+```
+
+ve gizli yardımcı eşdeğerleri; `train_ude(` unique-claim
+section’da; `_train_unknown_edge` içi gizli ikinci fit.
+
+#### L-FIT-B — holdout sentinel, train yolu değişmez
+
+UDE eğitimi yok. 9-IC set + split. Train-side nicelik:
+
+```
+q0 = experiment_fingerprint(split.train)
+s0 = sum(sum(exp.observations) for exp in split.train)
+ids_train = [split.train[i] for i in 1:7]
+```
+
+Yalnız holdout `observations` ← `SENTINEL` (train matrislerine
+dokunulmaz).
+
+```
+experiment_fingerprint(split.train) == q0
+sum(sum(exp.observations) for exp in split.train) == s0
+all(split.train[i] === ids_train[i] === set.experiments[i] for i in 1:7)
+!any(SENTINEL in exp.observations for exp in split.train)
+sum(sum(exp.observations) for exp in set) != s0   # sentinel etkilidir
+```
+
+Production fit girdisi `fit_set` için (çağrı yakalama; UDE yok):
+
+```
+fit_set === split.train
+all(fit_set[i] === set.experiments[i] for i in 1:7)
+```
+
+`length == 7` tek başına yetmez.
+
+Öldürür: production fit’in `split.holdout` veya tam set tüketmesi
+(sentinel train niceliğini değiştirir); yanlış 7’li alt küme
+(IC 2–8). Y2 / Y2-POLISH ikinci tam-set fit’i L-FIT-A öldürür;
+L-FIT-B yalnız `length==7` iddiasını yeşil bırakmaz. Holdout
+mutasyonu L-FIT-A sentinel’inde nihai training sonucunu
+değiştiremez.
+
+#### L-DOM-A — dar production domain sözleşmesi
+
+Yalnızca unique-claim `:ude_discovery` / `:mm_unknown` section
+gövdeleri (genel envanter yok; depo-geneli `_regulator_grid`
+yasağı **yoktur**):
+
+Gerçek production ataması **zorunludur**:
+
+```
+r_range = _regulator_grid(split.train, term)
+```
+
+- `r_range =` tam **bir** kez
+- sağ taraf **birebir** `_regulator_grid(split.train, term)`
+- production path sonra başka bir domain ile **değiştirmez**
+- production path domain’i şunlardan **türetmez**:
+  `ude_set`, `set`, `holdout`, `union(...)`, holdout extrema,
+  tam-set extrema
+- `r_range` post-hoc overwrite **yoktur**
+
+`_evaluate_unknown_rate_recovery` çağrısının `r_range` anahtar
+argümanı **birebir** `_regulator_grid(split.train, term)` olur
+(ara değişken yoksa inline aynı token; ara değişken varsa tek
+atama yukarıdaki token’dır).
+
+Öldürür:
+
+```
+# Y4 — tam set
+r_range = _regulator_grid(ude_set, term)
+
+# Y4b — set
+r_range = _regulator_grid(set, term)
+
+# Y5 — holdout extrema birleşimi
+r_train = _regulator_grid(split.train, term)
+r_holdout = _regulator_grid(split.holdout, term)
+r_range = union(r_train, r_holdout)
+
+# Y6 — token doğru, sonra overwrite / set
+r_range = _regulator_grid(split.train, term)
+r_range = _regulator_grid(set, term)
+
+# Y6b — token doğru, sonra union
+r_range = _regulator_grid(split.train, term)
+r_range = union(r_range, holdout_range)
+
+# Y6c — token doğru, sonra holdout extrema
+r_range = _regulator_grid(split.train, term)
+r_range = range(min(...holdout...), max(...holdout...))
+
+# Y6d — token doğru, sonra inline tam-set / holdout extrema
+r_range = _regulator_grid(split.train, term)
+lo, hi = extrema(vcat((e.observations[term.regulator, :]
+                       for e in split.holdout)...))
+r_range = range(min(first(r_range), lo), max(last(r_range), hi); length = 80)
+```
+
+Tek başına `_regulator_grid(ude_set, term)` /
+`_regulator_grid(set, term)` literal’inin yokluğu Y6 / Y6b /
+Y6c / Y6d’yi öldürmez. `r_range =` sayısı + birebir token +
+sonra overwrite yokluğu zorunludur.
+
+#### L-DOM-B — holdout extrema production domain’i değiştiremez
+
+Gerçek IC 8–9 train kutusunda kalabilir; **sentinel fikstür
+zorunludur**. Kapsam: M2 unique-claim production
+(`:ude_discovery` / `:mm_unknown`).
+
+**Bağımsız `_regulator_grid(split.train, term)` yeniden hesabı
+tek başına yetmez.** `_regulator_grid(set, term)` literal
+yokluğu tek başına yetmez.
+
+Test **production yolunun tükettiği** keşif domain’ini gözler:
+M1 composer’a fiilen forwarded `r_range` anahtar argümanı
+**veya** M1 keşif yolunun (`sample_destruction` /
+`discover_unknown_rate`) fiilen kullandığı koordinatlar.
+
+1. Unique-claim production path’i çalıştır (section gövdesi
+   veya o gövdenin domain + composer adımı). Yakala:
+   `r_consumed_0` = composer’a forwarded `r_range` **veya**
+   keşif yolunun tükettiği regulator koordinatları.
+2. **Yalnız** holdout `observations[term.regulator, :]` ←
+   `SENTINEL` (aşırı uç sentinel). Train gözlemleri değişmez.
+3. Aynı production path’i tekrar çalıştır. Yakala `r_consumed_1`.
+4. `collect(r_consumed_1) == collect(r_consumed_0)` bit-eşit.
+5. Tam-set extrema farklı domain üretir; sentinel “tesadüfen
+   önemsiz” diye yeşil kalamaz:
+
+```
+r_full = _regulator_grid(set, term)
+collect(r_full) != collect(r_consumed_1)
+```
+
+Production `r_range` L-DOM-A token’ı olduğu için `r_consumed`
+o token’ın değeridir. Test token’ı bağımsız yeniden hesaplayıp
+“beklenen” diye yazmak yetmez; yakalanan production argüman /
+keşif koordinatı zorunludur.
+
+Öldürür: Y5 union; Y6 / Y6b / Y6c / Y6d overwrite; tam-set
+extrema cache (`_regulator_grid` her iki argümanda aynı cached
+değeri döner); holdout closure; yalnız bağımsız
+`_regulator_grid(split.train, term)` karşılaştırması ile yeşil
+kalan gövde; yalnız `_regulator_grid(set, term)` yokluğu ile
+yeşil kalan overwrite.
+
+#### L-DISC-A — `evaluate_holdout` keşif çağırmaz
+
+Holdout değerlendirmesi keşif **aşaması değildir**.
+`discover_unknown_rate(` sayacı `== 2` tek başına yetmez.
+
+Yasak **yalnız** `function evaluate_holdout` gövdesine sınırlı
+**değildir**. Yasak, `evaluate_holdout`’tan erişilebilir **yerel
+yardımcı çağrı grafının tamamını** kapsar. Depo-geneli keşif
+yasağı **yoktur**. Unique-claim composer’ın mevcut M1 dummy-time
+çift `discover_unknown_rate` yolu **değişmez**.
+
+Üç katman **birlikte** zorunludur.
+
+**1. Tanım gövdesi + erişilebilir yerel yardımcı grafı**
+(`function evaluate_holdout` … sonraki `\nfunction `, dört M2
+yardımcısı `_holdout_observed_regulators` /
+`_unique_claim_external_regulator_band` / `_finite_rate_rel_rmse` /
+`_mean_hybrid_residual`, ve `evaluate_holdout`’tan statik olarak
+erişilebilir her yerel yardımcı):
+
+- `discover_unknown_rate(` yok
+- `discover_unknown(` yok (bu token `discover_unknown_rate` öneki
+  değildir; ayrı çağrı adı olarak yasaktır)
+- `discover_equations(` yok
+- `discover_unknown_destruction(` yok
+- depoda halihazırda bulunan herhangi bir diğer sembolik keşif
+  yardımcısı yok
+- `_peek_holdout` yok
+- `normalize_destruction_samples(` yok
+- `equation_to_function(` yok
+- `sample_learned_function(` yok
+- `evaluate_recovery(` yok
+- yeni keşif yolu yok
+
+Giriş-noktası-yalnız gövde taraması **yetersizdir**.
+`evaluate_holdout` gövdesi temiz görünüp keşfi bir yardımcıya
+devretmek kaçış **değildir**.
+
+**2. RecoveryPipeline.jl dosya sözleşmesi** (evaluate_recovery M1
+`equation_to_function` kullanmaya devam eder; keşif çağırmaz):
+
+- `count("discover_equations(", RecoveryPipeline.jl) == 0`
+- `count("discover_unknown_rate(", RecoveryPipeline.jl) == 0`
+- `count("discover_unknown_destruction(", RecoveryPipeline.jl) == 0`
+- `count("_peek_holdout", RecoveryPipeline.jl) == 0`
+
+**3. Canlı yürütme.** Test **mutlaka** `ev = evaluate_holdout(...)`
+çağırır. Bu çağrının **gerçek değerlendirme yolunda** aşağıdaki
+giriş noktalarının **hiçbirine** girilmez:
+
+- `discover_unknown_rate(`
+- `discover_unknown(`
+- `discover_equations(`
+- `discover_unknown_destruction(`
+- depoda halihazırda bulunan herhangi bir diğer sembolik keşif
+  yardımcısı
+
+Composer ayrı çalıştırıldığında beklenen iki `discover_unknown_rate`
+durur. Holdout `observations` SENTINEL olsa bile keşif holdout’u
+görmez.
+
+Öldürür:
+
+```
+function evaluate_holdout(...)
+    _peek_holdout!(split.holdout, evaled)   # discover_equations / yörünge keşfi
+    # nöral metrikler doğru kalsa bile
+end
+
+evaluate_holdout(...)
+    → _peek_holdout(...)
+        → discover_equations(...)
+
+evaluate_holdout(...)
+    → helper(...)
+        → discover_unknown_destruction(...)
+
+discover_equations(R_holdout, holdout_times, ...)
+discover_unknown_rate(R_holdout, holdout_times, ...)
+```
+
+Composer’daki iki dummy-time çağrı durur; `evaluate_holdout` ve
+onun yerel yardımcı grafı sıfır ekler. L-DISC-A, unique-claim
+composer’ın iki keşfi varken bile `_peek_holdout!` /
+`discover_equations(...holdout...)` /
+`helper → discover_unknown_destruction` gövdesini kırmızıya çeker.
+
+#### L-DISC-B — holdout keşif girdisi değildir (geçişli)
+
+Üç katman **birlikte** zorunludur. Anlık “composer holdout
+okumaz” cümlesi yetmez. Geçişli AST / çağrı-grafı sözleşmesi
+yardımcı dolayımını kapatır. L-SET-INTACT ile **aynı güç**:
+giriş noktası temiz görünüp işi bir yardımcıya devretmek kaçış
+**değildir**.
+
+Kapsam: unique-claim composer **keşif çağrı grafı**.
+Depo-geneli keşif yasağı **değildir**. Depo-geneli AST taraması
+**yoktur**. Yeni genel kaynak-string honesty envanteri **yoktur**.
+
+**Giriş noktası (ENTRY):**
+
+1. `_evaluate_unknown_rate_recovery`
+
+**Keşif-erişilebilir altgraf.** Composer’dan, aşağıdaki
+sembolik-keşif giriş noktalarına **kadar ve o çağrılar
+sırasında** geçişli erişilebilir her yerel yardımcı:
+
+- `discover_unknown_rate`
+- `discover_unknown`
+- `discover_equations`
+- `discover_unknown_destruction`
+- eşdeğer sembolik-keşif giriş noktaları
+
+Onaylı M1 composer **aynı** M1 composer’dır. Public / private
+imza ve sahiplik M2 için **genişlemez**. Composer Q7 sahibi
+**değil**.
+
+`_evaluate_unknown_rate_recovery` **almaz**:
+
+- `ExperimentSplit`
+- `HoldoutEvidence`
+- `split`
+- `holdout`
+- holdout deneyleri
+- holdout gözlemleri
+- holdout zamanları
+- holdout türevleri
+- herhangi bir M2 holdout nesnesi
+
+`holdout=` anahtarı **eklenmez**. `split=` anahtarı **eklenmez**.
+
+M2 holdout değerlendirmesi composer’dan **sonra** ve mevcut
+identifiability çağrısından **sonra** olur. Tek geçerli kenar:
+
+```
+ident → evaluate_holdout → report_recovery
+```
+
+Yasak kenar:
+
+```
+composer → holdout
+```
+
+Onaylı kural (değişmez):
+
+- Mevcut keşif dizisi değişmez: sample learned D →
+  `training_ok` → erken dönüş **veya** dummy-time keşif →
+  normalizasyon → ikinci keşif → `evaluate_recovery`.
+- M2 holdout verisi o keşif dizisine **girmez**.
+- M2 composer’ı holdout / occupancy keşif aşamasına **çevirmez**.
+- M2 dummy-time fonksiyon-regresyon semantiğini **kaldırmaz**.
+- M4 yörünge-occupancy keşfi M2’de **yoktur**.
+
+Üç yol **ayrı** durur:
+
+```
+M1 composer keşfi:
+    train-derived r_range
+    +
+    öğrenilmiş D örnekleri
+    +
+    dummy time
+        times = collect(range(0.0, 1.0; length = length(r)))
+    +
+    unique_claim_discovery_config()
+    +
+    ikinci keşif için normalize öğrenilmiş D
+
+M2 holdout değerlendirme:
+    öğrenilmiş nöral D
+    +
+    gerçek holdout regülatör koordinatları
+    +
+    held-out residual
+    evaluate_holdout; keşif aşaması değildir
+
+M4 gelecek occupancy keşfi:
+    yörünge-occupancy keşfi
+    M2’DE UYGULANMAZ
+```
+
+L-DISC-B, L-DOM-A/B **değildir**. L-DOM-A/B train-derived
+`r_range`’i yönetir:
+
+```
+r_range = _regulator_grid(split.train, term)
+```
+
+Composer o train-derived `r_range`’i alır. L-DISC-B composer’ın
+o `r_range` ve öğrenilmiş D ile **ne yaptığını** yönetir:
+
+```
+split.train
+    → r_range
+    → composer
+    → dummy-time keşif
+```
+
+**değil:**
+
+```
+split.holdout
+    → composer
+    → keşif
+```
+
+Onaylı M1 keşif girdileri **yalnız**:
+
+- `R_grid`
+- öğrenilmiş `D_nn`
+- `term`
+- dummy `times = collect(range(0.0, 1.0; length = length(r)))`
+- `unique_claim_discovery_config()`
+- ikinci keşif için normalize öğrenilmiş D
+
+Keşif yolu **almaz**:
+
+- `split`
+- `split.holdout`
+- `holdout`
+- `holdout.observations`
+- `holdout.times`
+- holdout türevleri
+- holdout deneyleri içeren herhangi bir `ExperimentSet`
+
+`discover_unknown_rate(` sayacı `== 2` tek başına yetmez. İki
+normal keşif çağrısı dururken üçüncü / sızdırılmış holdout
+çağrısı kırmızı kalır. `training_ok == false` erken çıkış
+L-DISC-B’yi yeşil **bırakamaz**.
+
+Composer gövdesinde `evaluate_holdout` yoktur (L-SITE).
+`evaluate_holdout` keşif çağırmaz (L-DISC-A). L-DISC-B, L-DISC-A
+değildir: L-DISC-A `evaluate_holdout` → keşif sızıntısıdır;
+L-DISC-B composer keşif grafının holdout almasıdır.
+
+##### L-DISC-B-1 — imza / çağrı-yeri sözleşmesi
+
+Kapsam: M2 unique-claim production section gövdeleri
+`:ude_discovery` ve `:mm_unknown`. Depo-geneli tarama **yoktur**.
+
+```
+ude = recovery_suite_section_body(:ude_discovery)
+mm  = recovery_suite_section_body(:mm_unknown)
+count("_evaluate_unknown_rate_recovery(", ude) == 1
+count("_evaluate_unknown_rate_recovery(", mm) == 1
+```
+
+Her çağrı-yeri için **zorunlu**:
+
+- `_evaluate_unknown_rate_recovery` **tam bir** kez
+- `holdout=` / `holdout =` anahtarı **yok**
+- `split=` / `split =` anahtarı **yok**
+- `ExperimentSplit` geçirilmez (konumsal veya anahtar)
+- `HoldoutEvidence` geçirilmez (konumsal veya anahtar)
+- Yalnız mevcut M1 composer girdileri geçer: konumsal
+  `ude_model`, `ude_params`, `term`, `truth_rate`; anahtar
+  `order`, `family`, `noise_σ`, `r_range`, `data_residual_fn`
+- `r_range` L-DOM-A token’ıdır
+- `data_residual_fn` M1 IC[1] kapanışıdır; `split.holdout` /
+  `holdout` / deney 8 / deney 9 **yakalamaz**
+
+Yalnız “holdout sızmamalı” cümlesi bu katmanı yeşil
+**bırakamaz**. Çağrı-yeri / imza sözleşmesi kırmızı yapmak
+zorundadır.
+
+Öldürür (L-DISC-B-1 kırmızı; `r_range` token’ı doğru olsa bile):
+
+```
+# WRONG IMPLEMENTATION #1
+evaled = _evaluate_unknown_rate_recovery(
+    ...;
+    r_range = _regulator_grid(split.train, term),
+    holdout = split.holdout)
+
+evaled = _evaluate_unknown_rate_recovery(
+    ...;
+    r_range = _regulator_grid(split.train, term),
+    split = split)
+
+# WRONG IMPLEMENTATION #5 — residual kapanışı kaçış değildir
+evaled = _evaluate_unknown_rate_recovery(
+    ...;
+    data_residual_fn = d_hat -> something_using(split.holdout))
+```
+
+##### L-DISC-B-2 — geçişli AST / çağrı-grafı sözleşmesi
+
+L-SET-INTACT ile **aynı güçte** geçişlilik. Bir-düzey tarama
+**yetersizdir**.
+
+Sözleşme (dar AST / çağrı-grafı; jenerik kaynak-string
+envanteri değil):
+
+1. Composer giriş noktasını tanır
+   (`_evaluate_unknown_rate_recovery`)
+2. Ondan keşif giriş noktalarına kadar erişilebilir yerel
+   yardımcı çağrılarını statik çözer
+3. Bu yardımcı gövdelerini **geçişli** inceler
+4. Yasaklı holdout erişimi / holdout-türevli keşif girdisi
+   varsa kırmızı
+5. Bir-düzey veya çok-düzey yardımcı dolayımını reddeder
+
+Keşif-erişilebilir her yerel yardımcı için **yasak**:
+
+- `ExperimentSplit` kabul etmek
+- `HoldoutEvidence` kabul etmek
+- `split` kabul etmek
+- `holdout` kabul etmek
+- `.holdout` erişmek
+- `split.holdout` erişmek
+- holdout deney gözlemlerine erişmek
+- holdout deney zamanlarına erişmek
+- holdout türevlerine erişmek
+- keşif için deney 8 veya 9 okumak
+- keşfe iletilen holdout-türevli vektör almak
+- yukarıdakilerden birini yapan başka bir yardımcıyı çağırmak
+- `discover_unknown_rate` / `discover_unknown` /
+  `discover_equations` / `discover_unknown_destruction` /
+  eşdeğer keşif giriş noktasına holdout-türevli girdi geçirmek
+- mevcut M1 dummy-time `discover_unknown_rate` çiftinin
+  yerine / yanına `discover_unknown_destruction(` veya
+  `discover_equations(` ile holdout keşif yolu açmak
+
+Öldürür (L-DISC-B-2 kırmızı; `evaluate_holdout` keşif
+çağırmasa bile; composer gövdesi temiz görünse bile):
+
+```
+# WRONG IMPLEMENTATION #2 — bir-düzey yardımcı
+_evaluate_unknown_rate_recovery(...)
+    → _composer_helper(...)
+        → discover_unknown_rate(...,
+                                split.holdout.observations, ...)
+
+# WRONG IMPLEMENTATION #3 — holdout times / türev
+_evaluate_unknown_rate_recovery(...)
+    → _helper(...)
+        → discover_equations(
+               holdout.times,
+               holdout.derivatives,
+               ...)
+
+# WRONG IMPLEMENTATION #4 — holdout keşif yolu
+_evaluate_unknown_rate_recovery(...)
+    → helper(...)
+        → discover_unknown_destruction(...)
+
+# WRONG IMPLEMENTATION — çok-düzey dolayım
+_evaluate_unknown_rate_recovery(...)
+    → _prepare_disc(...)
+        → _forward_holdout(...)
+            → discover_unknown_rate(... holdout ...)
+```
+
+##### L-DISC-B-3 — üretim veri-akışı testi
+
+**Canlı üretim yolu.** Test unique-claim composer’ı
+(`_evaluate_unknown_rate_recovery`) gerçek production
+`r_range` token’ı ile çalıştırır ve o çağrının keşif
+yolunda **fiilen geçen** keşif girdilerini yakalar
+(keşif giriş noktalarını enstrümante eder veya production
+forwarding’i gözler). `training_ok == true` dalı kullanılır
+(ucuz fikstür; tam unique-claim UDE eğitimi yoktur).
+Bağımsız paralel formül yeniden hesabı yetmez.
+
+Yakalanan keşif çağrıları (M1 girdileri):
+
+- `times` = mevcut dummy
+  `collect(range(0.0, 1.0; length = length(r)))`;
+  holdout `times` **değil**
+- durum / gözlem / `R` argümanı train-grid `R_grid`;
+  holdout `observations` **değil**
+- `derivatives` train-grid `D_nn` (veya normalize eşdeğeri);
+  holdout türevleri **değil**
+- `config` = `unique_claim_discovery_config()`
+
+**Sentinel.** Split **sonrası**, **yalnız** holdout
+`observations` / `times` / türevler aşırı uç sentinel
+değere mutasyona uğratılır. Train gözlemleri / zamanları
+değişmez. Aynı unique-claim composer production path tekrar
+çalışır.
+
+Yakalanan gerçek composer keşif girdileri (veya onların
+gerçek production sonucu) **bit-eşittir**. Test, keşif
+domain’ini / girdilerini bağımsız formülle yeniden
+hesaplayıp “beklenen” diye yazarak yeşil **kalamaz**.
+
+L-DOM-B `r_range` tüketimini gözler. L-DISC-B-3 `r_range`
+sonrası composer keşif girdilerini (`R_grid`, dummy
+`times`, `D_nn` / normalize D, config) gözler. İkisi
+karışmaz.
+
+#### L-BAND — dış bant train’den türer, holdout’a bakmaz
+
+Yalnız holdout-değişmezliği **yetersizdir**. Sabit
+`range(1.65, 1.85; length = 80)` o testi yeşil bırakır.
+
+Üretim D-domain koordinatları, testin formülü yeniden yazması değil,
+`evaluate_holdout` sırasında `sample_unknown_destruction_grid`’e
+fiilen geçen `r_range`’dir. Test bu çağrıları yakalar. Domain
+çağrısının `r_range`’i = `r_consumed`.
+
+`evaluate_holdout` gövdesinde domain
+`sample_unknown_destruction_grid` çağrısının `r_range` argümanı
+`_unique_claim_external_regulator_band(split.train, term)` token’ıdır.
+
+**L-BAND-TRAIN** — train extrema değişince üretim koordinatları
+değişir (UDE eğitimi yok):
+
+```
+# kutu A: train extrema (0.50, 1.50)
+ev_A = evaluate_holdout(split_A, evaled, model, params, term, truth_rate)
+r_consumed_A = yakalanan domain r_range
+collect(r_consumed_A) == collect(range(1.65, 1.85; length = 80))
+ev_A.d_rmse_holdout_domain  # üretim dönüşü; bağımsız formül değil
+
+# kutu B: train extrema (1.0, 3.0); holdout aynı
+ev_B = evaluate_holdout(split_B, evaled, model, params, term, truth_rate)
+r_consumed_B = yakalanan domain r_range
+collect(r_consumed_B) == collect(range(3.3, 3.7; length = 80))
+r_consumed_B != r_consumed_A
+```
+
+Kutu B kilitli çıktısı: `span = 2`,
+`r_lo = 3.0 + 0.15 * 2 = 3.3`, `r_hi = 3.0 + 0.35 * 2 = 3.7`.
+`range(r_hi + 0.15, r_hi + 0.35)` (span yok) kırmızı olur
+(`3.15:3.35 ≠ 3.3:3.7`).
+
+**L-BAND-HOLDOUT** — holdout extrema değişince üretim koordinatları
+değişmez:
+
+```
+ev_before = evaluate_holdout(...)
+r_consumed_before = yakalanan domain r_range
+# yalnız holdout extrema ← ±SENTINEL
+ev_after = evaluate_holdout(...)
+r_consumed_after = yakalanan domain r_range
+collect(r_consumed_after) == collect(r_consumed_before)
+ev_after.d_rmse_holdout_domain === ev_before.d_rmse_holdout_domain
+```
+
+Test `ev.d_rmse_holdout_domain` okumadan “bant değişmedi / değişti”
+iddia **edemez**. Test, bandı formülden bağımsız yeniden türetmez;
+`r_consumed` üretim yolundan gelir.
+
+Öldürür: holdout extrema bandı; holdout `union`; post-hoc domain;
+tam-set extrema metadata / cache; keyfi sabit aralık
+(`range(1.65, 1.85)` gizlenmiş sabit dahil); span’sız
+`r_hi + 0.15`; yalnız L-BAND-HOLDOUT ile yeşil kalan sabit gövde.
+
+#### L-D-OCC — `d_rmse_holdout` gerçek holdout \(r\)
+
+`evaluate_holdout` gövdesi occupancy
+`sample_unknown_destruction_grid` çağrısının `r_range` argümanı
+`_holdout_observed_regulators(split.holdout, term)` token’ıdır.
+
+Test **yalnızca** `_finite_rate_rel_rmse(...)`’i bağımsız hesaplayıp
+`ev.d_rmse_holdout` okumadan yeşil **kalamaz**.
+Yalnız `ev.d_rmse_holdout > 0.5` / `ev.d_rmse_holdout_domain > 0.5`
+**yetersizdir**. Bağımsız beklenen RMSE, gerçek `ev.d_rmse_*`
+dönüşlerini assert etmeden **yetersizdir**.
+
+Zorunlu canlı bağ:
+
+```
+ev = evaluate_holdout(split, evaled, model, params, term, truth_rate)
+r_holdout = _holdout_observed_regulators(split.holdout, term)
+(R, D_hat_vals, _) = sample_unknown_destruction_grid(
+    model, params, term; r_range = r_holdout, fill_value = 0.3)
+expected = _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))
+ev.d_rmse_holdout === expected
+```
+
+Sentetik holdout: `observations[regulator, :]` tüm sütunlar `1.75`.
+L-OVERFIT hata şekli. `ev.d_rmse_holdout > 0.5`. Train ızgarasında
+aynı nöral `D_hat` vs `truth_rate` hatası `< 1e-8`.
+
+`expected` **normalize edilmemiş** nöral örneklemedir.
+`normalize_destruction_samples` / `equation_to_function` /
+`sample_learned_function` / keyfi ızgara **yoktur**.
+
+`evaluate_holdout` içinde **yoktur** (L-DISC-A ile birlikte):
+
+- sembolik \(D\) rekonstrüksiyonu
+- `normalize_destruction_samples`
+- `discover_unknown_rate` / `discover_equations`
+- keyfi sabit ızgara
+- holdout \(D\) metrikleri için train-only ızgara
+
+Öldürür: train ızgarası / tam-set ızgarası / keyfi NN ızgarası /
+sembolik rekonstrüksiyon / dummy-time keşif / normalize sonrası
+dönüş / test-içi paralel formülün `ev.*` yerine geçmesi.
+
+#### L-RES-LEGACY — `data_residual` IC[1] kalır
+
+`data_residual` mevcut legacy IC[1] hesabına eşittir:
+
+```
+data_residual == data_residual_fn(d_hat_symbolic)   # yalnız IC[1]
+```
+
+Nöral `ρ_1` ile **karşılaştırılmaz**.
+
+```
+data_residual != holdout.data_residual_train
+```
+
+Yalnız IC[1] gözlemini değiştir → `data_residual` değişir;
+`data_residual_holdout` değişmez. IC[1] holdout agregasını
+**tanımlamaz**.
+
+Öldürür: `data_residual = data_residual_train`; nöral `ρ_1` ile
+legacy alanı eşitlemek.
+
+#### L-RES-HOLD — holdout residual holdout IC
+
+Fikstür: `ρ_8 != ρ_9`, ikisi sonlu. Test **mutlaka**
+`ev = evaluate_holdout(...)` çağırır ve dönen alanı okur:
+
+```
+ρ_8 != ρ_9
+ev.data_residual_holdout === (ρ_8 + ρ_9) / 2
+ev.data_residual_train === (ρ_1 + ρ_2 + ρ_3 + ρ_4 + ρ_5 + ρ_6 + ρ_7) / 7
+data_residual != data_residual_train
+```
+
+`ρ_i` mevcut `hybrid_data_residual` (nöral `D_hat_fn`) ile
+hesaplanır. Test RMS / concat / medyan / ağırlıklı ortalama
+formülünü “beklenen” diye yazmaz.
+
+Zorunlu dört davranış:
+
+1. `ρ_8 != ρ_9` ⇒ `ev.data_residual_holdout === (ρ_8 + ρ_9) / 2`
+2. Yalnız deney 8 gözlemini değiştir ⇒ `ev.data_residual_holdout`
+   değişir; legacy `data_residual` değişmez; `ev.data_residual_train`
+   değişmez
+3. Yalnız deney 1 gözlemini değiştir ⇒ legacy `data_residual`
+   değişir; `ev.data_residual_holdout` değişmez; IC[1] holdout
+   agregasını **tanımlamaz**
+4. Legacy `data_residual` `ev.data_residual_train` ile
+   **değiştirilmez**
+
+`data_residual_holdout` IC[1] `data_residual_fn(d_hat)` değildir.
+
+Bir `ρ_i === Inf` ⇒ ilgili agrega `Inf`.
+
+Öldürür: `data_residual_holdout = data_residual_fn(d_hat)` IC[1];
+RMS; concat; tek-IC holdout; medyan; ağırlıklı ortalama; train
+ortalamasının holdout diye yazılması;
+`data_residual = data_residual_train`.
+
+#### L-EARLY — karar tablosu
+
+Tam olarak üç durum; A ile B **çökertilmez**:
+
+```
+A: training_ok == false
+B: training_ok == true && discovery.success == false
+C: training_ok == true && discovery.success == true
+```
+
+`nothing` **yalnız A** içindir. Neden: `training_ok == false`
+(`evaled.discovery === nothing`, M1 kodlaması) iken
+`evaluate_holdout` çağrılmaz; Q7 kanıtı yoktur. B ve C
+`nothing` **atamaz**.
+
+Case B politikası **kilitlidir**:
+
+- `evaluate_holdout` çağrılır
+- `holdout !== nothing`
+- Q7 kanıtı durur
+- hiçbir holdout metriği **yalnız** sembolik keşif fail olduğu
+  için `Inf` yapılmaz
+
+`evaled.success` veya `evaled.discovery.success` örtük Q7
+kapısı **değildir**.
+
+A/B/C production kararı **açıktır**. Tek onaylı `holdout = ...`
+bloğu (her unique-claim section; ident → `report_recovery`
+arası):
+
+```
+if evaled.discovery === nothing
+    holdout = nothing
+else
+    holdout = evaluate_holdout(...)
+end
+```
+
+Holdout kararı olarak **kullanılmaz**:
+
+```
+if !evaled.success
+if evaled.success == false
+if !evaled.discovery.success
+if !discovery.success
+```
+
+Üç durum **ayrı** test edilir. Tek `success` koşulu A ile B’yi
+çökertemez. String yokluğu tek koruma **değildir**.
+Struct örneği tek başına yetmez; production karar / rapor
+yolu **çalıştırılır**.
+
+A: canlı `ude_adam = 0` yolu. `training_ok == false` →
+`holdout === nothing`, `evaluate_holdout` çağrılmaz,
+`discovery === nothing`, legacy `data_residual === Inf`.
+
+B (kilitli politika; Q7-görünür):
+`training_ok == true && discovery.success == false`
+iken Q7 holdout öngörü / mekanistik değerlendirme **açıktır**.
+Q5 keşif başarısı örtük Q7 kapısı **değildir**.
+
+Odaklı Case B fikstürü (tam UDE eğitim işi **yok**):
+
+```
+evaled_B.discovery !== nothing
+evaled_B.discovery.success == false
+evaled_B.success == false
+# training_ok == true kodlaması: discovery !== nothing
+```
+
+Bu fikstür `training_ok == true && discovery.success == false`
+durumuna **ulaşır**. Sonra ilgili production karar / rapor yolu
+çalıştırılır (kilitli if/else; section ile bit-eşit).
+`evaluate_holdout` **çağrılır**. Yalnız
+`HoldoutEvidence(...)` kurmak yetmez.
+
+```
+if evaled_B.discovery === nothing
+    holdout = nothing
+else
+    holdout = evaluate_holdout(
+        split, evaled_B, model, params, term, truth_rate)
+end
+holdout !== nothing
+ev = holdout
+ev.data_residual_train, ev.data_residual_holdout,
+ev.d_rmse_holdout, ev.d_rmse_holdout_domain
+# dördü HoldoutEvidence sözleşmesine göre tanımlı / sonlu
+# (fikstür solve’u başarılı; Inf-as-failure yok;
+#  Inf yalnız keşif fail diye yazılmaz)
+result = report_recovery(evaled_B, ident; split, holdout = ev)
+result.holdout !== nothing
+```
+
+Aynı `model` / `params` / `split` / `truth_rate` (aynı öğrenilmiş
+`D` / aynı holdout girdileri) ile Case C
+`evaled_C` (`discovery.success == true`) için:
+
+```
+ev_C = evaluate_holdout(split, evaled_C, model, params, term, truth_rate)
+ev.data_residual_train === ev_C.data_residual_train
+ev.d_rmse_holdout === ev_C.d_rmse_holdout
+ev.d_rmse_holdout_domain === ev_C.d_rmse_holdout_domain
+ev.data_residual_holdout === ev_C.data_residual_holdout
+```
+
+Neden: holdout değerlendirmesi sembolik keşif başarısından
+**bağımsızdır**. Keşif nesnesi metrik girdisi değildir.
+
+`evaluate_holdout` + dört M2 yardımcısı gövdesinde `success` /
+`discovery.success` kapısı **yoktur**.
+
+C: `training_ok == true && discovery.success == true` →
+`holdout !== nothing`, `HoldoutEvidence` doludur; gerçek Q7 kanıtı
+üretilir.
+
+Her unique-claim section gövdesinde ident → `report_recovery`
+arasında `holdout =` **yalnız** kilitli if/else’dir. Şu token’lar
+holdout atama koşulu olarak **yoktur**:
+
+```
+evaled.discovery === nothing || evaled.success == false
+!discovery.success
+!evaled.discovery.success
+evaled.success == false
+!evaled.success
+evaled.discovery.success
+```
+
+Öldürür:
+
+```
+if !evaled.discovery.success
+    holdout = nothing
+end
+if !evaled.success
+    holdout = nothing
+end
+if evaled.success == false
+    holdout = nothing
+end
+# evaluate_holdout içinde:
+if !evaled.discovery.success
+    return HoldoutEvidence(Inf, Inf, Inf, Inf)
+end
+if evaled.success == false
+    return HoldoutEvidence(Inf, Inf, Inf, Inf)
+end
+```
+
+A’yı `Inf` Q7 skalerleri ile kodlamak; `Inf`’i eksik
+`HoldoutEvidence` diye kullanmak; `success`’i yeni M2 kapısı
+yapmak; yalnız struct kurup production karar yolunu atlamak.
+
+#### L-GATE — 0.30 holdout kapısı yok
+
+Legacy `data_residual <= 0.30` **değişmez**. Yeni M2 holdout kapısı
+şunları kullanamaz: `0.30`, `RECOVERY_THRESHOLDS`, `nn_rate_rmse`,
+`support_recall`, `unique_claim_kpis_hold`.
+
+Bu yasak şuralara uygulanır: `run_recovery_suite` unique-claim
+karar gövdesi, `evaluate_holdout`, `HoldoutEvidence` üretimi,
+`report_recovery`, dört M2 yardımcısı. Metin `"0.30"` depo
+genelinde yasak **değildir** (M1 test / doküman / `fill_value = 0.3`).
+
+`unique_claim_kpis_hold` **mevcut M1** unexported fonksiyonudur;
+silinmez; holdout okumaz; yeni M2 kapısı olmaz.
+
+Birincil test **üretim** `evaluate_holdout` yoludur. Sentetik
+`HoldoutEvidence`’ı `report_recovery`’ye enjekte etmek tek koruma
+**değildir**.
+
+Fikstür (UDE eğitimi yok): `ρ_8 != ρ_9`, ikisi sonlu,
+`(ρ_8 + ρ_9) / 2 > 0.30`. Legacy `evaled.data_residual ≤ 0.30`.
+
+```
+ev = evaluate_holdout(split, evaled, model, params, term, truth_rate)
+ev.data_residual_holdout === (ρ_8 + ρ_9) / 2
+ev.data_residual_holdout > 0.30
+isfinite(ev.data_residual_holdout)
+holdout = ev
+holdout !== nothing
+result = report_recovery(evaled, ident; split, holdout = ev)
+result.holdout !== nothing
+result.holdout.data_residual_holdout === ev.data_residual_holdout
+result.data_residual == evaled.data_residual
+result.success == evaled.success
+unique_claim_kpis_hold(result.locked_kpis) === true
+```
+
+Sonuç raporlanabilir kalır. Test kırmızı olur eğer uygulama
+holdout’u `nothing`, `Inf`-as-failure, `success = false` veya
+başka bir kapı başarısızlığı yaparsa.
+
+`evaluate_holdout` + dört M2 yardımcısı gövdesinde holdout
+metriği ile `0.30` / `RECOVERY_THRESHOLDS` karşılaştırması
+**yoktur**.
+
+Öldürür:
+
+```
+function evaluate_holdout(...)
+    ρh = _mean_hybrid_residual(...)
+    ρh > 0.30 && (ρh = Inf)
+end
+
+holdout = evaluate_holdout(...)
+if holdout.data_residual_holdout > 0.30
+    holdout = nothing
+end
+if holdout.data_residual_holdout > 0.30
+    evaled = (; evaled..., success = false)
+end
+if holdout.data_residual_holdout > RECOVERY_THRESHOLDS.data_residual
+    evaled = (; evaled..., success = false)
+end
+HoldoutEvidence(..., Inf, ...)   # 0.30 kapısının Inf-as-failure temsili
+```
+
+ve `nn_rate_rmse` / `support_recall` / herhangi bir
+`RECOVERY_THRESHOLDS` alanı / `unique_claim_kpis_hold` ile holdout
+kapılamak.
+
+#### L-FIELDS / L-M34 — alan yüzeyi
+
+```
+fieldnames(HoldoutEvidence) ==
+    (:data_residual_train, :data_residual_holdout,
+     :d_rmse_holdout, :d_rmse_holdout_domain)
+length(fieldnames(HoldoutEvidence)) == 4
+fieldnames(ExperimentSplit) ==
+    (:train_indices, :holdout_indices, :train, :holdout)
+length(fieldnames(ExperimentSplit)) == 4
+fieldnames(MechanismRecoveryResult) == (M1_FIELDS..., :split, :holdout)
+```
+
+MRR yeni alanlar yalnız `split`, `holdout`.
+`functional_identifiability` / `uncertainty` / `hypothesis` /
+occupancy / Q4 tipi / `restart_agreement` / `functional_rmse` yok.
+
+Öldürür: M3/M4 kavramlarının M2’ye kaçması; ekstra alan.
+
+#### L-API — public yüzey
+
+Aşağıdaki isimlerin **hiçbiri** `names(BioDynaX)` içinde değildir
+ve **hiçbiri** `LOCKED_PUBLIC_EXPORTS`’a eklenmez.
+`LOCKED_PUBLIC_EXPORTS` üye listesi ve uzunluğu pre-M2 ile
+**bit-eşittir**. Kilidi genişletip export etmek L-API kırmızısıdır.
+
+```
+:ExperimentSplit
+:HoldoutEvidence
+:evaluate_holdout
+:unique_claim_experiment_split
+:UNIQUE_CLAIM_TRAIN_INDICES
+:UNIQUE_CLAIM_HOLDOUT_INDICES
+:_holdout_observed_regulators
+:_unique_claim_external_regulator_band
+:_finite_rate_rel_rmse
+:_mean_hybrid_residual
+```
+
+M2’ye özel diğer yardımcılar aynı kurala bağlıdır.
+
+#### L-SITE — tek çağrı yeri ve sıra
+
+Odaklı production-path (genel envanter yok). İkinci sahiplik
+yorumu yoktur.
+
+```
+ude = recovery_suite_section_body(:ude_discovery)
+mm  = recovery_suite_section_body(:mm_unknown)
+rec = read("src/Recovery.jl", String)
+pipe = read("src/RecoveryPipeline.jl", String)
+count("evaluate_holdout(", ude) == 1
+count("evaluate_holdout(", mm) == 1
+count("evaluate_holdout(", rec) == 2
+count("evaluate_holdout(", pipe) == 1
+```
+
+Recovery.jl’deki 2 occurrence tanım değildir; biri
+`:ude_discovery`, biri `:mm_unknown`. RecoveryPipeline.jl’deki
+1 occurrence `function evaluate_holdout` tanımıdır.
+
+Her section’da kaynak sırası:
+
+```
+findfirst("report_production_destruction_tradeoff", body) <
+findfirst("evaluate_holdout(", body) <
+findfirst("report_recovery", body)
+```
+
+- `_evaluate_unknown_rate_recovery` gövdesinde `evaluate_holdout` yok
+- `report_recovery` gövdesinde `evaluate_holdout` yok
+- `report_recovery` gövdesinde `_ensure_holdout` yok
+- unique-claim `data_residual_fn` kapanışında `evaluate_holdout` yok
+- Recovery.jl ve RecoveryPipeline.jl’de `_ensure_holdout` yok
+- `report_recovery(..., holdout = nothing)` ⇒
+  `result.holdout === nothing`
+- `report_recovery` verilen `holdout`’u yazar; `HoldoutEvidence`
+  **üretmez**; `hybrid_data_residual` / `sample_unknown_destruction`
+  / `evaluate_holdout` çağırmaz
+
+Öldürür:
+
+```
+function report_recovery(..., holdout = nothing)
+    holdout = _ensure_holdout(holdout, evaled, ...)
+end
+```
+
+composer-içi çağrı, kapanış-içi çağrı, çoğaltılmış çağrı,
+ident’den önce / rapordan sonra, gizli ikinci `evaluate_holdout`.
+
+#### L-OVERFIT — deterministik ezber counterexample
+
+UDE **eğitimi yoktur**. Test **mutlaka** production
+`evaluate_holdout(...)` çağırır ve `ev.d_rmse_holdout` /
+`ev.d_rmse_holdout_domain` okur. Test-içi bağımsız
+`_finite_rate_rel_rmse(...)` `ev.*` yerine **geçemez**.
+Yalnız `ev.d_rmse_* > 0.5` **yetersizdir**. Bağımsız beklenen
+RMSE, gerçek `ev.d_rmse_*` dönüşlerini assert etmeden
+**yetersizdir**.
+
+```
+r_lo_train = 0.50
+r_hi_train = 1.50
+span_train = max(1.50 - 0.50, 0.1)           # = 1.00
+```
+
+Train fikstürü: `split.train` regülatör extrema’sı `0.50` ve `1.50`.
+Bu eşitlik **yalnız** ezber hata şeklinin kutu-A oracıdır; formülü
+kanıtlamaz. Sabit `range(1.65, 1.85)` L-OVERFIT’i yeşil bırakabilir;
+L-BAND-TRAIN öldürür.
+
+Production bant, `evaluate_holdout` sırasında yakalanan domain
+`r_consumed`’dır (yardımcıyı bağımsız çağırıp yetinmek yok):
+
+```
+ev = evaluate_holdout(...)
+r_band_external = yakalanan domain r_range
+collect(r_band_external) == collect(range(1.65, 1.85; length = 80))
+ev.d_rmse_holdout
+ev.d_rmse_holdout_domain
+```
+
+Kilitli hata şekli:
+
+```
+D_true(r) = 1.0
+D_hat(r)  = 1.0 + 2.0 * exp(-((r - 1.75) / 0.05)^2)
+r_train_grid = range(0.50, 1.50; length = 80)
+```
+
+Gerekçe: ekstra terim train üst kenarında
+`2 * exp(-25) ≈ 2.8e-11` (ihmal); dış bant ortasında `2.0`.
+Düzgün yumuşak bump.
+
+Fikstür `model` / `params` / `truth_rate` bu hata şeklini
+production nöral yolda (`sample_unknown_destruction_grid`,
+`fill_value = 0.3`) gerçekleştirir. `truth_rate`’i nöral `D`
+eksi bump olarak kurmak, `(D_hat = 1+bump, D_true = 1)` ile aynı
+RMSE şeklini ürettiği sürece geçerlidir.
+
+Zorunlu canlı bağ:
+
+```
+ev = evaluate_holdout(split, evaled, model, params, term, truth_rate)
+(R_h, D_h, _) = sample_unknown_destruction_grid(
+    model, params, term; r_range = r_holdout, fill_value = 0.3)
+(R_d, D_d, _) = sample_unknown_destruction_grid(
+    model, params, term; r_range = r_band_external, fill_value = 0.3)
+(R_t, D_t, _) = sample_unknown_destruction_grid(
+    model, params, term; r_range = r_train_grid, fill_value = 0.3)
+d_train = _finite_rate_rel_rmse(D_t, truth_rate(vec(R_t)))
+ev.d_rmse_holdout === _finite_rate_rel_rmse(D_h, truth_rate(vec(R_h)))
+ev.d_rmse_holdout_domain === _finite_rate_rel_rmse(D_d, truth_rate(vec(R_d)))
+d_train < 1e-8
+ev.d_rmse_holdout > 0.5
+ev.d_rmse_holdout_domain > 0.5
+```
+
+`r_holdout = _holdout_observed_regulators(split.holdout, term)`.
+Holdout occupancy: iki sentetik deney, regülatör sütunları `1.75`.
+
+Marj platform gürültüsünün üzerindedir (~7 mertebe).
+
+Öldürür: hatanın train ızgarasında / tam-set ızgarasında /
+`range(0.05, 2.0; length=80)` NN ızgarasında (RMSE ≈ 0.35 < 0.5)
+ölçülmesi; sembolik rekonstrüksiyon (`D ≈ 1` ⇒ domain hatası ≈ 0);
+`normalize_destruction_samples` ile bump’ın silinmesi; test-içi
+paralel formülün `ev.d_rmse_holdout` / `ev.d_rmse_holdout_domain`
+yerine geçmesi.
+
+Diğer hızlı kilitler:
+
+- `evaluate_recovery` metrik-only; holdout yok
+- Suite gövdesinde `sample_destruction` / `evaluate_recovery` /
+  `discover_unknown_rate` / `normalize_destruction_samples` yok
+- `public_export_list_holds` / `recovery_thresholds_hold` /
+  `PROTOCOL_RESULT_FIELDS` sırası
+- Skip iğnesi `ref_exp = first(ude_set.experiments)` durur
+- Q7: “reported, not a gate”; Q4: “not implemented”
+- M1 `!isdefined(ExperimentSplit)` / `:holdout ∉ fields` kilitleri
+  **silinmez**, unexported + 7/2 + `holdout !== nothing` vs `haskey`
+  olarak retarget edilir
+
+**Hard (seed 103 / 113 / MM):**
+
+- Legacy kapılar aynı: recall ≥ 0.99, `data_residual ≤ 0.30` (IC[1]),
+  `unidentifiable_edge`, F1 ∈ [0.50, 0.99), extras.
+- Yeni: `holdout !== nothing` iken `data_residual_holdout` ve
+  `d_rmse_holdout` sonlu, raporlanır, 0.30 ile kapılanmaz.
+- Fit kayabilir; kapı gevşekliği yutabilir. Fail ⇒ indeks oynanmaz.
+
+### Benchmark
+
+[benchmark/recovery_suite.jl](benchmark/recovery_suite.jl) dört stdout
+bloğunu ve `format_recovery_protocol` sırasını bozmaz. Script’in kendi
+`data_resid=` satırına `holdout_resid=` / `d_rmse_holdout=`
+**eklenebilir**; protokol satırına holdout sokulmaz.
+
+[docs/src/benchmarks.md](docs/src/benchmarks.md) holdout sütunlarını
+Q7 diye, 0.30 kapısı diye değil yazar. Persist tablo M6’dır; M2 yalnızca
+sütun semantiğini tanımlar. Süre: +2 holdout hybrid solve + bir dış
+ızgara — eğitime göre ihmal.
+
+### Honesty / kaynak-sözleşme retarget
+
+M1 “M2 yok” kilitleri M2’de **retarget** edilir. Yeni genel
+`occursin("function …")` envanteri yoktur. Aynı PR’da honesty silinmez.
+
+İzinli dar çağrı-yeri kilitleri **yalnızca** şu production siteler
+(genel honesty / kaynak-string envanteri yok):
+
+- `_train_unknown_edge` + doğrudan M2-yeni yardımcı zinciri + iki
+  unique-claim section: tam bir
+  `fit_unknown_destruction(..., split.train)`; sonra tam-set /
+  holdout fit / `_polish_full` yok; `generate_recovery_experiments(`
+  sayısı `== 1`; dönüş `return fit, set` (L-FIT-A, L-RNG).
+  Depo-geneli `train_experiments_with_warmup` yokluğu **değildir**.
+  Depo-geneli `generate_*` yokluğu **değildir**.
+- unique-claim suite: keşif / `training_ok` domain token’ı
+  `_regulator_grid(split.train, term)`; `r_range =` bir kez;
+  holdout / tam set / `union` yok; `train_experiments*` /
+  `fit_unknown_destruction(` / `_polish_full(` yok;
+  section gövdesinde `generate_recovery_experiments(` /
+  `generate_experiment_set(` / `generate_data(` yok
+  (L-FIT-A, L-DOM-A, L-RNG). Depo-geneli `generate_*`
+  yokluğu **değildir**.
+- `evaluate_holdout` + ondan erişilebilir yerel yardımcı graf:
+  `discover_unknown_rate` / `discover_unknown` /
+  `discover_equations` / `discover_unknown_destruction` /
+  `_peek_holdout` / `normalize_destruction_samples` /
+  `equation_to_function` / `sample_learned_function` /
+  `success` kapısı yok; dış bant ve occupancy `r_range`
+  token’ları yukarıdaki yardımcılar; canlı `ev.d_rmse_*` bağlanır
+  (L-DISC-A, L-BAND, L-D-OCC, L-OVERFIT). Depo-geneli keşif
+  yasağı **değildir**.
+- `_evaluate_unknown_rate_recovery` + keşif-erişilebilir yerel
+  yardımcı graf: `holdout=` / `split=` yok; `ExperimentSplit` /
+  `HoldoutEvidence` yok; holdout `observations` / `times` /
+  türev keşfe geçmez; geçişli tarama (L-SET-INTACT tarzı;
+  depo-geneli değil) (L-DISC-B-1, L-DISC-B-2, L-DISC-B-3).
+  Depo-geneli keşif yasağı **değildir**.
+- unique-claim section: `count("evaluate_holdout(", ude) == 1`,
+  `count("evaluate_holdout(", mm) == 1`,
+  `count("evaluate_holdout(", Recovery.jl) == 2`,
+  `count("evaluate_holdout(", RecoveryPipeline.jl) == 1` (tanım);
+  ident → evaluate_holdout → report_recovery sırası;
+  `report_recovery(..., holdout = nothing)` ⇒ `holdout === nothing`
+  (L-SITE)
+- `unique_claim_experiment_split` ve `evaluate_holdout`: L-SET-INTACT
+  geçişli saflık — giriş noktasından erişilebilir yerel M2
+  yardımcı çağrı grafında orijinal `ExperimentSet` /
+  `set.experiments` üzerinde `splice!` / `deleteat!` / `pop!` /
+  `push!` / `insert!` / `append!` / `resize!` / `setindex!` /
+  `replace!` yok. Giriş-noktası-yalnız gövde taraması **yetersizdir**.
+  Depo-geneli mutator yasağı **yoktur**. Depo-geneli AST taraması
+  **yoktur**.
+
+`function ude_extras_denominator_row` tanımı Recovery.jl’de kalır.
+Mevcut M1 kaynak sözleşmeleri taşınmaz.
+
+**Bilinçli dokunulacak kilitler:**
+
+- [test/test_recovery_pipeline.jl](test/test_recovery_pipeline.jl):
+  `ExperimentSplit` yok → unexported + 7/2; holdout alan yok → nested
+  `holdout` + `haskey` / `nothing` ayrımı
+- [test/test_v1_contract.jl](test/test_v1_contract.jl): Q7 “not
+  implemented” → reported / not a gate; `!hasfield(ExperimentSet,
+  :holdout)` **durur**
+- [docs/src/design/v1_contract.md](docs/src/design/v1_contract.md) ve
+  [docs/src/architecture.md](docs/src/architecture.md): Q1 hâlâ IC[1];
+  Q7 eklendi (kapı değil); unique-claim sırası
+  composer → ident → `evaluate_holdout` → `report_recovery`
+
+**Dokunulmayacak kilitler:**
+
+- `LOCKED_PUBLIC_EXPORTS`, `RECOVERY_THRESHOLDS`,
+  `PROTOCOL_RESULT_FIELDS` / print sırası
+- Skip: `ref_exp = first(...)`, `_train_unknown_edge`,
+  `admit_recovery_suite_network(:ude_discovery|:mm_unknown)`
+- TrainingReuse iğnesi `fit_unknown_destruction` gövdesinde kalır
+- `UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN`
+- HybridCompose `sample_unknown_destruction` tanımı
+- `function ude_extras_denominator_row` Recovery.jl’de
+- `UNIQUE_CLAIM_PROTOCOL` alan listesi
+
+Yeni dürüst cümleler (string envanteri değil, sözleşme metni):
+“Q7 IC holdout ≠ domain holdout”; “`data_residual` IC[1] kalır”;
+“holdout 0.30 kapısı değildir”.
+`extras_denominator.train` ≠ Q7 train.
+
+### Uygulama sırası
+
+1. Sözleşme / kilit retarget (Q7 reported; Q4 yok; M1
+   `ExperimentSplit` yok testlerini unexported + 7/2 + nesne-kimliği
+   kilitlerine çevirme).
+2. İndeks sabitleri + `ExperimentSplit` +
+   `unique_claim_experiment_split` + dört unexported yardımcı.
+   L-SPLIT-ID, L-SPLIT-META, L-SET-INTACT, L-API, L-FIELDS yeşil.
+   L-RNG splitter birim testi **değildir**.
+3. `_train_unknown_edge`: `generate_recovery_experiments(` **tam 1**;
+   tek `fit_unknown_destruction(..., split.train)`; dönüş
+   `return fit, set`. Warmup IC[1]. TrainingReuse iğnesi durur.
+   L-FIT-A ve L-FIT-B kırmızı Y1/Y2/Y2-POLISH/Y2-SUITE/Y3’ü
+   yakalar. `_train_unknown_edge` gizli ikinci fit yapmaz.
+   L-RNG kaynak + davranışsal provenance kırmızı Y-RNG-1…Y-RNG-7.
+4. Suite: `unique_claim_experiment_split(ude_set)` +
+   `_regulator_grid(split.train, term)` token. Composer imzası aynı;
+   `ExperimentSplit` almaz. `first` residual kapanışı aynı.
+   L-DOM-A ve L-DOM-B kırmızı Y4/Y4b/Y5/Y6/Y6b/Y6c/Y6d’yi
+   yakalar. L-DOM-B production tüketimini gözler; bağımsız
+   `_regulator_grid(split.train, term)` yeniden hesabı yetmez.
+5. Ident yerinde durur. `evaluate_holdout` + `HoldoutEvidence`
+   **ident’den sonra**, `report_recovery`’den önce. L-SITE, L-DISC-A,
+   L-DISC-B-1/2/3, L-BAND, L-D-OCC, L-RES-LEGACY, L-RES-HOLD,
+   L-EARLY, L-GATE. Composer büyümmez. `evaluate_recovery`
+   büyümez. `report_recovery` holdout hesaplamaz. Composer
+   `holdout=` / `split=` almaz.
+6. `report_recovery(..., split, holdout)`. KPI / protokol / stdout
+   IC[1] kalır. Legacy kapıya holdout sokulmaz.
+   `holdout = nothing` korunur.
+7. L-OVERFIT (UDE eğitimsiz; canlı `evaluate_holdout` + `ev.d_rmse_*`).
+8. Hard 103 / 113 / MM: legacy kapılar + holdout sonlu/rapor.
+   0.30 kopyalanmaz. Fail ⇒ indeks oynanmaz.
+9. Benchmark sütunları + architecture / unique-claim / benchmarks
+   cümleleri. Örnek: ya aynı split ya açık “henüz 9-IC train”.
+10. Yazılım denetimi: export, eşik, Skip, dummy RNG, honesty
+    şişmesi, Q4 yok, Q7 kapı değil, L-M34.
+
+M2-A…M2-D diye ayrı public API dilimleri açılmaz; sıra yukarıdaki
+dar adımlardır.
+
+### Rollback
+
+`fit_unknown_destruction`’a tam 9-IC seti geri ver.
+`_regulator_grid(ude_set, term)` tam sete dönsün. `ExperimentSplit` /
+`HoldoutEvidence` / `evaluate_holdout` / `unique_claim_experiment_split`
+/ dört M2 yardımcısı kalksın. `MechanismRecoveryResult` `split` /
+`holdout` alanlarını bıraksın. M1 “`ExperimentSplit` yok / holdout
+alanı yok” kilitleri geri takılsın. `data_residual` adı durur —
+`legacy_data_residual` rename **gerekmez ve yapılmaz**. Dict / stdout /
+export / `RECOVERY_THRESHOLDS` / `PROTOCOL_RESULT_FIELDS` gerilemez.
+
+### Kabul
+
+M2, yalnızca bir `HoldoutEvidence` struct’ı var diye kabul **edilmez**.
+M2 ancak aşağıdaki 18 madde **ve** test kataloğundaki tüm L-*
+testleri birlikte yeşil olduğunda kabul edilir:
+
+1. Tam 7/2 split nesne-kimliği ile doğrudur (L-SPLIT-ID).
+2. Orijinal `ExperimentSet` 9 deney olarak sağlamdır; geçici
+   `pop!` / `insert!` / `resize!` / yardımcı-dolayımlı restore
+   yoktur (L-SET-INTACT, L-SET-META).
+3. Fit yalnız `split.train` alır; onaylı eğitmen tam bir
+   `fit_unknown_destruction(..., split.train)`; sonra tam-set
+   fit / `_polish_full` / Y2-SUITE suite ikinci eğitmen yoktur
+   (L-FIT-A, L-FIT-B).
+4. Train keşif domain’i yalnız `split.train`’e bağlıdır (L-DOM-A,
+   L-DOM-B).
+5. Holdout keşfe girmez (L-DISC-A, L-DISC-B-1/2/3; composer
+   keşif grafı geçişlidir).
+6. Dış bant train extrema ile değişir, holdout extrema ile
+   değişmez; sabit aralık değildir (L-BAND).
+7. Holdout \(D\) metrikleri gerçek holdout / kilitli dış bant
+   koordinatlarını kullanır; `ev.d_rmse_*` üretim dönüşüdür
+   (L-D-OCC, L-OVERFIT).
+8. Holdout residual holdout deneylerinde hesaplanır (L-RES-HOLD).
+9. Legacy `data_residual` hâlâ IC[1] demektir (L-RES-LEGACY).
+10. Holdout 0.30 kapısı yoktur; üretim `evaluate_holdout` yolu
+    `data_residual_holdout > 0.30` iken `holdout !== nothing`
+    (L-GATE).
+11. Case B Q7 açıktır; keşif fail Q7’yi baskılamaz (L-EARLY).
+12. M3 yoktur (L-FIELDS, L-M34).
+13. M4 yoktur (L-FIELDS, L-M34, L-DISC-B).
+14. Public API genişlemez (L-API).
+15. İkinci generate yoktur; aynı dokuz `Experiment` nesnesi
+    eğitim ve holdout değerlendirmesinde kullanılır (L-RNG
+    kaynak + davranışsal provenance).
+16. Deterministik ezber testi kötü genellemeyi yakalar (L-OVERFIT).
+17. Tüm sızıntı testleri geçer.
+18. `evaluate_holdout` sahipliği ve sırası kilitlidir (L-SITE).
+
+Ek kilitler: `_train_unknown_edge` → `(fit, set)` (tam 9);
+`evaluate_recovery` metrik-only; seed 103 legacy kapıları yeşil;
+M1 stdout / eşik / protokol davranışı sağlamdır.
+
+### Kesinlikle M2 dışında (M3 / M4 / sonraki)
+
+M2 bunları implemente etmez ve “hazır kanca” diye dondurmaz:
+
+- `FunctionalIdentifiabilityDiagnostic` / Q4 / bağımsız restart
+  anlaşması (M3)
+- Holdout Fisher / ikinci ident nesnesi (Q3 kapısını kaydırır;
+  M2-min’e gerekmez)
+- Yörünge-örnekli keşif, dummy-time kaldırma, occupancy’nin keşif
+  girdisi olması (M4)
+- Uncertainty, bootstrap fonksiyonel UQ, hipotez ranking
+- `ExperimentSet` şişirme; public generic splitter API
+- İkinci recovery pipeline / ikinci UDE fit
+- `data_residual` → `data_residual_train` rename
+- `UNIQUE_CLAIM_PROTOCOL` / `PROTOCOL_RESULT_FIELDS` /
+  `LOCKED_PUBLIC_EXPORTS` genişletme
+- 0.30’u holdout’a kopyalama veya kanıtsız sıkılaştırma
+- Zaman penceresi holdout, girdi rejimi, kısmi gözlem UDE
+- \(P-D\cdot u\) rewrite; `UDEModel` redesign
+- Yeni keşif algoritması
+- `examples/unknown_inhibition.jl`’i suite’e bağlamak (zorunlu değil)
+- Holdout kanıtını legacy protokol kapısına sokmak
+
+### Master plan hijyeni
+
+M2 dışı bölümler (`Denetimin koda karşı doğrulanması` … M1, M3–M10)
+taranmıştır. Onaylı model:
+
+```
+ExperimentSet
+    ↓
+ExperimentSplit
+    ├── train   = 1..7
+    └── holdout = 8..9
+```
+
+`ExperimentSet` train/holdout **sahibi değildir**. `split_experiments`
+onaylı / public API **değildir**; yasak genel splitter adıdır.
+Onaylı internal üretici yalnız `unique_claim_experiment_split`’tir.
+6/3 split yazılı değildir. Holdout’un bağımsız generate
+edilebileceği yazılı değildir. `evaluate_holdout` için birden fazla
+sahiplik seçeneği yoktur. Composer içinde holdout keşfi yazılı
+değildir (L-DISC-B-1/2/3; geçişli yardımcı grafı dahil).
+`equation_to_function` /
+`normalize_destruction_samples` holdout \(D\) yolu olarak yazılı
+değildir. `unique_claim_kpis_hold` holdout kapısı olarak yazılı
+değildir; M1 IC[1] kapısı olarak durur. `rate_rel_rmse` holdout
+arayüzü olarak yazılı değildir; test `ev.d_rmse_*` okur. Dış bant
+`range(a,b)` train’den bağımsız sabit olarak yazılı değildir.
+
+Bayat terim envanteri (M2 bölümü; ACTIVE = onaylı semantik,
+WRONG = yasak gövde / reddedilmiş alternatif):
+
+| Terim | M2 satır rolü | Durum |
+|---|---|---|
+| `split_experiments` | “eklenmez”; hijyen “değildir” | **WRONG** |
+| 6/3 | “6/3 yoktur” | **WRONG** |
+| `equation_to_function` holdout \(D\) | yasak yol / L-D-OCC / L-OVERFIT / L-DISC-A | **WRONG** |
+| `equation_to_function` M1 `evaluate_recovery` | L-DISC-A dosya notu | **ACTIVE M1** — holdout \(D\) değil |
+| `normalize_destruction_samples` holdout \(D\) | yasak yol / L-DISC-A / L-D-OCC / L-OVERFIT | **WRONG** |
+| `normalize_destruction_samples` composer / suite yasağı | unique-claim section yazılmaz; composer M1 yolu durur | **ACTIVE M1** — holdout değerlendirme değil |
+| `unique_claim_kpis_hold` holdout kapısı | “sokmak” yasak; L-GATE | **WRONG** |
+| `unique_claim_kpis_hold` M1 IC[1] | L-GATE `=== true`; stdout / locked_kpis | **ACTIVE M1** |
+| bağımsız holdout generate | L-RNG Y-RNG-*; hijyen | **WRONG** |
+| birden fazla `evaluate_holdout` sahibi | L-SITE; hijyen | **WRONG** |
+| composer içinde holdout keşfi | L-DISC-B-1/2/3 | **WRONG** — M1 composer train-grid + dummy time; holdout keşif girdisi değil; geçişli yardımcı grafı dahil |
+
+M0 / M1 / M3–M10 bilimsel içeriği bu revizyonda değiştirilmez.
+M1 yolu `evaluate_holdout` içermez (M1 tamamlandı). M3 “train
+occupancy ∪ holdout \(r\)” cümlesi M3 tanısıdır, M2 API’si değildir.
+M5 “aynı train/holdout” M2 split’ini yeniden kullanır; set alanı
+değildir.
 
 ---
 

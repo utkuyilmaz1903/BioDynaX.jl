@@ -31,11 +31,14 @@ In scope for the unique-claim workflow:
 - known mechanisms compiled into \(P\) and known \(D\)
 - exactly one unknown destruction mechanism
 - a nonnegative learned destruction rate
-- multi-experiment **training** (`train_experiments` over several ICs)
+- multi-experiment **training** on unique-claim ICs 1..7
 - practical identifiability diagnostics (Q3)
-- mechanistic recovery diagnostics on a regulator grid (Q2, partial)
+- mechanistic recovery diagnostics on a train-derived regulator grid
+  (Q2, partial)
 - symbolic support recovery (Q5)
 - architectural biological / numerical constraints (Q6, partial)
+- reported held-out generalization evidence on ICs 8 and 9 (Q7;
+  reported, not a gate)
 - a conceptual distinction among predictive fit, mechanism-function
   diagnostics, and later validation questions
 
@@ -43,7 +46,8 @@ In scope for the unique-claim workflow:
 destructions still compile. The unique-claim path separately requires
 `assert_single_unknown_destruction`.
 
-Held-out validation is a v1.0 **goal**. It is not implemented.
+Held-out validation is **reported evidence**. It is not a success gate
+and not a functional-identifiability certificate.
 
 ## Q1–Q7 (kept conceptually separate)
 
@@ -52,19 +56,19 @@ Trajectory fit is not proof of mechanism recovery.
 
 The contract distinguishes these questions. That is not a claim that the
 implementation already supplies the full operational Q1/Q2/Q4/Q7
-separation. Some operational measurements remain incomplete until later
-milestones. Do not read the table as evidence that held-out evaluation
-or a practical functional-identifiability diagnostic already exists.
+separation. Q4 remains not implemented. Q7 is reported held-out
+generalization evidence, not an additional success gate. Do not read
+the table as a functional-identifiability certificate.
 
 | Id | Question | What it measures | Status |
 |----|----------|------------------|--------|
-| Q1 | Predictive fit | Hybrid residual of `compose_hybrid_rhs` versus **observations** | `implemented (training IC[1] residual)` |
-| Q2 | Mechanism function recovery | \(\hat D(z)\) versus \(D_{\mathrm{true}}(z)\) | `partial (regulator-grid D error)` |
+| Q1 | Predictive fit | Hybrid residual of `compose_hybrid_rhs` versus **observations** | `implemented (training IC[1] residual + separate train/holdout evidence)` |
+| Q2 | Mechanism function recovery | \(\hat D(z)\) versus \(D_{\mathrm{true}}(z)\) | `partial (regulator-grid D error + reported holdout D error)` |
 | Q3 | Scale / parameter practical identifiability | Local Fisher / \(k_{\mathrm{prod}}\leftrightarrow D\) Jacobian cosine | `implemented as practical warning` |
 | Q4 | Practical functional-identifiability diagnostic | Agreement of independently trained \(\hat D_i(z)\) versus trajectory agreement | `not implemented` |
 | Q5 | Symbolic support recovery | True-monomial recall; combined F1 as skeleton | `implemented as symbolic support` |
 | Q6 | Biological / numerical constraints | \(D\geq 0\), \(P-D\cdot u\) at the axis, denominator sign checks | `partial (architectural, not a theorem)` |
-| Q7 | Held-out generalization | Unseen ICs and unseen regulator region | `not implemented` |
+| Q7 | Held-out generalization | Unseen ICs 8,9 and a train-derived external \(r\) band | `reported, not a gate` |
 
 ### Q1 Predictive fit
 
@@ -74,30 +78,54 @@ or a practical functional-identifiability diagnostic already exists.
 `RECOVERY_THRESHOLDS.data_residual` (\(0.30\)). Typical printed residuals
 can be much smaller.
 
-Current Q1 evidence is **not** a held-out predictive generalization
-metric (that is Q7). It is **not** a fully independent validation layer
-that always runs beside training. On the unique-claim path the residual
-is produced **conditionally** after successful recovery/discovery
-(failed neural-rate quality or failed discovery leaves it unset /
-infinite). Passing Q1 does not imply Q2–Q7.
+`result.data_residual` remains that **legacy IC[1]** residual. It is
+not the aggregate train residual.
+
+M2 additionally reports arithmetic-mean residuals (not RMS, not
+concatenated residuals, not IC[1], not one holdout experiment):
+
+```math
+\texttt{data\_residual\_train}
+= (\rho_1+\rho_2+\rho_3+\rho_4+\rho_5+\rho_6+\rho_7)/7
+```
+
+```math
+\texttt{data\_residual\_holdout}
+= (\rho_8+\rho_9)/2
+```
+
+The gated Q1 number is still the legacy IC[1] residual. Train and
+holdout aggregates are separate evidence. Current Q1 evidence is
+**not** only a held-out predictive generalization metric (that is Q7).
+On the unique-claim path the gated residual is produced
+**conditionally** after successful recovery/discovery (failed
+neural-rate quality or failed discovery leaves it unset / infinite).
+Passing Q1 does not imply Q2–Q7.
 
 Training minimizes trajectory MSE. The residual is versus data, not
 versus the trained UDE vector field.
 
 ### Q2 Mechanism function recovery
 
-**Partial.** Current Q2 is only a partial mechanism-function diagnostic
-on the current sampled regulator domain. The suite reports
-neural-versus-truth correlation and relative RMSE for \(D\) on a
-one-dimensional regulator grid expanded from experiment extrema
-(`_regulator_grid`). That grid is not trajectory occupancy and is not a
-held-out \(r\) region.
+**Partial.** Current Q2 is a partial mechanism-function diagnostic.
+The suite reports neural-versus-truth correlation and relative RMSE
+for \(D\) on a one-dimensional regulator grid expanded from **training**
+experiment extrema (`_regulator_grid` on ICs 1..7). That grid is not
+trajectory occupancy.
 
-It is not held-out mechanism validation.
+M2 additionally reports holdout \(D\) error from the **actual neural**
+\(\hat D\), not from symbolic reconstruction and not from a normalized
+symbolic \(D\):
 
-Q2 numbers are diagnostics. They are **not** inputs to
-`unique_claim_kpis_hold`. The locked hold is Q3 + Q1 residual + Q5
-recall.
+- `d_rmse_holdout` — neural \(D\) at the actual observed regulator
+  coordinates from holdout experiments 8 and 9
+- `d_rmse_holdout_domain` — neural \(D\) over the deterministic
+  external band derived only from training data (not a train-grid-only
+  evaluation and not an arbitrary fixed grid)
+
+Those holdout \(D\) numbers are evidence, not proof of uniqueness.
+They are **not** inputs to `unique_claim_kpis_hold`. The locked hold
+is Q3 + Q1 residual + Q5 recall.
 
 ### Q3 Scale / parameter practical identifiability
 
@@ -161,11 +189,40 @@ not a biological-validity certificate.
 
 ### Q7 Held-out generalization
 
-**Not implemented.** `ExperimentSet` is a list. Unique-claim residual
-and Fisher diagnostics use the first training IC. Discovery’s internal
-`validation_fraction` is a column split, not an experiment split.
-Held-out IC residual and held-out \(D\) error are v1.0 goals (later
-milestones).
+**Reported, not a gate.** Unique-claim now reports held-out residual
+and neural \(D\) error on ICs 8 and 9 after a train-only fit on ICs
+1..7. Q7 is reported held-out generalization evidence, not an additional success gate. It is not a success gate, not a model-selection gate, and
+not a mechanism-identifiability certificate. It is not functional
+identifiability.
+
+The existing M1 \(0.30\) gate is **not** copied to holdout. A holdout
+residual greater than \(0.30\) does not by itself suppress holdout
+evidence or set the M1 result to failure.
+
+`ExperimentSet` remains a list. It is not mutated and does not gain
+`train` / `holdout` fields. The 7/2 view is an internal
+`ExperimentSplit`. Discovery’s internal `validation_fraction` is still
+a column split, not this experiment split.
+
+Q7 is not a symbolic holdout discovery benchmark. Holdout evaluation
+does not call `discover_unknown_rate`, `discover_unknown`,
+`discover_equations`, or `discover_unknown_destruction`. The M1
+composer retains its own existing discovery pipeline on the
+train-derived grid.
+
+Symbolic discovery failure does not suppress Q7 evidence:
+
+| Case | `training_ok` | `discovery` | `holdout` |
+|------|---------------|-------------|-----------|
+| A | `false` | `=== nothing` | `=== nothing` |
+| B | `true` | `discovery.success == false` | `!== nothing` |
+| C | `true` | `discovery.success == true` | `!== nothing` |
+
+This is stronger than the old IC[1]-only evaluation. It does not
+establish functional identifiability, canonical Hill reconstruction,
+or broad generalization over arbitrary input regimes. The current
+holdout is two fixed IC experiments. The train-derived external \(D\)
+domain is not global OOD.
 
 ## Current unique-claim hold (not a Q collapse)
 
@@ -183,6 +240,7 @@ ambiguity is not hidden. It is not a structural certificate and is not
 by itself “the product.”
 
 The hold is not Q2 uniqueness, not Q4, not Q7, and not canonical Hill.
+Q7 holdout numbers are not inputs to this hold.
 Combined F1 is not a hold input. The historical protocol-result field
 `:recall_plus_data_residual` names Q1+Q5; the live gate still requires
 Q3.
@@ -193,6 +251,11 @@ The following remain unsupported. Naming them here does not implement
 them.
 
 - structural identifiability certificates
+- practical functional identifiability (Q4 remains not implemented)
+- M3 — Practical Functional Identifiability (pending / future work; not implemented)
+- M4 — Robustness / Trajectory-Context Validation (pending / future work; not implemented)
+- trajectory-occupancy discovery
+- arbitrary OOD regimes
 - unknown topology discovery
 - general CRN solving
 - arbitrary multi-hole discovery

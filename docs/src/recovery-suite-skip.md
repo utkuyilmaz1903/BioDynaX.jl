@@ -90,7 +90,8 @@ BioDynaX.train_unknown_edge_only_in_unique_claim_source()
 ```
 
 `:ident_interventions` still runs a short `train_ude` with
-`frozen_phys = [:k_prod]`. That is not the 9-IC unique-claim trainer.
+`frozen_phys = [:k_prod]`. That is not the unique-claim trainer (nine
+ICs generated; ICs 1–7 used for training).
 
 ```@repl suite-ident-source
 using BioDynaX
@@ -231,7 +232,7 @@ report = run_recovery_suite(MersenneTwister(1);
 haskey(report, :ude_discovery)  # false
 ```
 
-The 9-IC unique-claim job is a separate call with
+The unique-claim job (nine ICs generated; ICs 1–7 trained) is a separate call with
 `sections = (:ude_discovery, :mm_unknown)` and the protocol Adam/BFGS
 budget. That call is not made faster by skip.
 

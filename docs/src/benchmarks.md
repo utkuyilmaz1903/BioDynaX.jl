@@ -43,22 +43,33 @@ Fast job (`test/test_recovery.jl`):
 
 Hard job (`test/run_recovery_hard.jl`):
 
-- **UDE → unknown edge (Hill, zero noise)** — NN must match true `D(r)`
-  before discovery runs (`nn_rate_rmse ≤ 0.12`). Multi-IC BFGS refines the
-  joint loss over all 9 ICs. Then true-monomial **recall**
+- **UDE → unknown edge (Hill, zero noise)** — nine ICs are generated once;
+  the UDE fits ICs 1..7 only. NN must match true `D(r)` before discovery
+  runs (`nn_rate_rmse ≤ 0.12`). Then true-monomial **recall**
   0.99, combined F1 at the UDE skeleton gate (`support_f1_ude = 0.50`, not
-  the analytical 0.99), discovered-rate RMSE, hybrid residual **versus data**,
-  and `unidentifiable_edge == true` with cosine ≥ 0.95.
+  the analytical 0.99), discovered-rate RMSE, hybrid residual **versus data**
+  on IC[1], and `unidentifiable_edge == true` with cosine ≥ 0.95.
+  Holdout residual and neural \(D\) error on ICs 8 and 9 are reported;
+  they are not compared to 0.30.
 - **Same protocol with `σ = 0.02`** (`support_f1_noisy = 0.50`).
 - **UDE → unknown edge (MM)** — same training/residual protocol. Canonical MM
   support from the trained NN is **honestly below** the Hill recall gate on this
-  budget (measured recall ~0.5, F1 ~0.33). NN RMSE and data residual remain
-  gated. Hill recall 0.99 is not applied. MM unknown gates NN RMSE and
-  hybrid residual; Hill recall 0.99 is not applied.
+  budget. Pre-M2 / legacy hard-job honesty record: measured recall ~0.5,
+  F1 ~0.33. M2 validated MM `support_f1` = 0.66667 (table below). Those
+  are different protocol contexts; neither is painted as Hill recall
+  0.99. NN RMSE and data residual remain gated. Hill recall 0.99 is not
+  applied. MM unknown gates NN RMSE and hybrid residual; Hill recall
+  0.99 is not applied.
 
-Measured zero-noise Hill UDE (9 ICs, seed 103): NN RMSE ≈ 0.04, recall 1.0,
-combined F1 ≈ 0.57 (extras `1` and `r` remain), data residual ≈ 0.003,
-`k_prod`↔`D` cosine ≈ 0.997. That F1 is **below** `support_f1_clean`.
+Measured zero-noise Hill UDE (seed 103; nine ICs generated once; ICs
+1–7 used for training and ICs 8–9 held out): NN RMSE ≈ 0.046, recall
+1.0, combined F1 ≈ 0.57 (extras `1` and `r` remain), M2 validated
+legacy IC[1] `data_residual` = 0.004195, `k_prod`↔`D` cosine ≈ 0.997.
+The golden-path example residual ≈ 0.003 is a different path: that
+script is a standalone / legacy example that still trains all nine
+generated ICs. It is **not** the M2 recovery-suite train/holdout
+protocol.
+That F1 is **below** `support_f1_clean`.
 `benchmark/ude_f1_attempt.jl` replayed those extras on the same library
 (Occam + scale-normalization). Combined F1 stayed 0.57. That script is an
 F1 **attempt** (`UNIQUE_CLAIM_F1_ATTEMPT`: `is_protocol = false`,
@@ -70,7 +81,8 @@ pair is not hardcoded when discovery did not score.
 
 `run_recovery_suite` admits unique-claim sections
 (`:ude_discovery`, `:mm_unknown`, `:ident_interventions`, `:partial_obs`)
-through `admit_recovery_suite_network` before the 9-IC train. Other
+through `admit_recovery_suite_network` before unique-claim training
+(nine ICs generated; ICs 1–7 trained). Other
 sections have an explicit open hole policy; `:ablation` is a library
 fixture and does not compile. The matrix is
 `recovery_suite_admission_matrix` (not exported).
@@ -80,6 +92,30 @@ v1.0 is not cut until this table stays red when the claim fails.
 
 `support_f1_ude = 0.50` is the **UDE skeleton** combined-support floor.
 It does **not** mean “print Hill and stop”.
+
+## Representative M2 hard results
+
+These are the validated unique-claim M2 representative / hard numbers
+already in the research record (train ICs 1..7, holdout ICs 8,9). They
+are not a statistical multi-seed success rate, not global OOD evidence,
+not universal generalization, and not proof of mechanism recovery.
+Holdout residual can be close to but different from the train
+aggregate. The train-derived external \(D\) domain is not global OOD.
+The current holdout is two fixed IC experiments. Do not mix these
+rows with the Pre-M2 / legacy MM honesty record (F1 ~0.33) as if they
+were the same protocol.
+
+| run | `nn_correlation` | `nn_rate_rmse` | `support_recall` | `support_f1` | `data_residual` | `data_residual_train` | `data_residual_holdout` | `d_rmse_holdout` | `d_rmse_holdout_domain` |
+|-----|------------------|----------------|------------------|--------------|-----------------|-----------------------|-------------------------|------------------|-------------------------|
+| Seed 103 Hill, \(\sigma=0\) | 0.99757 | 0.04649 | 1.0 | 0.57143 | 0.004195 | 0.002222 | 0.004057 | 0.01241 | 0.00812 |
+| Seed 113 Hill, \(\sigma=0.02\) | 0.99837 | 0.03749 | 1.0 | 0.57143 | 0.02217 | 0.02051 | 0.02068 | 0.01760 | 0.01216 |
+| MM seed 123 | 0.99437 | 0.03590 | — | 0.66667 | 0.005380 | 0.001481 | 0.003205 | 0.005286 | 0.01647 |
+
+`data_residual` is the legacy IC[1] residual. Train and holdout
+residuals are arithmetic means over ICs 1..7 and ICs 8,9. Holdout
+\(D\) metrics evaluate the actual neural \(D\). The MM row does **not**
+apply the Hill `support_recall ≥ 0.99` gate and is not a new MM
+scientific success claim. Hill recall 0.99 is not applied.
 
 ## Frozen multi-seed analytical Occam
 
@@ -220,7 +256,11 @@ julia --project=. benchmark/ude_f1_attempt.jl
 | `support_f1` | implicit numerator+denominator support F1 |
 | `support_recall` | fraction of true Hill/MM monomials recovered |
 | `discovered_rate_rmse` | `D_hat` vs true rate on a grid |
-| `data_residual` | hybrid RHS vs observations (not vs UDE `ẋ`) |
+| `data_residual` | legacy IC[1] hybrid RHS vs observations (not the train aggregate) |
+| `data_residual_train` | arithmetic mean of hybrid residuals on ICs 1..7 |
+| `data_residual_holdout` | arithmetic mean of hybrid residuals on ICs 8 and 9 |
+| `d_rmse_holdout` | neural \(D\) RMSE at observed holdout regulator coordinates |
+| `d_rmse_holdout_domain` | neural \(D\) RMSE on the train-derived external band |
 | `normalized_support_f1` | same library after `max\|D\|=1` scaling |
 | `local_f1` / `global_f1` | graph vs global discovery on the same `y` (not the prior) |
 | `local_false_parent` | whether a distractor entered the local support |

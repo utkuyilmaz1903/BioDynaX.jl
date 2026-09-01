@@ -40,9 +40,11 @@ end
     @test q4_at !== nothing
     @test q7_at !== nothing
     q4_body = text[first(q4_at):min(lastindex(text), first(q4_at) + 800)]
-    q7_body = text[first(q7_at):min(lastindex(text), first(q7_at) + 600)]
+    q7_body = text[first(q7_at):min(lastindex(text), first(q7_at) + 900)]
     @test occursin("not implemented", lowercase(q4_body))
-    @test occursin("not implemented", lowercase(q7_body))
+    @test occursin("reported held-out generalization evidence", lowercase(q7_body))
+    @test occursin("not an additional success gate", lowercase(q7_body))
+    @test !occursin("not implemented", lowercase(q7_body))
 end
 
 @testset "current unique-claim hold is Q3 + Q1 residual + Q5 recall" begin

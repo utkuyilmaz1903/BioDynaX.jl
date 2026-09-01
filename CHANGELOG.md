@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Complete Milestone 2 held-out validation documentation: unique-claim
+  generates nine experiments once, fits ICs 1..7 only, derives the
+  discovery domain from train only, and reports neural-\(D\) holdout
+  residual / \(D\) error on ICs 8 and 9. Q7 is reported held-out
+  generalization evidence, not an additional success gate. The existing
+  M1 0.30 residual gate is not copied to holdout. Q4 functional
+  identifiability remains not implemented. Package version stays a
+  0.9.2 research preview; this is not v1.0. M3 (practical functional
+  identifiability) and M4 (robustness / trajectory-context validation)
+  remain pending future work.
 - Document the implemented v1.0 scientific contract
   (`docs/src/design/v1_contract.md`): compiled \(P-D\cdot u\), Q1–Q7
-  kept conceptually separate (operational Q1/Q2/Q4/Q7 measurements
-  remain incomplete), current unique-claim hold written as Q3 practical
-  warning + Q1 training-IC residual + Q5 support recall. Q4 and Q7
-  marked not implemented. Unique-claim gates, `RECOVERY_THRESHOLDS`,
-  and the export list are unchanged.
+  kept conceptually separate, current unique-claim hold written as Q3
+  practical warning + Q1 training-IC residual + Q5 support recall.
+  At M0, Q4 and Q7 were not implemented. M2 subsequently introduced
+  reported Q7 held-out evidence; Q7 remains non-gating. Q4 remains not
+  implemented. Unique-claim gates, `RECOVERY_THRESHOLDS`, and the
+  export list are unchanged.
 - Raise Aqua in `test/quality.jl` to the default `test_all` surface
   (ambiguities, unbound_args, persistent_tasks, piracies without
   `treat_as_own`, undocumented_names). Those checks currently pass on

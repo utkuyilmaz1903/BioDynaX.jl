@@ -44,9 +44,13 @@ See [v1.0 scientific contract](design/v1_contract.md). These remain
 unsupported:
 
 - structural identifiability certificates
+- functional identifiability (Q4 remains not implemented)
+- trajectory-occupancy discovery
+- arbitrary OOD regimes
 - unknown topology discovery
 - general CRN solving
 - arbitrary multi-hole discovery
+- multi-hole mechanisms
 - canonical Hill recovery from a trained NN
 - biological-constant parameter claims under scale non-identifiability
 - general missing-state UDE training
@@ -56,13 +60,23 @@ unsupported:
 - GPU training stack
 - broad SBML kinetic parsing
 
-Q4 (practical functional-identifiability diagnostic) and Q7 (held-out
-generalization) are v1.0 goals. They are not implemented.
+Q4 (practical functional-identifiability diagnostic) remains not
+implemented. Q7 is reported held-out generalization evidence, not an
+additional success gate. It is not a success gate, not a
+model-selection gate, and not a mechanism-identifiability certificate.
 
-Current Q1 is a hybrid residual versus observed data on the training IC,
-not a held-out predictive metric. Current Q2 is a partial regulator-grid
-`D` diagnostic, not held-out mechanism validation. Current Q3
-`unidentifiable_edge` is a local practical warning (Fisher condition
-number **or** `k_prod`/`D` scale cosine), not a structural certificate.
-Current Q5 support recovery is performed on grid-sampled learned `D` and
-is not canonical Hill recovery.
+## Next milestones (not implemented)
+
+- M3 — Practical Functional Identifiability (pending / future work)
+- M4 — Robustness / Trajectory-Context Validation (pending / future work)
+
+These are future milestones, not present capabilities.
+
+Current Q1 is a hybrid residual versus observed data on the training
+IC[1], plus separate train/holdout aggregates. Current Q2 is a partial
+train-grid `D` diagnostic plus reported holdout neural `D` error, not
+proof of uniqueness. Current Q3 `unidentifiable_edge` is a local
+practical warning (Fisher condition number **or** `k_prod`/`D` scale
+cosine), not a structural certificate. Current Q5 support recovery is
+performed on grid-sampled learned `D` and is not canonical Hill
+recovery. The train-derived external `D` domain is not global OOD.

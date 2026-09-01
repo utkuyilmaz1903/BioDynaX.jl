@@ -10,8 +10,10 @@ KPI failure symbols are unidentifiable_edge, data_residual, and support_recall; 
 extras print NA for missing, (none) for an empty collection, and the live leftovers otherwise.
 
 This page does not change `RECOVERY_THRESHOLDS`, the unique-claim protocol
-(seed 103 / 9 ICs), or `validate_network`. Combined F1 stays a skeleton
-floor (0.50). A failed discovery row is not painted as UDE F1 0.99.
+(seed 103 / 9 ICs generated; train 1..7, holdout 8,9), or
+`validate_network`. Combined F1 stays a skeleton floor (0.50). A failed
+discovery row is not painted as UDE F1 0.99. Holdout residual is not a
+KPI failure symbol and is not compared to 0.30.
 
 ## What was still open
 

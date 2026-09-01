@@ -100,7 +100,8 @@ zero_dual = BioDynaX.recovery_suite_zero_dual_matrix()
 ```
 
 Zero- and two-hole networks still compile. They fail closed only on
-unique-claim sections, and they fail before a 9-IC train.
+unique-claim sections, and they fail before unique-claim training
+(nine ICs generated; ICs 1–7 trained).
 
 ```@repl compiled-policy
 using BioDynaX

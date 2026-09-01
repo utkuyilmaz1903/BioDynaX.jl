@@ -44,8 +44,11 @@ BioDynaX.coefficients_are_biological_constants((;
 
 MM unknown gates NN RMSE and hybrid residual; Hill recall 0.99 is not applied.
 
-Hard-job measured values on this budget are recall ~0.5 and F1 ~0.33.
-Those numbers are recorded, not painted as Hill 0.99.
+Pre-M2 / legacy hard-job honesty record: recall ~0.5 and F1 ~0.33.
+Those numbers are recorded, not painted as Hill 0.99. The M2 validated
+MM `support_f1` is 0.66667 on the train-1..7 / holdout-8,9 protocol
+(see [Recovery benchmarks](benchmarks.md)). That is a different
+context, not a Hill recall 0.99 claim.
 
 ```@repl metric-mm
 using BioDynaX

@@ -14,18 +14,26 @@ The authoritative scientific contract is
 [v1.0 scientific contract](design/v1_contract.md). Compiled dynamics are
 \(\dot u_i = P_i - D_i u_i\). Current gates map to Q1 (training IC[1]
 residual), Q3 (practical scale warning), and Q5 (true-monomial recall).
-Q4 and Q7 are not implemented. Trajectory fit is not proof of mechanism
-recovery.
+Q4 remains not implemented. Q7 is reported held-out generalization
+evidence, not an additional success gate. Trajectory fit is not proof
+of mechanism recovery.
+
+Nine experiments are generated once. Training uses ICs 1..7. Holdout
+uses ICs 8 and 9. Holdout is observational evidence. It does not gate
+0.30. Discovery failure does not erase Q7. Holdout \(D\) metrics come
+from the actual neural \(D\), not symbolic reconstruction. Legacy
+`data_residual` remains the IC[1] residual.
 
 Current Q1 evidence is the hybrid residual against observed data on the
 current protocol, conditionally produced after successful
-recovery/discovery, using the reference/training IC. It is not a held-out
-predictive generalization metric and not a fully independent validation
-layer.
+recovery/discovery, using the reference/training IC. Separate
+arithmetic-mean train and holdout residuals are reported beside that
+legacy number. The gated Q1 number is still IC[1].
 
-Current Q2 is only a partial mechanism-function diagnostic on the sampled
-regulator domain. It is not held-out mechanism validation and is not a
-hold input.
+Current Q2 is a partial mechanism-function diagnostic on the
+train-derived regulator domain, plus reported holdout neural \(D\)
+error. That holdout \(D\) error is evidence, not a uniqueness proof,
+and is not a hold input.
 
 Q3 `unidentifiable_edge` can be triggered by the practical condition-number
 threshold or the `k_prod`/`D` scale cosine threshold. It is a local
@@ -281,7 +289,8 @@ two_net = BioDynaX.build_dual_unknown_network()
 ```
 
 `run_recovery_suite` calls `assert_unique_claim_recovery_network` before
-the 9-IC UDE train.
+unique-claim training (nine ICs are generated once; ICs 1–7 are used
+for training and ICs 8–9 are held out).
 
 ## Compiler remapping (not a unique-claim gate)
 
@@ -381,12 +390,45 @@ miss = BioDynaX.unique_claim_protocol_row_from_fields(;
  BioDynaX.unique_claim_kpi_failure_message(miss.kpi_failures))
 ```
 
+## Held-out evidence (Q7, reported, not a gate)
+
+Unique-claim suite sections generate nine ICs once, fit only ICs 1..7,
+derive the discovery domain from train only, then evaluate holdout on
+ICs 8 and 9. `evaluate_holdout` does not discover. The M1 composer
+keeps its existing discovery pipeline.
+
+```
+data_residual            = legacy IC[1] hybrid residual
+data_residual_train      = (ρ1+ρ2+ρ3+ρ4+ρ5+ρ6+ρ7)/7
+data_residual_holdout    = (ρ8+ρ9)/2
+```
+
+Those aggregates are arithmetic means. They are not RMS, not
+concatenated residuals, not IC[1], and not one holdout experiment.
+
+`d_rmse_holdout` evaluates neural \(D\) at the actual observed
+regulator coordinates from experiments 8 and 9.
+`d_rmse_holdout_domain` evaluates neural \(D\) on the deterministic
+external band derived only from training data. Neither is symbolic
+\(D\) reconstruction.
+
+Case A (`training_ok == false`, `discovery === nothing`) leaves
+`holdout === nothing`. Cases B and C report holdout even when
+symbolic discovery fails. A holdout residual greater than 0.30 does
+not suppress that evidence and does not fail the M1 hold.
+
+Q7 is reported held-out generalization evidence, not an additional
+success gate. Discovery failure does not erase Q7. Q4 functional
+identifiability is not implemented. This page is still a narrow
+one-hole research preview. M3 and M4 remain pending future work.
+
 ## What this page is not
 
 - A wet-lab protocol for one noisy CSV and unknown topology.
 - A general CRN solver.
 - A license to call coefficients biological constants.
 - A promise that combined F1 from a trained NN is canonical Hill.
+- A functional-identifiability or unique-\(D\) certificate.
 - A General-registry install story. Clone and `Pkg.instantiate`.
 - GPU / SBML / ModelingToolkit productization. Those names stay
   experimental and unexported.
