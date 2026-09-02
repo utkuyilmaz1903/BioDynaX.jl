@@ -908,4 +908,9 @@ using BioDynaX:
     _regulator_grid,
     _unique_claim_rate_recovery,
     report_recovery,
-    sample_unknown_destruction_grid
+    sample_unknown_destruction_grid,
+    FunctionalIdentifiabilityDomain,
+    functional_identifiability_domain,
+    scale_align_destruction,
+    pairwise_destruction_metrics,
+    pairwise_trajectory_metrics
