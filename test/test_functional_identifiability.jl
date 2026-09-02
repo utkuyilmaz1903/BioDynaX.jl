@@ -2536,3 +2536,208 @@ end
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
+
+const _M3F_FORBIDDEN_PHRASES = (
+    "Bayesian",
+    "credible interval",
+    "credible level",
+    "posterior")
+
+const _M3F_FORBIDDEN_FIELDS = (
+    :posterior,
+    :credible_interval,
+    :credible_level,
+    :structural_identifiability)
+
+const _M3F_TRADEOFF_KEYS = (
+    :production_param,
+    :condition_number,
+    :production_correlation,
+    :collinearity,
+    :unidentifiable_edge,
+    :fisher)
+
+const _M3F_PHASE1_FISHER = [
+    1.948946020842544e13 -5.014202383474795e13 -1.1163107161215307e13
+    -5.014202383474795e13 1.3015736872831088e14 2.9873326111898336e13
+    -1.1163107161215307e13 2.9873326111898336e13 2.70365750557671e13]
+
+const _M3F_PHASE1_CONDITION = 1086.662678334793
+const _M3F_PHASE1_LOWER = [0.9999952004396508, 0.9999981216038665, 0.9999995560356232]
+const _M3F_PHASE1_UPPER = [1.0000047995603496, 1.000001878396134, 1.0000004439643773]
+
+function _m3f_phase1_fisher_fixture()
+    rng = MersenneTwister(51)
+    network = build_linear_test_network()
+    model, params = build_ude_model(rng, network)
+    u0 = [0.2, 0.1]
+    tspan = (0.0, 2.0)
+    times, clean, _, _ = generate_data(
+        rng; network = network, u0 = u0, tspan = tspan,
+        n_points = 12, noise_σ = 0.0)
+    return (; model, params, clean, times, u0, tspan)
+end
+
+function _m3f_independent_fisher(model, params, data, times, u0, tspan)
+    jacobian, names = BioDynaX.trajectory_jacobian(
+        model, params, u0, tspan, times)
+    residual = data .- predict_ude(params, u0, tspan, times, model)
+    σ² = max(eps(), sum(abs2, residual) / max(1, length(residual)))
+    information = (jacobian' * jacobian) ./ σ²
+    return (; jacobian, names, residual_variance = σ², information)
+end
+
+function _m3f_wald_interval(center, variance, z)
+    half = z * sqrt(max(variance, zero(variance)))
+    return (max(0.0, center - half), center + half)
+end
+
+function _m3f_pci_docstring(src)
+    fn = findfirst("function parameter_credible_intervals", src)
+    fn === nothing && return ""
+    before = src[1:(first(fn) - 1)]
+    closer = findlast("\"\"\"", before)
+    closer === nothing && return ""
+    opener = findprev("\"\"\"", before, first(closer) - 1)
+    opener === nothing && return ""
+    return before[(last(opener) + 1):(first(closer) - 1)]
+end
+
+@testset "T-F-SRC T-F-NOM T-F-PCI Fisher terminology" begin
+    ident_src = read(joinpath(@__DIR__, "..", "src", "Identifiability.jl"),
+        String)
+    q4_src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+        String)
+    for phrase in _M3F_FORBIDDEN_PHRASES
+        @test !occursin(phrase, ident_src)
+        @test !occursin(phrase, q4_src)
+    end
+    @test occursin("asymptotic Fisher interval", ident_src)
+    @test occursin("nominal coverage", ident_src)
+    @test occursin("This is not structural identifiability", ident_src)
+    pci_doc = _m3f_pci_docstring(ident_src)
+    @test !isempty(pci_doc)
+    @test occursin("Asymptotic Fisher", pci_doc)
+    @test occursin("nominal coverage", pci_doc)
+    @test !occursin("Asymptotic normal credible intervals", pci_doc)
+    @test !occursin("credible interval", pci_doc)
+    @test !occursin("credible level", pci_doc)
+    @test occursin("function parameter_credible_intervals", ident_src)
+end
+
+@testset "T-F-Z T-F-KEYS Fisher math, Q3 warning, Q4, exports" begin
+    @test BioDynaX._z_score(0.90) == 1.6448536269514722
+    @test BioDynaX._z_score(0.95) == 1.959963984540054
+    @test BioDynaX._z_score(0.99) == 2.5758293035489004
+    thrown = try
+        BioDynaX._z_score(0.80)
+        nothing
+    catch err
+        err
+    end
+    @test thrown isa ArgumentError
+    @test occursin("nominal coverage", thrown.msg)
+    @test !occursin("credible level", thrown.msg)
+    @test !occursin("credible interval", thrown.msg)
+
+    fixture = _m3f_phase1_fisher_fixture()
+    rebuilt = _m3f_independent_fisher(
+        fixture.model, fixture.params, fixture.clean, fixture.times,
+        fixture.u0, fixture.tspan)
+    report = assess_identifiability(
+        fixture.model, fixture.params, fixture.clean, fixture.times,
+        fixture.u0, fixture.tspan)
+    report_again = assess_identifiability(
+        fixture.model, fixture.params, fixture.clean, fixture.times,
+        fixture.u0, fixture.tspan)
+    @test report.parameter_names == rebuilt.names
+    @test report.fisher_information == rebuilt.information
+    @test report.residual_variance == rebuilt.residual_variance
+    @test report.fisher_information == report_again.fisher_information
+    @test report.condition_number == report_again.condition_number
+    @test report.residual_variance == report_again.residual_variance
+    @test report.parameter_names == [:k_ba, :k_a, :k_b]
+    @test size(report.fisher_information) == (3, 3)
+    @test report.fisher_information ≈ _M3F_PHASE1_FISHER rtol=1e-12 atol=0
+    @test report.condition_number ≈ _M3F_PHASE1_CONDITION rtol=1e-12 atol=0
+    @test report.residual_variance == eps(Float64)
+    @test all(report.identifiable)
+
+    z95 = 1.959963984540054
+    variances = LinearAlgebra.diag(pinv(report.fisher_information))
+    intervals = BioDynaX.parameter_credible_intervals(
+        report, fixture.params; level = 0.95)
+    uncertainty = estimate_parameter_uncertainty(
+        fixture.model, fixture.params, fixture.clean, fixture.times,
+        fixture.u0, fixture.tspan; level = 0.95)
+    @test uncertainty.method === :fisher
+    @test uncertainty.level == 0.95
+    @test uncertainty.parameter_names == report.parameter_names
+    @test uncertainty.lower ≈ _M3F_PHASE1_LOWER rtol=1e-12 atol=0
+    @test uncertainty.upper ≈ _M3F_PHASE1_UPPER rtol=1e-12 atol=0
+    for (i, name) in enumerate(report.parameter_names)
+        center = positive_parameter(getproperty(fixture.params.phys, name))
+        expected = _m3f_wald_interval(center, variances[i], z95)
+        @test intervals[name] == expected
+        @test uncertainty.estimates[i] == center
+        @test uncertainty.lower[i] == expected[1]
+        @test uncertainty.upper[i] == expected[2]
+    end
+
+    tradeoff = BioDynaX.production_destruction_tradeoff(
+        fixture.model, fixture.params, fixture.clean, fixture.times,
+        fixture.u0, fixture.tspan)
+    @test keys(tradeoff) === _M3F_TRADEOFF_KEYS
+    for name in _M3F_FORBIDDEN_FIELDS
+        @test !hasproperty(tradeoff, name)
+        @test name ∉ fieldnames(BioDynaX.IdentifiabilityReport)
+        @test name ∉ fieldnames(BioDynaX.ParameterUncertainty)
+        @test name ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
+        @test name ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    end
+
+    hit = BioDynaX.format_production_destruction_warning((;
+        unidentifiable_edge = true,
+        production_param = :k_prod,
+        collinearity = 0.99))
+    @test hit ==
+          "Practical warning: production (k_prod) and unknown D(z) scale are collinear (cosine=0.99). Observed concentrations do not pin that scale. This is not structural identifiability."
+    miss = BioDynaX.format_production_destruction_warning((;
+        unidentifiable_edge = false,
+        production_param = :k_prod,
+        collinearity = 0.11))
+    @test miss ==
+          "Practical k_prod↔D collinearity cosine=0.11 (below threshold)."
+
+    fid = _m3d_status_diagnostics().function_agree
+    cross = format_q3_q4_side_by_side((;
+            unidentifiable_edge = true,
+            production_param = :k_prod,
+            collinearity = 0.99,
+            condition_number = 1.0e7),
+        fid)
+    q3, q4 = _m3d_q3_q4_sections(cross)
+    @test occursin("practical scale warning", q3)
+    @test occursin("asymptotic Fisher interval", q3)
+    @test !occursin("function_disagree", q3)
+    @test occursin("function_disagree: false", q4)
+    @test !occursin("unidentifiable_edge", q4)
+    @test UNIQUE_CLAIM_KPI_FIELDS ===
+          (:unidentifiable_edge, :data_residual, :support_recall)
+    @test :function_disagree ∉ UNIQUE_CLAIM_KPI_FIELDS
+    @test unique_claim_kpis_hold((;
+        unidentifiable_edge = true,
+        data_residual = 0.003,
+        support_recall = 0.99,
+        function_disagree = true))
+    @test !unique_claim_kpis_hold((;
+        unidentifiable_edge = false,
+        data_residual = 0.003,
+        support_recall = 0.99))
+    @test :parameter_credible_intervals ∉ names(BioDynaX)
+    @test :parameter_credible_intervals ∉ LOCKED_PUBLIC_EXPORTS
+    @test :assess_identifiability ∉ names(BioDynaX)
+    @test :estimate_parameter_uncertainty ∉ names(BioDynaX)
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+end
