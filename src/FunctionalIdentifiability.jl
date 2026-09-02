@@ -3,8 +3,8 @@
 #
 # M3-A: observed train-then-holdout regulator coordinates and pairwise
 # destruction / trajectory metrics.
-# M3-B: five independent restart fits on split.train. Diagnostic assembly
-# (pairs, status, Q4 flags) is not in this file.
+# M3-B: five independent restart fits on split.train.
+# M3-C: live pairwise assembly and derived diagnostic flags / status.
 ###############################################################################
 
 """
@@ -147,6 +147,20 @@ const FUNCTIONAL_ID_TRAINING_CONFIG = (
     bfgs = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
     frozen_phys = Symbol[],
     phys_init = nothing)
+
+"""Reporting cutoffs for the practical Q4 diagnostic. Not a success gate."""
+const FUNCTIONAL_ID_REPORTING_CUTOFFS = (
+    min_successful_restarts = 3,
+    n_attempted_restarts = 5,
+    traj_agree_rel_rmse = 0.05,
+    d_disagree_scale_norm_rel_rmse = 0.20)
+
+const FUNCTIONAL_ID_STATUS_VOCABULARY = (
+    :incomplete,
+    :traj_disagree,
+    :scale_ambiguity,
+    :function_agree,
+    :trajectory_agree_function_disagree)
 
 const FUNCTIONAL_ID_FAILURE_REASONS = (
     :none, :fit_threw, :nonfinite_D, :nonfinite_trajectory, :predict_threw)
@@ -463,4 +477,339 @@ function train_functional_identifiability_restarts(
         domain,
         restarts,
         raw)
+end
+
+# -- M3-C diagnostic assembly -------------------------------------------------
+
+"""
+    FunctionalIdentifiabilityPair
+
+One unordered successful-restart pair (`seed_i < seed_j`) on the common
+domain. Metrics are stored; reporting flags are not.
+"""
+struct FunctionalIdentifiabilityPair
+    seed_i::Int
+    seed_j::Int
+    d_rmse_raw::Float64
+    d_rmse_scale_normalized::Float64
+    d_correlation::Float64
+    scale_alpha::Float64
+    traj_rmse_train::Float64
+    traj_rmse_holdout::Float64
+    function FunctionalIdentifiabilityPair(
+            seed_i::Integer,
+            seed_j::Integer,
+            d_rmse_raw::Real,
+            d_rmse_scale_normalized::Real,
+            d_correlation::Real,
+            scale_alpha::Real,
+            traj_rmse_train::Real,
+            traj_rmse_holdout::Real)
+        Int(seed_i) < Int(seed_j) || throw(ArgumentError(
+            "functional-identifiability pairs require seed_i < seed_j"))
+        return new(Int(seed_i), Int(seed_j),
+            Float64(d_rmse_raw), Float64(d_rmse_scale_normalized),
+            Float64(d_correlation), Float64(scale_alpha),
+            Float64(traj_rmse_train), Float64(traj_rmse_holdout))
+    end
+end
+
+function _pair_median(pairs::Vector{FunctionalIdentifiabilityPair}, field::Symbol)
+    isempty(pairs) && return NaN
+    return Float64(median(getfield.(pairs, field)))
+end
+
+function _require_included_restart_raw(raw, domain::FunctionalIdentifiabilityDomain)
+    raw.D === nothing && throw(ArgumentError(
+        "included restart is missing destruction samples"))
+    length(raw.D) == length(domain.z) || throw(DimensionMismatch(
+        "destruction samples must match the common functional-identifiability domain"))
+    raw.pred_train === nothing && throw(ArgumentError(
+        "included restart is missing train trajectories"))
+    raw.pred_holdout === nothing && throw(ArgumentError(
+        "included restart is missing holdout trajectories"))
+    return nothing
+end
+
+function _validate_functional_id_pairs(
+        pairs::Vector{FunctionalIdentifiabilityPair},
+        restarts::Vector{FunctionalIdentifiabilityRestart})
+    included_seeds = Set(restart.seed for restart in restarts if restart.included)
+    expected = binomial(length(included_seeds), 2)
+    length(pairs) == expected || throw(ArgumentError(
+        "pair count must be binomial(n_successful, 2) = $expected; got $(length(pairs))"))
+    seen = Set{Tuple{Int,Int}}()
+    for pair in pairs
+        pair.seed_i < pair.seed_j || throw(ArgumentError(
+            "functional-identifiability pairs require seed_i < seed_j"))
+        (pair.seed_i in included_seeds && pair.seed_j in included_seeds) ||
+            throw(ArgumentError(
+                "pair ($(pair.seed_i), $(pair.seed_j)) is not an included restart pair"))
+        key = (pair.seed_i, pair.seed_j)
+        key in seen && throw(ArgumentError("duplicate functional-identifiability pair"))
+        push!(seen, key)
+    end
+    return nothing
+end
+
+function _derive_functional_identifiability_fields(
+        family::Symbol,
+        restart_seeds,
+        domain::FunctionalIdentifiabilityDomain,
+        restarts::Vector{FunctionalIdentifiabilityRestart},
+        pairs::Vector{FunctionalIdentifiabilityPair})
+    seeds = _require_functional_id_restart_seeds(restart_seeds)
+    length(restarts) == length(seeds) || throw(ArgumentError(
+        "restart records must cover the five locked seeds"))
+    for (k, seed) in enumerate(seeds)
+        restarts[k].seed == seed || throw(ArgumentError(
+            "restarts[$k].seed must be $seed"))
+    end
+    _validate_functional_id_pairs(pairs, restarts)
+    n_attempted = length(seeds)
+    n_successful = count(restart -> restart.included, restarts)
+    n_failed = n_attempted - n_successful
+    complete = n_attempted == FUNCTIONAL_ID_REPORTING_CUTOFFS.n_attempted_restarts &&
+               n_successful >= FUNCTIONAL_ID_REPORTING_CUTOFFS.min_successful_restarts
+    median_d_rmse_raw = _pair_median(pairs, :d_rmse_raw)
+    median_d_rmse_scale_normalized = _pair_median(pairs, :d_rmse_scale_normalized)
+    median_d_correlation = _pair_median(pairs, :d_correlation)
+    median_traj_rmse_train = _pair_median(pairs, :traj_rmse_train)
+    median_traj_rmse_holdout = _pair_median(pairs, :traj_rmse_holdout)
+    traj_cut = FUNCTIONAL_ID_REPORTING_CUTOFFS.traj_agree_rel_rmse
+    d_cut = FUNCTIONAL_ID_REPORTING_CUTOFFS.d_disagree_scale_norm_rel_rmse
+    trajectory_agree = complete &&
+                       median_traj_rmse_train <= traj_cut &&
+                       median_traj_rmse_holdout <= traj_cut
+    function_disagree = complete &&
+                        n_successful >= 2 &&
+                        median_d_rmse_scale_normalized >= d_cut
+    trajectory_agree_function_disagree = trajectory_agree && function_disagree
+    status = if !complete
+        :incomplete
+    elseif !trajectory_agree
+        :traj_disagree
+    elseif function_disagree
+        :trajectory_agree_function_disagree
+    elseif median_d_rmse_raw >= d_cut
+        :scale_ambiguity
+    else
+        :function_agree
+    end
+    status in FUNCTIONAL_ID_STATUS_VOCABULARY || throw(ArgumentError(
+        "unsupported functional-identifiability status"))
+    return (;
+        family,
+        restart_seeds = seeds,
+        n_attempted,
+        n_successful,
+        n_failed,
+        complete,
+        domain,
+        restarts,
+        pairs,
+        median_d_rmse_raw,
+        median_d_rmse_scale_normalized,
+        median_d_correlation,
+        median_traj_rmse_train,
+        median_traj_rmse_holdout,
+        trajectory_agree,
+        function_disagree,
+        trajectory_agree_function_disagree,
+        status,
+        practical_not_structural = true)
+end
+
+function _reject_overridden_derived_fields(derived; overrides...)
+    for (name, given) in pairs(overrides)
+        given === missing && continue
+        actual = getfield(derived, name)
+        given == actual || throw(ArgumentError(
+            "$name is derived from restart/pair data and cannot be overridden"))
+    end
+    return nothing
+end
+
+"""
+    FunctionalIdentifiabilityDiagnostic
+
+Practical Q4 diagnostic assembled from five locked restarts. Flags and
+`status` are derived; they are not a structural certificate or a gate.
+"""
+struct FunctionalIdentifiabilityDiagnostic
+    family::Symbol
+    restart_seeds::NTuple{5,Int}
+    n_attempted::Int
+    n_successful::Int
+    n_failed::Int
+    complete::Bool
+    domain::FunctionalIdentifiabilityDomain
+    restarts::Vector{FunctionalIdentifiabilityRestart}
+    pairs::Vector{FunctionalIdentifiabilityPair}
+    median_d_rmse_raw::Float64
+    median_d_rmse_scale_normalized::Float64
+    median_d_correlation::Float64
+    median_traj_rmse_train::Float64
+    median_traj_rmse_holdout::Float64
+    trajectory_agree::Bool
+    function_disagree::Bool
+    trajectory_agree_function_disagree::Bool
+    status::Symbol
+    practical_not_structural::Bool
+    function FunctionalIdentifiabilityDiagnostic(
+            family::Symbol,
+            restart_seeds,
+            domain::FunctionalIdentifiabilityDomain,
+            restarts::Vector{FunctionalIdentifiabilityRestart},
+            pairs::Vector{FunctionalIdentifiabilityPair};
+            function_disagree = missing,
+            trajectory_agree = missing,
+            trajectory_agree_function_disagree = missing,
+            status = missing,
+            complete = missing,
+            practical_not_structural = missing)
+        derived = _derive_functional_identifiability_fields(
+            family, restart_seeds, domain, restarts, pairs)
+        _reject_overridden_derived_fields(derived;
+            function_disagree = function_disagree,
+            trajectory_agree = trajectory_agree,
+            trajectory_agree_function_disagree = trajectory_agree_function_disagree,
+            status = status,
+            complete = complete,
+            practical_not_structural = practical_not_structural)
+        return new(
+            derived.family,
+            derived.restart_seeds,
+            derived.n_attempted,
+            derived.n_successful,
+            derived.n_failed,
+            derived.complete,
+            derived.domain,
+            derived.restarts,
+            derived.pairs,
+            derived.median_d_rmse_raw,
+            derived.median_d_rmse_scale_normalized,
+            derived.median_d_correlation,
+            derived.median_traj_rmse_train,
+            derived.median_traj_rmse_holdout,
+            derived.trajectory_agree,
+            derived.function_disagree,
+            derived.trajectory_agree_function_disagree,
+            derived.status,
+            derived.practical_not_structural)
+    end
+end
+
+function _functional_identifiability_pairs(
+        restarts::Vector{FunctionalIdentifiabilityRestart},
+        raw,
+        domain::FunctionalIdentifiabilityDomain)
+    length(restarts) == length(raw) || throw(DimensionMismatch(
+        "restart records and raw payloads must align"))
+    included = Int[]
+    for i in eachindex(restarts)
+        if restarts[i].included
+            _require_included_restart_raw(raw[i], domain)
+            push!(included, i)
+        end
+    end
+    pairs = FunctionalIdentifiabilityPair[]
+    sizehint!(pairs, binomial(length(included), 2))
+    for a in eachindex(included)
+        for b in (a + 1):length(included)
+            left = included[a]
+            right = included[b]
+            if restarts[left].seed > restarts[right].seed
+                left, right = right, left
+            end
+            dmet = pairwise_destruction_metrics(raw[left].D, raw[right].D)
+            tmet = pairwise_trajectory_metrics(
+                raw[left].pred_train, raw[right].pred_train,
+                raw[left].pred_holdout, raw[right].pred_holdout)
+            push!(pairs, FunctionalIdentifiabilityPair(
+                restarts[left].seed, restarts[right].seed,
+                dmet.d_rmse_raw, dmet.d_rmse_scale_normalized,
+                dmet.d_correlation, dmet.scale_alpha,
+                tmet.traj_rmse_train, tmet.traj_rmse_holdout))
+        end
+    end
+    return pairs
+end
+
+"""
+    assemble_functional_identifiability_diagnostic(family, trained)
+    assemble_functional_identifiability_diagnostic(family, restart_seeds, domain, restarts, pairs)
+
+Derive the practical diagnostic from restart records and pairwise metrics.
+Does not accept `function_disagree`, `trajectory_agree`, or `status` as
+authoritative inputs.
+"""
+function assemble_functional_identifiability_diagnostic(
+        family::Symbol, trained::NamedTuple;
+        function_disagree = missing,
+        trajectory_agree = missing,
+        trajectory_agree_function_disagree = missing,
+        status = missing,
+        complete = missing,
+        practical_not_structural = missing)
+    pairs = _functional_identifiability_pairs(
+        trained.restarts, trained.raw, trained.domain)
+    return FunctionalIdentifiabilityDiagnostic(
+        family, trained.restart_seeds, trained.domain,
+        trained.restarts, pairs;
+        function_disagree = function_disagree,
+        trajectory_agree = trajectory_agree,
+        trajectory_agree_function_disagree = trajectory_agree_function_disagree,
+        status = status,
+        complete = complete,
+        practical_not_structural = practical_not_structural)
+end
+
+function assemble_functional_identifiability_diagnostic(
+        family::Symbol,
+        restart_seeds,
+        domain::FunctionalIdentifiabilityDomain,
+        restarts::Vector{FunctionalIdentifiabilityRestart},
+        pairs::Vector{FunctionalIdentifiabilityPair};
+        function_disagree = missing,
+        trajectory_agree = missing,
+        trajectory_agree_function_disagree = missing,
+        status = missing,
+        complete = missing,
+        practical_not_structural = missing)
+    return FunctionalIdentifiabilityDiagnostic(
+        family, restart_seeds, domain, restarts, pairs;
+        function_disagree = function_disagree,
+        trajectory_agree = trajectory_agree,
+        trajectory_agree_function_disagree = trajectory_agree_function_disagree,
+        status = status,
+        complete = complete,
+        practical_not_structural = practical_not_structural)
+end
+
+"""
+    assess_functional_identifiability(split, ude_net; ...)
+
+Q4 owner: M3-B restarts, pairwise destruction / trajectory metrics on the
+M3-A domain, then derived flags and status. Not a unique-claim gate.
+"""
+function assess_functional_identifiability(
+        split::ExperimentSplit,
+        ude_net::BiologicalNetwork;
+        restart_seeds = FUNCTIONAL_ID_RESTART_SEEDS,
+        family::Symbol = :hill,
+        adam = FUNCTIONAL_ID_TRAINING_CONFIG.adam,
+        bfgs = FUNCTIONAL_ID_TRAINING_CONFIG.bfgs,
+        frozen_phys = FUNCTIONAL_ID_TRAINING_CONFIG.frozen_phys,
+        phys_init = FUNCTIONAL_ID_TRAINING_CONFIG.phys_init,
+        fill_value::Real = 0.3)
+    trained = train_functional_identifiability_restarts(
+        split, ude_net;
+        restart_seeds = restart_seeds,
+        adam = adam,
+        bfgs = bfgs,
+        frozen_phys = frozen_phys,
+        phys_init = phys_init,
+        fill_value = fill_value)
+    return assemble_functional_identifiability_diagnostic(family, trained)
 end

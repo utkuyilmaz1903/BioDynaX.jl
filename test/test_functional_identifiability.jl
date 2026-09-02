@@ -233,8 +233,6 @@ end
     src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
         String)
     forbidden = (
-        "assess_functional_identifiability",
-        "FunctionalIdentifiabilityDiagnostic",
         "evaluate_holdout",
         "discover_unknown_rate",
         "discover_equations",
@@ -243,7 +241,9 @@ end
         "_regulator_grid",
         "_unique_claim_external_regulator_band",
         "range(0.05, 2.0",
-        "range(0.0, 1.0")
+        "range(0.0, 1.0",
+        "format_functional_identifiability_diagnostic",
+        "format_q3_q4_side_by_side")
     for token in forbidden
         @test !occursin(token, src)
     end
@@ -619,10 +619,13 @@ end
     end
 end
 
-@testset "T-B-COMPAT M3-C assembly and M2 surface stay untouched" begin
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
-    @test !isdefined(BioDynaX, :assess_functional_identifiability)
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityPair)
+@testset "T-B-COMPAT M3-C is internal; M2 surface stays untouched" begin
+    @test isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test isdefined(BioDynaX, :assess_functional_identifiability)
+    @test isdefined(BioDynaX, :FunctionalIdentifiabilityPair)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :assess_functional_identifiability ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityPair ∉ names(BioDynaX)
     @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
     @test :function_disagree ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
     @test public_export_list_holds()
@@ -630,11 +633,13 @@ end
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
     src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
         String)
-    @test !occursin("function assess_functional_identifiability", src)
-    @test !occursin("function assemble_functional_identifiability_diagnostic", src)
-    @test !occursin("function_disagree", src)
-    @test !occursin("trajectory_agree", src)
-    train_body = let src = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    @test occursin("function assess_functional_identifiability", src)
+    @test occursin("function assemble_functional_identifiability_diagnostic", src)
+    rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    pipe = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
+    @test count("assess_functional_identifiability(", rec) == 0
+    @test count("assess_functional_identifiability(", pipe) == 0
+    train_body = let src = rec
         start = findfirst("function _train_unknown_edge", src)
         rest = src[first(start):end]
         nxt = findnext(r"\nfunction ", rest, 2)
@@ -643,4 +648,500 @@ end
     @test count("fit_unknown_destruction(", train_body) == 1
     @test occursin("split.train", train_body)
     @test !occursin("functional_identifiability", train_body)
+end
+
+function _m3c_length3_split()
+    return _m3a_split(
+        (_m3a_experiment(:T1, [0.1, 0.5]),),
+        (_m3a_experiment(:H1, [0.8]),))
+end
+
+function _m3c_restart(seed, included)
+    return FunctionalIdentifiabilityRestart(
+        seed,
+        included,
+        included ? BioDynaX.Success : nothing,
+        included ? :none : :fit_threw,
+        included ? "" : "injected failure for seed $seed",
+        UInt64(0),
+        UInt64(0))
+end
+
+function _m3c_restarts(included_mask)
+    return FunctionalIdentifiabilityRestart[
+        _m3c_restart(seed, included)
+        for (seed, included) in zip(FUNCTIONAL_ID_RESTART_SEEDS, included_mask)]
+end
+
+function _m3c_constant_pairs(included_seeds, d_scale, traj; d_raw = d_scale)
+    seeds = sort(collect(Int, included_seeds))
+    pairs = FunctionalIdentifiabilityPair[]
+    for i in 1:(length(seeds) - 1)
+        for j in (i + 1):length(seeds)
+            push!(pairs, FunctionalIdentifiabilityPair(
+                seeds[i], seeds[j], d_raw, d_scale, 1.0, 1.0, traj, traj))
+        end
+    end
+    return pairs
+end
+
+function _m3c_run_assess(split, ude_net;
+        throw_seeds = Int[],
+        D_by_seed = nothing,
+        X_value_by_seed = nothing,
+        retcode = BioDynaX.Success,
+        restart_seeds = FUNCTIONAL_ID_RESTART_SEEDS,
+        family::Symbol = :hill)
+    entries = Any[]
+    fit_results = Any[]
+    samples = Any[]
+    predicts = Any[]
+    order = Symbol[]
+    fit_calls = Ref(0)
+    seed_attempts = Dict{Int,Int}()
+    fp_to_seed = Dict{UInt64,Int}()
+    result = with_fit_unknown_destruction_entry_observer(obs -> begin
+            push!(order, :fit_entry)
+            push!(entries, obs)
+        end) do
+        with_fit_unknown_destruction_observer(set -> begin
+                fit_calls[] += 1
+                k = fit_calls[]
+                seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
+                    FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
+                seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
+                if seed in throw_seeds
+                    error("injected fit failure for seed $seed")
+                end
+                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
+                fp_to_seed[nn_parameter_fingerprint(fit.params.nn)] = seed
+                push!(fit_results, fit)
+                return fit
+            end) do
+            with_sample_unknown_destruction_result_observer(obs -> begin
+                    push!(order, :sample)
+                    if D_by_seed !== nothing
+                        seed = fp_to_seed[obs.params_nn_fingerprint]
+                        injected = D_by_seed[seed]
+                        vec(obs.D) .= Float64.(injected)
+                    end
+                    push!(samples, obs)
+                end) do
+                with_predict_ude_observer(obs -> begin
+                        push!(order, :predict)
+                        if X_value_by_seed !== nothing
+                            seed = fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+                            fill!(obs.X, Float64(X_value_by_seed[seed]))
+                        end
+                        push!(predicts, obs)
+                    end) do
+                    assess_functional_identifiability(
+                        split, ude_net;
+                        restart_seeds = restart_seeds,
+                        family = family)
+                end
+            end
+        end
+    end
+    return (;
+        result, entries, fit_results, samples, predicts, order,
+        fit_calls = fit_calls[], seed_attempts, fp_to_seed)
+end
+
+function _m3c_group_live_predictions(live, split)
+    n_train = length(split.train.experiments)
+    pred_train = Dict{Int,Vector}()
+    pred_holdout = Dict{Int,Vector}()
+    for obs in live.predicts
+        seed = live.fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+        train_list = get!(Vector{Any}, pred_train, seed)
+        hold_list = get!(Vector{Any}, pred_holdout, seed)
+        if length(train_list) < n_train
+            push!(train_list, obs.X)
+        else
+            push!(hold_list, obs.X)
+        end
+    end
+    return pred_train, pred_holdout
+end
+
+function _m3c_independent_pair_metrics(D_i, D_j, pred_i_train, pred_j_train,
+        pred_i_holdout, pred_j_holdout)
+    dmet = _m3a_independent_ls(D_i, D_j)
+    tmet = pairwise_trajectory_metrics(
+        pred_i_train, pred_j_train, pred_i_holdout, pred_j_holdout)
+    return merge(dmet, tmet)
+end
+
+function _m3c_independent_flags(diag)
+    n_successful = count(restart -> restart.included, diag.restarts)
+    complete = diag.n_attempted == 5 && n_successful >= 3
+    scale_vals = [pair.d_rmse_scale_normalized for pair in diag.pairs]
+    traj_train = [pair.traj_rmse_train for pair in diag.pairs]
+    traj_hold = [pair.traj_rmse_holdout for pair in diag.pairs]
+    med_scale = isempty(scale_vals) ? NaN : median(scale_vals)
+    med_train = isempty(traj_train) ? NaN : median(traj_train)
+    med_hold = isempty(traj_hold) ? NaN : median(traj_hold)
+    function_disagree = complete && n_successful >= 2 && med_scale >= 0.20
+    trajectory_agree = complete && med_train <= 0.05 && med_hold <= 0.05
+    return (;
+        complete,
+        n_successful,
+        function_disagree,
+        trajectory_agree,
+        trajectory_agree_function_disagree = trajectory_agree && function_disagree)
+end
+
+@testset "T-C-FIELDS locked surfaces stay closed" begin
+    @test fieldnames(FunctionalIdentifiabilityRestart) === (
+        :seed, :included, :training_retcode, :failure_reason, :message,
+        :nn_init_fingerprint, :nn_final_fingerprint)
+    @test fieldnames(FunctionalIdentifiabilityPair) === (
+        :seed_i, :seed_j, :d_rmse_raw, :d_rmse_scale_normalized,
+        :d_correlation, :scale_alpha, :traj_rmse_train, :traj_rmse_holdout)
+    @test fieldnames(FunctionalIdentifiabilityDiagnostic) === (
+        :family, :restart_seeds, :n_attempted, :n_successful, :n_failed,
+        :complete, :domain, :restarts, :pairs, :median_d_rmse_raw,
+        :median_d_rmse_scale_normalized, :median_d_correlation,
+        :median_traj_rmse_train, :median_traj_rmse_holdout,
+        :trajectory_agree, :function_disagree,
+        :trajectory_agree_function_disagree, :status,
+        :practical_not_structural)
+    for name in (:success, :passed, :holdout, :payload, :misc, :extra,
+                 :uncertainty, :hypothesis, :occupancy, :q4, :q7)
+        @test name ∉ fieldnames(FunctionalIdentifiabilityRestart)
+        @test name ∉ fieldnames(FunctionalIdentifiabilityPair)
+        @test name ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
+    end
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityPair ∉ names(BioDynaX)
+    @test :assemble_functional_identifiability_diagnostic ∉ names(BioDynaX)
+    @test :assess_functional_identifiability ∉ names(BioDynaX)
+    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(BioDynaX)
+    @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
+        min_successful_restarts = 3,
+        n_attempted_restarts = 5,
+        traj_agree_rel_rmse = 0.05,
+        d_disagree_scale_norm_rel_rmse = 0.20)
+    @test FUNCTIONAL_ID_STATUS_VOCABULARY === (
+        :incomplete, :traj_disagree, :scale_ambiguity, :function_agree,
+        :trajectory_agree_function_disagree)
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+end
+
+@testset "T-C-LEN wrong seed tuple raises" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    @test_throws ArgumentError assess_functional_identifiability(
+        split, ude_net; restart_seeds = (201, 202, 203))
+    @test_throws ArgumentError assess_functional_identifiability(
+        split, ude_net; restart_seeds = (201, 202, 203, 204, 103))
+    @test_throws ArgumentError assess_functional_identifiability(
+        split, ude_net; restart_seeds = (205, 204, 203, 202, 201))
+    @test_throws MethodError assess_functional_identifiability(
+        split, ude_net; function_disagree = false)
+    @test_throws MethodError assess_functional_identifiability(
+        split, ude_net; trajectory_agree = true)
+    @test_throws MethodError assess_functional_identifiability(
+        split, ude_net; status = :function_agree)
+    @test_throws MethodError assess_functional_identifiability(
+        split, ude_net; complete = true)
+    @test_throws MethodError assess_functional_identifiability(
+        split, ude_net; truth_rate = x -> 0.0)
+end
+
+@testset "T-C-ACCT T-C-BIN T-C-IJ T-C-ZSAME T-C-ZIMM T-C-COMP live assess" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    z_expected, _, _ = _m3a_independent_z(split, 2)
+    @test z_expected == [0.1, 0.5, 0.1, 0.8]
+    cases = (
+        (Int[203, 204, 205], 2, false),
+        (Int[204, 205], 3, true),
+        (Int[205], 4, true),
+        (Int[], 5, true))
+    domains = Vector{Float64}[]
+    for (throw_seeds, n_successful, complete) in cases
+        live = _m3c_run_assess(split, ude_net; throw_seeds = throw_seeds)
+        diag = live.result
+        @test diag isa FunctionalIdentifiabilityDiagnostic
+        @test diag.restart_seeds === (201, 202, 203, 204, 205)
+        @test diag.n_attempted == 5
+        @test live.fit_calls == 5
+        @test diag.n_successful == n_successful
+        @test diag.n_successful == count(restart -> restart.included, diag.restarts)
+        @test diag.n_failed == diag.n_attempted - diag.n_successful
+        @test length(diag.restarts) == 5
+        @test [restart.seed for restart in diag.restarts] == [201, 202, 203, 204, 205]
+        @test diag.complete === complete
+        @test diag.complete === (diag.n_attempted == 5 && diag.n_successful >= 3)
+        @test length(diag.pairs) == binomial(n_successful, 2)
+        included = [restart.seed for restart in diag.restarts if restart.included]
+        expected_keys = Set{Tuple{Int,Int}}()
+        for i in 1:(length(included) - 1)
+            for j in (i + 1):length(included)
+                seed_i, seed_j = included[i], included[j]
+                seed_i < seed_j && push!(expected_keys, (seed_i, seed_j))
+            end
+        end
+        keys = [(pair.seed_i, pair.seed_j) for pair in diag.pairs]
+        @test Set(keys) == expected_keys
+        @test all(pair -> pair.seed_i < pair.seed_j, diag.pairs)
+        @test all(pair -> pair.seed_i != pair.seed_j, diag.pairs)
+        @test length(unique(keys)) == length(keys)
+        @test !any(pair -> (pair.seed_j, pair.seed_i) in keys, diag.pairs)
+        @test diag.domain.z == z_expected
+        @test diag.domain.z != sort(z_expected)
+        @test diag.domain.z != unique(z_expected)
+        push!(domains, copy(diag.domain.z))
+        @test live.seed_attempts[201] == 1
+    end
+    @test all(z -> z == z_expected, domains)
+    @test domains[1] == domains[end]
+end
+
+@testset "T-C-DBIND T-C-DSOURCE T-C-TBIND live pairs bind to sampled D and X" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    live = _m3c_run_assess(split, ude_net)
+    diag = live.result
+    @test diag.n_successful == 5
+    @test length(diag.pairs) == 10
+    D_by_seed = Dict{Int,Vector{Float64}}()
+    independent_D = Dict{Int,Vector{Float64}}()
+    z_expected = live.result.domain.z
+    model_by_seed = Dict{Int,Any}()
+    for obs in live.predicts
+        seed = live.fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+        model_by_seed[seed] = obs.model
+    end
+    for sample in live.samples
+        seed = live.fp_to_seed[sample.params_nn_fingerprint]
+        D_by_seed[seed] = vec(Float64.(sample.D))
+        raw_fit = live.fit_results[findfirst(==(seed),
+            collect(FUNCTIONAL_ID_RESTART_SEEDS))]
+        model = model_by_seed[seed]
+        term = only_unknown_destruction(model)
+        _, D_matrix, _ = sample_unknown_destruction_grid(
+            model, raw_fit.params, term;
+            r_range = z_expected, fill_value = 0.3)
+        independent_D[seed] = vec(D_matrix)
+        @test D_by_seed[seed] == independent_D[seed]
+        @test length(D_by_seed[seed]) == length(z_expected)
+    end
+    pred_train, pred_holdout = _m3c_group_live_predictions(live, split)
+    for pair in diag.pairs
+        expected = _m3c_independent_pair_metrics(
+            D_by_seed[pair.seed_i], D_by_seed[pair.seed_j],
+            pred_train[pair.seed_i], pred_train[pair.seed_j],
+            pred_holdout[pair.seed_i], pred_holdout[pair.seed_j])
+        @test pair.scale_alpha == expected.alpha
+        @test pair.d_rmse_raw == expected.d_rmse_raw
+        @test pair.d_rmse_scale_normalized == expected.d_rmse_scale_normalized
+        @test pair.d_correlation == expected.d_correlation
+        @test pair.traj_rmse_train == expected.traj_rmse_train
+        @test pair.traj_rmse_holdout == expected.traj_rmse_holdout
+    end
+    flags = _m3c_independent_flags(diag)
+    @test diag.function_disagree === flags.function_disagree
+    @test diag.trajectory_agree === flags.trajectory_agree
+    @test diag.trajectory_agree_function_disagree ===
+          flags.trajectory_agree_function_disagree
+    @test diag.trajectory_agree !== diag.function_disagree ||
+          diag.function_disagree === flags.function_disagree
+end
+
+@testset "T-C-LS-LIVE alignment is j -> i on the live pair" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3c_length3_split()
+    D1 = [1.0, 2.0, 3.0]
+    D2 = [2.0, 4.0, 9.0]
+    D_by_seed = Dict(
+        201 => D1,
+        202 => D2,
+        203 => D1,
+        204 => D1,
+        205 => D1)
+    X_value_by_seed = Dict(seed => 1.0 for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    live = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_by_seed, X_value_by_seed = X_value_by_seed)
+    pair = only(filter(p -> p.seed_i == 201 && p.seed_j == 202, live.result.pairs))
+    expected = _m3a_independent_ls(D1, D2)
+    @test expected.alpha == 37 / 101
+    @test pair.scale_alpha == 37 / 101
+    @test pair.scale_alpha != 37 / 14
+    @test pair.scale_alpha != 3 / 9
+    @test pair.d_rmse_scale_normalized == expected.d_rmse_scale_normalized
+    @test live.result.domain.z == [0.1, 0.5, 0.8]
+end
+
+@testset "T-C-ZERO-LIVE zero D_j stays represented as NaN" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3c_length3_split()
+    D1 = [1.0, 2.0, 3.0]
+    D0 = zeros(3)
+    D_by_seed = Dict(
+        201 => D1,
+        202 => D1,
+        203 => D1,
+        204 => D1,
+        205 => D0)
+    X_value_by_seed = Dict(seed => 1.0 for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    live = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_by_seed, X_value_by_seed = X_value_by_seed)
+    diag = live.result
+    @test length(diag.pairs) == 10
+    zero_pairs = [pair for pair in diag.pairs if pair.seed_j == 205]
+    @test length(zero_pairs) == 4
+    for pair in zero_pairs
+        @test pair.scale_alpha === NaN
+        @test pair.d_rmse_scale_normalized === NaN
+    end
+    finite_pair = only(filter(p -> p.seed_i == 201 && p.seed_j == 203, diag.pairs))
+    @test isfinite(finite_pair.scale_alpha)
+    @test isfinite(finite_pair.d_rmse_scale_normalized)
+end
+
+@testset "T-C-DERIVE-LIVE A/B/C through assess" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    D_near = [1.0, 2.0, 1.0, 3.0]
+    D_far = [1.0, 0.0, 1.0, 0.0]
+    expected_far = _m3a_independent_ls(D_near, D_far)
+    @test expected_far.d_rmse_scale_normalized >= 0.20
+    D_A = Dict(seed => D_near for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    D_BC = Dict(
+        201 => D_near, 202 => D_far, 203 => D_near, 204 => D_far, 205 => D_near)
+    X_near = Dict(seed => 1.0 for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    X_far = Dict(201 => 1.0, 202 => 10.0, 203 => 1.0, 204 => 10.0, 205 => 1.0)
+    live_a = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_A, X_value_by_seed = X_near)
+    live_b = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_BC, X_value_by_seed = X_near)
+    live_c = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_BC, X_value_by_seed = X_far)
+    for live in (live_a, live_b, live_c)
+        @test live.result.n_attempted == 5
+        @test live.result.n_successful == 5
+        @test live.result.complete
+        @test length(live.result.pairs) == 10
+        @test live.result.domain.z == [0.1, 0.5, 0.1, 0.8]
+        @test live.result.practical_not_structural
+        flags = _m3c_independent_flags(live.result)
+        @test live.result.function_disagree === flags.function_disagree
+        @test live.result.trajectory_agree === flags.trajectory_agree
+        @test live.result.status in FUNCTIONAL_ID_STATUS_VOCABULARY
+        @test live.result.status !== :structurally_identifiable
+        @test live.result.status !== :functionally_identifiable
+        @test live.result.status !== :passed
+        @test live.result.status !== :success
+    end
+    a = live_a.result
+    b = live_b.result
+    c = live_c.result
+    @test a.median_d_rmse_scale_normalized < 0.20
+    @test b.median_d_rmse_scale_normalized >= 0.20
+    @test c.median_d_rmse_scale_normalized >= 0.20
+    @test a.median_traj_rmse_train <= 0.05
+    @test a.median_traj_rmse_holdout <= 0.05
+    @test b.median_traj_rmse_train <= 0.05
+    @test b.median_traj_rmse_holdout <= 0.05
+    @test c.median_traj_rmse_train > 0.05 || c.median_traj_rmse_holdout > 0.05
+    @test a.function_disagree === false
+    @test a.trajectory_agree === true
+    @test a.trajectory_agree_function_disagree === false
+    @test a.status === :function_agree
+    @test b.function_disagree === true
+    @test b.trajectory_agree === true
+    @test b.trajectory_agree_function_disagree === true
+    @test b.status === :trajectory_agree_function_disagree
+    @test c.function_disagree === true
+    @test c.trajectory_agree === false
+    @test c.trajectory_agree_function_disagree === false
+    @test c.status === :traj_disagree
+    @test b.function_disagree !== b.trajectory_agree ||
+          b.function_disagree === true
+    @test c.function_disagree !== c.trajectory_agree
+    @test a.function_disagree !== a.trajectory_agree
+    high_error = maximum(pair.d_rmse_scale_normalized for pair in b.pairs)
+    @test high_error >= 0.20
+    @test length(b.pairs) == binomial(5, 2)
+end
+
+@testset "T-C-ABC T-C-STAT T-C-FLAG assemble path" begin
+    domain = functional_identifiability_domain(_m3a_sentinel_split(), 2)
+    included5 = _m3c_restarts((true, true, true, true, true))
+    included2 = _m3c_restarts((true, true, false, false, false))
+    pairs_a = _m3c_constant_pairs(201:205, 0.10, 0.01)
+    pairs_b = _m3c_constant_pairs(201:205, 0.25, 0.01)
+    pairs_c = _m3c_constant_pairs(201:205, 0.25, 0.20)
+    pairs_scale = _m3c_constant_pairs(201:205, 0.05, 0.01; d_raw = 0.40)
+    pairs_inc = _m3c_constant_pairs((201, 202), 0.25, 0.01)
+    a = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_a)
+    b = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_b)
+    c = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_c)
+    scale = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_scale)
+    inc = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included2, pairs_inc)
+    @test a.function_disagree === false
+    @test a.trajectory_agree === true
+    @test a.status === :function_agree
+    @test b.function_disagree === true
+    @test b.trajectory_agree === true
+    @test b.trajectory_agree_function_disagree === true
+    @test b.status === :trajectory_agree_function_disagree
+    @test c.trajectory_agree === false
+    @test c.function_disagree === true
+    @test c.status === :traj_disagree
+    @test scale.status === :scale_ambiguity
+    @test inc.complete === false
+    @test inc.function_disagree === false
+    @test inc.trajectory_agree === false
+    @test inc.status === :incomplete
+    @test Set((a.status, b.status, c.status, scale.status, inc.status)) ==
+          Set(FUNCTIONAL_ID_STATUS_VOCABULARY)
+    @test_throws ArgumentError assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_b;
+        function_disagree = false)
+    @test_throws ArgumentError assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_b;
+        function_disagree = b.trajectory_agree && false)
+    @test_throws ArgumentError FunctionalIdentifiabilityDiagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_a;
+        function_disagree = a.trajectory_agree)
+    @test_throws ArgumentError FunctionalIdentifiabilityDiagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_c;
+        trajectory_agree = true)
+    @test_throws ArgumentError FunctionalIdentifiabilityDiagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_b;
+        status = :structurally_identifiable)
+    @test_throws ArgumentError FunctionalIdentifiabilityDiagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included2, pairs_inc;
+        complete = true)
+    @test_throws ArgumentError FunctionalIdentifiabilityPair(201, 201, 0.1, 0.1, 1.0, 1.0, 0.1, 0.1)
+    @test_throws ArgumentError FunctionalIdentifiabilityPair(202, 201, 0.1, 0.1, 1.0, 1.0, 0.1, 0.1)
+    consistent = FunctionalIdentifiabilityDiagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_b;
+        function_disagree = true)
+    @test consistent.function_disagree === true
+end
+
+@testset "T-C-NC NotConverged remains included on the assess path" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    live = _m3c_run_assess(split, ude_net; retcode = BioDynaX.NotConverged)
+    @test live.result.n_attempted == 5
+    @test live.result.n_successful == 5
+    @test live.result.n_failed == 0
+    @test live.result.complete
+    for restart in live.result.restarts
+        @test restart.training_retcode === BioDynaX.NotConverged
+        @test restart.included
+    end
 end
