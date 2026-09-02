@@ -24,7 +24,7 @@ todos:
     content: "M2: 7/2 kimlik split; tek onaylı eğitmen fit(split.train); dış bant train-türevli (sabit aralık değil); Case B Q7 açık; ev.d_rmse_* üretim yolu; 0.30 holdout kapısı değil; geçici set mutasyonu yok"
     status: completed
   - id: m3-functional-id
-    content: "M3: FunctionalIdentifiabilityDiagnostic; Q3 ölçek uyarısı vs Q4 fonksiyon tanısı; Fisher’a credible deme"
+    content: "M3: LIVE-path assess sözleşmesi; p0+params→D; holdout inclusion/HP sentinel; derive-live A/B/C; X bağ; zero-live; walk; assess CALL; M2 hash"
     status: pending
   - id: m4-robustness
     content: "M4: yörünge-örnekli D, eğitilmiş-UDE graph-local, çok tohum artifact (her PR’da N×40 dk yok)"
@@ -3852,22 +3852,401 @@ değildir.
 
 ## Milestone 3 — Pratik fonksiyonel identifiability (P2)
 
-- **Hedef:** “Yörünge uydu ⇒ `D` tek” yanılsamasını ölçmek.
-- **Bilimsel soru:** Q4 — bağımsız \(\hat D_i\) bilimsel bölgede anlaşır mı, yoksa yalnızca \(x(t)\) mi anlaşır?
-- **Sorun:** Tek fit, tek tohum, NN hariç Fisher. Unique-claim başarı olarak ölçek *belirsizliğini* ister.
-- **Neden önemli:** Softplus kafa + `softplus(k_prod)` ölçek soğurur; extras `1`,`r` aynı yörüngeye oturabilir.
-- **Dosyalar:** [src/Identifiability.jl](src/Identifiability.jl) (parametre tanısı kalsın), yeni ince `src/FunctionalIdentifiability.jl`, [src/UDE.jl](src/UDE.jl) / training girişleri, [src/UniqueClaim.jl](src/UniqueClaim.jl) ürün bloğu, testler.
-- **Mimari:** `FunctionalIdentifiabilityDiagnostic`: tohumlar, ortak `z` domain (train occupancy ∪ holdout \(r\)), pairwise `D` RMSE / korelasyon (ölçek-normalize), pairwise yörünge RMSE, dürüst özet (`trajectory_agree_function_disagree` bayrağı). `m` küçük (3–5 restart) v1.0 için yeter.
-- **Matematik:** Sertifika değil. Domain ve normalize kuralı belgede. `unidentifiable_edge` Q3 uyarısı olarak kalır; Q4 ayrı. `parameter_credible_intervals` yeniden adlandırılır: asymptotic Fisher interval; “credible” kalkar.
-- **API:** Unexported. `production_destruction_tradeoff` imzası korunur.
-- **Testler:** Sentetik iki `D` (ölçek katı vs şekil farkı) tanının ayırdığı. Hard job: tanı üretilir; “certificate” kelimesi yasak.
-- **Bilimsel doğrulama:** Seed 103 + en az 2 ek tohumda Q1 yakın / Q4 uzak olabilir — bu geçerli negatif veya belirsizliktir, gizlenmez.
-- **Benchmark:** Çok tohum `D` anlaşma tablosu.
-- **Dokümantasyon:** [docs/src/identifiability-product.md](docs/src/identifiability-product.md) Q3 vs Q4.
-- **Kabul:** Çıktıda Q3 ve Q4 ayrı. Hiçbir satır “functionally identifiable” demez; “practical functional diagnostic” der.
-- **Riskler:** Küçük `m` ve dar domain sahte anlaşma. Domain’i occupancy’den üretin, `[0.05,2]` sabitine sapmayın. CI maliyeti: her PR’da tam `m` değil; birim test + nightly `m`.
-- **Rollback:** Q3-only ürüne dönüş; tanı alanı opsiyonel.
-- **Ertelenen:** Bayes fonksiyonel UQ, yapısal ID, global rank teoremleri.
+Uygulama kilidi:
+[docs/research/M3-FUNCTIONAL-IDENTIFIABILITY-PLAN.md](docs/research/M3-FUNCTIONAL-IDENTIFIABILITY-PLAN.md).
+Adversarial denetim mimariyi kabul etti; yazılı test sözleşmesi
+hâlâ yardımcı-doğru / `assess`-bypass ile bilimsel olarak yanlış
+bir implementasyonu yeşil bırakabildiği için **canlı adversarial
+sözleşme** olarak kilitlendi. Bu bölüm o kilidin V1 özetidir.
+M0/M1/M2 tarihi değişmez.
+
+M3, M2-G1 bilimsel test barını kullanır. Kritik bir değişmez
+yardımcı fonksiyonun doğru olmasından kanıtlanmaz. Canlı
+fonksiyon çağrılan fonksiyonun **içinden** gözlenir; test
+beklenen değeri bağımsız hesaplar; canlı sonuçla karşılaştırır;
+en az bir somut yanlış implementasyon kırmızıya düşer.
+
+Hazır değil kuralı: bir saldırı, yardımcı doğru iken
+`assess_functional_identifiability` o yardımcıyı atlayıp veya
+sonucu uydurarak yeşil kalabiliyorsa M3 planı hazır değildir.
+
+Zorunlu LIVE-path testler (yardımcı testi değildir):
+T-B-P0, T-B-PARAMS, T-B-HP-SENTINEL, T-B-INC-HOLD,
+T-B-PRED203, T-B-ZLIVE, T-C-DBIND, T-C-DSOURCE, T-C-TBIND,
+T-C-DERIVE-LIVE, T-C-ZERO-LIVE, T-E-WALK, T-G-CALL, T-E-M2HASH.
+Her birinin gözlem yeri, bağımsız beklentisi, yanlış
+implementasyonu ve kırmızı davranışı M3 planı §39’dadır.
+
+### Hedef ve bilimsel soru
+
+“Yörünge uydu ⇒ \(D\) tek” yanılsamasını ölçmek. Q4: aynı sabit
+M2 7/2 verisinde bağımsız \(\hat D_i(z)\) ortak domain’de anlaşır
+mı, yoksa yalnızca \(\hat x(t)\) mi anlaşır?
+
+Bu **pratik tanı**dır. Yapısal sertifika, Bayes aralık, Q3 ölçek
+uyarısı, Q5 destek veya Q7 kapısı değildir. Tek fit Q4 üretmez.
+Q4 `success` / `passed` kapısı yoktur.
+
+Softplus kafa + `softplus(k_prod)` ölçek soğurur; extras `1`,`r`
+aynı yörüngeye oturabilir. Geçerli negatif (`trajectory_agree`
+iken `function_disagree`) gizlenmez.
+
+### Depo gerçekleri (varsayım değil)
+
+- `sample_unknown_destruction_grid` `(R, D, term)` döner; `D`
+  1×N Matrix’tir; Q4 `D = vec(D_matrix)` ister
+- `predict_ude` durum × zaman döner ve solver başarısızlığında
+  fırlatabilir
+- `generate_recovery_experiments` zorunlu `tspan`, `n_points`,
+  `noise_σ` ister (`protocol=` geçersiz)
+- `term = only_unknown_destruction(model)`
+- M2 protokolü: `adam=100`, `bfgs=50`, `tspan=(0.0, 8.0)`,
+  `n_points=50`, `seed=103`
+- restart bağımsızlığı `build_ude_model(MersenneTwister(seed),
+  ude_net)` **init**’indedir; fit `seed` keyword’ü kanıt değildir
+- mevcut `FIT_UNKNOWN_DESTRUCTION_OBSERVER` yalnız
+  `ExperimentSet` görür; M3 ayrı fit-giriş gözlemi ister
+  (tohum sırası, `p0` izi, set kimliği / uzunluğu, eğitim
+  kwargs)
+- mevcut sample casusu yalnız `r_range` görür; M3 sample
+  sonuç + kullanılan `params` izini de ister
+- `predict_ude` casusu dönen `X`’i kaydetmek zorundadır;
+  yalnız girdi `params` yörünge bağını kanıtlamaz
+- unexported tip `isdefined`’i true yapar; M2
+  `!isdefined(..., :FunctionalIdentifiabilityDiagnostic)`
+  `FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)` olur
+  (`!isdefined` Q4 yokluğu için yasaktır)
+
+### Mimari
+
+Yeni ince unexported `src/FunctionalIdentifiability.jl`.
+`include` `RecoveryPipeline.jl` sonrası. Export yok.
+`Identifiability.jl` Q3 parametre tanısı kalır; kullanıcı dili
+“credible interval” → **asymptotic Fisher interval** /
+**nominal coverage**. `parameter_credible_intervals` kullanıcı
+metni retarget edilir; ad kırılmak zorunda değildir.
+
+Tek Q4 sahibi: `assess_functional_identifiability`.
+Q1, Q3, Q5, Q7, `run_recovery_suite`, `evaluate_holdout`,
+`report_recovery` sahibi değildir.
+`FunctionalIdentifiability.jl` ve `assess`’ten erişilebilir
+yerel yardımcılar (M2-G1 geçişli çağrı-grafı, T-E-WALK)
+çağırmaz / yol vermez:
+`discover_unknown_rate`, `discover_equations`,
+`discover_unknown_destruction`, `run_recovery_suite`,
+`_train_unknown_edge`, `_evaluate_unknown_rate_recovery`,
+`evaluate_holdout`, `report_recovery`, `_regulator_grid`,
+`_unique_claim_external_regulator_band`, `range(0.05, 2.0`,
+`range(0.0, 1.0`. Gizli yardımcı kaçış değildir.
+
+```
+unique_claim_experiment_split
+    ↓
+domain.z = vcat(r_train, r_holdout)     # bir kez, restart’tan önce
+    ↓
+her seed ∈ (201, 202, 203, 204, 205)   # tam bir deneme; retry yok
+    build_ude_model(MersenneTwister(seed), ude_net)
+    fit_unknown_destruction(..., split.train)   # tam 7 IC, bir fit
+    sample_unknown_destruction_grid(; r_range = domain.z)
+    predict_ude  (try/catch; dönen X kaydedilir; tek hata tanıyı düşürmez)
+    ↓
+binomial(n_successful, 2) çift; seed_i < seed_j
+    ↓
+FunctionalIdentifiabilityDiagnostic   # bayraklar canlı pairs’ten türetilir
+```
+
+Birincil M2 seed-103 fit restart listesinde değildir.
+Q4 tanısı `MechanismRecoveryResult` alanı değildir.
+
+### Kilitli sabitler
+
+```
+FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
+FUNCTIONAL_ID_REPORTING_CUTOFFS === (
+    min_successful_restarts = 3,
+    n_attempted_restarts = 5,
+    traj_agree_rel_rmse = 0.05,
+    d_disagree_scale_norm_rel_rmse = 0.20)
+```
+
+Kesitler **raporlama kuralıdır**, kapı değildir;
+`RECOVERY_THRESHOLDS` değildir.
+`FunctionalIdentifiability.jl` `RECOVERY_THRESHOLDS` okumaz.
+`length(restart_seeds) != 5` ⇒ `ArgumentError` (sessiz incomplete
+değil). `103` fonksiyonel-ID restart’ı değildir.
+
+```
+n_attempted == 5
+n_successful == count(included)
+n_failed == n_attempted - n_successful
+complete === (n_attempted == 5 && n_successful >= 3)
+```
+
+Tohum başına tam bir deneme. Yeniden deneme yok.
+Gizli üç-restart kısaltması yoktur. Tohum 103 `201..205`
+etiketi altında kullanılmaz.
+
+### Domain (canlı `z`, öz-bildirim değil)
+
+Train gözlemleri önce, holdout sonra, orijinal sıra, tekrarlar
+korunur. `sort` / `unique` / extrema / adaptif / post-hoc
+kırpma / restart’a özel domain / restart sonuçlarından domain /
+`params` veya \(D\) anlaşmazlığından domain yok. Domain
+restart sonuçlarından bağımsız kurulur.
+
+Sentinel split regülatör gözlemleri `[0.1, 0.5, 0.1, 0.8]`.
+Test bağımsız `z_expected = vcat(r_train, r_holdout)` kurar.
+Canlı yolda **her** `sample_unknown_destruction_grid` için
+`r_range == z_expected` ve `diagnostic.domain.z == z_expected`.
+`construction = ...` alanı kanıt değildir.
+
+Yasak: `range(0.05, 2.0`, `range(0.0, 1.0`, `_regulator_grid`,
+`_unique_claim_external_regulator_band`, sabit 80-nokta ızgara.
+
+Domain `build_ude_model` / `fit` / `sample_*` / `predict_ude` /
+çift inşasından **önce** kurulur. İki veya beş başarılı restart
+aynı `z` kullanır. Tüm çift metrikleri aynı `domain.z` üzerindedir.
+
+### Canlı \(D\) ve LS şekil
+
+Canlı Q4 pairwise metrikleri gerçek
+`sample_unknown_destruction_grid` çıktısına bağlıdır
+(T-C-DBIND, T-C-DSOURCE). `D = vec(D)` (1×N Matrix). Test
+metrikleri canlı sample çıktısından bağımsız yeniden hesaplar.
+
+Birincil Q4 \(D\) **değildir:** `equation_to_function`,
+`normalize_destruction_samples`, sembolik \(D\), normalize \(D\),
+truth \(D\), keyfi \(D\), sabit kodlanmış çift, örneklemeden
+önce hesaplanmış metrik. Canlı `assess` truth \(D\) kabul etmez.
+
+LS: \(\alpha = \langle D_i, D_j\rangle / \langle D_j, D_j\rangle\).
+`D1=[1,2,3]`, `D2=[2,4,9]` ⇒ \(\alpha=37/101\).
+Ters payda `dot(D1,D2)/dot(D1,D1)` ve max-abs reddedilir.
+`D_j == 0` ⇒ `α` ve metrik `NaN`; çift silinmez.
+Yardımcı `D_j=0` testi yetmez; T-C-ZERO-LIVE canlı `assess`
+çiftinde `D_j = [0,…,0]` ister. `eps` / `α=1` / çifti düşmek
+/ sonlu başarılı işaretlemek kırmızıdır.
+
+### Türetilmiş bayraklar (canlı `assess`, kurucu değil)
+
+`FunctionalIdentifiabilityDiagnostic` bağımsız verilmiş
+`function_disagree` / `trajectory_agree` / `status` kabul
+etmez. `assess` bu alanları keyword olarak almaz.
+T-C-DERIVE-LIVE bunları kurucu üzerinden değil, canlı
+`assess` dönüşünün `pairs` alanından yeniden türetir:
+
+```
+function_disagree === (
+    complete &&
+    n_successful >= 2 &&
+    median(d_rmse_scale_normalized) >= 0.20)
+```
+
+(incomplete / yorumlanamaz hâl hariç). Yörünge bunu belirleyemez.
+`trajectory_agree` belgelenmiş `0.05` kesiti ve canlı çift
+metriklerindendir. `status` complete / yörünge / fonksiyon
+kurallarındandır.
+
+Red: `function_disagree = false` iken canlı pair median ≥ 0.20;
+`function_disagree = trajectory_agree`;
+`status = :structurally_identifiable`.
+
+Canlı A/B/C fikstürü **`assess` üzerinden** zorunludur
+(yalnız `assemble` yetmez):
+
+A: yörünge yakın, \(D\) yakın ⇒ `function_disagree=false`.
+B: yörünge yakın, \(D\) uzak ⇒ `function_disagree=true`,
+`trajectory_agree_function_disagree=true`.
+C: yörünge uzak, \(D\) uzak ⇒ `trajectory_agree=false`,
+`function_disagree=true`.
+
+### Restart politikası, `p0` ve params→D (T-B-P0, T-B-PARAMS)
+
+Her restart `split.train` (protokolde tam 7, orijinal nesneler).
+Fit-giriş casusu (fonksiyon içi) her restart için kaydeder:
+tohum sırası, gerçek `p0` sayısal parmak izi, gerçek
+`ExperimentSet` kimliği / uzunluğu, gerçek `adam` / `bfgs` /
+`frozen_phys` / `phys_init`.
+
+```
+live_p0_fingerprint[k] ==
+    fingerprint(build_ude_model(
+        MersenneTwister(FUNCTIONAL_ID_RESTART_SEEDS[k]),
+        ude_net)[2].nn)
+```
+
+Tohum etiketi yeterli değildir. `p0` testi tek başına yetmez.
+
+İkinci LIVE bağ (T-B-PARAMS): her restart `k` için gerçek
+`TrainingResult.params`, canlı sampler’ın kullandığı `params`
+izi ve bağımsız
+`sample_unknown_destruction_grid(..., fit_result[k].params;
+ r_range = z_expected)` yeniden örneği.
+
+```
+live_sample_params_fingerprint[k] ==
+    fingerprint(fit_result[k].params.nn)
+live_D[k] == independently_sampled_D[k]
+```
+
+Beş sayısal olarak farklı final params ⇒
+`length(unique(live_D_fingerprints)) == n_successful`.
+`===` nesne kimliği tek kanıt değildir.
+
+Red: bir gerçek fit + final params beş kez kopya/`deepcopy`;
+aynı params nesnesi beş etiket altında; farklı fit, aynı
+sampled params; farklı fit, paylaşılan sampler params;
+tek paylaşılan `p0`; sabit RNG; 103 init’in `201..205`
+altında reuse.
+
+### Holdout yasağı (T-B-HP-SENTINEL, T-B-INC-HOLD)
+
+Holdout şunları **seçemez:** Adam / BFGS / optimizer /
+`frozen_phys` / `phys_init` / restart dahil etme / restart
+dışlama / tohum seçimi / restart seçimi / en-iyi-restart /
+domain seçimi / çift filtreleme / başka eğitim kararı.
+
+Holdout değerlendirmesi (`evaluate_holdout` veya holdout
+residual) beş restart eğitim kararı — dahil etme
+elverişliliği dahil — belirlendikten **sonra** olabilir.
+`assess` yolunda `evaluate_holdout` yoktur. Beş fit
+kararından önce holdout residual yoktur.
+
+Beş restart a-priori donmuş protokolü görür:
+
+```
+fit_config[k] == (100, 50, Symbol[], nothing)
+```
+
+T-B-HP-SENTINEL: holdout `adam = 50`’yi optimal yapar;
+canlı fit yine `adam = 100` alır. Kaynakta `for adam in`
+yokluğu yeterli değildir; gizli yardımcı da kırmızıdır.
+
+T-B-INC-HOLD: sonlu \(D\), sonlu yörünge, kasten kötü
+holdout metriği ⇒ `included == true`.
+Red: `included = holdout_error < threshold` veya eşdeğeri.
+Holdout kasten kötü olmak zorundadır.
+
+`TrainingRetcode.NotConverged` + sonlu \(D\) + sonlu yörünge
+otomatik dışlama **değildir**.
+
+`included=false` ⇒ `failure_reason != :none` ve `message != ""`.
+Mesajlar tutulur.
+
+### `predict_ude` yalıtımı ve canlı `X` bağ (T-B-PRED203, T-C-TBIND)
+
+M3-yerel casus canlı `predict_ude` çağrılarını fonksiyon
+içinden gözler ve **dönen `X`**’i kaydeder. Yalnız girdi
+`params` kaydı yetersizdir. Zincir
+`assess → build_ude_model → fit → sample_* → predict_ude`
+canlı yolda kanıtlanır. Yardımcı çağrısı yetmez.
+
+T-C-TBIND: her dahil restart’ın canlı `X`’inden bağımsız
+yörünge metriği `pair.traj_rmse_*` ile eşleşir.
+Red: uydurma / truth’tan / başka restart’tan kopya / sabit
+yörünge metriği.
+
+Tohum 203 için ayrılmış fikstür: `predict_ude` gerçekten
+fırlatır ⇒ `assess` fırlatmaz / abort etmez;
+203 `restarts` içindedir; `included==false`,
+`failure_reason==:predict_threw`, `message != ""`;
+diğerleri devam; `n_attempted==5`; retry yok.
+Yasak: tüm Q4 abort; fırlatmayı sonlu çıktıya çevirmek;
+restart silme; 203 retry; sahte sonlu yörünge.
+
+### Status ve alanlar
+
+Yalnız:
+`:incomplete`, `:traj_disagree`, `:scale_ambiguity`,
+`:function_agree`, `:trajectory_agree_function_disagree`.
+
+Yasak semantik: `:structurally_identifiable`,
+`:functionally_identifiable`, `:certified`, `:verified`.
+
+Dört struct’ın `fieldnames` listesi M3 planında kilitlidir.
+`success` / `passed` / `identifiable` / `payload` / `Any` kova
+yoktur. `training_retcode::Union{TrainingRetcode,Nothing}`.
+
+`assess` `truth_rate` / `D_true` / `truth_support` almaz.
+M4 occupancy veya sembolik keşif Q4 girdisi değildir.
+
+Formatter her restart’ı, her sırasız çifti, çift ölçek-norm
+\(D\) ve yörünge metriklerini, başarısızlıkları, nedenleri,
+mesajları, medyanları, status ve complete basar.
+Yalnız-medyan özet ve yüksek hatalı başarılı çift filtresi
+yasaktır.
+
+### Dilimler
+
+| Dilim | İş |
+|---|---|
+| M3-A | saf domain + metrik + türetilmiş bayrak + `∉ names` |
+| M3-B | taze init + T-B-P0/PARAMS + LIVE `z` + HP/inclusion sentinel + 203 |
+| M3-C | muhasebe + LIVE \(D\)/`X` bağ + derive-live A/B/C + zero-live |
+| M3-D | tam format (çiftler + başarısız mesaj) |
+| M3-E | T-E-WALK + T-E-M2HASH + adversarial kapanış |
+| M3-F | Fisher dili |
+| M3-G | `benchmark/functional_identifiability.jl` gerçek `assess` CALL |
+| M3-H | sözleşme / landing retarget |
+
+Her dilimin dosya, sorumluluk, dışlama, test, rollback, kabul
+ve bağımlılığı M3 planındadır.
+
+### Test barı ve M2 bütünlüğü
+
+Kritik her kilit: canlı fonksiyon-içi gözlem + bağımsız
+beklenti + karşılaştırma + somut kırmızı gövde.
+Yardımcı-only, yorum, string-presence ve öz-bildirim yetersizdir.
+
+PR: casus + sahte `TrainingResult`. Beş gerçek UDE
+`runtests.jl` / hard job / PR recovery / PR test’e **eklenmez**.
+Gerçek koşu benchmark / nightly’dedir.
+
+`benchmark/functional_identifiability.jl` `assess`’i **çağırır**
+ve dönen tanıyı kullanır. T-G-CALL gerçek gözlemci / çağrı
+sayacı ister. Red: doğrudan tanı kurmak; sahte nesne; yalnız
+yorum; kullanılmayan referans; çalışmayan sarmalayıcı.
+String `contains` yetmez. M3 benchmark gerçektir.
+
+M2 testleri korunur (T-E-M2HASH canlı dosya gözlemi):
+M2-G1, M2-G2, L-SPLIT-ID, L-SET-INTACT,
+L-FIT-A / L-FIT-B, L-RNG, L-DOM-A / L-DOM-B, L-D-OCC,
+L-OVERFIT, L-RES-HOLD / L-RES-LEGACY, L-DISC-A,
+L-DISC-B-1/2/3, L-EARLY, L-GATE, L-SITE, L-API, L-M34.
+`isdefined` ile zayıflatılmaz. Silinmez. Gevşetilmez.
+
+```
+FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+functional_identifiability ∉ fieldnames(MechanismRecoveryResult)
+```
+
+M2 7/2, train-only fit, holdout \(D\), dış bant, aritmetik
+residual, IC[1] `data_residual`, Q7 kapı değil, `0.30`
+semantiği, `evaluate_holdout` sahipliği, stdout blokları
+değişmez.
+
+### Kabul
+
+A–H + §39 on dört LIVE-path testi + bağımsız `p0` izi +
+params→sampler→\(D\) bağ + LIVE `z`/`D`/`X` + canlı `pairs`’ten
+türetilmiş bayraklar + `assess` üzerinden A/B/C + zero-live +
+gerçek `assess` CALL sayacı + holdout HP/inclusion sentinel +
+T-E-WALK + T-E-M2HASH + hold / thresholds / export değişmemiş +
+“functionally identifiable” / “certificate” / “Bayesian
+credible” yok. Birim test yeşili yetmez. Yardımcı yeşili,
+`assess` uydurmasını örtmez.
+
+### Rollback
+
+`FunctionalIdentifiability.jl` include’unu, M3 dikişlerini ve
+test/script’i kaldır; Q3-only ürüne dön. M2 observer imzaları
+durur. `fit_unknown_destruction` imzası tercihen değişmez.
+
+### Ertelenen
+
+Bayes fonksiyonel UQ, yapısal ID, global rank, M4 occupancy
+keşif, M5 baseline, public Q4 API, her PR’da 5× UDE, Q4’ün
+unique-claim hold’a girmesi.
 
 ---
 
