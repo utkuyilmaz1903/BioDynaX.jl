@@ -913,4 +913,13 @@ using BioDynaX:
     functional_identifiability_domain,
     scale_align_destruction,
     pairwise_destruction_metrics,
-    pairwise_trajectory_metrics
+    pairwise_trajectory_metrics,
+    FUNCTIONAL_ID_RESTART_SEEDS,
+    FUNCTIONAL_ID_TRAINING_CONFIG,
+    FunctionalIdentifiabilityRestart,
+    nn_parameter_fingerprint,
+    train_functional_identifiability_restarts,
+    fit_functional_identifiability_restart,
+    with_fit_unknown_destruction_entry_observer,
+    with_sample_unknown_destruction_result_observer,
+    with_predict_ude_observer

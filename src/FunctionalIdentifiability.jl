@@ -1,9 +1,10 @@
 ###############################################################################
 # Practical functional-identifiability primitives (not exported).
 #
-# Observed train-then-holdout regulator coordinates and pairwise
-# destruction / trajectory metrics. Restart training and diagnostic
-# assembly are not in this file.
+# M3-A: observed train-then-holdout regulator coordinates and pairwise
+# destruction / trajectory metrics.
+# M3-B: five independent restart fits on split.train. Diagnostic assembly
+# (pairs, status, Q4 flags) is not in this file.
 ###############################################################################
 
 """
@@ -133,4 +134,333 @@ function pairwise_trajectory_metrics(
             pred_i_train, pred_j_train),
         traj_rmse_holdout = _mean_experiment_rate_rel_rmse(
             pred_i_holdout, pred_j_holdout))
+end
+
+# -- M3-B independent restart training ----------------------------------------
+
+"""Locked functional-identifiability restart seeds. Not M4 robustness seeds."""
+const FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)
+
+"""A-priori M3 restart training configuration. Not selected from holdout."""
+const FUNCTIONAL_ID_TRAINING_CONFIG = (
+    adam = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
+    bfgs = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+    frozen_phys = Symbol[],
+    phys_init = nothing)
+
+const FUNCTIONAL_ID_FAILURE_REASONS = (
+    :none, :fit_threw, :nonfinite_D, :nonfinite_trajectory, :predict_threw)
+
+"""
+    FunctionalIdentifiabilityRestart
+
+One attempted restart. `included` is an M3-B-local validity flag, not a
+holdout score and not a best-of-N choice.
+"""
+struct FunctionalIdentifiabilityRestart
+    seed::Int
+    included::Bool
+    training_retcode::Union{TrainingRetcode,Nothing}
+    failure_reason::Symbol
+    message::String
+    nn_init_fingerprint::UInt64
+    nn_final_fingerprint::UInt64
+    function FunctionalIdentifiabilityRestart(
+            seed::Integer,
+            included::Bool,
+            training_retcode::Union{TrainingRetcode,Nothing},
+            failure_reason::Symbol,
+            message::AbstractString,
+            nn_init_fingerprint::UInt64,
+            nn_final_fingerprint::UInt64)
+        failure_reason in FUNCTIONAL_ID_FAILURE_REASONS || throw(ArgumentError(
+            "unsupported functional-identifiability failure_reason"))
+        if included
+            failure_reason === :none || throw(ArgumentError(
+                "included restart must use failure_reason === :none"))
+        else
+            failure_reason === :none && throw(ArgumentError(
+                "excluded restart must record a failure_reason"))
+            isempty(message) && throw(ArgumentError(
+                "excluded restart must record a nonempty message"))
+        end
+        return new(Int(seed), included, training_retcode, failure_reason,
+            String(message), nn_init_fingerprint, nn_final_fingerprint)
+    end
+end
+
+"""
+    nn_parameter_fingerprint(nn_params) -> UInt64
+
+Numerical fingerprint of NN parameter values. Not `objectid`, not a seed
+label, and identical for `deepcopy` of the same numbers.
+"""
+function nn_parameter_fingerprint(nn_params)::UInt64
+    return hash(_nn_fingerprint_values(nn_params))
+end
+
+function _nn_fingerprint_values(nn_params)
+    if nn_params isa AbstractArray && eltype(nn_params) <: Number
+        return collect(Float64, vec(nn_params))
+    end
+    buf = Float64[]
+    _append_nn_fingerprint_values!(buf, nn_params)
+    return buf
+end
+
+function _append_nn_fingerprint_values!(buf, x)
+    if x isa Number
+        push!(buf, Float64(x))
+    elseif x isa AbstractArray && eltype(x) <: Number
+        append!(buf, Float64.(vec(x)))
+    elseif x isa AbstractArray || x isa Tuple || x isa NamedTuple
+        for child in x
+            _append_nn_fingerprint_values!(buf, child)
+        end
+    elseif x isa AbstractDict
+        for key in sort!(collect(keys(x)); by = string)
+            _append_nn_fingerprint_values!(buf, x[key])
+        end
+    end
+    return buf
+end
+
+function _params_nn_fingerprint(params)
+    hasproperty(params, :nn) || return UInt64(0)
+    return nn_parameter_fingerprint(getproperty(params, :nn))
+end
+
+function _require_functional_id_restart_seeds(restart_seeds)
+    seeds = Tuple(restart_seeds)
+    103 in seeds && throw(ArgumentError(
+        "seed 103 is not a functional-identifiability restart seed"))
+    length(seeds) == 5 || throw(ArgumentError(
+        "functional-identifiability restarts require exactly 5 seeds; got $(length(seeds))"))
+    length(unique(seeds)) == 5 || throw(ArgumentError(
+        "functional-identifiability restart seeds must be unique"))
+    seeds === FUNCTIONAL_ID_RESTART_SEEDS || throw(ArgumentError(
+        "functional-identifiability restart seeds must be $(FUNCTIONAL_ID_RESTART_SEEDS)"))
+    return FUNCTIONAL_ID_RESTART_SEEDS
+end
+
+function _functional_id_regulator(ude_net::BiologicalNetwork)
+    terms = neural_destruction_terms(ude_net)
+    length(terms) == 1 || throw(ArgumentError(
+        "functional-identifiability restarts require exactly one unknown destruction"))
+    return only(terms).regulator
+end
+
+function _finite_numeric_tree(x)
+    if x isa Number
+        return isfinite(Float64(x))
+    elseif x isa AbstractArray && eltype(x) <: Number
+        return all(isfinite, x)
+    elseif x isa AbstractArray || x isa Tuple || x isa NamedTuple
+        return all(_finite_numeric_tree, x)
+    elseif hasproperty(x, :nn) && hasproperty(x, :phys)
+        return _finite_numeric_tree(getproperty(x, :nn)) &&
+               _finite_numeric_tree(getproperty(x, :phys))
+    end
+    return true
+end
+
+function _finite_training_output(fit::TrainingResult)
+    isfinite(Float64(fit.initial_loss)) || return false
+    isfinite(Float64(fit.final_loss)) || return false
+    return _finite_numeric_tree(fit.params)
+end
+
+function _finite_predictions(preds)
+    preds isa AbstractVector || return false
+    isempty(preds) && return false
+    return all(pred -> pred isa AbstractArray && all(isfinite, pred), preds)
+end
+
+function _predict_one_experiment(model, params, exp::Experiment)
+    tspan = (Float64(first(exp.times)), Float64(last(exp.times)))
+    return predict_ude(params, Float64.(exp.u0), tspan, Float64.(exp.times),
+        model)
+end
+
+function _predict_experiment_set(model, params, set::ExperimentSet)
+    return [_predict_one_experiment(model, params, exp)
+            for exp in set.experiments]
+end
+
+function _nonempty_failure_message(err)
+    message = sprint(showerror, err)
+    return isempty(message) ? "restart failed" : message
+end
+
+function _empty_restart_raw(seed::Integer)
+    return (;
+        seed = Int(seed),
+        model = nothing,
+        params = nothing,
+        fit = nothing,
+        D = nothing,
+        pred_train = nothing,
+        pred_holdout = nothing,
+        attempt_count = 1)
+end
+
+function _restart_raw(; seed, model, params, fit, D, pred_train, pred_holdout)
+    return (;
+        seed = Int(seed),
+        model,
+        params,
+        fit,
+        D,
+        pred_train,
+        pred_holdout,
+        attempt_count = 1)
+end
+
+function _isolated_restart_failure(
+        seed, reason, err, init_fp, final_fp, retcode, raw)
+    return (
+        FunctionalIdentifiabilityRestart(
+            seed, false, retcode, reason, _nonempty_failure_message(err),
+            init_fp, final_fp),
+        merge(raw, (; seed = Int(seed), attempt_count = 1)))
+end
+
+"""
+    fit_functional_identifiability_restart(split, ude_net, seed, domain; ...)
+
+One restart: `MersenneTwister(seed)` → `build_ude_model` → one
+`fit_unknown_destruction(..., split.train)`. No retry. Called only by
+`train_functional_identifiability_restarts`.
+"""
+function fit_functional_identifiability_restart(
+        split::ExperimentSplit,
+        ude_net::BiologicalNetwork,
+        seed::Integer,
+        domain::FunctionalIdentifiabilityDomain;
+        adam = FUNCTIONAL_ID_TRAINING_CONFIG.adam,
+        bfgs = FUNCTIONAL_ID_TRAINING_CONFIG.bfgs,
+        frozen_phys = FUNCTIONAL_ID_TRAINING_CONFIG.frozen_phys,
+        phys_init = FUNCTIONAL_ID_TRAINING_CONFIG.phys_init)
+    init_fp = UInt64(0)
+    final_fp = UInt64(0)
+    retcode = nothing
+    raw = _empty_restart_raw(seed)
+    model = nothing
+    p0 = nothing
+    try
+        model, p0 = build_ude_model(MersenneTwister(Int(seed)), ude_net)
+        init_fp = nn_parameter_fingerprint(p0.nn)
+    catch err
+        return _isolated_restart_failure(
+            seed, :fit_threw, err, init_fp, final_fp, retcode, raw)
+    end
+    fit = try
+        fit_unknown_destruction(model, p0, split.train;
+            adam = adam, bfgs = bfgs,
+            frozen_phys = frozen_phys, phys_init = phys_init)
+    catch err
+        return _isolated_restart_failure(
+            seed, :fit_threw, err, init_fp, final_fp, retcode, raw)
+    end
+    params = fit.params
+    retcode = fit.retcode
+    final_fp = _params_nn_fingerprint(params)
+    raw = _restart_raw(;
+        seed, model, params, fit, D = nothing,
+        pred_train = nothing, pred_holdout = nothing)
+    if !_finite_training_output(fit)
+        return _isolated_restart_failure(
+            seed, :nonfinite_trajectory,
+            ErrorException("training output was non-finite"),
+            init_fp, final_fp, retcode, raw)
+    end
+    D = try
+        term = only_unknown_destruction(model)
+        _, D_matrix, _ = sample_unknown_destruction_grid(
+            model, params, term;
+            r_range = domain.z, fill_value = domain.fill_value)
+        vec(D_matrix)
+    catch err
+        return _isolated_restart_failure(
+            seed, :nonfinite_D, err, init_fp, final_fp, retcode, raw)
+    end
+    raw = merge(raw, (; D))
+    if !(length(D) == length(domain.z) && all(isfinite, D))
+        return _isolated_restart_failure(
+            seed, :nonfinite_D,
+            ErrorException("destruction samples were non-finite or mis-sized"),
+            init_fp, final_fp, retcode, raw)
+    end
+    pred_train = nothing
+    pred_holdout = nothing
+    try
+        pred_train = _predict_experiment_set(model, params, split.train)
+        pred_holdout = _predict_experiment_set(model, params, split.holdout)
+    catch err
+        return _isolated_restart_failure(
+            seed, :predict_threw, err, init_fp, final_fp, retcode,
+            merge(raw, (; pred_train, pred_holdout)))
+    end
+    raw = merge(raw, (; pred_train, pred_holdout))
+    if !(_finite_predictions(pred_train) && _finite_predictions(pred_holdout))
+        return _isolated_restart_failure(
+            seed, :nonfinite_trajectory,
+            ErrorException("predicted trajectories were non-finite"),
+            init_fp, final_fp, retcode, raw)
+    end
+    # NotConverged is not an automatic exclusion when outputs are finite.
+    record = FunctionalIdentifiabilityRestart(
+        seed, true, retcode, :none, "", init_fp, final_fp)
+    return record, raw
+end
+
+"""
+    train_functional_identifiability_restarts(split, ude_net; ...)
+
+M3-B owner of restart fits. Attempts each locked seed exactly once,
+independently, on `split.train`. Failures are isolated. There is no retry
+and no best-of-N selection.
+"""
+function train_functional_identifiability_restarts(
+        split::ExperimentSplit,
+        ude_net::BiologicalNetwork;
+        restart_seeds = FUNCTIONAL_ID_RESTART_SEEDS,
+        adam = FUNCTIONAL_ID_TRAINING_CONFIG.adam,
+        bfgs = FUNCTIONAL_ID_TRAINING_CONFIG.bfgs,
+        frozen_phys = FUNCTIONAL_ID_TRAINING_CONFIG.frozen_phys,
+        phys_init = FUNCTIONAL_ID_TRAINING_CONFIG.phys_init,
+        fill_value::Real = 0.3)
+    seeds = _require_functional_id_restart_seeds(restart_seeds)
+    regulator = _functional_id_regulator(ude_net)
+    domain = functional_identifiability_domain(
+        split, regulator; fill_value = fill_value)
+    restarts = FunctionalIdentifiabilityRestart[]
+    raw = NamedTuple[]
+    sizehint!(restarts, length(seeds))
+    sizehint!(raw, length(seeds))
+    for seed in seeds
+        record, payload = try
+            fit_functional_identifiability_restart(
+                split, ude_net, seed, domain;
+                adam = adam, bfgs = bfgs,
+                frozen_phys = frozen_phys, phys_init = phys_init)
+        catch err
+            _isolated_restart_failure(
+                seed, :fit_threw, err, UInt64(0), UInt64(0), nothing,
+                _empty_restart_raw(seed))
+        end
+        push!(restarts, record)
+        push!(raw, payload)
+    end
+    n_attempted = length(seeds)
+    n_successful = count(restart -> restart.included, restarts)
+    n_failed = n_attempted - n_successful
+    return (;
+        restart_seeds = seeds,
+        n_attempted,
+        n_successful,
+        n_failed,
+        domain,
+        restarts,
+        raw)
 end
