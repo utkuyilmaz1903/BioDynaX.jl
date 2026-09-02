@@ -1560,3 +1560,979 @@ end
     @test !occursin("IDENTIFIABILITY", q4)
     @test occursin("IDENTIFIABILITY", proto)
 end
+
+# -- M3-E live assess-path binding --------------------------------------------
+
+function _m3e_run_assess(split, ude_net;
+        throw_seeds = Int[],
+        predict_throw_seed = nothing,
+        D_by_seed = nothing,
+        X_value_by_seed = nothing,
+        retcode = BioDynaX.Success,
+        restart_seeds = FUNCTIONAL_ID_RESTART_SEEDS,
+        family::Symbol = :hill)
+    assess_entries = Any[]
+    entries = Any[]
+    fit_results = Any[]
+    samples = Any[]
+    predicts = Any[]
+    holdout_events = Any[]
+    order = Symbol[]
+    fit_calls = Ref(0)
+    seed_attempts = Dict{Int,Int}()
+    fp_to_seed = Dict{UInt64,Int}()
+    predict_throw_fp = predict_throw_seed === nothing ? nothing :
+        nn_parameter_fingerprint(_m3b_shift_params(
+            last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
+            predict_throw_seed).nn)
+    result = with_assess_functional_identifiability_observer(obs -> begin
+            push!(order, :assess)
+            push!(assess_entries, obs)
+        end) do
+        with_fit_unknown_destruction_entry_observer(obs -> begin
+                push!(order, :fit_entry)
+                push!(entries, obs)
+            end) do
+            with_fit_unknown_destruction_observer(set -> begin
+                    fit_calls[] += 1
+                    k = fit_calls[]
+                    seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
+                        FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
+                    seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
+                    if seed in throw_seeds
+                        error("injected fit failure for seed $seed")
+                    end
+                    _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                    fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
+                    fp_to_seed[nn_parameter_fingerprint(fit.params.nn)] = seed
+                    push!(fit_results, fit)
+                    return fit
+                end) do
+                with_sample_unknown_destruction_result_observer(obs -> begin
+                        push!(order, :sample)
+                        if D_by_seed !== nothing
+                            seed = fp_to_seed[obs.params_nn_fingerprint]
+                            injected = D_by_seed[seed]
+                            vec(obs.D) .= Float64.(injected)
+                        end
+                        push!(samples, obs)
+                    end) do
+                    with_predict_ude_observer(obs -> begin
+                            push!(order, :predict)
+                            if predict_throw_fp !== nothing &&
+                                    nn_parameter_fingerprint(obs.params.nn) ==
+                                    predict_throw_fp
+                                error("injected predict failure for seed $(predict_throw_seed)")
+                            end
+                            if X_value_by_seed !== nothing
+                                seed = fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+                                fill!(obs.X, Float64(X_value_by_seed[seed]))
+                            end
+                            push!(predicts, obs)
+                        end) do
+                        with_evaluate_holdout_observer((args...) -> begin
+                                push!(order, :holdout)
+                                push!(holdout_events, args)
+                                return nothing
+                            end) do
+                            assess_functional_identifiability(
+                                split, ude_net;
+                                restart_seeds = restart_seeds,
+                                family = family)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return (;
+        result, assess_entries, entries, fit_results, samples, predicts,
+        holdout_events, order, fit_calls = fit_calls[], seed_attempts,
+        fp_to_seed)
+end
+
+function _m3e_approved_benchmark_entry(split, ude_net)
+    return assess_functional_identifiability(split, ude_net)
+end
+
+function _m3e_constructor_only_benchmark(split, ude_net)
+    domain = functional_identifiability_domain(
+        split, _functional_id_regulator_index(ude_net))
+    restarts = _m3c_restarts((true, true, true, true, true))
+    pairs = _m3c_constant_pairs(201:205, 0.10, 0.01)
+    return FunctionalIdentifiabilityDiagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, restarts, pairs)
+end
+
+function _functional_id_regulator_index(ude_net)
+    return only(neural_destruction_terms(ude_net)).regulator
+end
+
+function _m3e_normalize(src)
+    return replace(src, "\r\n" => "\n")
+end
+
+function _m3e_function_body_from_src(src, name)
+    needle = "function " * name * "("
+    start = findfirst(needle, src)
+    start === nothing && return nothing
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+end
+
+function _m3e_index_functions(src)
+    src = _m3e_normalize(src)
+    index = Dict{String,String}()
+    for m in eachmatch(r"^function ([A-Za-z_][A-Za-z0-9_!]*)\("m, src)
+        name = String(m.captures[1])
+        body = _m3e_function_body_from_src(src, name)
+        body !== nothing && (index[name] = body)
+    end
+    return index
+end
+
+function _m3e_callees(body)
+    return [String(m.captures[1])
+            for m in eachmatch(r"\b([A-Za-z_][A-Za-z0-9_!]*)\(", body)]
+end
+
+function _m3e_reachable(entry, index; stop = Set{String}())
+    queue = String[entry]
+    seen = Set{String}()
+    bodies = Dict{String,String}()
+    while !isempty(queue)
+        name = popfirst!(queue)
+        name in seen && continue
+        push!(seen, name)
+        name in stop && continue
+        haskey(index, name) || continue
+        body = index[name]
+        bodies[name] = body
+        for callee in _m3e_callees(body)
+            callee in seen && continue
+            callee in stop && continue
+            haskey(index, callee) || continue
+            push!(queue, callee)
+        end
+    end
+    return bodies
+end
+
+const _M3E_WALK_STOP = Set((
+    "build_ude_model",
+    "fit_unknown_destruction",
+    "sample_unknown_destruction_grid",
+    "predict_ude",
+    "only_unknown_destruction",
+    "compile_mechanism",
+    "rate_rel_rmse",
+    "neural_destruction_terms"))
+
+const _M3E_FORBIDDEN_TARGETS = (
+    "discover_unknown_rate",
+    "discover_equations",
+    "discover_unknown_destruction",
+    "run_recovery_suite",
+    "_train_unknown_edge",
+    "_evaluate_unknown_rate_recovery",
+    "evaluate_holdout",
+    "report_recovery",
+    "_regulator_grid",
+    "_unique_claim_external_regulator_band")
+
+const _M3E_FORBIDDEN_TOKENS = (
+    _M3E_FORBIDDEN_TARGETS...,
+    "range(0.05, 2.0",
+    "range(0.0, 1.0")
+
+function _m3e_q4_source_index()
+    root = joinpath(@__DIR__, "..", "src")
+    src = _m3e_normalize(read(joinpath(root, "FunctionalIdentifiability.jl"), String)) *
+          "\n" * _m3e_normalize(read(joinpath(root, "Recovery.jl"), String)) *
+          "\n" * _m3e_normalize(read(joinpath(root, "RecoveryPipeline.jl"), String))
+    return _m3e_index_functions(src)
+end
+
+function _m3e_has_token(bodies, token)
+    return any(occursin(token, body) for body in values(bodies))
+end
+
+function _m3e_ast_has_call(src, name::Symbol)
+    text = strip(src)
+    isempty(text) && return false
+    ex = try
+        Meta.parse("begin\n" * text * "\nend")
+    catch
+        return false
+    end
+    found = Ref(false)
+    walk = nothing
+    walk = function (node)
+        if node isa Expr
+            if node.head === :call && !isempty(node.args)
+                callee = node.args[1]
+                if callee === name
+                    found[] = true
+                elseif callee isa Expr && callee.head === :. &&
+                        length(callee.args) >= 2 &&
+                        callee.args[2] === QuoteNode(name)
+                    found[] = true
+                end
+            end
+            for child in node.args
+                walk(child)
+            end
+        end
+        return nothing
+    end
+    walk(ex)
+    return found[]
+end
+
+function _m3e_official_benchmark_path()
+    return joinpath(@__DIR__, "..", "benchmark", "functional_identifiability.jl")
+end
+
+function _m3e_approved_benchmark_scripts()
+    path = _m3e_official_benchmark_path()
+    return isfile(path) ? [path] : String[]
+end
+
+function _m3e_is_official_benchmark_path(path)
+    isfile(path) || return false
+    basename(path) == "functional_identifiability.jl" || return false
+    normalized = replace(abspath(path), '\\' => '/')
+    return occursin("/benchmark/functional_identifiability.jl", normalized)
+end
+
+function _m3e_write_temp_benchmark(src; name = "functional_identifiability.jl")
+    dir = mktempdir()
+    path = joinpath(dir, name)
+    write(path, src)
+    return path
+end
+
+function _m3e_execute_benchmark_script(path)
+    assess_n = Ref(0)
+    fit_n = Ref(0)
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    payload = nothing
+    if isfile(path)
+        payload = redirect_stdout(devnull) do
+            with_assess_functional_identifiability_observer(_ ->
+                    assess_n[] += 1) do
+                with_fit_unknown_destruction_observer(_ -> begin
+                        fit_n[] += 1
+                        seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
+                        _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                        return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+                    end) do
+                    Base.include(Module(gensym("M3EBenchmarkExec")), path)
+                end
+            end
+        end
+    end
+    result = nothing
+    consumed = nothing
+    if payload isa NamedTuple && haskey(payload, :diagnostic) &&
+            haskey(payload, :report)
+        result = payload.diagnostic
+        consumed = payload.report
+    elseif payload isa FunctionalIdentifiabilityDiagnostic
+        result = payload
+    end
+    return (;
+        assess_n = assess_n[],
+        fit_n = fit_n[],
+        result,
+        consumed,
+        payload)
+end
+
+function _m3e_script_live_bind(path)
+    isfile(path) || return false
+    src = read(path, String)
+    _m3e_ast_has_call(src, :assess_functional_identifiability) || return false
+    _m3e_ast_has_call(src, :format_functional_identifiability_diagnostic) ||
+        return false
+    live = _m3e_execute_benchmark_script(path)
+    live.assess_n >= 1 || return false
+    live.result isa FunctionalIdentifiabilityDiagnostic || return false
+    live.consumed isa AbstractString || return false
+    return live.consumed ==
+           format_functional_identifiability_diagnostic(live.result)
+end
+
+function _m3e_official_discovery_binds(scripts)
+    isempty(scripts) && return false
+    length(scripts) == 1 || return false
+    path = only(scripts)
+    _m3e_is_official_benchmark_path(path) || return false
+    return _m3e_script_live_bind(path)
+end
+
+@testset "M3-E seams stay unexported" begin
+    for name in (
+            :ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER,
+            :with_assess_functional_identifiability_observer,
+            :assess_functional_identifiability,
+            :FunctionalIdentifiabilityDiagnostic)
+        @test isdefined(BioDynaX, name)
+        @test name ∉ names(BioDynaX)
+    end
+    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+end
+
+@testset "T-E-LIVE-FIT live assess fit path" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3b_protocol_split()
+    live = _m3e_run_assess(split, ude_net)
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    @test length(live.assess_entries) == 1
+    @test live.assess_entries[1].split === split
+    @test live.fit_calls == 5
+    @test length(live.entries) == 5
+    @test live.result.restart_seeds === (201, 202, 203, 204, 205)
+    @test [restart.seed for restart in live.result.restarts] ==
+          [201, 202, 203, 204, 205]
+    @test all(==(1), values(live.seed_attempts))
+    @test length(live.seed_attempts) == 5
+    expected_config = (100, 50, Symbol[], nothing)
+    wrong_config = (50, 50, Symbol[], nothing)
+    for (k, seed) in enumerate(FUNCTIONAL_ID_RESTART_SEEDS)
+        entry = live.entries[k]
+        @test entry.fit_set === split.train
+        @test entry.fit_set_length == 7
+        @test length(entry.fit_set) == 7
+        @test length(entry.fit_experiments_identity) == 7
+        @test all(entry.fit_experiments_identity[i] ===
+                  split.train.experiments[i] for i in 1:7)
+        @test all(entry.fit_set[i] === split.train[i] for i in 1:7)
+        holdout_ids = objectid.(split.holdout.experiments)
+        @test all(objectid(entry.fit_set[i]) ∉ holdout_ids for i in 1:7)
+        @test (entry.adam, entry.bfgs, entry.frozen_phys, entry.phys_init) ==
+              expected_config
+        @test (entry.adam, entry.bfgs, entry.frozen_phys, entry.phys_init) !=
+              wrong_config
+        @test entry.adam != _m3b_holdout_optimal_adam(split)
+    end
+    @test count(==(:fit_entry), live.order) == 5
+    @test :assess in live.order
+    @test findfirst(==(:assess), live.order) < findfirst(==(:fit_entry), live.order)
+    @test :holdout ∉ live.order
+    @test isempty(live.holdout_events)
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    assess_from_helper = Ref(0)
+    with_assess_functional_identifiability_observer(_ ->
+            assess_from_helper[] += 1) do
+        with_fit_unknown_destruction_observer(set -> begin
+                seed = 201
+                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+            end) do
+            train_functional_identifiability_restarts(split, ude_net)
+        end
+    end
+    @test assess_from_helper[] == 0
+end
+
+@testset "T-E-LIVE-P0 live assess p0 fingerprints" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3b_protocol_split()
+    live = _m3e_run_assess(split, ude_net)
+    @test length(live.entries) == 5
+    @test length(live.assess_entries) == 1
+    expected_p0 = Dict{Int,UInt64}()
+    for seed in FUNCTIONAL_ID_RESTART_SEEDS
+        expected_p0[seed] = nn_parameter_fingerprint(
+            build_ude_model(MersenneTwister(seed), ude_net)[2].nn)
+    end
+    wrong_103 = nn_parameter_fingerprint(
+        build_ude_model(MersenneTwister(103), ude_net)[2].nn)
+    live_p0 = UInt64[]
+    for (k, seed) in enumerate(FUNCTIONAL_ID_RESTART_SEEDS)
+        live_fp = nn_parameter_fingerprint(live.entries[k].p0.nn)
+        push!(live_p0, live_fp)
+        @test live_fp == expected_p0[seed]
+        @test live_fp != wrong_103
+        @test live.result.restarts[k].nn_init_fingerprint == expected_p0[seed]
+    end
+    @test expected_p0[201] != expected_p0[202]
+    @test length(unique(live_p0)) == 5
+    shared = fill(expected_p0[201], 5)
+    @test live_p0 != shared
+end
+
+@testset "T-E-LIVE-PARAMS live final TrainingResult.params bind D" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3b_protocol_split()
+    live = _m3e_run_assess(split, ude_net)
+    @test live.result.n_successful == 5
+    @test length(live.fit_results) == 5
+    @test length(live.samples) == 5
+    z_expected, _, _ = _m3a_independent_z(split, 2)
+    live_final = UInt64[]
+    live_D = Vector{Float64}[]
+    independent_D = Vector{Float64}[]
+    model_by_seed = Dict{Int,Any}()
+    for obs in live.predicts
+        seed = live.fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+        model_by_seed[seed] = obs.model
+    end
+    for (k, seed) in enumerate(FUNCTIONAL_ID_RESTART_SEEDS)
+        fit = live.fit_results[k]
+        sample = live.samples[k]
+        @test live.result.restarts[k].seed == seed
+        spy_fp = nn_parameter_fingerprint(fit.params.nn)
+        sample_fp = nn_parameter_fingerprint(sample.params.nn)
+        @test sample_fp == spy_fp
+        @test sample.params_nn_fingerprint == spy_fp
+        push!(live_final, spy_fp)
+        model = model_by_seed[seed]
+        term = only_unknown_destruction(model)
+        _, D_matrix, _ = sample_unknown_destruction_grid(
+            model, fit.params, term;
+            r_range = collect(sample.r_range), fill_value = 0.3)
+        push!(live_D, vec(sample.D))
+        push!(independent_D, vec(D_matrix))
+        @test vec(sample.D) == vec(D_matrix)
+    end
+    @test live_D == independent_D
+    @test length(unique(live_final)) == 5
+    shared = deepcopy(live.fit_results[1].params)
+    attack_D = Vector{Float64}[]
+    for seed in FUNCTIONAL_ID_RESTART_SEEDS
+        model = model_by_seed[seed]
+        term = only_unknown_destruction(model)
+        _, D_matrix, _ = sample_unknown_destruction_grid(
+            model, deepcopy(shared), term;
+            r_range = z_expected, fill_value = 0.3)
+        push!(attack_D, vec(D_matrix))
+    end
+    @test length(unique(nn_parameter_fingerprint.(attack_D))) == 1
+    @test live_D != attack_D
+    wrong_other = begin
+        model = model_by_seed[202]
+        term = only_unknown_destruction(model)
+        _, D_matrix, _ = sample_unknown_destruction_grid(
+            model, live.fit_results[1].params, term;
+            r_range = z_expected, fill_value = 0.3)
+        vec(D_matrix)
+    end
+    @test live_D[2] != wrong_other
+end
+
+@testset "T-E-LIVE-SAMPLE live r_range is the M3-A domain" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    live = _m3e_run_assess(split, ude_net)
+    z_expected, r_train, r_holdout = _m3a_independent_z(split, 2)
+    @test z_expected == [0.1, 0.5, 0.1, 0.8]
+    @test r_train == [0.1, 0.5]
+    @test r_holdout == [0.1, 0.8]
+    @test live.result.domain.z == z_expected
+    @test collect(live.result.domain.z) != sort(z_expected)
+    @test collect(live.result.domain.z) != unique(z_expected)
+    @test collect(live.result.domain.z) != collect(r_train)
+    @test collect(live.result.domain.z) != collect(range(0.05, 2.0; length = 80))
+    @test length(live.samples) == 5
+    for sample in live.samples
+        @test collect(sample.r_range) == z_expected
+        @test collect(sample.r_range) == live.result.domain.z
+        @test collect(sample.r_range) != sort(z_expected)
+        @test collect(sample.r_range) != unique(z_expected)
+        @test collect(sample.r_range) != collect(range(0.05, 2.0; length = 80))
+    end
+    live_fail = _m3e_run_assess(split, ude_net; throw_seeds = Int[203, 204, 205])
+    @test live_fail.result.n_successful == 2
+    @test live_fail.result.domain.z == z_expected
+    @test live.result.domain.z == live_fail.result.domain.z
+    for sample in live_fail.samples
+        @test collect(sample.r_range) == z_expected
+    end
+end
+
+@testset "T-E-LIVE-D live sample D binds pair metrics" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3c_length3_split()
+    D1 = [1.0, 2.0, 3.0]
+    D2 = [2.0, 4.0, 9.0]
+    D0 = zeros(3)
+    D_by_seed = Dict(
+        201 => D1,
+        202 => D2,
+        203 => D1,
+        204 => D1,
+        205 => D0)
+    X_value_by_seed = Dict(seed => 1.0 for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    live = _m3e_run_assess(split, ude_net;
+        D_by_seed = D_by_seed, X_value_by_seed = X_value_by_seed)
+    @test length(live.assess_entries) == 1
+    @test length(live.samples) == 5
+    live_D = Dict{Int,Vector{Float64}}()
+    for sample in live.samples
+        seed = live.fp_to_seed[sample.params_nn_fingerprint]
+        live_D[seed] = vec(Float64.(sample.D))
+    end
+    @test live_D[201] == D1
+    @test live_D[202] == D2
+    @test live_D[205] == D0
+    pair = only(filter(p -> p.seed_i == 201 && p.seed_j == 202, live.result.pairs))
+    expected = _m3a_independent_ls(live_D[201], live_D[202])
+    @test expected.alpha == 37 / 101
+    @test pair.scale_alpha == 37 / 101
+    @test pair.scale_alpha != 37 / 14
+    @test pair.scale_alpha != 3 / 9
+    @test pair.d_rmse_scale_normalized == expected.d_rmse_scale_normalized
+    zero_pairs = [p for p in live.result.pairs if p.seed_j == 205]
+    @test !isempty(zero_pairs)
+    for zp in zero_pairs
+        expected_z = _m3a_independent_ls(live_D[zp.seed_i], live_D[205])
+        @test expected_z.alpha === NaN
+        @test zp.scale_alpha === NaN
+        @test zp.d_rmse_scale_normalized === NaN
+        @test zp.d_rmse_scale_normalized === expected_z.d_rmse_scale_normalized
+    end
+end
+
+@testset "T-E-LIVE-PRED live predict_ude X binds trajectory metrics" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    live = _m3e_run_assess(split, ude_net)
+    @test live.result.n_successful == 5
+    @test !isempty(live.predicts)
+    @test all(obs -> obs.X isa AbstractArray, live.predicts)
+    pred_train, pred_holdout = _m3c_group_live_predictions(live, split)
+    D_by_seed = Dict{Int,Vector{Float64}}()
+    for sample in live.samples
+        seed = live.fp_to_seed[sample.params_nn_fingerprint]
+        D_by_seed[seed] = vec(Float64.(sample.D))
+    end
+    manufactured = 0.123456
+    for pair in live.result.pairs
+        expected = _m3c_independent_pair_metrics(
+            D_by_seed[pair.seed_i], D_by_seed[pair.seed_j],
+            pred_train[pair.seed_i], pred_train[pair.seed_j],
+            pred_holdout[pair.seed_i], pred_holdout[pair.seed_j])
+        @test pair.traj_rmse_train == expected.traj_rmse_train
+        @test pair.traj_rmse_holdout == expected.traj_rmse_holdout
+        @test pair.traj_rmse_train != manufactured
+        @test pair.traj_rmse_holdout != manufactured
+    end
+    swapped = pairwise_trajectory_metrics(
+        pred_train[201], pred_train[205],
+        pred_holdout[201], pred_holdout[205])
+    pair_12 = only(filter(p -> p.seed_i == 201 && p.seed_j == 202,
+        live.result.pairs))
+    @test pair_12.traj_rmse_train == _m3c_independent_pair_metrics(
+        D_by_seed[201], D_by_seed[202],
+        pred_train[201], pred_train[202],
+        pred_holdout[201], pred_holdout[202]).traj_rmse_train
+    if swapped.traj_rmse_train != pair_12.traj_rmse_train
+        @test pair_12.traj_rmse_train != swapped.traj_rmse_train
+    end
+end
+
+@testset "T-E-LIVE-PRED203 predict throw is isolated on assess" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3b_protocol_split()
+    live = _m3e_run_assess(split, ude_net; predict_throw_seed = 203)
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    @test live.fit_calls == 5
+    @test live.seed_attempts[203] == 1
+    @test live.result.n_attempted == 5
+    @test live.result.n_successful == 4
+    @test live.result.n_failed == 1
+    seeds = [restart.seed for restart in live.result.restarts]
+    @test seeds == [201, 202, 203, 204, 205]
+    @test count(==(203), seeds) == 1
+    @test 206 ∉ seeds
+    failed = live.result.restarts[3]
+    @test failed.seed == 203
+    @test !failed.included
+    @test failed.failure_reason === :predict_threw
+    @test !isempty(string(failed.failure_reason))
+    @test !isempty(failed.message)
+    for restart in live.result.restarts
+        restart.seed == 203 && continue
+        @test restart.included
+        @test restart.failure_reason === :none
+    end
+    @test live.result.n_attempted == length(FUNCTIONAL_ID_RESTART_SEEDS)
+    @test length(unique(seeds)) == 5
+end
+
+@testset "T-E-LIVE-FLAGS live pairs derive both disagree cells" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    D_near = [1.0, 2.0, 1.0, 3.0]
+    D_far = [1.0, 0.0, 1.0, 0.0]
+    @test _m3a_independent_ls(D_near, D_far).d_rmse_scale_normalized >= 0.20
+    D_BC = Dict(
+        201 => D_near, 202 => D_far, 203 => D_near, 204 => D_far, 205 => D_near)
+    X_near = Dict(seed => 1.0 for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    X_far = Dict(201 => 1.0, 202 => 10.0, 203 => 1.0, 204 => 10.0, 205 => 1.0)
+    live_b = _m3e_run_assess(split, ude_net;
+        D_by_seed = D_BC, X_value_by_seed = X_near)
+    live_c = _m3e_run_assess(split, ude_net;
+        D_by_seed = D_BC, X_value_by_seed = X_far)
+    b = live_b.result
+    c = live_c.result
+    flags_b = _m3c_independent_flags(b)
+    flags_c = _m3c_independent_flags(c)
+    @test b.function_disagree === flags_b.function_disagree === true
+    @test b.trajectory_agree === flags_b.trajectory_agree === true
+    @test c.function_disagree === flags_c.function_disagree === true
+    @test c.trajectory_agree === flags_c.trajectory_agree === false
+    @test b.function_disagree !== b.trajectory_agree ||
+          (b.function_disagree === true && b.trajectory_agree === true)
+    @test c.function_disagree !== c.trajectory_agree
+    @test b.function_disagree != b.trajectory_agree || b.trajectory_agree
+    @test c.function_disagree != !c.trajectory_agree || c.function_disagree
+    @test b.function_disagree !== c.trajectory_agree ||
+          c.function_disagree === true
+    @test !(b.function_disagree === b.trajectory_agree &&
+            c.function_disagree === c.trajectory_agree)
+    @test !(b.function_disagree === !b.trajectory_agree &&
+            c.function_disagree === !c.trajectory_agree)
+    med_b = median(pair.d_rmse_scale_normalized for pair in b.pairs)
+    @test b.function_disagree === (
+        b.complete && b.n_successful >= 2 && med_b >= 0.20)
+    med_c = median(pair.d_rmse_scale_normalized for pair in c.pairs)
+    @test c.function_disagree === (
+        c.complete && c.n_successful >= 2 && med_c >= 0.20)
+end
+
+@testset "T-E-LIVE-HOLDOUT holdout does not choose restart settings" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split_a = _m3b_protocol_split()
+    split_b = _m3b_protocol_split(; holdout_obs_scale = 1e6)
+    @test split_a.holdout.experiments[1].observations !=
+          split_b.holdout.experiments[1].observations
+    live_a = _m3e_run_assess(split_a, ude_net)
+    live_b = _m3e_run_assess(split_b, ude_net)
+    @test live_a.result.restart_seeds === live_b.result.restart_seeds ===
+          (201, 202, 203, 204, 205)
+    p0_a = [nn_parameter_fingerprint(e.p0.nn) for e in live_a.entries]
+    p0_b = [nn_parameter_fingerprint(e.p0.nn) for e in live_b.entries]
+    @test p0_a == p0_b
+    configs_a = [(e.adam, e.bfgs, e.frozen_phys, e.phys_init)
+                 for e in live_a.entries]
+    configs_b = [(e.adam, e.bfgs, e.frozen_phys, e.phys_init)
+                 for e in live_b.entries]
+    @test configs_a == configs_b
+    @test all(cfg -> cfg == (100, 50, Symbol[], nothing), configs_a)
+    @test all(restart -> restart.included, live_a.result.restarts)
+    @test all(restart -> restart.included, live_b.result.restarts)
+    @test :holdout ∉ live_a.order
+    @test :holdout ∉ live_b.order
+    @test isempty(live_a.holdout_events)
+    @test isempty(live_b.holdout_events)
+    holdout_errors = Float64[]
+    pred_train, pred_holdout = _m3c_group_live_predictions(live_b, split_b)
+    for seed in FUNCTIONAL_ID_RESTART_SEEDS
+        errors = [sqrt(mean(abs2, vec(pred) .- vec(exp.observations)))
+                  for (pred, exp) in zip(pred_holdout[seed],
+            split_b.holdout.experiments)]
+        push!(holdout_errors, mean(errors))
+    end
+    @test all(err -> err ≥ 1e3, holdout_errors)
+    src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+        String)
+    @test !occursin("evaluate_holdout", src)
+end
+
+@testset "T-E-LIVE-BENCHMARK approved entry calls assess live" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    assess_n = Ref(0)
+    fit_n = Ref(0)
+    live_diag = with_assess_functional_identifiability_observer(_ ->
+            assess_n[] += 1) do
+        with_fit_unknown_destruction_observer(set -> begin
+                fit_n[] += 1
+                seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
+                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+            end) do
+            _m3e_approved_benchmark_entry(split, ude_net)
+        end
+    end
+    @test assess_n[] == 1
+    @test fit_n[] == 5
+    @test live_diag isa FunctionalIdentifiabilityDiagnostic
+    @test live_diag.restart_seeds === (201, 202, 203, 204, 205)
+    comment_only = "# assess_functional_identifiability(split, ude_net)\n"
+    @test occursin("assess_functional_identifiability", comment_only)
+    @test !_m3e_ast_has_call(comment_only, :assess_functional_identifiability)
+    ctor_src = """
+        FunctionalIdentifiabilityDiagnostic(
+            :hill, (201, 202, 203, 204, 205), domain, restarts, pairs)
+        """
+    @test occursin("FunctionalIdentifiabilityDiagnostic", ctor_src)
+    @test !_m3e_ast_has_call(ctor_src, :assess_functional_identifiability)
+    @test _m3e_ast_has_call(ctor_src, :FunctionalIdentifiabilityDiagnostic)
+    approved_src = "assess_functional_identifiability(split, ude_net)\n"
+    @test _m3e_ast_has_call(approved_src, :assess_functional_identifiability)
+    ctor_n = Ref(0)
+    ctor_diag = with_assess_functional_identifiability_observer(_ ->
+            ctor_n[] += 1) do
+        _m3e_constructor_only_benchmark(split, ude_net)
+    end
+    @test ctor_n[] == 0
+    @test ctor_diag isa FunctionalIdentifiabilityDiagnostic
+    @test ctor_n[] != assess_n[]
+    official = _m3e_official_benchmark_path()
+    scripts = _m3e_approved_benchmark_scripts()
+    @test isfile(official)
+    @test !isempty(scripts)
+    @test length(scripts) == 1
+    @test only(scripts) == official
+    @test _m3e_is_official_benchmark_path(only(scripts))
+    @test basename(only(scripts)) == "functional_identifiability.jl"
+    @test !isfile(joinpath(@__DIR__, "..", "benchmark",
+        "m3_fake_functional_identifiability.jl"))
+    @test !isfile(joinpath(@__DIR__, "..", "benchmark",
+        "functional_identifiability_test.jl"))
+    src = read(official, String)
+    @test _m3e_ast_has_call(src, :assess_functional_identifiability)
+    @test _m3e_ast_has_call(src, :format_functional_identifiability_diagnostic)
+    @test _m3e_ast_has_call(src, :generate_recovery_experiments)
+    @test _m3e_ast_has_call(src, :unique_claim_experiment_split)
+    commented = join("# " .* Base.split(_m3e_normalize(src), '\n'), '\n')
+    @test !_m3e_ast_has_call(commented, :assess_functional_identifiability)
+    for token in _M3E_FORBIDDEN_TARGETS
+        @test !occursin(token, src)
+    end
+    live = _m3e_execute_benchmark_script(official)
+    @test live.assess_n >= 1
+    @test live.fit_n == 5
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    @test live.result.restart_seeds === (201, 202, 203, 204, 205)
+    @test live.payload isa NamedTuple
+    @test live.payload.diagnostic === live.result
+    formatted = format_functional_identifiability_diagnostic(live.result)
+    @test live.consumed == formatted
+    @test occursin("PRACTICAL FUNCTIONAL DIAGNOSTIC", live.consumed)
+    @test occursin("status: $(live.result.status)", live.consumed)
+end
+
+@testset "T-E-LIVE-BENCHMARK adversarial fakes stay red" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    @test !_m3e_official_discovery_binds(String[])
+    @test !_m3e_is_official_benchmark_path(joinpath(tempdir(),
+        "functional_identifiability.jl"))
+    @test !_m3e_script_live_bind(joinpath(tempdir(),
+        "missing_functional_identifiability.jl"))
+    renamed = _m3e_write_temp_benchmark(
+        "assess_functional_identifiability(split, ude_net)\n";
+        name = "m3_fake_functional_identifiability.jl")
+    @test !_m3e_official_discovery_binds([renamed])
+    comment_only = _m3e_write_temp_benchmark(
+        "# assess_functional_identifiability(split, ude_net)\n" *
+        "# format_functional_identifiability_diagnostic(diag)\n" *
+        "println(\"comment only\")\n")
+    comment_src = read(comment_only, String)
+    @test occursin("assess_functional_identifiability", comment_src)
+    @test !_m3e_ast_has_call(comment_src, :assess_functional_identifiability)
+    comment_live = _m3e_execute_benchmark_script(comment_only)
+    @test comment_live.assess_n == 0
+    @test !_m3e_script_live_bind(comment_only)
+    string_only = _m3e_write_temp_benchmark(
+        "println(\"assess_functional_identifiability(split, ude_net)\")\n" *
+        "println(\"PRACTICAL FUNCTIONAL DIAGNOSTIC\")\n")
+    string_src = read(string_only, String)
+    @test occursin("assess_functional_identifiability", string_src)
+    @test !_m3e_ast_has_call(string_src, :assess_functional_identifiability)
+    string_live = _m3e_execute_benchmark_script(string_only)
+    @test string_live.assess_n == 0
+    @test !_m3e_script_live_bind(string_only)
+    ctor_src = """
+        using BioDynaX
+        using BioDynaX:
+            FUNCTIONAL_ID_RESTART_SEEDS,
+            FunctionalIdentifiabilityDiagnostic,
+            FunctionalIdentifiabilityDomain,
+            FunctionalIdentifiabilityPair,
+            FunctionalIdentifiabilityRestart,
+            format_functional_identifiability_diagnostic
+        domain = FunctionalIdentifiabilityDomain(
+            2, [0.1, 0.5, 0.1, 0.8], 2, 2, 0.3, :train_obs_union_holdout_obs)
+        restarts = [
+            FunctionalIdentifiabilityRestart(
+                seed, true, BioDynaX.Success, :none, "", UInt64(0), UInt64(0))
+            for seed in FUNCTIONAL_ID_RESTART_SEEDS]
+        pairs = FunctionalIdentifiabilityPair[]
+        seeds = collect(FUNCTIONAL_ID_RESTART_SEEDS)
+        for i in 1:(length(seeds) - 1)
+            for j in (i + 1):length(seeds)
+                push!(pairs, FunctionalIdentifiabilityPair(
+                    seeds[i], seeds[j], 0.01, 0.01, 1.0, 1.0, 0.01, 0.01))
+            end
+        end
+        diag = FunctionalIdentifiabilityDiagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, restarts, pairs)
+        println(format_functional_identifiability_diagnostic(diag))
+        diag
+        """
+    ctor_path = _m3e_write_temp_benchmark(ctor_src)
+    @test occursin("FunctionalIdentifiabilityDiagnostic", ctor_src)
+    @test _m3e_ast_has_call(ctor_src, :FunctionalIdentifiabilityDiagnostic)
+    @test !_m3e_ast_has_call(ctor_src, :assess_functional_identifiability)
+    ctor_live = _m3e_execute_benchmark_script(ctor_path)
+    @test ctor_live.assess_n == 0
+    @test ctor_live.result isa FunctionalIdentifiabilityDiagnostic
+    @test !_m3e_script_live_bind(ctor_path)
+    helper_n = Ref(0)
+    helper_diag = with_assess_functional_identifiability_observer(_ ->
+            helper_n[] += 1) do
+        _m3e_constructor_only_benchmark(split, ude_net)
+    end
+    @test helper_n[] == 0
+    @test helper_diag isa FunctionalIdentifiabilityDiagnostic
+    no_assess = _m3e_write_temp_benchmark(
+        "using BioDynaX\nprintln(\"executes without assess\")\n")
+    no_assess_live = _m3e_execute_benchmark_script(no_assess)
+    @test no_assess_live.assess_n == 0
+    @test !_m3e_script_live_bind(no_assess)
+end
+
+@testset "T-E-WALK transitive assess graph has no forbidden path" begin
+    dirty = """
+function assess_functional_identifiability(split, ude_net)
+    return _q4_helper(split, ude_net)
+end
+function _q4_helper(split, ude_net)
+    return _forward(split)
+end
+function _forward(split)
+    return evaluate_holdout(split, nothing, nothing, nothing, nothing, x -> 0.0)
+end
+"""
+    dirty_bodies = _m3e_reachable(
+        "assess_functional_identifiability", _m3e_index_functions(dirty))
+    @test haskey(dirty_bodies, "_q4_helper")
+    @test haskey(dirty_bodies, "_forward")
+    @test _m3e_has_token(dirty_bodies, "evaluate_holdout(")
+    assess_only = dirty_bodies["assess_functional_identifiability"]
+    @test !occursin("evaluate_holdout", assess_only)
+    index = _m3e_q4_source_index()
+    bodies = _m3e_reachable(
+        "assess_functional_identifiability", index; stop = _M3E_WALK_STOP)
+    @test haskey(bodies, "assess_functional_identifiability")
+    @test haskey(bodies, "train_functional_identifiability_restarts")
+    @test haskey(bodies, "fit_functional_identifiability_restart")
+    @test !haskey(bodies, "fit_unknown_destruction")
+    @test !haskey(bodies, "sample_unknown_destruction_grid")
+    @test !haskey(bodies, "evaluate_holdout")
+    @test !haskey(bodies, "_train_unknown_edge")
+    @test !haskey(bodies, "discover_unknown_rate")
+    for token in _M3E_FORBIDDEN_TOKENS
+        @test !_m3e_has_token(bodies, token)
+    end
+    fi = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+        String)
+    for token in _M3E_FORBIDDEN_TOKENS
+        @test !occursin(token, fi)
+    end
+end
+
+@testset "T-E-NOM4 T-E-COST T-E-THRESH T-E-TRUTH T-E-PROJ T-E-CUT" begin
+    fi = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+        String)
+    for token in _M3E_FORBIDDEN_TOKENS
+        @test !occursin(token, fi)
+    end
+    hard = read(joinpath(@__DIR__, "run_recovery_hard.jl"), String)
+    runtests = read(joinpath(@__DIR__, "runtests.jl"), String)
+    ci = read(joinpath(@__DIR__, "..", ".github", "workflows", "ci.yml"), String)
+    @test !occursin("assess_functional_identifiability", hard)
+    @test !occursin("assess_functional_identifiability", runtests)
+    @test !occursin("functional_identifiability.jl", ci)
+    @test occursin("include(\"test_functional_identifiability.jl\")", runtests)
+    @test !occursin("RECOVERY_THRESHOLDS", fi)
+    @test recovery_thresholds_hold()
+    @test RECOVERY_THRESHOLDS.data_residual == 0.30
+    @test_throws MethodError assess_functional_identifiability(
+        _m3a_sentinel_split(),
+        build_hill_recovery_network(; known = false, hill_order = 2);
+        truth_rate = x -> 0.0)
+    @test_throws MethodError assess_functional_identifiability(
+        _m3a_sentinel_split(),
+        build_hill_recovery_network(; known = false, hill_order = 2);
+        D_true = [1.0, 2.0])
+    project = read(joinpath(@__DIR__, "..", "Project.toml"), String)
+    @test !occursin("StructuralIdentifiability", project)
+    @test !occursin("Turing", project)
+    @test !occursin("MCMC", project)
+    @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
+        min_successful_restarts = 3,
+        n_attempted_restarts = 5,
+        traj_agree_rel_rmse = 0.05,
+        d_disagree_scale_norm_rel_rmse = 0.20)
+    @test FUNCTIONAL_ID_REPORTING_CUTOFFS != (
+        min_successful_restarts = 2,
+        n_attempted_restarts = 5,
+        traj_agree_rel_rmse = 0.05,
+        d_disagree_scale_norm_rel_rmse = 0.20)
+end
+
+@testset "T-E-HOLD unique_claim_kpis_hold stays Q3+Q1+Q5" begin
+    hold = (;
+        unidentifiable_edge = true,
+        data_residual = 0.003,
+        support_recall = 0.99)
+    miss = (;
+        unidentifiable_edge = false,
+        data_residual = 0.003,
+        support_recall = 0.99)
+    @test UNIQUE_CLAIM_KPI_FIELDS ===
+          (:unidentifiable_edge, :data_residual, :support_recall)
+    @test :function_disagree ∉ UNIQUE_CLAIM_KPI_FIELDS
+    @test unique_claim_kpis_hold(hold)
+    @test !unique_claim_kpis_hold(miss)
+    with_q4 = (;
+        unidentifiable_edge = true,
+        data_residual = 0.003,
+        support_recall = 0.99,
+        function_disagree = true)
+    @test unique_claim_kpis_hold(with_q4)
+    src = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    body = _m3e_function_body_from_src(src, "unique_claim_kpis_hold")
+    @test occursin("unidentifiable_edge", body)
+    @test occursin("data_residual", body)
+    @test occursin("support_recall", body)
+    @test !occursin("function_disagree", body)
+    @test !occursin("assess_functional_identifiability", body)
+end
+
+@testset "T-E-M2HASH M2 lock IDs and Q4 surface stay" begin
+    holdout = read(joinpath(@__DIR__, "test_holdout.jl"), String)
+    recovery = read(joinpath(@__DIR__, "test_recovery_pipeline.jl"), String)
+    hard = read(joinpath(@__DIR__, "test_recovery_hard.jl"), String)
+    corpus = holdout * "\n" * recovery * "\n" * hard
+    for id in (
+            "L-SPLIT-ID", "L-SET-INTACT", "L-FIT-A", "L-FIT-B", "L-RNG",
+            "L-DOM-A", "L-DOM-B", "L-D-OCC", "L-OVERFIT", "L-RES-HOLD",
+            "L-RES-LEGACY", "L-DISC-A", "L-DISC-B-1", "L-DISC-B-2",
+            "L-DISC-B-3", "L-EARLY", "L-GATE", "L-SITE", "L-API", "M2-G1",
+            "M2-G2")
+        @test occursin(id, corpus)
+    end
+    @test occursin("no M3 or M4 fields", holdout)
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+        holdout)
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+        recovery)
+    @test !occursin(
+        "!isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)", corpus)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :function_disagree ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+end

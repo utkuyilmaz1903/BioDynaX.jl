@@ -930,4 +930,6 @@ using BioDynaX:
     format_q3_q4_side_by_side,
     with_fit_unknown_destruction_entry_observer,
     with_sample_unknown_destruction_result_observer,
-    with_predict_ude_observer
+    with_predict_ude_observer,
+    with_assess_functional_identifiability_observer,
+    ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER

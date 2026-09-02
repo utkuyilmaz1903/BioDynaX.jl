@@ -6,6 +6,7 @@
 # M3-B: five independent restart fits on split.train.
 # M3-C: live pairwise assembly and derived diagnostic flags / status.
 # M3-D: internal diagnostic reporting; not a unique-claim stdout block.
+# M3-E: live assess-path binding; not a second recovery pipeline.
 ###############################################################################
 
 """
@@ -480,6 +481,42 @@ function train_functional_identifiability_restarts(
         raw)
 end
 
+const ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER = Ref{Any}(nothing)
+
+function _note_assess_functional_identifiability(
+        split, ude_net; restart_seeds, family, adam, bfgs, frozen_phys,
+        phys_init, fill_value)
+    observer = ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER[]
+    observer === nothing && return nothing
+    observer((;
+        split,
+        ude_net,
+        restart_seeds,
+        family,
+        adam,
+        bfgs,
+        frozen_phys,
+        phys_init,
+        fill_value))
+    return nothing
+end
+
+"""
+    with_assess_functional_identifiability_observer(f, observer)
+
+Test seam for the live `assess_functional_identifiability` entry. The
+observer does not swallow training and is not a constructor substitute.
+"""
+function with_assess_functional_identifiability_observer(f::Function, observer)
+    previous = ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER[]
+    ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER[] = previous
+    end
+end
+
 # -- M3-C diagnostic assembly -------------------------------------------------
 
 """
@@ -804,6 +841,10 @@ function assess_functional_identifiability(
         frozen_phys = FUNCTIONAL_ID_TRAINING_CONFIG.frozen_phys,
         phys_init = FUNCTIONAL_ID_TRAINING_CONFIG.phys_init,
         fill_value::Real = 0.3)
+    _note_assess_functional_identifiability(split, ude_net;
+        restart_seeds = restart_seeds, family = family, adam = adam,
+        bfgs = bfgs, frozen_phys = frozen_phys, phys_init = phys_init,
+        fill_value = fill_value)
     trained = train_functional_identifiability_restarts(
         split, ude_net;
         restart_seeds = restart_seeds,
