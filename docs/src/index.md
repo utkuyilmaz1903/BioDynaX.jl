@@ -13,11 +13,12 @@ series on this protocol.
 The authoritative scientific contract for what the code implements today is
 the [v1.0 scientific contract](design/v1_contract.md)
 (\(\dot u_i = P_i - D_i u_i\); Q1–Q7 kept conceptually separate; Q4
-not implemented; Q7 is reported held-out generalization evidence, not
-an additional success gate). Nine ICs are generated once; ICs 1–7 are
-used for training and ICs 8–9 are held out. M3 (practical functional
-identifiability) and M4 (robustness / trajectory-context validation)
-are pending future work; neither is implemented.
+is a practical functional-identifiability diagnostic, not a gate and
+not a formal identifiability certificate; Q7 is reported held-out
+generalization evidence, not an additional success gate). Nine ICs
+are generated once; ICs 1–7 are used for training and ICs 8–9 are
+held out. M4 (robustness / trajectory-context validation) remains
+pending future work.
 
 ```@contents
 Pages = ["tutorial.md", "howto.md", "unique-claim.md",

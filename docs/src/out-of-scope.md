@@ -44,7 +44,8 @@ See [v1.0 scientific contract](design/v1_contract.md). These remain
 unsupported:
 
 - structural identifiability certificates
-- functional identifiability (Q4 remains not implemented)
+- Q4 as a success gate or formal identifiability certificate
+- public functional-identifiability API
 - trajectory-occupancy discovery
 - arbitrary OOD regimes
 - unknown topology discovery
@@ -60,17 +61,17 @@ unsupported:
 - GPU training stack
 - broad SBML kinetic parsing
 
-Q4 (practical functional-identifiability diagnostic) remains not
-implemented. Q7 is reported held-out generalization evidence, not an
-additional success gate. It is not a success gate, not a
-model-selection gate, and not a mechanism-identifiability certificate.
+Q4 is implemented as a practical functional-identifiability diagnostic,
+not a gate. It is not a structural identifiability certificate. Q7 is
+reported held-out generalization evidence, not an additional success
+gate. It is not a success gate, not a model-selection gate, and not a
+mechanism-identifiability certificate.
 
 ## Next milestones (not implemented)
 
-- M3 — Practical Functional Identifiability (pending / future work)
 - M4 — Robustness / Trajectory-Context Validation (pending / future work)
 
-These are future milestones, not present capabilities.
+This is a future milestone, not a present capability.
 
 Current Q1 is a hybrid residual versus observed data on the training
 IC[1], plus separate train/holdout aggregates. Current Q2 is a partial

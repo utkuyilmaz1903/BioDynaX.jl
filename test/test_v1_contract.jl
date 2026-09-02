@@ -39,9 +39,13 @@ end
     q7_at = findfirst("### Q7", text)
     @test q4_at !== nothing
     @test q7_at !== nothing
-    q4_body = text[first(q4_at):min(lastindex(text), first(q4_at) + 800)]
+    q4_body = text[first(q4_at):min(lastindex(text), first(q4_at) + 2000)]
     q7_body = text[first(q7_at):min(lastindex(text), first(q7_at) + 900)]
-    @test occursin("not implemented", lowercase(q4_body))
+    @test occursin("implemented as a practical diagnostic, not a gate",
+        lowercase(q4_body))
+    @test occursin("q4 is not a formal identifiability certificate.",
+        lowercase(q4_body))
+    @test !occursin("not implemented", lowercase(q4_body))
     @test occursin("reported held-out generalization evidence", lowercase(q7_body))
     @test occursin("not an additional success gate", lowercase(q7_body))
     @test !occursin("not implemented", lowercase(q7_body))
@@ -107,7 +111,7 @@ end
     @test result.unidentifiable_edge
 end
 
-@testset "Q4 and Q7 have no implemented objects on existing types" begin
+@testset "Q4 is not attached to existing unique-claim types; Q7 does not mutate ExperimentSet" begin
     report_fields = fieldnames(BioDynaX.IdentifiabilityReport)
     @test :fisher_information in report_fields
     @test :condition_number in report_fields
@@ -117,6 +121,114 @@ end
     @test !hasfield(ExperimentSet, :holdout)
     @test !hasfield(ExperimentSet, :train)
     @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
+end
+
+@testset "T-H-CERT contract names a practical diagnostic, not a certificate" begin
+    path = joinpath(pkgdir(BioDynaX), "docs", "src", "design", "v1_contract.md")
+    text = read(path, String)
+    @test occursin("Q4 is not a formal identifiability certificate.", text)
+    @test occursin("implemented as a practical diagnostic, not a gate", text)
+    @test occursin("not a structural identifiability certificate", lowercase(text)) ||
+          occursin("not a formal identifiability certificate", text)
+    @test occursin("Do not call a Q4", text)
+    @test occursin("functionally identifiable", text)
+    warn_at = findfirst("Do not call a Q4", text)
+    @test warn_at !== nothing
+    warning = lowercase(text[first(warn_at):min(lastindex(text),
+        first(warn_at) + 160)])
+    @test occursin("functionally identifiable", warning)
+    q4_at = findfirst("### Q4", text)
+    q4_body = text[first(q4_at):min(lastindex(text), first(q4_at) + 2000)]
+    @test !occursin("Q4 remains not implemented", q4_body)
+    @test !occursin("When implemented", q4_body)
+    @test occursin("(201, 202, 203, 204, 205)", q4_body)
+end
+
+@testset "T-H-GATE Q4 is not a hold conjunct and not a success gate" begin
+    path = joinpath(pkgdir(BioDynaX), "docs", "src", "design", "v1_contract.md")
+    text = read(path, String)
+    @test occursin("not a success gate", lowercase(text))
+    @test occursin("implemented as a practical diagnostic, not a gate", text)
+    @test occursin("The hold is not Q2 uniqueness, not Q4, not Q7", text)
+    @test occursin("not an input to `unique_claim_kpis_hold`", text)
+    @test UNIQUE_CLAIM_KPI_FIELDS ==
+          (:unidentifiable_edge, :data_residual, :support_recall)
+    @test :function_disagree ∉ UNIQUE_CLAIM_KPI_FIELDS
+    @test :status ∉ UNIQUE_CLAIM_KPI_FIELDS
+    hold = locked_ude_kpis((;
+        data_residual = 0.003,
+        support_recall = 1.0,
+        identifiability = (; unidentifiable_edge = true)))
+    @test unique_claim_kpis_hold(hold)
+    with_q4 = locked_ude_kpis((;
+        data_residual = 0.003,
+        support_recall = 1.0,
+        identifiability = (; unidentifiable_edge = true),
+        extras = (; function_disagree = true, status = :function_agree)))
+    @test unique_claim_kpis_hold(with_q4)
+    miss_q3 = locked_ude_kpis((;
+        data_residual = 0.003,
+        support_recall = 1.0,
+        identifiability = (; unidentifiable_edge = false),
+        extras = (; function_disagree = false)))
+    @test unique_claim_kpis_hold(miss_q3) == false
+    src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
+    start = findfirst("function unique_claim_kpis_hold", src)
+    @test start !== nothing
+    body = src[first(start):min(lastindex(src), first(start) + 800)]
+    @test occursin("unidentifiable_edge", body)
+    @test occursin("data_residual", body)
+    @test occursin("support_recall", body)
+    @test !occursin("function_disagree", body)
+    @test !occursin("assess_functional_identifiability", body)
+end
+
+@testset "T-H-M2 Q4 is not a MechanismRecoveryResult field" begin
+    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :function_disagree ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :independently_trained_D ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :split in fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :holdout in fieldnames(BioDynaX.MechanismRecoveryResult)
+end
+
+@testset "T-H-NAMES Q4 types stay unexported" begin
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :assess_functional_identifiability ∉ names(BioDynaX)
+    @test :FUNCTIONAL_ID_RESTART_SEEDS ∉ names(BioDynaX)
+    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(BioDynaX)
+    holdout = read(joinpath(pkgdir(BioDynaX), "test", "test_holdout.jl"), String)
+    pipeline = read(joinpath(pkgdir(BioDynaX), "test",
+        "test_recovery_pipeline.jl"), String)
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+        holdout)
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+        pipeline)
+    @test !occursin(
+        "!isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)", holdout)
+    @test !occursin(
+        "!isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)", pipeline)
+    @test public_export_list_holds()
+    @test BioDynaX.FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
+    @test BioDynaX.FUNCTIONAL_ID_REPORTING_CUTOFFS === (
+        min_successful_restarts = 3,
+        n_attempted_restarts = 5,
+        traj_agree_rel_rmse = 0.05,
+        d_disagree_scale_norm_rel_rmse = 0.20)
+    @test recovery_thresholds_hold()
+end
+
+@testset "T-H-Q7 remains reported, not a gate, and not unimplemented" begin
+    path = joinpath(pkgdir(BioDynaX), "docs", "src", "design", "v1_contract.md")
+    text = read(path, String)
+    q7_at = findfirst("### Q7", text)
+    @test q7_at !== nothing
+    q7_body = text[first(q7_at):min(lastindex(text), first(q7_at) + 1200)]
+    @test occursin("**Reported, not a gate.**", q7_body)
+    @test occursin("reported held-out generalization evidence", lowercase(q7_body))
+    @test occursin("not an additional success gate", lowercase(q7_body))
+    @test !occursin("not implemented", lowercase(q7_body))
+    @test occursin("Q7 is reported held-out generalization evidence, not an additional success gate.",
+        text)
 end
 
 @testset "contract lists closed claims without claiming them as product" begin
@@ -165,6 +277,16 @@ end
           occursin("is not the v1.0 product", architecture)
     @test !occursin("The scientific claim stays recall + residual", stability)
     @test occursin("not mechanistic recovery", lowercase(readme))
+    for landing in (readme, unique_page, architecture, scope, index, stability)
+        @test occursin("practical", lowercase(landing))
+        @test occursin("not a gate", lowercase(landing)) ||
+              occursin("not a success gate", lowercase(landing))
+        @test occursin("certificate", lowercase(landing))
+        @test !occursin("q4 remains not implemented", lowercase(landing))
+        @test !occursin("m3 pending", lowercase(landing))
+        @test !occursin("m3 (practical functional identifiability) and m4",
+            lowercase(landing))
+    end
     @test recovery_thresholds_hold()
     @test public_export_list_holds()
     @test RECOVERY_THRESHOLDS.data_residual == 0.30

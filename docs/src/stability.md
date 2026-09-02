@@ -62,11 +62,12 @@ silently add holdout to the M1 success gate.
 
 A holdout residual greater than 0.30 does not fail the M1 hold. Q7 is
 reported held-out generalization evidence, not an additional success
-gate. Q4 remains not implemented.
+gate. Q4 is implemented as a practical functional-identifiability
+diagnostic, not a gate and not a structural identifiability certificate.
+It is not an input to the unique-claim hold.
 
 **Next milestones (pending / future work, not implemented)**
 
-- M3 — Practical Functional Identifiability
 - M4 — Robustness / Trajectory-Context Validation
 
 ## JOSS / register (maintainer gate, not this work)

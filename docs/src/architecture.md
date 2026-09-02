@@ -107,8 +107,9 @@ The gated Q1 number remains the hybrid residual on the current
 reference IC (`first(experiments)` / training IC[1]). M2 reports
 separate arithmetic-mean train (ICs 1..7) and holdout (ICs 8, 9)
 residuals and neural \(D\) holdout error. Those Q7 numbers are
-reported evidence, not an additional success gate. Q4 remains not
-implemented. The original `ExperimentSet` is not mutated.
+reported evidence, not an additional success gate. Q4 is a practical
+functional-identifiability diagnostic, not a gate and not a formal
+identifiability certificate. The original `ExperimentSet` is not mutated.
 
 The SciML solve surface agrees `ude_system`, `ODEFunction`,
 `ODEProblem`, `remake`, inplace cache, `SciMLBase.solve`, and

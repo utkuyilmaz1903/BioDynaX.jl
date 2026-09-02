@@ -1,19 +1,26 @@
 # BioDynaX.jl Unreleased
 
+- Milestone 3 closes as a practical functional-identifiability
+  diagnostic (Q4): independently trained \(\hat D_i(z)\) on locked
+  restart seeds (201, 202, 203, 204, 205). Q4 is not a success gate,
+  not a structural identifiability certificate, and not an input to
+  `unique_claim_kpis_hold`. The hold remains Q3 + Q1 + Q5. The
+  five-restart research script is not a PR gate. This is not a v1.0
+  release. M4 remains pending future work.
 - Milestone 2 held-out validation is documented as implemented: true
   7/2 split, train-only fitting and discovery domain, actual neural
   \(D\) holdout metrics, and Q7 reporting. Q7 is reported held-out
   generalization evidence, not an additional success gate. Holdout is
-  not a new 0.30 gate. Q4 remains not implemented. This is not a v1.0
-  release. M3 and M4 remain pending future work.
+  not a new 0.30 gate. At that M2 close, Q4 was not yet implemented.
+  This is not a v1.0 release.
 - v1.0 scientific contract: `docs/src/design/v1_contract.md` records the
   implemented \(P-D\cdot u\) form, keeps Q1–Q7 conceptually separate,
   and writes the current unique-claim hold as Q3 practical warning + Q1
   training-IC residual + Q5 support recall. At M0, Q4 and Q7 were not
   implemented. M2 subsequently introduced reported Q7 held-out
-  evidence; Q7 remains non-gating. Q4 remains not implemented.
-  Unique-claim gates, `RECOVERY_THRESHOLDS`, and the public export list
-  are unchanged.
+  evidence; Q7 remains non-gating. M3 later added Q4 as a practical
+  diagnostic, not a gate. Unique-claim gates, `RECOVERY_THRESHOLDS`,
+  and the public export list are unchanged.
 - Aqua / SciML standards bar: `test/quality.jl` turns on the previously
   skipped Aqua checks (they pass on this tree). `standards` CI runs
   `test/run_standards.jl` (export docstrings, JET on `train_ude` /

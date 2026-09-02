@@ -33,6 +33,8 @@ In scope for the unique-claim workflow:
 - a nonnegative learned destruction rate
 - multi-experiment **training** on unique-claim ICs 1..7
 - practical identifiability diagnostics (Q3)
+- a practical functional-identifiability diagnostic (Q4; not a gate
+  and not a certificate)
 - mechanistic recovery diagnostics on a train-derived regulator grid
   (Q2, partial)
 - symbolic support recovery (Q5)
@@ -56,16 +58,16 @@ Trajectory fit is not proof of mechanism recovery.
 
 The contract distinguishes these questions. That is not a claim that the
 implementation already supplies the full operational Q1/Q2/Q4/Q7
-separation. Q4 remains not implemented. Q7 is reported held-out
-generalization evidence, not an additional success gate. Do not read
-the table as a functional-identifiability certificate.
+separation. Q4 is implemented as a practical diagnostic, not a gate.
+Q7 is reported held-out generalization evidence, not an additional success
+gate. Do not read the table as a functional-identifiability certificate.
 
 | Id | Question | What it measures | Status |
 |----|----------|------------------|--------|
 | Q1 | Predictive fit | Hybrid residual of `compose_hybrid_rhs` versus **observations** | `implemented (training IC[1] residual + separate train/holdout evidence)` |
 | Q2 | Mechanism function recovery | \(\hat D(z)\) versus \(D_{\mathrm{true}}(z)\) | `partial (regulator-grid D error + reported holdout D error)` |
 | Q3 | Scale / parameter practical identifiability | Local Fisher / \(k_{\mathrm{prod}}\leftrightarrow D\) Jacobian cosine | `implemented as practical warning` |
-| Q4 | Practical functional-identifiability diagnostic | Agreement of independently trained \(\hat D_i(z)\) versus trajectory agreement | `not implemented` |
+| Q4 | Practical functional-identifiability diagnostic | Agreement of independently trained \(\hat D_i(z)\) versus trajectory agreement | `implemented as a practical diagnostic, not a gate` |
 | Q5 | Symbolic support recovery | True-monomial recall; combined F1 as skeleton | `implemented as symbolic support` |
 | Q6 | Biological / numerical constraints | \(D\geq 0\), \(P-D\cdot u\) at the axis, denominator sign checks | `partial (architectural, not a theorem)` |
 | Q7 | Held-out generalization | Unseen ICs 8,9 and a train-derived external \(r\) band | `reported, not a gate` |
@@ -152,13 +154,24 @@ and not proof of mechanism recovery.
 
 ### Q4 Practical functional-identifiability diagnostic
 
-**Not implemented.** There is no comparison of independently trained
-\(\hat D_1,\ldots,\hat D_m\) on a shared domain. `IdentifiabilityReport`
-is parameter-only Fisher information.
+**Implemented as a practical diagnostic, not a gate.** The unexported
+`assess_functional_identifiability` path compares independently trained
+\(\hat D_i(z)\) on a shared observed train-then-holdout domain across
+five locked restart seeds `(201, 202, 203, 204, 205)`. It reports every
+restart (including failures), every pair, scale-normalized \(D\)
+disagreement, trajectory agreement, and a derived status. The result
+is not collapsed to a median. `IdentifiabilityReport` remains
+parameter-only Fisher information and is not Q4.
 
-Q4 is not a formal identifiability certificate. Do not call a future Q4
-object “functionally identifiable” or a structural certificate. When
-implemented, it will be a practical diagnostic.
+Q4 is not a formal identifiability certificate. Do not call a Q4
+object “functionally identifiable” or a structural certificate. Q4 is
+not a success gate and is not an input to `unique_claim_kpis_hold`.
+The hold remains Q3 + Q1 residual + Q5 recall. Q3 remains a separate
+scale/parameter practical warning.
+
+Occupancy-based discovery and graph-local trained-\(D\) experiments
+remain M4 / future work. The five-restart research script is not a
+PR gate.
 
 ### Q5 Symbolic support recovery
 
@@ -251,8 +264,8 @@ The following remain unsupported. Naming them here does not implement
 them.
 
 - structural identifiability certificates
-- practical functional identifiability (Q4 remains not implemented)
-- M3 — Practical Functional Identifiability (pending / future work; not implemented)
+- Q4 as a success gate or formal identifiability certificate
+- public functional-identifiability API
 - M4 — Robustness / Trajectory-Context Validation (pending / future work; not implemented)
 - trajectory-occupancy discovery
 - arbitrary OOD regimes

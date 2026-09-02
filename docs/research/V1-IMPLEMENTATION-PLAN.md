@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: m3-functional-id
     content: "M3: LIVE-path assess sözleşmesi; p0+params→D; holdout inclusion/HP sentinel; derive-live A/B/C; X bağ; zero-live; walk; assess CALL; M2 hash"
-    status: pending
+    status: completed
   - id: m4-robustness
     content: "M4: yörünge-örnekli D, eğitilmiş-UDE graph-local, çok tohum artifact (her PR’da N×40 dk yok)"
     status: pending
@@ -3851,6 +3851,14 @@ değildir.
 ---
 
 ## Milestone 3 — Pratik fonksiyonel identifiability (P2)
+
+**Durum (M3-H sonrası): completed.** M3-A…M3-H uygulanmıştır. Q4
+pratik fonksiyonel-identifiability tanısıdır; kapı değildir;
+yapısal identifiability sertifikası değildir. Hold hâlâ Q3+Q1+Q5.
+Public export yoktur. Beş-restart araştırma script’i PR kapısı
+değildir. M4 occupancy / graph-local eğitilmiş \(D\) future
+work’tür. Aşağıdaki LIVE-path sözleşmesi durur; H yeni bilimsel
+yol açmaz.
 
 Uygulama kilidi:
 [docs/research/M3-FUNCTIONAL-IDENTIFIABILITY-PLAN.md](docs/research/M3-FUNCTIONAL-IDENTIFIABILITY-PLAN.md).

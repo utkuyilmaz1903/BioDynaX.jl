@@ -7,24 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Close Milestone 3 as a practical functional-identifiability
+  diagnostic (Q4): independently trained \(\hat D_i(z)\) on locked
+  restart seeds (201, 202, 203, 204, 205). Q4 is not a success gate,
+  not a structural identifiability certificate, and not an input to
+  `unique_claim_kpis_hold`. The hold remains Q3 + Q1 + Q5. The
+  five-restart research script is not a PR gate. This is not v1.0.
+  M4 (robustness / trajectory-context validation) remains future work.
 - Complete Milestone 2 held-out validation documentation: unique-claim
   generates nine experiments once, fits ICs 1..7 only, derives the
   discovery domain from train only, and reports neural-\(D\) holdout
   residual / \(D\) error on ICs 8 and 9. Q7 is reported held-out
   generalization evidence, not an additional success gate. The existing
-  M1 0.30 residual gate is not copied to holdout. Q4 functional
-  identifiability remains not implemented. Package version stays a
-  0.9.2 research preview; this is not v1.0. M3 (practical functional
-  identifiability) and M4 (robustness / trajectory-context validation)
-  remain pending future work.
+  M1 0.30 residual gate is not copied to holdout. At that M2 close,
+  Q4 functional identifiability was not yet implemented. Package
+  version stays a 0.9.2 research preview; this is not v1.0.
 - Document the implemented v1.0 scientific contract
   (`docs/src/design/v1_contract.md`): compiled \(P-D\cdot u\), Q1–Q7
   kept conceptually separate, current unique-claim hold written as Q3
   practical warning + Q1 training-IC residual + Q5 support recall.
   At M0, Q4 and Q7 were not implemented. M2 subsequently introduced
-  reported Q7 held-out evidence; Q7 remains non-gating. Q4 remains not
-  implemented. Unique-claim gates, `RECOVERY_THRESHOLDS`, and the
-  export list are unchanged.
+  reported Q7 held-out evidence; Q7 remains non-gating. M3 later added
+  Q4 as a practical diagnostic, not a gate. Unique-claim gates,
+  `RECOVERY_THRESHOLDS`, and the export list are unchanged.
 - Raise Aqua in `test/quality.jl` to the default `test_all` surface
   (ambiguities, unbound_args, persistent_tasks, piracies without
   `treat_as_own`, undocumented_names). Those checks currently pass on
