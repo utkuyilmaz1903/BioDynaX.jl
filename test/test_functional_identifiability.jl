@@ -241,9 +241,7 @@ end
         "_regulator_grid",
         "_unique_claim_external_regulator_band",
         "range(0.05, 2.0",
-        "range(0.0, 1.0",
-        "format_functional_identifiability_diagnostic",
-        "format_q3_q4_side_by_side")
+        "range(0.0, 1.0")
     for token in forbidden
         @test !occursin(token, src)
     end
@@ -1144,4 +1142,421 @@ end
         @test restart.training_retcode === BioDynaX.NotConverged
         @test restart.included
     end
+end
+
+const _M3D_REQUIRED_PHRASES = (
+    "practical functional diagnostic",
+    "not a structural identifiability certificate",
+    "not a unique-claim gate")
+
+const _M3D_FORBIDDEN_PHRASES = (
+    "functionally identifiable",
+    "structurally identifiable",
+    "Bayesian credible",
+    "Q4 gate",
+    "certified",
+    "verified",
+    "success gate",
+    "passed",
+    "credible interval",
+    "credible level")
+
+function _m3d_function_body(src, signature)
+    start = findfirst(signature, src)
+    start === nothing && return ""
+    rest = src[first(start):end]
+    nxt = findnext(r"\nfunction ", rest, 2)
+    return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
+end
+
+function _m3d_q3_q4_sections(text)
+    marker = "Q4 PRACTICAL FUNCTIONAL DIAGNOSTIC"
+    idx = findfirst(marker, text)
+    idx === nothing && return text, ""
+    return text[1:(first(idx) - 1)], text[first(idx):end]
+end
+
+function _m3d_assert_required_and_forbidden(text)
+    for phrase in _M3D_REQUIRED_PHRASES
+        @test occursin(phrase, text)
+    end
+    for phrase in _M3D_FORBIDDEN_PHRASES
+        @test !occursin(phrase, text)
+    end
+end
+
+function _m3d_assert_diag_rows(text, diag)
+    @test count("seed_i=", text) == length(diag.pairs)
+    failed = [restart for restart in diag.restarts if !restart.included]
+    @test count("included=false", text) == length(failed)
+    for pair in diag.pairs
+        @test occursin("seed_i=$(pair.seed_i)", text)
+        @test occursin("seed_j=$(pair.seed_j)", text)
+        @test occursin(
+            "d_rmse_scale_normalized=$(pair.d_rmse_scale_normalized)", text)
+        @test occursin("traj_rmse_train=$(pair.traj_rmse_train)", text)
+        @test occursin("traj_rmse_holdout=$(pair.traj_rmse_holdout)", text)
+        @test occursin("d_rmse_raw=$(pair.d_rmse_raw)", text)
+        @test occursin("d_correlation=$(pair.d_correlation)", text)
+        @test occursin("scale_alpha=$(pair.scale_alpha)", text)
+    end
+    for restart in diag.restarts
+        @test occursin("seed=$(restart.seed)", text)
+        @test occursin("included=$(restart.included)", text)
+        @test occursin("failure_reason=$(restart.failure_reason)", text)
+        if !restart.included
+            @test restart.included === false
+            @test !isempty(restart.message)
+            @test occursin(
+                "seed=$(restart.seed) included=false", text)
+            @test occursin(restart.message, text)
+        end
+    end
+    @test occursin("status: $(diag.status)", text)
+    @test occursin("complete: $(diag.complete)", text)
+    @test occursin(
+        "median_d_rmse_scale_normalized: $(diag.median_d_rmse_scale_normalized)",
+        text)
+    @test occursin("median_traj_rmse_train: $(diag.median_traj_rmse_train)",
+        text)
+end
+
+function _m3d_distinctive_pairs()
+    seeds = collect(Int, FUNCTIONAL_ID_RESTART_SEEDS)
+    pairs = FunctionalIdentifiabilityPair[]
+    k = 0
+    for i in 1:(length(seeds) - 1)
+        for j in (i + 1):length(seeds)
+            k += 1
+            push!(pairs, FunctionalIdentifiabilityPair(
+                seeds[i], seeds[j],
+                0.02 * k, 0.01 * k + 0.001 * i, 0.5 + 0.01 * k,
+                1.0 + 0.1 * k, 0.003 * k, 0.004 * k))
+        end
+    end
+    return pairs
+end
+
+function _m3d_outlier_pairs()
+    seeds = collect(Int, FUNCTIONAL_ID_RESTART_SEEDS)
+    pairs = FunctionalIdentifiabilityPair[]
+    k = 0
+    for i in 1:(length(seeds) - 1)
+        for j in (i + 1):length(seeds)
+            k += 1
+            d_scale = k == 1 ? 0.91 : 0.21
+            push!(pairs, FunctionalIdentifiabilityPair(
+                seeds[i], seeds[j], 0.21, d_scale, 1.0, 1.0, 0.01, 0.01))
+        end
+    end
+    return pairs
+end
+
+function _m3d_status_diagnostics()
+    domain = functional_identifiability_domain(_m3a_sentinel_split(), 2)
+    included5 = _m3c_restarts((true, true, true, true, true))
+    included2 = _m3c_restarts((true, true, false, false, false))
+    return (
+        incomplete = assemble_functional_identifiability_diagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included2,
+            _m3c_constant_pairs((201, 202), 0.25, 0.01)),
+        traj_disagree = assemble_functional_identifiability_diagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
+            _m3c_constant_pairs(201:205, 0.25, 0.20)),
+        scale_ambiguity = assemble_functional_identifiability_diagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
+            _m3c_constant_pairs(201:205, 0.05, 0.01; d_raw = 0.40)),
+        function_agree = assemble_functional_identifiability_diagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
+            _m3c_constant_pairs(201:205, 0.10, 0.01)),
+        trajectory_agree_function_disagree = assemble_functional_identifiability_diagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
+            _m3c_constant_pairs(201:205, 0.25, 0.01)))
+end
+
+@testset "T-D-SRC formatters stay internal and off the M2 surface" begin
+    @test isdefined(BioDynaX, :format_functional_identifiability_diagnostic)
+    @test isdefined(BioDynaX, :format_q3_q4_side_by_side)
+    @test :format_functional_identifiability_diagnostic ∉ names(BioDynaX)
+    @test :format_q3_q4_side_by_side ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test public_export_list_holds()
+    @test recovery_thresholds_hold()
+    @test LOCKED_PUBLIC_EXPORTS === BioDynaX.LOCKED_PUBLIC_EXPORTS
+    fi = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+        String)
+    rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
+    pipe = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
+    uc = read(joinpath(@__DIR__, "..", "src", "UniqueClaim.jl"), String)
+    @test occursin("function format_functional_identifiability_diagnostic", fi)
+    @test occursin("function format_q3_q4_side_by_side", fi)
+    for src in (rec, pipe, uc)
+        @test !occursin("format_functional_identifiability_diagnostic", src)
+        @test !occursin("format_q3_q4_side_by_side", src)
+        @test !occursin("assess_functional_identifiability", src)
+    end
+    fmt_body = _m3d_function_body(rec, "function format_protocol_result(ident;")
+    rep_body = _m3d_function_body(pipe, "function report_recovery(evaled, ident;")
+    hold_body = _m3d_function_body(rec, "function unique_claim_kpis_hold(kpis)")
+    @test !isempty(fmt_body)
+    @test !isempty(rep_body)
+    @test !isempty(hold_body)
+    @test !occursin("format_functional", fmt_body)
+    @test !occursin("format_q3_q4", fmt_body)
+    @test !occursin("assess_functional", fmt_body)
+    @test !occursin("format_functional", rep_body)
+    @test !occursin("format_q3_q4", rep_body)
+    @test !occursin("assess_functional", rep_body)
+    @test !occursin("function_disagree", hold_body)
+    @test !occursin("assess_functional", hold_body)
+    q4_body = _m3d_function_body(fi,
+        "function format_functional_identifiability_diagnostic")
+    pair_body = _m3d_function_body(fi, "function _format_functional_id_pair_row")
+    @test occursin("diag.pairs", q4_body)
+    @test occursin("diag.restarts", q4_body)
+    @test !occursin("pairwise_destruction_metrics", q4_body)
+    @test !occursin("pairwise_trajectory_metrics", q4_body)
+    @test !occursin("assemble_functional_identifiability_diagnostic", q4_body)
+    @test !occursin("rate_rel_rmse", q4_body)
+    @test occursin("pair.d_rmse_scale_normalized", pair_body)
+    @test !occursin("pairwise_destruction_metrics", pair_body)
+    @test !occursin("unique_claim_kpis_hold", q4_body)
+    @test !occursin("RECOVERY_THRESHOLDS", q4_body)
+end
+
+@testset "T-D-ALL T-D-FAIL live assess rows stay visible" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    live = _m3c_run_assess(split, ude_net; throw_seeds = Int[203, 204, 205])
+    diag = live.result
+    @test diag.n_attempted == 5
+    @test diag.n_successful == 2
+    @test diag.n_failed == 3
+    @test length(diag.pairs) == 1
+    @test diag.status === :incomplete
+    text = format_functional_identifiability_diagnostic(diag)
+    _m3d_assert_required_and_forbidden(text)
+    _m3d_assert_diag_rows(text, diag)
+    for seed in FUNCTIONAL_ID_RESTART_SEEDS
+        @test occursin("seed=$seed", text)
+    end
+    failed = [restart for restart in diag.restarts if !restart.included]
+    @test length(failed) == 3
+    for restart in failed
+        @test restart.failure_reason === :fit_threw
+        @test occursin("included=false", text)
+        @test occursin(restart.message, text)
+        @test !isempty(restart.message)
+    end
+    pair = only(diag.pairs)
+    @test occursin("seed_i=$(pair.seed_i)", text)
+    @test occursin("seed_j=$(pair.seed_j)", text)
+end
+
+@testset "T-D-FIVE T-D-MUST T-D-BAN all five statuses" begin
+    diags = _m3d_status_diagnostics()
+    @test diags.incomplete.status === :incomplete
+    @test diags.traj_disagree.status === :traj_disagree
+    @test diags.scale_ambiguity.status === :scale_ambiguity
+    @test diags.function_agree.status === :function_agree
+    @test diags.trajectory_agree_function_disagree.status ===
+          :trajectory_agree_function_disagree
+    @test Set(diag.status for diag in values(diags)) ==
+          Set(FUNCTIONAL_ID_STATUS_VOCABULARY)
+    for (name, diag) in pairs(diags)
+        text = format_functional_identifiability_diagnostic(diag)
+        _m3d_assert_required_and_forbidden(text)
+        _m3d_assert_diag_rows(text, diag)
+        @test occursin("status: $(diag.status)", text)
+        @test name === diag.status
+    end
+end
+
+@testset "T-D-NOFILT formatter does not collapse pairs to the median" begin
+    domain = functional_identifiability_domain(_m3a_sentinel_split(), 2)
+    included5 = _m3c_restarts((true, true, true, true, true))
+    distinctive = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
+        _m3d_distinctive_pairs())
+    outlier = assemble_functional_identifiability_diagnostic(
+        :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
+        _m3d_outlier_pairs())
+    @test length(distinctive.pairs) == 10
+    @test any(pair -> pair.d_rmse_scale_normalized !=
+                      distinctive.median_d_rmse_scale_normalized,
+        distinctive.pairs)
+    text = format_functional_identifiability_diagnostic(distinctive)
+    _m3d_assert_diag_rows(text, distinctive)
+    @test count("seed_i=", text) == 10
+    @test count("median_d_rmse_scale_normalized:", text) == 1
+    outlier_text = format_functional_identifiability_diagnostic(outlier)
+    high = only(filter(pair -> pair.d_rmse_scale_normalized == 0.91,
+        outlier.pairs))
+    @test high.d_rmse_scale_normalized != outlier.median_d_rmse_scale_normalized
+    @test occursin(
+        "d_rmse_scale_normalized=$(high.d_rmse_scale_normalized)",
+        outlier_text)
+    @test occursin(
+        "median_d_rmse_scale_normalized: $(outlier.median_d_rmse_scale_normalized)",
+        outlier_text)
+    @test count("seed_i=", outlier_text) == 10
+end
+
+@testset "T-D-LIVE-METRIC formatter follows live pair metrics" begin
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    split = _m3a_sentinel_split()
+    D_near = [1.0, 2.0, 1.0, 3.0]
+    D_far = [1.0, 0.0, 1.0, 0.0]
+    expected_far = _m3a_independent_ls(D_near, D_far)
+    @test expected_far.d_rmse_scale_normalized >= 0.20
+    D_A = Dict(seed => D_near for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    D_B = Dict(
+        201 => D_near, 202 => D_far, 203 => D_near, 204 => D_far, 205 => D_near)
+    X_near = Dict(seed => 1.0 for seed in FUNCTIONAL_ID_RESTART_SEEDS)
+    live_a = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_A, X_value_by_seed = X_near)
+    live_b = _m3c_run_assess(split, ude_net;
+        D_by_seed = D_B, X_value_by_seed = X_near)
+    diag_a = live_a.result
+    diag_b = live_b.result
+    @test diag_a isa FunctionalIdentifiabilityDiagnostic
+    @test diag_b isa FunctionalIdentifiabilityDiagnostic
+    @test length(diag_a.pairs) == 10
+    @test length(diag_b.pairs) == 10
+    text_a = format_functional_identifiability_diagnostic(diag_a)
+    text_b = format_functional_identifiability_diagnostic(diag_b)
+    _m3d_assert_diag_rows(text_a, diag_a)
+    _m3d_assert_diag_rows(text_b, diag_b)
+    @test text_a != text_b
+    pair_a = only(filter(p -> p.seed_i == 201 && p.seed_j == 202, diag_a.pairs))
+    pair_b = only(filter(p -> p.seed_i == 201 && p.seed_j == 202, diag_b.pairs))
+    @test pair_a.d_rmse_scale_normalized != pair_b.d_rmse_scale_normalized
+    @test pair_b.d_rmse_scale_normalized == expected_far.d_rmse_scale_normalized
+    @test occursin(
+        "d_rmse_scale_normalized=$(pair_a.d_rmse_scale_normalized)", text_a)
+    @test occursin(
+        "d_rmse_scale_normalized=$(pair_b.d_rmse_scale_normalized)", text_b)
+    @test !occursin(
+        "d_rmse_scale_normalized=$(pair_b.d_rmse_scale_normalized)", text_a)
+    ident = (;
+        unidentifiable_edge = true,
+        production_param = :k_prod,
+        collinearity = 0.99,
+        condition_number = 1.0e7)
+    side_a = format_q3_q4_side_by_side(ident, diag_a)
+    side_b = format_q3_q4_side_by_side(ident, diag_b)
+    @test side_a != side_b
+    @test occursin(
+        "d_rmse_scale_normalized=$(pair_b.d_rmse_scale_normalized)", side_b)
+end
+
+@testset "T-D-Q3Q4 Q3 and Q4 stay separate" begin
+    diags = _m3d_status_diagnostics()
+    ident_true = (;
+        unidentifiable_edge = true,
+        production_param = :k_prod,
+        collinearity = 0.99,
+        condition_number = 1.0e7)
+    ident_false = (;
+        unidentifiable_edge = false,
+        production_param = :k_prod,
+        collinearity = 0.11,
+        condition_number = 10.0)
+    @test diags.function_agree.function_disagree === false
+    @test diags.trajectory_agree_function_disagree.function_disagree === true
+    cross = format_q3_q4_side_by_side(ident_true, diags.function_agree)
+    opposite = format_q3_q4_side_by_side(
+        ident_false, diags.trajectory_agree_function_disagree)
+    _m3d_assert_required_and_forbidden(cross)
+    _m3d_assert_required_and_forbidden(opposite)
+    q3_cross, q4_cross = _m3d_q3_q4_sections(cross)
+    q3_opp, q4_opp = _m3d_q3_q4_sections(opposite)
+    @test occursin("unidentifiable_edge: true", q3_cross)
+    @test occursin("practical scale warning", q3_cross)
+    @test occursin("asymptotic Fisher interval", q3_cross)
+    @test !occursin("function_disagree", q3_cross)
+    @test occursin("function_disagree: false", q4_cross)
+    @test !occursin("unidentifiable_edge", q4_cross)
+    @test occursin("unidentifiable_edge: false", q3_opp)
+    @test !occursin("function_disagree", q3_opp)
+    @test occursin("function_disagree: true", q4_opp)
+    @test !occursin("unidentifiable_edge", q4_opp)
+    for text in (cross, opposite)
+        @test !occursin("unidentifiable_edge => function_disagree", text)
+        @test !occursin("function_disagree => unidentifiable_edge", text)
+    end
+    minimal = format_q3_q4_side_by_side(
+        (; unidentifiable_edge = true), diags.incomplete)
+    q3_min, q4_min = _m3d_q3_q4_sections(minimal)
+    @test occursin("unidentifiable_edge: true", q3_min)
+    @test !occursin("function_disagree", q3_min)
+    @test occursin("status: incomplete", q4_min)
+end
+
+@testset "T-D-GATE formatter does not modify Q3/Q1/Q5 hold" begin
+    diags = _m3d_status_diagnostics()
+    hold_kpis = (;
+        unidentifiable_edge = true,
+        data_residual = 0.003,
+        support_recall = 0.99)
+    fail_edge = (;
+        unidentifiable_edge = false,
+        data_residual = 0.003,
+        support_recall = 0.99)
+    @test unique_claim_kpis_hold(hold_kpis)
+    @test !unique_claim_kpis_hold(fail_edge)
+    @test UNIQUE_CLAIM_KPI_FIELDS ===
+          (:unidentifiable_edge, :data_residual, :support_recall)
+    format_functional_identifiability_diagnostic(
+        diags.trajectory_agree_function_disagree)
+    format_q3_q4_side_by_side(
+        (; unidentifiable_edge = false, production_param = :k_prod,
+            collinearity = 0.11),
+        diags.function_agree)
+    @test unique_claim_kpis_hold(hold_kpis)
+    @test !unique_claim_kpis_hold(fail_edge)
+    @test UNIQUE_CLAIM_KPI_FIELDS ===
+          (:unidentifiable_edge, :data_residual, :support_recall)
+    @test recovery_thresholds_hold()
+    @test RECOVERY_THRESHOLDS.data_residual == 0.30
+    @test RECOVERY_THRESHOLDS.support_recall == 0.99
+end
+
+@testset "T-D-M2 M2 stdout and protocol fields stay unchanged" begin
+    ident = (;
+        unidentifiable_edge = true,
+        collinearity = 0.99,
+        production_param = :k_prod)
+    proto = format_protocol_result(ident; residual = 0.003)
+    @test startswith(proto, "IDENTIFIABILITY")
+    @test occursin("\nFIT\n", proto)
+    @test occursin("\nDISCOVERY\n", proto)
+    @test occursin("\nREPRODUCTION\n", proto)
+    @test format_protocol_result_field_order_holds(proto)
+    @test UNIQUE_CLAIM_PRODUCT_BLOCKS ===
+          (:IDENTIFIABILITY, :FIT, :DISCOVERY, :REPRODUCTION)
+    @test PROTOCOL_RESULT_FIELDS === (
+        :unknown_holes,
+        :unidentifiable_edge,
+        :coefficients_are_biological_constants,
+        :data_residual,
+        :support_recall,
+        :support_f1,
+        :extras,
+        :canonical_hill_from_nn,
+        :claim)
+    @test !occursin("practical functional diagnostic", proto)
+    @test !occursin("seed_i=", proto)
+    @test !occursin("function_disagree", proto)
+    @test !occursin("Q4 PRACTICAL FUNCTIONAL DIAGNOSTIC", proto)
+    diags = _m3d_status_diagnostics()
+    q4 = format_functional_identifiability_diagnostic(diags.function_agree)
+    side = format_q3_q4_side_by_side(ident, diags.function_agree)
+    proto2 = format_protocol_result(ident; residual = 0.003)
+    @test proto == proto2
+    @test q4 != proto
+    @test side != proto
+    @test !occursin("IDENTIFIABILITY", q4)
+    @test occursin("IDENTIFIABILITY", proto)
 end

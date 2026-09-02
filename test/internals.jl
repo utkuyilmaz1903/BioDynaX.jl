@@ -926,6 +926,8 @@ using BioDynaX:
     fit_functional_identifiability_restart,
     assemble_functional_identifiability_diagnostic,
     assess_functional_identifiability,
+    format_functional_identifiability_diagnostic,
+    format_q3_q4_side_by_side,
     with_fit_unknown_destruction_entry_observer,
     with_sample_unknown_destruction_result_observer,
     with_predict_ude_observer

@@ -5,6 +5,7 @@
 # destruction / trajectory metrics.
 # M3-B: five independent restart fits on split.train.
 # M3-C: live pairwise assembly and derived diagnostic flags / status.
+# M3-D: internal diagnostic reporting; not a unique-claim stdout block.
 ###############################################################################
 
 """
@@ -812,4 +813,114 @@ function assess_functional_identifiability(
         phys_init = phys_init,
         fill_value = fill_value)
     return assemble_functional_identifiability_diagnostic(family, trained)
+end
+
+# -- M3-D internal reporting --------------------------------------------------
+
+function _format_functional_id_restart_row(
+        restart::FunctionalIdentifiabilityRestart)
+    return string(
+        "  seed=", restart.seed,
+        " included=", restart.included,
+        " failure_reason=", restart.failure_reason,
+        " message=", restart.message)
+end
+
+function _format_functional_id_pair_row(pair::FunctionalIdentifiabilityPair)
+    return string(
+        "  seed_i=", pair.seed_i,
+        " seed_j=", pair.seed_j,
+        " d_rmse_raw=", pair.d_rmse_raw,
+        " d_rmse_scale_normalized=", pair.d_rmse_scale_normalized,
+        " d_correlation=", pair.d_correlation,
+        " scale_alpha=", pair.scale_alpha,
+        " traj_rmse_train=", pair.traj_rmse_train,
+        " traj_rmse_holdout=", pair.traj_rmse_holdout)
+end
+
+"""
+    format_functional_identifiability_diagnostic(diag) -> String
+
+Internal practical functional diagnostic report. Prints every restart and
+every stored pair from `diag`. Does not recompute pairwise metrics and is
+not a unique-claim gate.
+"""
+function format_functional_identifiability_diagnostic(
+        diag::FunctionalIdentifiabilityDiagnostic)
+    io = IOBuffer()
+    println(io, "PRACTICAL FUNCTIONAL DIAGNOSTIC")
+    println(io, "practical functional diagnostic")
+    println(io, "not a structural identifiability certificate")
+    println(io, "not a unique-claim gate")
+    println(io, "status: ", diag.status)
+    println(io, "complete: ", diag.complete)
+    println(io, "family: ", diag.family)
+    println(io, "restart_seeds: ", diag.restart_seeds)
+    println(io, "n_attempted: ", diag.n_attempted)
+    println(io, "n_successful: ", diag.n_successful)
+    println(io, "n_failed: ", diag.n_failed)
+    println(io, "practical_not_structural: ", diag.practical_not_structural)
+    println(io, "trajectory_agree: ", diag.trajectory_agree)
+    println(io, "function_disagree: ", diag.function_disagree)
+    println(io, "trajectory_agree_function_disagree: ",
+        diag.trajectory_agree_function_disagree)
+    println(io, "RESTARTS")
+    for restart in diag.restarts
+        println(io, _format_functional_id_restart_row(restart))
+    end
+    println(io, "PAIRS")
+    for pair in diag.pairs
+        println(io, _format_functional_id_pair_row(pair))
+    end
+    println(io, "MEDIANS")
+    println(io, "  median_d_rmse_raw: ", diag.median_d_rmse_raw)
+    println(io, "  median_d_rmse_scale_normalized: ",
+        diag.median_d_rmse_scale_normalized)
+    println(io, "  median_d_correlation: ", diag.median_d_correlation)
+    println(io, "  median_traj_rmse_train: ", diag.median_traj_rmse_train)
+    println(io, "  median_traj_rmse_holdout: ", diag.median_traj_rmse_holdout)
+    return String(take!(io))
+end
+
+function _format_q3_scale_warning(ident)
+    io = IOBuffer()
+    println(io, "Q3 PRACTICAL SCALE WARNING")
+    println(io, "  layer: Q3")
+    println(io, "  unidentifiable_edge: ", ident.unidentifiable_edge)
+    if hasproperty(ident, :production_param)
+        println(io, "  production_param: ", ident.production_param)
+    end
+    if hasproperty(ident, :collinearity)
+        println(io, "  collinearity: ", ident.collinearity)
+    end
+    if hasproperty(ident, :condition_number)
+        println(io, "  condition_number: ", ident.condition_number)
+    end
+    println(io, "  practical Fisher/Jacobian; k_prod-D collinearity")
+    println(io, "  practical scale warning; not a mechanism-success claim")
+    println(io, "  Q3 is not an asymptotic Fisher interval for D(z)")
+    if hasproperty(ident, :production_param) &&
+       hasproperty(ident, :collinearity)
+        println(io, "  ", format_production_destruction_warning(ident))
+    end
+    return String(take!(io))
+end
+
+"""
+    format_q3_q4_side_by_side(ident, diag) -> String
+
+Print the Q3 practical scale warning and the Q4 practical functional
+diagnostic as separate layers. Does not map `unidentifiable_edge` to
+`function_disagree` or the reverse.
+"""
+function format_q3_q4_side_by_side(
+        ident, diag::FunctionalIdentifiabilityDiagnostic)
+    hasproperty(ident, :unidentifiable_edge) || throw(ArgumentError(
+        "Q3 ident must expose unidentifiable_edge"))
+    return string(
+        _format_q3_scale_warning(ident),
+        "\n",
+        "Q4 PRACTICAL FUNCTIONAL DIAGNOSTIC\n",
+        "  layer: Q4\n",
+        format_functional_identifiability_diagnostic(diag))
 end
