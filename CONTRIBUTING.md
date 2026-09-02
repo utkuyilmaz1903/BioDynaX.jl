@@ -31,6 +31,8 @@ BFGS always refines the joint loss over the full set. Do not loosen
 
 Multi-seed UDE (`benchmark/recovery_seeds.jl --ude`) is a report, not a CI
 job. The red gate stays seed 103 / 104.
+`benchmark/functional_identifiability.jl` is a functional-identifiability
+research benchmark with five fixed restart seeds. It is not a PR gate.
 
 ## Docs, quality, benchmarks
 
@@ -44,6 +46,7 @@ julia --project=. benchmark/probe_datadriven.jl
 julia --project=. benchmark/allocation_gate.jl
 julia --project=. benchmark/recovery_seeds.jl
 julia --project=. benchmark/noise_grid.jl
+julia --project=. benchmark/functional_identifiability.jl
 ```
 
 Live docs: https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/

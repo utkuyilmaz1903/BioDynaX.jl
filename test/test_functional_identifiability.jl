@@ -2741,3 +2741,406 @@ end
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
+
+function _m3g_ast_call_count(src, name::Symbol)
+    text = strip(src)
+    isempty(text) && return 0
+    ex = try
+        Meta.parse("begin\n" * text * "\nend")
+    catch
+        return 0
+    end
+    n = Ref(0)
+    walk = nothing
+    walk = function (node)
+        if node isa Expr
+            if node.head === :call && !isempty(node.args)
+                callee = node.args[1]
+                if callee === name
+                    n[] += 1
+                elseif callee isa Expr && callee.head === :. &&
+                        length(callee.args) >= 2 &&
+                        callee.args[2] === QuoteNode(name)
+                    n[] += 1
+                end
+            end
+            for child in node.args
+                walk(child)
+            end
+        end
+        return nothing
+    end
+    walk(ex)
+    return n[]
+end
+
+function _m3g_call_kwargs(src, name::Symbol)
+    text = strip(src)
+    isempty(text) && return Dict{Symbol,Any}[]
+    ex = try
+        Meta.parse("begin\n" * text * "\nend")
+    catch
+        return Dict{Symbol,Any}[]
+    end
+    found = Dict{Symbol,Any}[]
+    walk = nothing
+    walk = function (node)
+        if node isa Expr
+            if node.head === :call && !isempty(node.args)
+                callee = node.args[1]
+                is_target = callee === name ||
+                    (callee isa Expr && callee.head === :. &&
+                     length(callee.args) >= 2 &&
+                     callee.args[2] === QuoteNode(name))
+                if is_target
+                    kwargs = Dict{Symbol,Any}()
+                    for arg in node.args[2:end]
+                        if arg isa Expr && arg.head === :kw &&
+                                length(arg.args) >= 2 && arg.args[1] isa Symbol
+                            kwargs[arg.args[1]] = arg.args[2]
+                        elseif arg isa Expr && arg.head === :parameters
+                            for p in arg.args
+                                if p isa Expr && p.head === :kw &&
+                                        length(p.args) >= 2 &&
+                                        p.args[1] isa Symbol
+                                    kwargs[p.args[1]] = p.args[2]
+                                elseif p isa Symbol
+                                    kwargs[p] = p
+                                end
+                            end
+                        end
+                    end
+                    push!(found, kwargs)
+                end
+            end
+            for child in node.args
+                walk(child)
+            end
+        end
+        return nothing
+    end
+    walk(ex)
+    return found
+end
+
+function _m3g_execute_benchmark_script(path; predict_throw_seed = nothing)
+    assess_n = Ref(0)
+    assess_entries = Any[]
+    fit_n = Ref(0)
+    ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
+    predict_throw_fp = predict_throw_seed === nothing ? nothing :
+        nn_parameter_fingerprint(_m3b_shift_params(
+            last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
+            predict_throw_seed).nn)
+    payload = nothing
+    if isfile(path)
+        payload = redirect_stdout(devnull) do
+            with_assess_functional_identifiability_observer(entry -> begin
+                    assess_n[] += 1
+                    push!(assess_entries, entry)
+                end) do
+                with_fit_unknown_destruction_observer(_ -> begin
+                        fit_n[] += 1
+                        seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
+                        _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                        return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+                    end) do
+                    with_predict_ude_observer(obs -> begin
+                            if predict_throw_fp !== nothing &&
+                                    nn_parameter_fingerprint(obs.params.nn) ==
+                                    predict_throw_fp
+                                error("injected predict failure for seed $(predict_throw_seed)")
+                            end
+                            return nothing
+                        end) do
+                        Base.include(Module(gensym("M3GBenchmarkExec")), path)
+                    end
+                end
+            end
+        end
+    end
+    result = nothing
+    consumed = nothing
+    if payload isa NamedTuple && haskey(payload, :diagnostic) &&
+            haskey(payload, :report)
+        result = payload.diagnostic
+        consumed = payload.report
+    elseif payload isa FunctionalIdentifiabilityDiagnostic
+        result = payload
+    end
+    return (;
+        assess_n = assess_n[],
+        assess_entries,
+        fit_n = fit_n[],
+        result,
+        consumed,
+        payload)
+end
+
+const _M3G_M4_SEEDS = (103, 107, 111, 113, 127)
+const _M3G_FORBIDDEN_PIPELINE = (
+    _M3E_FORBIDDEN_TARGETS...,
+    "consume_shared_suite_rng",
+    "FunctionalIdentifiabilityDiagnostic(")
+
+@testset "T-G-AST official script has a live assess Call" begin
+    official = _m3e_official_benchmark_path()
+    src = read(official, String)
+    @test isfile(official)
+    @test _m3e_ast_has_call(src, :assess_functional_identifiability)
+    @test _m3e_ast_has_call(src, :format_functional_identifiability_diagnostic)
+    @test _m3g_ast_call_count(src, :assess_functional_identifiability) == 1
+    @test _m3g_ast_call_count(src, :format_functional_identifiability_diagnostic) ==
+          1
+    @test !_m3e_ast_has_call(src, :FunctionalIdentifiabilityDiagnostic)
+    commented = join("# " .* Base.split(_m3e_normalize(src), '\n'), '\n')
+    @test occursin("assess_functional_identifiability", commented)
+    @test !_m3e_ast_has_call(commented, :assess_functional_identifiability)
+    @test _m3g_ast_call_count(commented, :assess_functional_identifiability) == 0
+end
+
+@testset "T-G-CALL official script executes assess once" begin
+    official = _m3e_official_benchmark_path()
+    src = read(official, String)
+    @test _m3e_ast_has_call(src, :assess_functional_identifiability)
+    live = _m3e_execute_benchmark_script(official)
+    again = _m3e_execute_benchmark_script(official)
+    observed = _m3g_execute_benchmark_script(official)
+    @test live.assess_n == 1
+    @test again.assess_n == 1
+    @test observed.assess_n == 1
+    @test live.assess_n == _m3g_ast_call_count(src,
+        :assess_functional_identifiability)
+    @test live.fit_n == 5
+    @test observed.fit_n == 5
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    @test observed.result isa FunctionalIdentifiabilityDiagnostic
+    @test live.payload isa NamedTuple
+    @test live.payload.diagnostic === live.result
+    @test length(observed.assess_entries) == 1
+    @test observed.assess_entries[1].restart_seeds === FUNCTIONAL_ID_RESTART_SEEDS
+    @test _m3e_script_live_bind(official)
+    ctor_n = Ref(0)
+    with_assess_functional_identifiability_observer(_ -> ctor_n[] += 1) do
+        _m3e_constructor_only_benchmark(
+            _m3a_sentinel_split(),
+            build_hill_recovery_network(; known = false, hill_order = 2))
+    end
+    @test ctor_n[] == 0
+    @test ctor_n[] != live.assess_n
+end
+
+@testset "T-G-FMT returned diagnostic is consumed" begin
+    official = _m3e_official_benchmark_path()
+    live = _m3e_execute_benchmark_script(official)
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    @test live.consumed isa AbstractString
+    formatted = format_functional_identifiability_diagnostic(live.result)
+    @test live.consumed == formatted
+    @test live.payload.report === live.consumed
+    fake = _m3e_constructor_only_benchmark(
+        _m3a_sentinel_split(),
+        build_hill_recovery_network(; known = false, hill_order = 2))
+    @test live.consumed != format_functional_identifiability_diagnostic(fake)
+    @test occursin("PRACTICAL FUNCTIONAL DIAGNOSTIC", live.consumed)
+    @test occursin("status: $(live.result.status)", live.consumed)
+    @test occursin("complete: $(live.result.complete)", live.consumed)
+    @test occursin("n_attempted: $(live.result.n_attempted)", live.consumed)
+    @test occursin("n_successful: $(live.result.n_successful)", live.consumed)
+    @test occursin("n_failed: $(live.result.n_failed)", live.consumed)
+    @test occursin("RESTARTS", live.consumed)
+    @test occursin("PAIRS", live.consumed)
+    @test occursin("failure_reason=", live.consumed)
+    @test occursin("MEDIANS", live.consumed)
+    for seed in FUNCTIONAL_ID_RESTART_SEEDS
+        @test occursin("seed=$seed", live.consumed)
+    end
+    @test live.result.n_attempted == 5
+    @test live.result.n_failed ==
+          live.result.n_attempted - live.result.n_successful
+    @test length(live.result.restarts) == 5
+end
+
+@testset "T-G-KW generate uses protocol kwargs" begin
+    official = _m3e_official_benchmark_path()
+    src = read(official, String)
+    @test _m3e_ast_has_call(src, :generate_recovery_experiments)
+    @test _m3e_ast_has_call(src, :unique_claim_experiment_split)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL", src)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", src)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.tspan", src)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.n_points", src)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.observation_noise", src)
+    @test !occursin("protocol=", src)
+    @test !occursin("protocol =", src)
+    @test !occursin("consume_shared_suite_rng", src)
+    calls = _m3g_call_kwargs(src, :generate_recovery_experiments)
+    @test length(calls) == 1
+    kwargs = only(calls)
+    @test haskey(kwargs, :tspan)
+    @test haskey(kwargs, :n_points)
+    @test haskey(kwargs, :noise_σ)
+    @test !haskey(kwargs, :protocol)
+    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
+    @test UNIQUE_CLAIM_PROTOCOL.tspan === (0.0, 8.0)
+    @test UNIQUE_CLAIM_PROTOCOL.n_points == 50
+    @test UNIQUE_CLAIM_PROTOCOL.observation_noise == 0.0
+    @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
+end
+
+@testset "T-G-SEEDS five locked restart seeds" begin
+    official = _m3e_official_benchmark_path()
+    src = read(official, String)
+    live = _m3g_execute_benchmark_script(official)
+    @test FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
+    @test length(FUNCTIONAL_ID_RESTART_SEEDS) == 5
+    @test 103 ∉ FUNCTIONAL_ID_RESTART_SEEDS
+    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
+    @test isempty(intersect(FUNCTIONAL_ID_RESTART_SEEDS, _M3G_M4_SEEDS))
+    @test occursin("FUNCTIONAL_ID_RESTART_SEEDS", src)
+    @test !occursin("107, 111, 113, 127", src)
+    assess_kwargs = _m3g_call_kwargs(src, :assess_functional_identifiability)
+    @test length(assess_kwargs) == 1
+    @test haskey(only(assess_kwargs), :restart_seeds)
+    @test live.result.restart_seeds === FUNCTIONAL_ID_RESTART_SEEDS
+    @test [restart.seed for restart in live.result.restarts] ==
+          [201, 202, 203, 204, 205]
+    @test live.assess_entries[1].restart_seeds === (201, 202, 203, 204, 205)
+    @test live.fit_n == 5
+    @test live.result.n_attempted == 5
+end
+
+@testset "T-G-FAIL failures stay in five-attempt accounting" begin
+    official = _m3e_official_benchmark_path()
+    src = read(official, String)
+    live = _m3g_execute_benchmark_script(official; predict_throw_seed = 203)
+    @test live.assess_n == 1
+    @test live.result isa FunctionalIdentifiabilityDiagnostic
+    @test live.result.n_attempted == 5
+    @test length(live.result.restarts) == 5
+    @test live.result.n_successful == count(r -> r.included, live.result.restarts)
+    @test live.result.n_failed ==
+          live.result.n_attempted - live.result.n_successful
+    @test live.result.n_failed >= 1
+    failed = only(filter(r -> r.seed == 203, live.result.restarts))
+    @test failed.included == false
+    @test failed.failure_reason === :predict_threw
+    @test !isempty(failed.message)
+    @test occursin("seed=203", live.consumed)
+    @test occursin("predict_threw", live.consumed)
+    @test occursin("n_failed: $(live.result.n_failed)", live.consumed)
+    @test occursin("n_attempted: 5", live.consumed)
+    @test !occursin("error(diagnostic", src)
+    @test !occursin("exit(", src)
+    @test !occursin("@test", src)
+    for token in _M3G_FORBIDDEN_PIPELINE
+        @test !occursin(token, src)
+    end
+end
+
+@testset "T-G-CI benchmark is not a PR gate" begin
+    official = _m3e_official_benchmark_path()
+    runtests = read(joinpath(@__DIR__, "runtests.jl"), String)
+    hard = read(joinpath(@__DIR__, "run_recovery_hard.jl"), String)
+    workflow_dir = joinpath(@__DIR__, "..", ".github", "workflows")
+    ci = read(joinpath(workflow_dir, "ci.yml"), String)
+    @test occursin("include(\"test_functional_identifiability.jl\")", runtests)
+    @test !occursin("assess_functional_identifiability", runtests)
+    @test !occursin("benchmark/functional_identifiability.jl", runtests)
+    @test !occursin("assess_functional_identifiability", hard)
+    @test !occursin("functional_identifiability.jl", hard)
+    @test occursin("test/run_recovery_hard.jl", ci)
+    for name in readdir(workflow_dir)
+        endswith(name, ".yml") || continue
+        text = read(joinpath(workflow_dir, name), String)
+        @test !occursin("functional_identifiability.jl", text)
+        @test !occursin("assess_functional_identifiability", text)
+    end
+    src = read(official, String)
+    @test occursin("not a PR gate", src)
+    @test occursin("deferred to M7", src)
+    contributing = read(joinpath(@__DIR__, "..", "CONTRIBUTING.md"), String)
+    @test occursin("benchmark/functional_identifiability.jl", contributing)
+    @test occursin("not a PR gate", contributing)
+end
+
+@testset "T-G-API M2 locks and public exports stay" begin
+    @test :assess_functional_identifiability ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :FUNCTIONAL_ID_RESTART_SEEDS ∉ names(BioDynaX)
+    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(BioDynaX)
+    @test :format_functional_identifiability_diagnostic ∉ names(BioDynaX)
+    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test public_export_list_holds()
+    @test LOCKED_PUBLIC_EXPORTS === BioDynaX.LOCKED_PUBLIC_EXPORTS
+    @test recovery_thresholds_hold()
+    @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
+        min_successful_restarts = 3,
+        n_attempted_restarts = 5,
+        traj_agree_rel_rmse = 0.05,
+        d_disagree_scale_norm_rel_rmse = 0.20)
+    holdout = read(joinpath(@__DIR__, "test_holdout.jl"), String)
+    recovery = read(joinpath(@__DIR__, "test_recovery_pipeline.jl"), String)
+    hard = read(joinpath(@__DIR__, "test_recovery_hard.jl"), String)
+    corpus = holdout * "\n" * recovery * "\n" * hard
+    @test occursin("M2-G1", corpus)
+    @test occursin("M2-G2", corpus)
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+        holdout)
+    @test !occursin(
+        "!isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)", corpus)
+    official = _m3e_official_benchmark_path()
+    src = read(official, String)
+    for token in _M3G_FORBIDDEN_PIPELINE
+        @test !occursin(token, src)
+    end
+end
+
+@testset "T-G-FAKE constructor and comment scripts stay red" begin
+    comment_only = _m3e_write_temp_benchmark(
+        "# assess_functional_identifiability(split, ude_net)\n" *
+        "# format_functional_identifiability_diagnostic(diag)\n")
+    comment_live = _m3e_execute_benchmark_script(comment_only)
+    @test comment_live.assess_n == 0
+    @test !_m3e_script_live_bind(comment_only)
+    string_only = _m3e_write_temp_benchmark(
+        "println(\"assess_functional_identifiability(split, ude_net)\")\n")
+    @test _m3e_execute_benchmark_script(string_only).assess_n == 0
+    ctor_src = """
+        using BioDynaX
+        using BioDynaX:
+            FUNCTIONAL_ID_RESTART_SEEDS,
+            FunctionalIdentifiabilityDiagnostic,
+            FunctionalIdentifiabilityDomain,
+            FunctionalIdentifiabilityPair,
+            FunctionalIdentifiabilityRestart,
+            format_functional_identifiability_diagnostic
+        domain = FunctionalIdentifiabilityDomain(
+            2, [0.1, 0.5, 0.1, 0.8], 2, 2, 0.3, :train_obs_union_holdout_obs)
+        restarts = [
+            FunctionalIdentifiabilityRestart(
+                seed, true, BioDynaX.Success, :none, "", UInt64(0), UInt64(0))
+            for seed in FUNCTIONAL_ID_RESTART_SEEDS]
+        pairs = FunctionalIdentifiabilityPair[]
+        seeds = collect(FUNCTIONAL_ID_RESTART_SEEDS)
+        for i in 1:(length(seeds) - 1)
+            for j in (i + 1):length(seeds)
+                push!(pairs, FunctionalIdentifiabilityPair(
+                    seeds[i], seeds[j], 0.01, 0.01, 1.0, 1.0, 0.01, 0.01))
+            end
+        end
+        diag = FunctionalIdentifiabilityDiagnostic(
+            :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, restarts, pairs)
+        report = format_functional_identifiability_diagnostic(diag)
+        println(report)
+        (; diagnostic = diag, report)
+        """
+    ctor_path = _m3e_write_temp_benchmark(ctor_src)
+    ctor_live = _m3e_execute_benchmark_script(ctor_path)
+    @test ctor_live.assess_n == 0
+    @test ctor_live.result isa FunctionalIdentifiabilityDiagnostic
+    @test !_m3e_script_live_bind(ctor_path)
+    official = _m3e_official_benchmark_path()
+    @test !_m3e_official_discovery_binds([ctor_path])
+    @test _m3e_official_discovery_binds([official])
+end
