@@ -13,6 +13,12 @@ The tradeoff is a practical Fisher/Jacobian cosine, not StructuralIdentifiabilit
 condition-number threshold **or** that cosine threshold. The flag is a
 local practical warning, not structural identifiability.
 
+Q3 on this page is that scale / parameter practical warning. It is
+not Q4. Q4 is a separate practical functional-identifiability
+diagnostic (independently trained \(\hat D_i(z)\) on a shared domain).
+Q4 is not a structural identifiability certificate and not a success
+gate.
+
 This page does not change `RECOVERY_THRESHOLDS`, the unique-claim protocol
 (seed 103 / 9 ICs), or `validate_network`. Combined F1 stays a skeleton
 floor (0.50). Hill-from-NN stays closed.

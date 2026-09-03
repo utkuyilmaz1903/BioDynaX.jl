@@ -1,6 +1,26 @@
 using OrdinaryDiffEq: ODEProblem, solve, Tsit5
 using SciMLSensitivity: InterpolatingAdjoint, ZygoteVJP
 
+const PREDICT_UDE_OBSERVER = Ref{Any}(nothing)
+
+function _note_predict_ude(p, u0, tspan, times, model, X)
+    observer = PREDICT_UDE_OBSERVER[]
+    observer === nothing && return nothing
+    return Base.invokelatest(observer,
+        (; params = p, u0 = u0, tspan = tspan, times = times, model = model,
+            X = X))
+end
+
+function with_predict_ude_observer(f::Function, observer)
+    previous = PREDICT_UDE_OBSERVER[]
+    PREDICT_UDE_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        PREDICT_UDE_OBSERVER[] = previous
+    end
+end
+
 mutable struct LossDiagnostics
     mse::Float64
     constraint::Float64
@@ -142,6 +162,7 @@ function predict_ude(p, u0, tspan, saveat, model::UDEModel;
     prediction = Array(sol)
     ignore_derivatives() do
         _validate_solution(sol, prediction, saveat, tspan)
+        _note_predict_ude(p, u0, tspan, saveat, model, prediction)
     end
     return prediction
 end

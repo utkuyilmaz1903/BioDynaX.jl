@@ -19,11 +19,12 @@ is not mechanistic recovery. Canonical Hill from a trained NN is closed.
 This is not a general CRN solver or a global SINDy replacement. The
 scientific contract is
 [`docs/src/design/v1_contract.md`](docs/src/design/v1_contract.md)
-(Q1–Q7 stay conceptually separate; Q4 remains not implemented; Q7 is
-reported held-out generalization evidence, not an additional success
-gate). Nine ICs are generated once; ICs 1–7 are used for training and
-ICs 8–9 are held out. M3 (practical functional identifiability) and M4
-(robustness / trajectory-context validation) remain pending future work.
+(Q1–Q7 stay conceptually separate; Q4 is a practical
+functional-identifiability diagnostic, not a gate and not a formal
+identifiability certificate; Q7 is reported held-out generalization
+evidence, not an additional success gate). Nine ICs are generated once;
+ICs 1–7 are used for training and ICs 8–9 are held out. M4
+(robustness / trajectory-context validation) remains pending future work.
 
 Requires **Julia ≥ 1.10**.
 
@@ -53,8 +54,8 @@ Requires **Julia ≥ 1.10**.
 5. **Q7 holdout (reported, not a gate)** — after a train-only fit on ICs
    1..7, residual and neural `D` error on ICs 8 and 9 are reported. The
    0.30 residual gate is not copied to holdout. Q7 is reported held-out
-   generalization evidence, not an additional success gate. Q4
-   functional identifiability is not implemented.
+   generalization evidence, not an additional success gate. Q4 is a
+   practical functional-identifiability diagnostic, not a success gate.
 
 MM unknown edges gate NN RMSE and data residual only. Combined F1 from a
 trained NN is not canonical Hill.
@@ -181,9 +182,10 @@ package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
 - **No licensed experimental CSV** matches the unique-claim protocol (known graph, exactly one unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
 - Target regime is **2–20 states** with a known interaction graph.
 - A green `recovery` CI job is **necessary, not sufficient** for v1.0. See [API stability](docs/src/stability.md).
-- **M3 / M4** (pending / future work, not implemented): practical
-  functional identifiability, then robustness / trajectory-context
-  validation.
+- **Q4** is a practical functional-identifiability diagnostic, not a
+  success gate and not a structural identifiability certificate.
+- **M4** (pending / future work, not implemented): robustness /
+  trajectory-context validation.
 
 ---
 

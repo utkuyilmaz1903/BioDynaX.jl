@@ -107,6 +107,33 @@ end
     @test length(LOCKED_PUBLIC_EXPORTS) == length(unique(LOCKED_PUBLIC_EXPORTS))
 end
 
+@testset "T-H landing pages name Q4 as a practical diagnostic, not a gate" begin
+    root = pkgdir(BioDynaX)
+    landings = (
+        joinpath(root, "README.md"),
+        joinpath(root, "docs", "src", "index.md"),
+        joinpath(root, "docs", "src", "unique-claim.md"),
+        joinpath(root, "docs", "src", "architecture.md"),
+        joinpath(root, "docs", "src", "stability.md"),
+        joinpath(root, "docs", "src", "out-of-scope.md"),
+        joinpath(root, "docs", "src", "design", "v1_contract.md"),
+        joinpath(root, "docs", "src", "identifiability-product.md"))
+    for path in landings
+        text = read(path, String)
+        lower = lowercase(text)
+        @test occursin("practical", lower)
+        @test occursin("certificate", lower)
+        @test !occursin("q4 remains not implemented", lower)
+        @test !occursin("functionally identifiable", lower) ||
+              occursin("do not call", lower)
+    end
+    contract = read(joinpath(root, "docs", "src", "design", "v1_contract.md"),
+        String)
+    @test occursin("implemented as a practical diagnostic, not a gate",
+        contract)
+    @test occursin("Q4 is not a formal identifiability certificate.", contract)
+end
+
 @testset "docs make.jl lists the unique-claim page" begin
     make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
     @test occursin("unique-claim.md", make)

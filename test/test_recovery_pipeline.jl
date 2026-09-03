@@ -573,7 +573,7 @@ end
     @test isdefined(BioDynaX, :ExperimentSplit)
     @test !(:ExperimentSplit in names(BioDynaX))
     @test !(:HoldoutEvidence in names(BioDynaX))
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
     @test public_export_list_holds()
 end
 
@@ -720,7 +720,7 @@ end
     @test !isdefined(BioDynaX, :DestructionSamples)
     @test isdefined(BioDynaX, :ExperimentSplit)
     @test !(:ExperimentSplit in names(BioDynaX))
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
     @test public_export_list_holds()
 end
 

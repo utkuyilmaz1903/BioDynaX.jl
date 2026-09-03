@@ -9,6 +9,18 @@ Discovery targets the **unknown destruction rate** `D(z)`, not the full `ẋ`.
 Known production and linear decay stay in compiled IR; STLSQ only sees the
 neural edge.
 
+## Practical functional-identifiability research benchmark
+
+`benchmark/functional_identifiability.jl` is a research / nightly script
+for the practical Q4 diagnostic. It uses five fixed restart seeds
+`(201, 202, 203, 204, 205)` and calls the live assessment entry. It is
+not a PR gate and not a success gate. Q4 is a practical diagnostic, not
+structural identifiability. Nightly scheduling is deferred to M7.
+
+```bash
+julia --project=. benchmark/functional_identifiability.jl
+```
+
 ## What is gated
 
 Fast job (`test/test_recovery.jl`):

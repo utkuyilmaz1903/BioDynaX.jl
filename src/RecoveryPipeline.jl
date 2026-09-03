@@ -129,6 +129,8 @@ const SAMPLE_UNKNOWN_DESTRUCTION_GRID_OBSERVER = Ref{Any}(nothing)
 const DISCOVER_UNKNOWN_RATE_OBSERVER = Ref{Any}(nothing)
 const DISCOVER_EQUATIONS_OBSERVER = Ref{Any}(nothing)
 const EVALUATE_HOLDOUT_OBSERVER = Ref{Any}(nothing)
+const FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER = Ref{Any}(nothing)
+const SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER = Ref{Any}(nothing)
 
 function _note_generate_recovery_experiments(set)
     observer = GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[]
@@ -150,6 +152,23 @@ function _note_fit_unknown_destruction(set)
     return observer(set)
 end
 
+function _note_fit_unknown_destruction_entry(
+        ude_p0, set, adam, bfgs, frozen_phys, phys_init)
+    observer = FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER[]
+    observer === nothing && return nothing
+    observer((;
+        p0 = ude_p0,
+        p0_nn = ude_p0.nn,
+        fit_set = set,
+        fit_set_length = length(set),
+        fit_experiments_identity = set.experiments,
+        adam = adam,
+        bfgs = bfgs,
+        frozen_phys = frozen_phys,
+        phys_init = phys_init))
+    return nothing
+end
+
 function _note_evaluate_unknown_rate_recovery_range(r_range)
     observer = EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER[]
     observer === nothing && return nothing
@@ -160,6 +179,19 @@ function _note_sample_unknown_destruction_grid(r_range)
     observer = SAMPLE_UNKNOWN_DESTRUCTION_GRID_OBSERVER[]
     observer === nothing && return nothing
     observer(r_range)
+    return nothing
+end
+
+function _note_sample_unknown_destruction_result(r_range, R, D, term, params)
+    observer = SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER[]
+    observer === nothing && return nothing
+    observer((;
+        r_range = r_range,
+        R = R,
+        D = D,
+        term = term,
+        params = params,
+        params_nn_fingerprint = _params_nn_fingerprint(params)))
     return nothing
 end
 
@@ -263,6 +295,26 @@ function with_evaluate_holdout_observer(f::Function, observer)
     end
 end
 
+function with_fit_unknown_destruction_entry_observer(f::Function, observer)
+    previous = FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER[]
+    FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER[] = previous
+    end
+end
+
+function with_sample_unknown_destruction_result_observer(f::Function, observer)
+    previous = SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER[]
+    SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER[] = previous
+    end
+end
+
 """
     generate_recovery_experiments(rng, truth_net, truth_params; tspan, n_points,
                                  noise_σ, initial_conditions)
@@ -354,6 +406,8 @@ function fit_unknown_destruction(ude_model, ude_p0, set;
         adam, bfgs,
         frozen_phys::Vector{Symbol} = Symbol[],
         phys_init = nothing)
+    _note_fit_unknown_destruction_entry(
+        ude_p0, set, adam, bfgs, frozen_phys, phys_init)
     observed = _note_fit_unknown_destruction(set)
     observed isa TrainingResult && return observed
     names = Tuple(parameter_schema(ude_model).phys_names)

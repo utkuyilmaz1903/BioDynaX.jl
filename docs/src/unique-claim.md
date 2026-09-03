@@ -14,9 +14,10 @@ The authoritative scientific contract is
 [v1.0 scientific contract](design/v1_contract.md). Compiled dynamics are
 \(\dot u_i = P_i - D_i u_i\). Current gates map to Q1 (training IC[1]
 residual), Q3 (practical scale warning), and Q5 (true-monomial recall).
-Q4 remains not implemented. Q7 is reported held-out generalization
-evidence, not an additional success gate. Trajectory fit is not proof
-of mechanism recovery.
+Q4 is implemented as a practical functional-identifiability diagnostic,
+not a gate and not a formal identifiability certificate. Q7 is reported
+held-out generalization evidence, not an additional success gate.
+Trajectory fit is not proof of mechanism recovery.
 
 Nine experiments are generated once. Training uses ICs 1..7. Holdout
 uses ICs 8 and 9. Holdout is observational evidence. It does not gate
@@ -418,9 +419,10 @@ symbolic discovery fails. A holdout residual greater than 0.30 does
 not suppress that evidence and does not fail the M1 hold.
 
 Q7 is reported held-out generalization evidence, not an additional
-success gate. Discovery failure does not erase Q7. Q4 functional
-identifiability is not implemented. This page is still a narrow
-one-hole research preview. M3 and M4 remain pending future work.
+success gate. Discovery failure does not erase Q7. Q4 is a practical
+functional-identifiability diagnostic, not a success gate and not a
+certificate. This page is still a narrow one-hole research preview.
+M4 remains pending future work.
 
 ## What this page is not
 

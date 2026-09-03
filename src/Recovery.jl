@@ -457,7 +457,9 @@ function sample_unknown_destruction_grid(model::UDEModel, p, term;
     r = collect(r_range)
     X = fill(float(fill_value), nstates, length(r))
     X[term.regulator, :] .= r
-    return sample_unknown_destruction(model, p, X; term = term)
+    R, D, chosen = sample_unknown_destruction(model, p, X; term = term)
+    _note_sample_unknown_destruction_result(r_range, R, D, chosen, p)
+    return R, D, chosen
 end
 
 """Single-state network used to discover a scalar rate `D(r)`."""

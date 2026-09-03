@@ -1788,7 +1788,7 @@ end
         @test name ∉ fields
         @test name ∉ keys(result)
     end
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
     @test !isdefined(BioDynaX, :DestructionSamples)
     @test !hasfield(ExperimentSet, :train)
     @test !hasfield(ExperimentSet, :holdout)
@@ -2182,7 +2182,7 @@ end
     @test :q7 ∉ fieldnames(MechanismRecoveryResult)
     @test :q7_success ∉ fieldnames(MechanismRecoveryResult)
     @test :functional_identifiability ∉ fieldnames(MechanismRecoveryResult)
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
 end
 
 # =============================================================================
@@ -3066,7 +3066,7 @@ end
     @test :occupancy ∉ fieldnames(HoldoutEvidence)
     @test :uncertainty ∉ fieldnames(HoldoutEvidence)
     @test :hypothesis ∉ fieldnames(HoldoutEvidence)
-    @test !isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
     @test !isdefined(BioDynaX, :DestructionSamples)
     @test !hasfield(ExperimentSet, :train)
     @test !hasfield(ExperimentSet, :holdout)

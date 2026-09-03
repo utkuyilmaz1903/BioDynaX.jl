@@ -3,7 +3,7 @@
 
 **Practical** Fisher-information summary for compiled physical parameters at a
 fitted trajectory. This is not structural identifiability
-(see StructuralIdentifiability.jl). Rank and credible intervals are local,
+(see StructuralIdentifiability.jl). Rank and asymptotic Fisher intervals are local,
 finite-difference Gauss–Newton estimates.
 """
 struct IdentifiabilityReport
@@ -113,13 +113,14 @@ function _z_score(level::Real)
     level ≈ 0.95 && return 1.959963984540054
     level ≈ 0.99 && return 2.5758293035489004
     throw(ArgumentError(
-        "unsupported credible level $level; use 0.90, 0.95, or 0.99"))
+        "unsupported nominal coverage $level; use 0.90, 0.95, or 0.99"))
 end
 
 """
     parameter_credible_intervals(report, level=0.95)
 
-Asymptotic normal credible intervals from the inverse Fisher information.
+Asymptotic Fisher intervals from the inverse Fisher information at the
+requested nominal coverage.
 """
 function parameter_credible_intervals(report::IdentifiabilityReport,
                                       estimate;
