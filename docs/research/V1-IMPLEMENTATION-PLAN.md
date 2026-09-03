@@ -26,6 +26,9 @@ todos:
   - id: m3-functional-id
     content: "M3: LIVE-path assess sözleşmesi; p0+params→D; holdout inclusion/HP sentinel; derive-live A/B/C; X bağ; zero-live; walk; assess CALL; M2 hash"
     status: completed
+  - id: m4-0-boundary
+    content: "M4-0: Q4 ≠ occupancy ≠ composer; üç tohum listesi ayrı; M2/M3 semantiği kilit; runtime yok"
+    status: completed
   - id: m4-robustness
     content: "M4: yörünge-örnekli D, eğitilmiş-UDE graph-local, çok tohum artifact (her PR’da N×40 dk yok)"
     status: pending
@@ -4260,16 +4263,98 @@ unique-claim hold’a girmesi.
 
 ## Milestone 4 — Kurtarma kanıtını sağlamlaştır (P3)
 
-Üç bağlı ama ayrı iş; tek “başarı hikayesi” yazılmadan bitmez.
+**Durum (M4-0 sonrası): M4-0 completed (yalnız belgeleme). M4-A/B/C
+pending.** M4 preflight PASS. Bu dilim kaynak tipi, export veya
+runtime bilimsel davranış eklemez. Occupancy kodu, eğitilmiş
+graph-local ve çok-tohum artifact henüz yoktur.
+
+M4 occupancy ek bir örnekleme/değerlendirme bağlamıdır; Q4 veya
+M1/Q5 composer yerine geçmez. Üç bağlı ama ayrı iş (A/B/C) tek
+“başarı hikayesi” yazılmadan bitmez.
+
+### M4-0 — Kapsam ve semantik sınır (tamamlandı)
+
+Amaç: sonraki M4 dilimleri M2 veya M3 semantiğini sessizce
+değiştiremesin. Sözleşme:
+[docs/src/design/v1_contract.md](docs/src/design/v1_contract.md)
+ve [docs/src/out-of-scope.md](docs/src/out-of-scope.md).
+
+Kilit cümle: M4 occupancy ek bir örnekleme/değerlendirme
+bağlamıdır; Q4 veya M1/M2 composer yerine geçmez.
+
+#### M3 / Q4
+
+- `functional_identifiability_domain` onaylı M3 alanıdır
+  (train-sonra-holdout gözlenen regülatör `z`;
+  `construction === :train_obs_union_holdout_obs`).
+- Q4 pratik fonksiyonel-identifiability tanısıdır.
+- Q4 occupancy tabanlı değildir.
+- Q4 başarı kapısı değildir.
+- Q4 yapısal identifiability değildir.
+- Q4 M4 yörünge occupancy kullanmaz.
+
+#### M1 / Q5 composer
+
+- `_evaluate_unknown_rate_recovery` değişmez.
+- Train-türevli `_regulator_grid` durur.
+- Dummy-time keşif durur.
+- M4 occupancy composer’ın yerine geçmez.
+
+#### M2
+
+- 7/2 train/holdout değişmez.
+- `evaluate_holdout` dört skaler `HoldoutEvidence` kalır.
+- Holdout 0.30 kapısı değildir.
+- Occupancy `HoldoutEvidence`’a eklenmez.
+
+#### Tohum listeleri (üç liste, karışmaz)
+
+Mevcut M2/M3 tohum sabitleri değiştirilmez. Listeler birbirinin
+yerine kullanılamaz.
+
+```
+UNIQUE_CLAIM_PROTOCOL.seed          = 103
+FUNCTIONAL_ID_RESTART_SEEDS         = (201, 202, 203, 204, 205)
+ROBUSTNESS_SEEDS                    = (103, 107, 111, 113, 127)
+```
+
+`ROBUSTNESS_SEEDS` belgelenmiş M4-C listesidir. M4-0 bir Julia
+sabiti, export veya çok-tohum ürün iddiası eklemez.
+
+#### Korunan kilitler
+
+M4 şunları değiştirmez:
+
+- `RECOVERY_THRESHOLDS`
+- `FUNCTIONAL_ID_REPORTING_CUTOFFS`
+- `LOCKED_PUBLIC_EXPORTS`
+- `canonical_hill_from_nn == false`
+- `unique_claim_kpis_hold`
 
 ### 4a Yörünge bağlamında `D` örnekleme
 
-- **Hedef:** Keşfi yalnızca sentetik 1D ızgara + sahte `t∈[0,1]` olmaktan çıkarmak.
-- **Bilimsel soru:** `D` eğitimde gerçekten ziyaret edilen \((z,t)\)’de mi, yoksa düzgün \(r\) ızgarasında mı öğrenildi?
-- **Sorun:** `_regulator_grid` + dummy times; `discover_equations` API’si `times` ister.
-- **Mimari:** Birincil: IC yörüngelerinden `(z(t), D_nn(x(t)))`. Izgara ikincil / görselleştirme. Dummy time kalırsa adı `sample_index` veya keşif API’sine “times optional” — bilimsel iddia “dinamik SINDy” olmaz.
-- **Kabul:** Unique-claim keşfi yörünge-örnekli `D` üzerinde çalışır; ızgara ablation olarak kalabilir.
-- **Ertelenen:** `ImplicitCandidate` docstring’indeki `D(z)ẋ-N=0`’ı unique-claim’e zorlamak. Unique-claim `y=D_nn` fonksiyon regresyonudur; bunu dokümante edin ([docs/src/architecture.md](docs/src/architecture.md) satır 22 şu an yanıltıcı).
+- **Hedef:** Öğrenilmiş \(\hat D\)’yi eğitimde ziyaret edilen
+  durumlarda **ek** örnekleme bağlamı olarak görmek.
+- **Bilimsel soru:** `D` eğitimde gerçekten ziyaret edilen
+  \((x(t))\) üzerinde mi, yoksa düzgün \(r\) ızgarasında mı
+  örnekleniyor? Bu, Q4’ün “bağımsız restart’lar aynı `z`
+  diliminde anlaşır mı?” sorusu değildir.
+- **Sorun:** `_regulator_grid` + dummy times; ızgara eğitim
+  yörüngesi occupancy’si değildir.
+- **Mimari (M4-0 daraltması):** Occupancy ek bağlamdır. Q4 alanı
+  (`functional_identifiability_domain`) durur. Unique-claim
+  composer (`_evaluate_unknown_rate_recovery` + train-türevli
+  `_regulator_grid` + dummy-time) durur. Izgara ikincil / kontrol
+  olarak kalır. Dummy time keşif API’sinde kalırsa adı
+  `sample_index`’tir; bilimsel iddia “dinamik SINDy” olmaz.
+- **Kabul (M4-0):** Occupancy Q4’ü veya composer’ı değiştirmez.
+  Eski “unique-claim keşfi occupancy’ye geçsin” cümlesi M4
+  default değildir. Composer göçü ayrı, kanıtlı bir dilim ister.
+- **Ertelenen:** `ImplicitCandidate` docstring’indeki
+  `D(z)ẋ-N=0`’ı unique-claim’e zorlamak. Unique-claim `y=D_nn`
+  fonksiyon regresyonudur; bunu dokümante edin
+  ([docs/src/architecture.md](docs/src/architecture.md) satır 22
+  şu an yanıltıcı).
 
 ### 4b Graph-local eğitilmiş `D`
 
@@ -4284,7 +4369,7 @@ unique-claim hold’a girmesi.
 
 - **Hedef:** Tek şanslı optimizasyonun ürün olmaması.
 - **Sorun:** [docs/src/out-of-scope.md](docs/src/out-of-scope.md) “N × 40 dk CI’ya ekleme” diyor — bu kısıt korunsun.
-- **Mimari:** [benchmark/recovery_seeds.jl](benchmark/recovery_seeds.jl) persist JSON/CSV + `RunMetadata`. Release/nightly job. PR: seed 103 iskelet. v1.0 **iddiası** N tohumda başarı oranı (N≥5, önceden kilitli liste `(103,107,111,113,127)`). Başarısız tohum gizlenmez.
+- **Mimari:** [benchmark/recovery_seeds.jl](benchmark/recovery_seeds.jl) persist JSON/CSV + `RunMetadata`. Release/nightly job. PR: seed 103 iskelet. v1.0 **iddiası** N tohumda başarı oranı (N≥5, önceden kilitli `ROBUSTNESS_SEEDS = (103, 107, 111, 113, 127)`). Bu liste `UNIQUE_CLAIM_PROTOCOL.seed = 103` ve `FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)` ile **ayrıdır**; M3 restart listesinin yerine geçmez. Başarısız tohum gizlenmez.
 - **Kabul:** Medyan + başarı oranı yayın artifact’ında. “Typical” yalnızca en iyi tohum değildir.
 - **Eşik:** Körlemesine N’den 1’e düşürmeyin; başarı tanımı M2/M3 katmanlarına bağlanır.
 
