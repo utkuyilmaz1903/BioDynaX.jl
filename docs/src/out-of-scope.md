@@ -94,10 +94,15 @@ M4 must not alter `RECOVERY_THRESHOLDS`,
 
 ## Next milestones (not implemented)
 
-- M4 — Robustness / Trajectory-Context Validation (pending / future work)
+- M4 — Robustness / Trajectory-Context Validation
 
-This is a future milestone, not a present capability. M4-0 only locks
-the semantic boundary above. M4-A/B/C runtime code is not present.
+M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests.
+M4-B remains pending. M4-C remains pending.
+
+occupancy != Q4 domain.z
+occupancy != M1 discovery grid
+occupancy != M2 holdout evaluator
+Occupancy is not part of the recovery result, holdout result, or Q4 diagnostic.
 
 Current Q1 is a hybrid residual versus observed data on the training
 IC[1], plus separate train/holdout aggregates. Current Q2 is a partial

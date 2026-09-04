@@ -343,3 +343,35 @@ end
     @test :ROBUSTNESS_SEEDS ∉ names(BioDynaX)
     @test :ROBUSTNESS_SEEDS ∉ LOCKED_PUBLIC_EXPORTS
 end
+
+@testset "M4-A2 live separation wording stays distinct from A1/B/C" begin
+    root = pkgdir(BioDynaX)
+    contract = read(joinpath(root, "docs", "src", "design", "v1_contract.md"),
+        String)
+    scope = read(joinpath(root, "docs", "src", "out-of-scope.md"), String)
+    plan = read(joinpath(root, "docs", "research", "V1-IMPLEMENTATION-PLAN.md"),
+        String)
+    for text in (contract, scope)
+        @test occursin("M4-A1 occupancy runtime exists", text)
+        @test occursin("M4-A2 is live separation/contract tests", text)
+        @test occursin("M4-B remains pending", text)
+        @test occursin("M4-C remains pending", text)
+        @test occursin("occupancy != Q4 domain.z", text)
+        @test occursin("occupancy != M1 discovery grid", text)
+        @test occursin("occupancy != M2 holdout evaluator", text)
+        @test occursin(
+            "Occupancy is not part of the recovery result, holdout result, or Q4 diagnostic",
+            text)
+        @test !occursin("M4-A runtime code is not present", text)
+        @test !occursin("M4-A/B/C runtime code is not present", text)
+    end
+    @test occursin("M4-A1: implemented runtime", plan)
+    @test occursin("M4-A2: live separation/contract tests", plan)
+    @test occursin("M4-B: pending", plan)
+    @test occursin("M4-C: pending", plan)
+    @test occursin("occupancy ≠ M1 discovery grid", plan)
+    @test occursin("occupancy ≠ M2 holdout evaluator", plan)
+    @test occursin("occupancy ≠ M3 Q4 domain", plan)
+    @test occursin("test/test_m4_a2_separation.jl", plan)
+    @test !occursin("testler henüz uygulanmaz", plan)
+end

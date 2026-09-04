@@ -29,6 +29,12 @@ todos:
   - id: m4-0-boundary
     content: "M4-0: Q4 ≠ occupancy ≠ composer; üç tohum listesi ayrı; M2/M3 semantiği kilit; runtime yok"
     status: completed
+  - id: m4-a1-occupancy
+    content: "M4-A1: TrajectoryOccupancy + observed-state occupancy + sample_destruction_occupancy; production caller yok"
+    status: completed
+  - id: m4-a2-separation
+    content: "M4-A2: T-A2-M1 / T-A2-M1-TIME / T-A2-Q4 / T-A2-Q4SEP / T-A2-M2 / T-A2-M2-D canlı ayrım; production wiring değil"
+    status: completed
   - id: m4-robustness
     content: "M4: yörünge-örnekli D, eğitilmiş-UDE graph-local, çok tohum artifact (her PR’da N×40 dk yok)"
     status: pending
@@ -4263,10 +4269,14 @@ unique-claim hold’a girmesi.
 
 ## Milestone 4 — Kurtarma kanıtını sağlamlaştır (P3)
 
-**Durum (M4-0 sonrası): M4-0 completed (yalnız belgeleme). M4-A/B/C
-pending.** M4 preflight PASS. Bu dilim kaynak tipi, export veya
-runtime bilimsel davranış eklemez. Occupancy kodu, eğitilmiş
-graph-local ve çok-tohum artifact henüz yoktur.
+**Durum (M4-A1 sonrası): M4-0 completed (yalnız belgeleme).**
+**M4-A1: implemented runtime.** `TrajectoryOccupancy`, observed-state
+occupancy construction ve `sample_destruction_occupancy` vardır.
+**M4-A2: live separation/contract tests**
+(`test/test_m4_a2_separation.jl`; production wiring değildir).
+**M4-B: pending. M4-C: pending.** Eğitilmiş graph-local ve çok-tohum artifact henüz
+yoktur. `sample_destruction_occupancy` için production caller
+eklenmez.
 
 M4 occupancy ek bir örnekleme/değerlendirme bağlamıdır; Q4 veya
 M1/Q5 composer yerine geçmez. Üç bağlı ama ayrı iş (A/B/C) tek
@@ -4281,6 +4291,8 @@ ve [docs/src/out-of-scope.md](docs/src/out-of-scope.md).
 
 Kilit cümle: M4 occupancy ek bir örnekleme/değerlendirme
 bağlamıdır; Q4 veya M1/M2 composer yerine geçmez.
+occupancy ≠ M1 discovery grid; occupancy ≠ M2 holdout
+evaluator; occupancy ≠ M3 Q4 domain.
 
 #### M3 / Q4
 
@@ -4331,6 +4343,693 @@ M4 şunları değiştirmez:
 - `canonical_hill_from_nn == false`
 - `unique_claim_kpis_hold`
 
+### M4-A2 — Canlı ayrım kilidi (live separation/contract tests)
+
+**Bu dilim production wiring değildir.** M4-A2, A1 occupancy
+runtime’ının M1 / M2 / M3 yollarının yerine geçmediğini
+`test/test_m4_a2_separation.jl` içindeki **canlı adversarial
+test** ile kilitler. Production semantiği değişmez.
+
+Yasak (bu dilim ve hemen sonraki test uygulaması):
+
+- `src/` production semantiği
+- `src/`’e production observer / occupancy caller eklemek
+- `TrajectoryOccupancy.jl`
+- M1 composer (`_unique_claim_rate_recovery` /
+  `_evaluate_unknown_rate_recovery`)
+- `discover_unknown_rate` gövdesi
+- `evaluate_holdout`
+- `FunctionalIdentifiability.jl` semantiği
+- A1 test dosyası (`test/test_trajectory_occupancy.jl`) —
+  **READ-ONLY**
+- A1 test ID’lerini yeniden adlandırmak, silmek, zayıflatmak
+  veya A2’de yeniden kullanmak
+- M4-B, M4-C
+
+A1 `T-A-M1` dummy-evaled erken dönüş **A2 kabulü değildir**.
+A2, gerçek üretim çağrı yerini gözler.
+
+#### M4-A1 / M4-A2 ayrımı
+
+**M4-A1 (tamamlandı; implemented runtime):**
+
+- `TrajectoryOccupancy`
+- observed-state occupancy construction
+  (`collect_observed_occupancy`)
+- occupancy sampling helper (`sample_destruction_occupancy`)
+- production caller **yok**
+- public export **yok**
+- `MechanismRecoveryResult` occupancy alanı **yok**
+
+**M4-A2 (bu dilim; live separation/contract tests):**
+
+Canlı adversarial ayrım testleri. Occupancy şunların **yerine
+geçmez:**
+
+1. M1 unique-claim keşif alanı / dummy-time yolu
+2. M2 holdout değerlendirici / holdout \(D\) örnekleme yolu
+3. M3 Q4 fonksiyonel-identifiability alanı
+
+Korunan cümleler (retarget edilmez):
+
+- occupancy ≠ M1 discovery grid
+- occupancy ≠ M2 holdout evaluator
+- occupancy ≠ M3 Q4 domain
+- Q4 ≠ occupancy
+- M4-A `MechanismRecoveryResult`’a occupancy eklemez
+- public export yoktur
+
+M4-A2 `sample_destruction_occupancy` için production caller
+**eklemez**. Occupancy ürün kablolaması yoktur.
+
+**M4-B: pending. M4-C: pending.**
+
+#### A1 test ID’leri READ-ONLY; A2 ID’leri ayrıdır
+
+A1 dosyası M4-A2 için **READ-ONLY**’dir. A1 ID’leri değişmez,
+silinmez, zayıflatılmaz ve A2’de **yeniden kullanılmaz**.
+
+A1 ID’leri (dokunulmaz; tam liste A1 dosyasındadır):
+`T-A-API`, `T-A-SRC`, `T-A-XNEQ`, `T-A-PROV`, `T-A-SPLIT`,
+`T-A-LEN`, `T-A-R`, `T-A-Q4SEP`, `T-A-SAMP`, `T-A-DTRUTH`,
+`T-A-M1`, `T-A-TIME`, `T-A-M2`, `T-A-RES`, `T-A-INTACT`,
+`T-A-VECTOR`.
+
+A2 ID’leri (yalnız bunlar; A1 ile çakışmaz):
+
+- `T-A2-M1`
+- `T-A2-M1-TIME`
+- `T-A2-Q4`
+- `T-A2-Q4SEP`
+- `T-A2-M2`
+- `T-A2-M2-D`
+
+**A1 `T-A-Q4SEP` occupancy sampling’i test eder** (occupancy
+yolunun `occupancy.X` ile `sample_unknown_destruction` çağırdığı).
+**A2 `T-A2-Q4SEP` Q4’ün occupancy’den ayrıldığını test eder.**
+Bunlar **ters yönlü** testlerdir ve **birlikte durmak
+zorundadır**. A2, A1 `T-A-Q4SEP`’i “Q4 ayrımı”na çevirmez.
+
+#### İki fikstür — ölçek karışmaz
+
+İki ayrı fikstür vardır. A2 M1 / Q4 iddiaları A1 küçük
+composer fikstürüne yazılamaz.
+
+**A1 küçük composer fikstürü** (`_m4a_composer_set` / eşdeğeri):
+
+```
+n_points              = 5
+train occupancy       = 35 sütun
+holdout occupancy     = 10 sütun
+Q4 domain             = 45 nokta
+```
+
+**A2 protokol fikstürü** (`UNIQUE_CLAIM_PROTOCOL`):
+
+```
+n_ics                 = UNIQUE_CLAIM_PROTOCOL.n_ics          # 9
+n_points              = UNIQUE_CLAIM_PROTOCOL.n_points       # 50
+train indices         = UNIQUE_CLAIM_TRAIN_INDICES           # 1..7
+holdout indices       = UNIQUE_CLAIM_HOLDOUT_INDICES         # 8..9
+train occupancy       = 7 * n_points                        # 350
+holdout occupancy     = 2 * n_points                        # 100
+Q4 domain             = 9 * n_points                        # 450
+```
+
+`T-A2-M1`, `T-A2-M1-TIME`, `T-A2-Q4` ve `T-A2-Q4SEP` **zorunlu
+olarak protokol fikstürünü** kullanır.
+
+Bağımsız boyut oracles (yakalanan değerden türetilmez):
+
+```
+n_ics     = UNIQUE_CLAIM_PROTOCOL.n_ics
+n_points  = UNIQUE_CLAIM_PROTOCOL.n_points
+n_train   = length(UNIQUE_CLAIM_TRAIN_INDICES)      # 7
+n_hold    = length(UNIQUE_CLAIM_HOLDOUT_INDICES)    # 2
+train_occ_cols = n_train * n_points                 # 350
+hold_occ_cols  = n_hold * n_points                  # 100
+q4_len         = (n_train + n_hold) * n_points      # 450
+```
+
+**Yasak:** A1 5-nokta fikstürü üzerinde
+`length(domain.z) != 450` gibi bir A2 M1 assert’i yazmak.
+O assert A1 ölçeğinde (`domain.z` uzunluğu 45) yanlış
+nedenle yeşil kalır ve protokol Q4 sızıntısını kaçırır.
+
+#### Provenance: sayısal eşitlik ≠ semantik kimlik
+
+**SAYISAL EŞİTLİK** (kanıt değildir):
+
+```
+occupancy.X[term.regulator, :] == r_holdout_expected
+```
+
+holdout occupancy regülatör satırı ile
+`_holdout_observed_regulators(split.holdout, term)` aynı
+sayısal değerleri içerebilir. Bu yüzden
+
+```
+captured_r == occupancy.X[term.regulator, :]
+```
+
+semantik ayırıcı **değildir**. Sayısal eşitsizlik provenance
+kanıtı **olarak iddia edilemez**.
+
+**SEMANTİK KİMLİK** (zorunlu kanıt):
+
+M2 production sampler’ın gerçekten `occupancy.X` alıp
+almadığı, canlı `sample_unknown_destruction` `X` argümanından
+sınıflandırılır.
+
+Kanıt, canlı örneklenen `X`’in şekli / içeriği /
+sınıflandırmasıdır; `r_range` ile occupancy satırı arasındaki
+sayısal `==` / `!=` değildir.
+
+`src/`’e production observer eklenmez. Mevcut test-yanı
+`with_sample_unknown_destruction_observer` /
+`with_sample_unknown_destruction_grid_observer` /
+`with_sample_unknown_destruction_result_observer`
+altyapısı kullanılır.
+
+#### Canlı `X` sınıflandırıcısı (test-yanı; src yok)
+
+Her canlı `sample_unknown_destruction` çağrısının yakalanan
+`X`’i bağımsız olarak şu sınıflara ayrılır. Sınıf, casustan
+kopyalanan bir etiketten değil, `X` içeriğinden türetilir.
+
+**Fill-ızgara** (M1 / M2 / Q4 production grid `X`):
+
+- taze fill-ızgara temsili (`fill(fill_value, nstates, length(r))`
+  + regülatör satırı `r`)
+- `size(X, 1) == nstates`
+- `size(X, 2) == length(r_range)`
+- tüm regülatör-dışı satırlar **tam** `0.3`
+- `X[term.regulator, :] == collect(r_range)`
+- `X !== occupancy.X` ve `X != occupancy.X`
+- `X != hcat(train_occ.X, hold_occ.X)`
+- `X != reshape(domain.z, 1, :)`
+- `X` türev / predicted yörünge matrisi değil
+  (`predict_ude` / `estimate_derivatives` çıktısı değil)
+
+**Occupancy-sınıflı** (gizli occupancy hesabı):
+
+- `X === occupancy.X` veya `X == occupancy.X`
+  (train veya holdout occupancy)
+- veya `X == hcat(train_occ.X, hold_occ.X)`
+- veya `sample_destruction_occupancy` yolunun `X`’i
+
+Bağımsız sayaçlar (tek log’u iki kez okumak yetmez):
+
+```
+production_grid_calls
+    = sample_unknown_destruction_grid casus ateş sayısı
+      (yalnız production kapsamında)
+
+occupancy_classified_sample_calls
+    = sample_unknown_destruction casusunda occupancy-sınıflı
+      X sayısı (yalnız production kapsamında)
+```
+
+Bağımsız replay oracle **ayrı logging scope** kullanır.
+Replay çağrıları `production_grid_calls` /
+`occupancy_classified_sample_calls` içine **girmez**.
+
+#### Canlı-yol kuralı
+
+`T-A2-M1`, `T-A2-M1-TIME`, `T-A2-Q4`, `T-A2-Q4SEP`,
+`T-A2-M2`, `T-A2-M2-D` **gerçek production çağrı yerini**
+gözler. Yalnız şunlara dayanmak yasaktır:
+
+- kaynak-string / `occursin`
+- constructor / alan listesi
+- dummy evaled erken dönüş
+- `_evaluate_unknown_rate_recovery`’yi uydurma veri ile
+  doğrudan çağırmak (composer’ı atlamak)
+- testin kendi ürettiği beklenen değeri kendisiyle
+  karşılaştırması (`expected = ev.d_rmse_*`)
+- üretim skalerini expected değişkenine kopyalamak
+- ikinci bir `evaluate_holdout`’u oracle saymak
+- ölü / çağrılmayan yardımcı
+- `src/`’e yeni observer eklemek
+
+Mevcut casuslar kullanılır
+(`with_sample_unknown_destruction_grid_observer`,
+`with_sample_unknown_destruction_observer`,
+`with_sample_unknown_destruction_result_observer`,
+`with_discover_unknown_rate_observer`,
+`with_evaluate_unknown_rate_recovery_range_observer`,
+`with_evaluate_holdout_observer`,
+`with_fit_unknown_destruction_observer`).
+
+Range / holdout casusu **kayıt eder, üretimi yerine geçmez:**
+range casusu dummy evaled döndürmez; holdout casusu
+`HoldoutEvidence` döndürmez. Grid casusu dönüşü değiştirmez.
+`discover_unknown_rate` casusu kayıttan sonra dummy discovery
+döndürebilir; `discover_unknown_rate` **değiştirilmez**.
+
+Bar: M2-G1. Her test: gerçek çağrı yeri + casus ateşler +
+bağımsız beklenti + yanlış gövde + o gövdeyi kırmızı yapan
+assert.
+
+#### T-A2-M1 — canlı M1 composer / domain kilidi
+
+Zorunlu fikstür: **A2 protokol fikstürü**
+(`UNIQUE_CLAIM_PROTOCOL`). A1 5-nokta composer fikstürü
+yasaktır.
+
+Zorunlu canlı yol (uydurma `_evaluate_unknown_rate_recovery`
+çağrısı yetmez):
+
+```
+_unique_claim_rate_recovery
+    → _evaluate_unknown_rate_recovery
+    → sample_unknown_destruction_grid(...; r_range)
+```
+
+Grid casusu **gerçek çağrıdan önce** kurulur. Casus
+**ateşlemek zorundadır**. Ateş etmezse test kırmızıdır
+(ölü yardımcı / dummy-evaled kısa devre / kaynak-only).
+
+Range casusu kullanılırsa `nothing` döner. Dummy evaled
+dönüş **tek kanıt değildir** ve grid’i atlatmak için
+kullanılamaz.
+
+Bağımsız beklenti (casustan ve `domain.z` uzunluğundan
+türetilmez):
+
+```
+expected_r = collect(_regulator_grid(split.train, term))
+z_expected = vcat(r_train_obs, r_holdout_obs)   # protokol; 450
+fixed      = collect(range(0.05, 2.0; length = 80))
+train_occ  = collect_observed_occupancy(split, :train_observed_states)
+hold_occ   = collect_observed_occupancy(split, :holdout_observed_states)
+```
+
+`length(expected_r) == 80` mevcut `_regulator_grid`
+`npoints` sözleşmesidir. `length(z_expected) == 450`
+`UNIQUE_CLAIM_PROTOCOL`’dan bağımsız kurulur
+(`(7+2)*50`). A1 fikstüründe `45` ile karşılaştırılmaz.
+
+Zorunlu kanıt:
+
+- grid casusu ateş sayısı `≥ 1`
+- yakalanan `r_range == expected_r`
+- `collect(r_range) != z_expected`
+- `collect(r_range) != fixed`
+- `r_range` `occupancy.X` değil
+- `r_range` occupancy regülatör satırı değil
+- canlı grid `X` fill-ızgara sınıflıdır:
+  `X[regulator, :] == expected_r`
+  `X[nonregulator, :] == 0.3`
+  `X !== train_occ.X`, `X != train_occ.X`
+  `X !== hold_occ.X`, `X != hold_occ.X`
+  `X != hcat(train_occ.X, hold_occ.X)`
+  `X != reshape(z_expected, 1, :)`
+- `occupancy_classified_sample_calls == 0`
+
+Test, M1 `r_range` şu ikamelerle değiştirilirse kırmızı
+kalır:
+
+- `occupancy.X`
+- occupancy regülatör satırı
+- Q4 `domain.z`
+- `range(0.05, 2.0; length = 80)`
+
+#### T-A2-M1-TIME — canlı M1 dummy-time kilidi
+
+Zorunlu fikstür: **A2 protokol fikstürü**.
+`discover_unknown_rate` **değiştirilmez**.
+
+Zorunlu canlı yol:
+
+```
+_unique_claim_rate_recovery
+    → _evaluate_unknown_rate_recovery
+    → sample_unknown_destruction_grid
+    → discover_unknown_rate(R_grid, times, D_nn; ...)
+```
+
+`training_ok` açılmalıdır (eşleşen truth / mevcut A1
+`_m4a_matching_truth` eşdeğeri). Dummy-time kanıtı erken
+`training_ok == false` dönüşünden önce durmaz.
+
+`with_discover_unknown_rate_observer` gerçek çağrıdan önce
+kurulur. Yalnız kaynak-string (`occursin("times = collect...")`)
+yetmez.
+
+Bağımsız beklenti:
+
+```
+expected_r = collect(_regulator_grid(split.train, term))
+dummy      = collect(range(0.0, 1.0; length = length(expected_r)))
+train_occ  = collect_observed_occupancy(split, :train_observed_states)
+hold_occ   = collect_observed_occupancy(split, :holdout_observed_states)
+```
+
+Zorunlu kanıt:
+
+- yakalanan discovery çağrı sayısı `≥ 1`
+- `captured.times == dummy`
+- `captured.times != train_occ.times`
+- `captured.times != hold_occ.times`
+- `occupancy_classified_sample_calls == 0`
+
+#### T-A2-Q4 — canlı Q4 ızgara / alan kilidi
+
+Zorunlu fikstür: **A2 protokol fikstürü**.
+
+Zorunlu canlı yol:
+
+```
+fit_functional_identifiability_restart
+    → sample_unknown_destruction_grid(
+           r_range = domain.z,
+           fill_value = domain.fill_value)
+```
+
+Çağrı yeri: `fit_functional_identifiability_restart` (testin
+kendi `sample_*` kopyası değil). PR bütçesi için mevcut
+`with_fit_unknown_destruction_observer` + geçerli
+`TrainingResult` (M3 PR kalıbı) fiti kısaltabilir; restart
+gövdesi canlı `sample_unknown_destruction_grid`’e **girmek
+zorundadır**. Occupancy nesnesi Q4 production yoluna
+sokulmaz.
+
+Grid casusu gerçek çağrıdan önce kurulur ve **ateşler**.
+
+Bağımsız beklenti (`UNIQUE_CLAIM_PROTOCOL`’dan; casustan
+değil):
+
+```
+z_expected = vcat(r_train_obs, r_holdout_obs)   # sıra, tekrarlar
+length(z_expected) == 450                       # 7×50 + 2×50
+domain.z == z_expected
+domain.fill_value == 0.3
+domain.construction === :train_obs_union_holdout_obs
+```
+
+Zorunlu kanıt:
+
+- `captured_r == domain.z == z_expected`
+- `length(domain.z) == 450`
+- `domain.fill_value == 0.3`
+- canlı grid `X` fill-ızgara sınıflıdır:
+  `X[regulator, :] == domain.z == z_expected`
+  `X[nonregulator, :] == 0.3`
+  `X` occupancy.X değil
+  `X != hcat(train_occ.X, hold_occ.X)`
+  `X != reshape(domain.z, 1, :)`
+- `occupancy_classified_sample_calls == 0`
+
+#### T-A2-Q4SEP — canlı Q4 ↔ occupancy ayrımı + sentinel
+
+A1 `T-A-Q4SEP` **değişmez** (occupancy sampling).
+`T-A2-Q4SEP` onun tersidir: Q4 occupancy okumaz.
+
+`T-A2-Q4` canlı yolunu protokol fikstürü ile koşar, sonra
+occupancy mutasyon sentineli uygular:
+
+1. `train_occ` ve `hold_occ` oluştur.
+2. `train_occ.X` ve `hold_occ.X`’i sentinel değerle
+   **yerinde** boz (regülatör ve regülatör-dışı satırlar
+   tanınabilir unique sentinel).
+3. Canlı Q4 örnekleme yolunu **yeniden** çalıştır
+   (`fit_functional_identifiability_restart` → grid).
+4. Yakalanan Q4 `r_range` ve grid `X` bağımsız domain
+   beklentisine **tam eşit** kalır:
+   `captured_r == z_expected`
+   `X[regulator, :] == z_expected`
+   `X[nonregulator, :] == 0.3`
+   `X != train_occ.X` (sentinel sonrası)
+   `X != hold_occ.X`
+   `X != hcat(train_occ.X, hold_occ.X)`
+
+Bu, Q4’ün occupancy okumadığını kanıtlar. Occupancy
+sızıntısı sentinel’i `r_range` veya `X`’e taşır ve test
+kırmızı kalır.
+
+`occupancy_classified_sample_calls == 0` her iki canlı
+koşuda da durur.
+
+#### T-A2-M2 — canlı M2 holdout yolu + `X` sınıflandırması
+
+İkinci bir sahte değerlendirici yazılmaz. Gerçek
+`evaluate_holdout` çalışır.
+
+Zorunlu canlı yol:
+
+```
+evaluate_holdout
+    → holdout observed regulator coordinates
+    → sample_unknown_destruction_grid   # 1. production grid
+    → train-derived external band
+    → sample_unknown_destruction_grid   # 2. production grid
+    → four HoldoutEvidence scalars
+```
+
+Holdout casusu kayıt eder, `HoldoutEvidence` **döndürmez**.
+`evaluate_holdout` çağrı sayısı `== 1`.
+
+İki gerçek M2 grid çağrısının her biri için, production
+grid sampler’ın canlı `sample_unknown_destruction` `X`
+argümanı yakalanır (mevcut test-yanı observer; `src/`’e
+observer eklenmez).
+
+Bağımsız beklenti (occupancy’den ve casustan kopyalanmaz):
+
+```
+r_holdout_expected = vcat(
+    split.holdout[1].observations[term.regulator, :],
+    split.holdout[2].observations[term.regulator, :])
+r_band_expected = collect(
+    _unique_claim_external_regulator_band(split.train, term))
+```
+
+**Açık uyarı:** `hold_occ.X[term.regulator, :]` ile
+`r_holdout_expected` sayısal olarak eşit olabilir. Bu
+eşitlik semantik eşdeğerlik **değildir**. Ayırıcı canlı
+`X` sınıflandırmasıdır.
+
+**Birinci production grid çağrısı:**
+
+- `r_range == r_holdout_expected`
+- `fill_value == 0.3`
+- `X[regulator, :] == r_holdout_expected`
+- `X[nonregulator, :] == 0.3`
+- `X` taze fill-ızgara; `nstates` satır
+- `X !== occupancy.X` ve `X != occupancy.X`
+  (train ve holdout)
+- `X != hcat(train_occ.X, hold_occ.X)`
+- `X != reshape(domain.z, 1, :)`
+- `X` türev / predicted yörünge değil
+
+**İkinci production grid çağrısı:**
+
+- `r_range == r_band_expected`
+- `fill_value == 0.3`
+- `X[regulator, :] == r_band_expected`
+- `X[nonregulator, :] == 0.3`
+- aynı fill-ızgara / anti-occupancy / anti-Q4 / anti-yörünge
+  sınıflandırması
+
+Zorunlu sayaçlar (production scope; replay hariç):
+
+```
+evaluate_holdout call count              == 1
+production_grid_calls                    == 2
+occupancy_classified_sample_calls        == 0
+```
+
+Dönüş:
+
+- `isa HoldoutEvidence`
+- `fieldnames` tam eşitlik:
+
+```
+(
+    :data_residual_train,
+    :data_residual_holdout,
+    :d_rmse_holdout,
+    :d_rmse_holdout_domain
+)
+```
+
+- `:occupancy ∉ fieldnames(HoldoutEvidence)`
+- `:occupancy ∉ fieldnames(MechanismRecoveryResult)`
+- `:occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)`
+
+Bu üç struct **değiştirilmez**.
+
+`grid → gizli occupancy → grid` yolu, dört
+`HoldoutEvidence` skalerı sayısal olarak doğru olsa bile
+kırmızıdır: `occupancy_classified_sample_calls == 0` ve
+`production_grid_calls == 2` birlikte zorunludur. Gizli
+üçüncü occupancy sample’ı sayacı 0’dan çıkarır.
+
+#### T-A2-M2-D — canlı M2 \(D\) semantiği; iki bağımsız oracle
+
+`ev.d_rmse_holdout` ve `ev.d_rmse_holdout_domain` LIVE
+production örneklenen \(D\) değerlerinden hesaplanır.
+
+**A) Production yakalama** (production scope; `evaluate_holdout`
+içinde):
+
+- birinci grid sonucu `(R, D, term, params)`
+- ikinci grid sonucu `(R, D, term, params)`
+
+Mevcut `with_sample_unknown_destruction_result_observer`.
+
+**B) Bağımsız oracle #1** (yalnız yakalanan production
+`D`/`R` + bağımsız seçilmiş `truth_rate`):
+
+```
+oracle1_holdout = _finite_rate_rel_rmse(
+    captured_holdout_D,
+    truth_rate(vec(captured_holdout_R)))
+oracle1_domain = _finite_rate_rel_rmse(
+    captured_domain_D,
+    truth_rate(vec(captured_domain_R)))
+```
+
+Zorunlu: `ev.d_rmse_holdout == oracle1_holdout`
+(tam eşitlik). `ev.d_rmse_holdout_domain == oracle1_domain`.
+
+**C) Bağımsız oracle #2** — production `evaluate_holdout`
+**dışında**, ayrı replay:
+
+- bağımsız kurulan `r_holdout_expected`, `r_band_expected`
+- `fill_value = 0.3`
+- aynı `model` / `params` / `term`
+- neural \(D\) yeniden örneklenir
+  (`sample_unknown_destruction_grid`)
+- **ayrı logging scope** — production
+  `production_grid_calls` /
+  `occupancy_classified_sample_calls` artmaz
+
+```
+(replay_hold_R, replay_hold_D, _) = sample_unknown_destruction_grid(
+    model, params, term;
+    r_range = r_holdout_expected, fill_value = 0.3)
+(replay_band_R, replay_band_D, _) = sample_unknown_destruction_grid(
+    model, params, term;
+    r_range = r_band_expected, fill_value = 0.3)
+oracle2_holdout = _finite_rate_rel_rmse(
+    replay_hold_D, truth_rate(vec(replay_hold_R)))
+oracle2_domain = _finite_rate_rel_rmse(
+    replay_band_D, truth_rate(vec(replay_band_R)))
+```
+
+Zorunlu: `ev.d_rmse_holdout == oracle2_holdout` ve
+`ev.d_rmse_holdout_domain == oracle2_domain`.
+
+**Açık yasak:**
+
+- `expected = ev.d_rmse_*`
+- üretim skalerini expected değişkenine kopyalamak
+- ikinci bir `evaluate_holdout`’u oracle saymak
+- sembolik denklem yeniden kurulumu
+  (`equation_to_function` / keşif adayı)
+- M2 holdout \(D\) oracle’ında
+  `normalize_destruction_samples`
+
+#### Occupancy ürün kablolaması yok
+
+Struct’lar değişmez. A2 yalnızca kilitler:
+
+```
+:occupancy ∉ fieldnames(HoldoutEvidence)
+:occupancy ∉ fieldnames(MechanismRecoveryResult)
+:occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
+```
+
+#### Saldırı kataloğu (on dokuz; her satır canlı kırmızı)
+
+String-only yeşil yetmez. Her saldırı: gözlenen production
+çağrısı + bağımsız beklenti + tam kırmızı assert.
+
+| # | Saldırı | Gözlenen production çağrısı | Bağımsız beklenti | Tam kırmızı assert |
+|---|---|---|---|---|
+| 1 | M1 `occupancy.X` kullanır | `_unique_claim_rate_recovery` → grid → canlı `sample_unknown_destruction` `X` | `expected_r = collect(_regulator_grid(split.train, term))` (protokol) | grid ateşler; `r_range == expected_r`; canlı `X` fill-ızgara; `X != occupancy.X`; occupancy-sınıflı sample `== 0` |
+| 2 | M1 occupancy regülatör satırı kullanır | aynı M1 canlı grid / `X` | `expected_r` (80); occupancy satırı 350 / 100 | `r_range == expected_r`; `r_range != occupancy.X[reg, :]` **yalnız uzunluk/şekil için değil** — kanıt fill-ızgara `X[reg,:] == expected_r` ve `X` occupancy satırı/matrisi değil |
+| 3 | M1 Q4 `domain.z` kullanır | aynı M1 canlı grid | `expected_r` (80); `z_expected` protokolden 450 | `r_range == expected_r`; `r_range != z_expected`; `length(r_range) == 80`; `length(z_expected) == 450` (A1 45-nokta fikstürü yasak) |
+| 4 | M1 sabit ızgara | aynı M1 canlı grid | `expected_r`; `fixed = collect(range(0.05, 2.0; length=80))` | `r_range == expected_r`; `r_range != fixed` |
+| 5 | Q4 `occupancy.X` kullanır | `fit_functional_identifiability_restart` → grid → canlı `X` | `z_expected` (450); `domain.z == z_expected` | `captured_r == z_expected`; canlı `X` fill-ızgara; `X != occupancy.X`; occupancy-sınıflı `== 0` |
+| 6 | Q4 occupancy regülatör satırı kullanır | aynı Q4 canlı grid / `X` | `z_expected` train-sonra-holdout 450 | `captured_r == z_expected`; `X[reg,:] == z_expected`; `X` occupancy satırı değil |
+| 7 | Q4 `hcat(train_occ, hold_occ)` kullanır | aynı Q4 canlı `X` | fill-ızgara `z_expected` × `0.3` | `X != hcat(train_occ.X, hold_occ.X)`; `X[nonreg,:] == 0.3` |
+| 8 | Q4 yanlış fill | aynı Q4 canlı `X` | `domain.fill_value == 0.3` | `domain.fill_value == 0.3`; `X[nonreg,:] == 0.3` |
+| 9 | M2 `sample_destruction_occupancy` kullanır | canlı `evaluate_holdout` + sample casusu | `production_grid_calls == 2` | occupancy-sınıflı sample `== 0`; grid `== 2`; canlı `X` fill-ızgara, `!== occupancy.X` |
+| 10 | M2, sayısal eşit koordinatlı occupancy-türevli ızgara kullanır | iki canlı M2 `sample_unknown_destruction` `X` | `r_holdout_expected` / `r_band_expected`; fill-ızgara sınıflandırıcısı | `r` sayısal olarak occupancy satırına eşit **olsa bile** `X` occupancy.X / hcat / Q4 reshape / yörünge değil; `X` taze fill-ızgara; `X[nonreg,:] == 0.3`; `X[reg,:] ==` o çağrının `r_range`’i |
+| 11 | M2 `fill_value` değiştirir | iki canlı M2 `X` | `fill_value == 0.3` | `X[nonreg,:] == 0.3` (her iki çağrı) |
+| 12 | M2 gizli ikinci occupancy değerlendirmesi (`grid → occupancy → grid`) | production grid + occupancy-sınıflı sample sayaçları | grid `== 2`; occupancy-sınıflı `== 0` | dört skaler doğru olsa bile occupancy-sınıflı `== 0` ve grid `== 2`; gizli occupancy kırmızı |
+| 13 | sahte `d_rmse_holdout` skaler | `evaluate_holdout` + result casusu + replay | oracle #1 ve oracle #2 | `ev.d_rmse_holdout == oracle1 == oracle2`; `expected = ev.d_rmse_*` yasak |
+| 14 | sembolik M2 \(D\) | aynı D oracles | neural grid `D` | oracle `sample_unknown_destruction_grid` neural \(D\); `equation_to_function` / normalize yasak |
+| 15 | occupancy sonuç tiplerine eklenir | `fieldnames` | kilitli 4 alan; üç tipte `:occupancy` yok | `:occupancy ∉` `HoldoutEvidence` / `MechanismRecoveryResult` / `FunctionalIdentifiabilityDiagnostic`; struct değişmez |
+| 16 | A1 test zayıflatma | A1 dosyası READ-ONLY; A1 ID’leri durur | A1 `T-A-Q4SEP` occupancy sampling olarak kalır | A1 ID rename/delete/reuse yok; A2 `T-A2-*` ayrı; ters yönlü `T-A-Q4SEP` + `T-A2-Q4SEP` birlikte |
+| 17 | yalnız-kaynak ölü yardımcı | grid / discover / holdout casusları | casus ateşler | grid/discover/holdout ateş sayısı `≥ 1` / M2’de grid `== 2`; `occursin` tek kanıt değil |
+| 18 | M4-B bulaşması | diff + yasak liste | A2 yalnız ayrım testleri | graph-local eğitilmiş kurtarma / composer göçü / occupancy keşif ürünü yok |
+| 19 | M4-C bulaşması | diff + yasak liste | A2 yalnız ayrım testleri | robustness tohum ürünü / nightly / çok-tohum artifact yok |
+
+Saldırı 10 için tekrar: occupancy regülatör koordinatları ile
+holdout gözlenen-\(r\) vektörünün sayısal eşitliği semantik
+eşdeğerlik **değildir**. Kırmızı koşul, canlı `X`’in occupancy
+matrisi (veya hcat / Q4 reshape / yörünge) olarak
+sınıflanmasıdır; `captured_r != occupancy.X[reg,:]` iddiası
+değildir.
+
+#### M4-A2 yasak kapsam
+
+M4-A2 **uygulamaz:**
+
+- occupancy RMSE ürünü
+- composer göçü
+- `evaluate_holdout` göçü
+- Q4 göçü
+- graph-local eğitilmiş kurtarma
+- robustness tohumları
+- nightly workflow
+- M4-B
+- M4-C
+- yeni recovery pipeline
+- public export
+- yeni bilimsel sonuç tipi
+- `sample_destruction_occupancy` production caller
+- occupancy’nin `MechanismRecoveryResult` /
+  `HoldoutEvidence` /
+  `FunctionalIdentifiabilityDiagnostic`’e eklenmesi
+- `src/`’e production observer
+- A1 test dosyası değişikliği
+- A1 test ID reuse
+
+#### Test evi ve uygulama sırası
+
+Testler **yeni** `test/test_m4_a2_separation.jl` dosyasındadır
+(yalnız test; `src/` yok). A1
+`test/test_trajectory_occupancy.jl` **READ-ONLY**’dir. A1
+constructor / dummy-evaled `T-A-M1` A2 kabulü sayılmaz ve
+aynı ID’ye “yükseltilmez”.
+
+Uygulama sırası:
+
+1–7. A2 test dosyası ve altı canlı ID uygulandı
+8. M2 / M3 / A1 regresyon
+9. adversarial test review
+10. diff-check
+11. adversarial preflight
+12. ancak o zaman commit / tag
+
+Production değişikliği yoktur. Commit / tag / push yoktur.
+
+#### Kabul
+
+M4-A2, occupancy helper’ın varlığı veya A1 birim yeşili ile
+kabul **edilmez**. Altı canlı A2 ID + on dokuz saldırının
+canlı kırmızı koşulu + yasak listenin uygulanmamış olması
+gerekir. Occupancy Q4, composer veya holdout değerlendirici
+olmaz.
+
+A1 yeşili A2’yi örtmez. A2, A1 `T-A-Q4SEP`’i bozmadan
+ters-yön Q4 ayrımını kilitler.
+
 ### 4a Yörünge bağlamında `D` örnekleme
 
 - **Hedef:** Öğrenilmiş \(\hat D\)’yi eğitimde ziyaret edilen
@@ -4350,6 +5049,10 @@ M4 şunları değiştirmez:
 - **Kabul (M4-0):** Occupancy Q4’ü veya composer’ı değiştirmez.
   Eski “unique-claim keşfi occupancy’ye geçsin” cümlesi M4
   default değildir. Composer göçü ayrı, kanıtlı bir dilim ister.
+  M4-A1: implemented runtime. M4-A2: live
+  separation/contract tests. M4-B: pending. M4-C: pending.
+  occupancy ≠ M1 discovery grid; occupancy ≠ M2 holdout
+  evaluator; occupancy ≠ M3 Q4 domain.
 - **Ertelenen:** `ImplicitCandidate` docstring’indeki
   `D(z)ẋ-N=0`’ı unique-claim’e zorlamak. Unique-claim `y=D_nn`
   fonksiyon regresyonudur; bunu dokümante edin

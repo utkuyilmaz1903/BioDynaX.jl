@@ -274,9 +274,12 @@ Q3.
 
 M4 occupancy is an additional sampling/evaluation context, not a replacement for Q4 or the M1/M2 composer.
 
-This section is a pre-implementation lock. M4-A, M4-B, and M4-C
-runtime code remains pending future work. The lock exists so later
-slices cannot silently change M2 or M3 semantics.
+M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests, not production wiring. M4-B remains pending. M4-C remains pending. The lock exists so later slices cannot silently change M2 or M3 semantics.
+
+occupancy != Q4 domain.z
+occupancy != M1 discovery grid
+occupancy != M2 holdout evaluator
+Occupancy is not part of the recovery result, holdout result, or Q4 diagnostic.
 
 ### M3 / Q4 stays the approved diagnostic
 
