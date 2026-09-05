@@ -79,12 +79,14 @@ const LOCKED_PUBLIC_EXPORTS = (
     :SaturationMetadata,
     :SingularLibrary,
     :SolverConfig,
+    :StabilitySelection,
     :StructuralPositivity,
     :TrainingConfig,
     :TrainingResult,
     :TrainingRetcode,
     :UDEModel,
     :UNKNOWN_NN,
+    :UnknownTermResult,
     :ZygoteAD,
     :allocate_cache,
     :auto_sensealg,
@@ -96,11 +98,13 @@ const LOCKED_PUBLIC_EXPORTS = (
     :default_solver_config,
     :discover_equations,
     :discover_unknown_rate,
+    :discover_unknown_term,
     :equation_to_function,
     :equation_to_latex,
     :estimate_derivatives,
     :experiment_from_csv,
     :export_rhs,
+    :format_stability_selection,
     :generate_experiment_set,
     :hybrid_data_residual,
     :local_basis,
@@ -108,14 +112,17 @@ const LOCKED_PUBLIC_EXPORTS = (
     :parameter_schema,
     :positive_parameter,
     :predict_ude,
+    :report,
     :sample_unknown_destruction,
+    :stability_selection_report,
     :state_nodes,
     :train_experiments,
     :train_ude,
     :ude_rhs!,
     :ude_system,
     :validate_network,
-    :write_experiment_csv)
+    :write_experiment_csv
+)
 
 """Reference-example source strings the protocol fingerprint requires."""
 const UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN = (
