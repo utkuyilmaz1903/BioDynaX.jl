@@ -208,12 +208,18 @@ end
             _LCS.LIBRARY_STUDY_TWO_STATE_PARAMS;
             tspan = _LCS.UNIQUE_CLAIM_PROTOCOL.tspan, n_points = 8, noise_σ = 0.0)
         @test length(set.experiments) == 9
-        wrong = _LCS.build_hill_recovery_network(; known = false, parent = 1)
+        # The reference network declares the unknown term as a reaction only, so
+        # its graph prior is empty; the fixture's discovery networks add the edge.
+        plain = _LCS.build_hill_recovery_network(; known = false)
+        @test _LCS.local_basis(plain, 1; degree = 2, include_interactions = false,
+            scope = :graph).variables == [1]
+        graph_net = _LCS._library_study_two_state_graph_network(; parent = 2)
+        @test _LCS.local_basis(graph_net, 1; degree = 2, include_interactions = false,
+            scope = :graph).variables == [1, 2]
+        wrong = _LCS._library_study_two_state_graph_network(; parent = 1)
         @test _LCS.local_basis(wrong, 1; degree = 2, include_interactions = false,
             scope = :graph).variables == [1]
-        default_net = _LCS.build_hill_recovery_network(; known = false)
-        @test _LCS.local_basis(default_net, 1; degree = 2, include_interactions = false,
-            scope = :graph).variables == [1, 2]
+        @test length(graph_net.reactions) == length(plain.reactions)
         @test_throws ArgumentError _LCS.library_comparison_run(
             seed = 1, noise_σ = 0.0, kind = :smoke, fixture = :three_state)
         both = vcat(_LCS.library_comparison_smoke(), rows)
