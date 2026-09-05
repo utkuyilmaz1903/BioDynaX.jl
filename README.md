@@ -4,6 +4,8 @@ Hybrid models of biochemical networks: compiled known kinetics plus one neural d
 
 [![CI](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml) [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Julia](https://img.shields.io/badge/julia-%E2%89%A5%201.10-9558B2.svg)](https://julialang.org)
 
+Version 0.10. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
+
 ## What BioDynaX does
 
 BioDynaX fits hybrid models of small biochemical networks. You give it a
@@ -20,8 +22,9 @@ The package reports three things: whether the unknown term is practically
 identifiable from the data (a Fisher-information and scale-collinearity
 diagnostic), how well the hybrid model reproduces observed and held-out
 trajectories, and which symbolic terms are recovered. It is a research tool
-for the regime of roughly 2 to 20 states with a known graph, not a
-general-purpose network-inference tool or reaction-network solver.
+for small networks with a known graph (the benchmarks cover 2- to 6-state
+networks), not a general-purpose network-inference tool or reaction-network
+solver.
 
 ## Installation
 
@@ -74,7 +77,7 @@ tspan = (0.0, 10.0)
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
 data = generate_experiment_set(rng; network = network(known = true), truth_params = truth,
     initial_conditions = [[0.2, 0.1], [1.0, 0.5], [0.5, 1.2]], tspan = tspan,
-    n_points = 40, noise_σ = 0.0)                     # or: experiment_from_csv("data.csv")
+    n_points = 40, noise_σ = 0.0)
 
 model, p0 = build_ude_model(rng, network(known = false))   # unknown term -> neural network
 p_init = pack_parameters((k_prod = 0.8, k_rs = 0.8, k_r = 0.8), p0.nn)
@@ -106,7 +109,7 @@ It prints a four-section report. The lines that matter most:
   unidentifiable_edge: true
   coefficients_are_biological_constants: false
   collinearity: 0.997
-  hybrid_data_residual: 0.0017769252587108318
+  hybrid_data_residual: 0.001777
 dx[1]/dt = (0.24118*1 + -1.3569*x[1] + 7.7609*x[1]^2) / (1 + -0.3862*x[1] + 4.1863*x[1]^2)
   extras: 1, r
 ```
