@@ -146,32 +146,61 @@ function _m4b_discovery_config(budget, scope::Symbol)
 end
 
 """
-    evaluate_trained_graph_local(; kind, training_call=fit_unknown_destruction)
+    library_study_training_set(kind; seed, noise_σ, initial_conditions)
+
+Experiment set of the trained-model library check: the four-state network with
+the true Hill term, integrated from `initial_conditions` with the budget's time
+span and point count, and additive Gaussian observation noise of standard
+deviation `noise_σ` drawn from `MersenneTwister(seed)`. The defaults are the
+budget's own seed, noise, and initial conditions, so
+`library_study_training_set(kind)` is the set `evaluate_trained_graph_local`
+trains on. Not exported.
+"""
+function library_study_training_set(kind::Symbol;
+        seed::Integer = m4b_budget(kind).seed,
+        noise_σ::Real = m4b_budget(kind).noise_σ,
+        initial_conditions = m4b_initial_conditions(kind))
+    budget = m4b_budget(kind)
+    truth_net = build_three_state_unknown_network(;
+        known = true, with_distractor = true, parent = 2)
+    return generate_experiment_set(
+        MersenneTwister(seed);
+        network = truth_net,
+        initial_conditions = initial_conditions,
+        tspan = budget.tspan,
+        n_points = budget.n_points,
+        noise_σ = Float64(noise_σ),
+        truth_params = m4b_truth_params(),
+        generator = :compiled_mechanism)
+end
+
+"""
+    evaluate_trained_graph_local(; kind, training_call=fit_unknown_destruction,
+                                 seed=m4b_budget(kind).seed,
+                                 noise_σ=m4b_budget(kind).noise_σ)
 
 Unexported orchestrator of the trained-model library check. Exactly one `training_call`, one learned-D
 sample, and three `discover_equations` executions. Holdout does not
 select the optimizer, initialization, or scope.
+
+`seed` seeds both the data generation and the network initialisation;
+`noise_σ` is the observation-noise standard deviation of the generated
+experiments. Their defaults are the budget's own values (seed 401, no noise),
+so a call without them reproduces the original single run. The library
+comparison study varies them.
 """
 function evaluate_trained_graph_local(;
         kind::Symbol,
-        training_call = fit_unknown_destruction)
+        training_call = fit_unknown_destruction,
+        seed::Integer = m4b_budget(kind).seed,
+        noise_σ::Real = m4b_budget(kind).noise_σ)
     budget = m4b_budget(kind)
-    truth_net = build_three_state_unknown_network(;
-        known = true, with_distractor = true, parent = 2)
     ude_net = build_three_state_unknown_network(;
         known = false, with_distractor = true, parent = 2)
     wrong_net = build_wrong_graph_unknown_network(;
         known = false, with_distractor = true)
-    train_set = generate_experiment_set(
-        MersenneTwister(budget.seed);
-        network = truth_net,
-        initial_conditions = m4b_initial_conditions(kind),
-        tspan = budget.tspan,
-        n_points = budget.n_points,
-        noise_σ = budget.noise_σ,
-        truth_params = m4b_truth_params(),
-        generator = :compiled_mechanism)
-    model, p0 = build_ude_model(MersenneTwister(401), ude_net)
+    train_set = library_study_training_set(kind; seed, noise_σ)
+    model, p0 = build_ude_model(MersenneTwister(seed), ude_net)
     training = training_call(
         model, p0, train_set;
         adam = budget.adam_iterations,
