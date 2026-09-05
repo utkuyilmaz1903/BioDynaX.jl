@@ -68,6 +68,8 @@ rate.
 | `benchmark/functional_identifiability.jl` | the five-restart functional-identifiability diagnostic | no |
 | `benchmark/ude_f1_attempt.jl` | replays the trained-model nuisance terms on the same library to document that they persist | no |
 | `benchmark/scale_basis.jl` | library size versus node count | no |
+| `benchmark/library_comparison_study.jl` | the library comparison study: five seeds, three noise levels, three libraries; resumable CSV output and a summary table | weekly |
+| `benchmark/plot_library_comparison.jl` | figure of support F1 against noise per library from the study CSV (needs Plots) | no |
 | `benchmark/allocation_gate.jl` | allocation count of the in-place right-hand side | yes |
 | `benchmark/probe_datadriven.jl` | checks whether DataDrivenSparse resolves in an isolated environment | yes, allowed to fail |
 
@@ -140,6 +142,76 @@ the global library includes the distractor and admits a false parent; the
 wrong-graph library misses the true regulator. Combined F1 is not scored on
 this fixture because the target state itself sits in the local library.
 
+## Library comparison study
+
+The claim that a graph-local library recovers the unknown mechanism more
+reliably than a global library, and that a wrong graph degrades it, is
+tested as a study over seeds and noise levels on the four-state network of
+the trained-model library comparison. The states are S, R, Q, and a
+distractor Z; the unknown term is the Hill degradation of S with regulator
+R, `D(R) = 1.7 R^2 / (0.36 + R^2)`. For each seed and noise level one model
+is trained on three initial conditions with 40 points each (Adam 100, then
+BFGS 50), its learned rate is sampled once on 80 designed coordinates, and
+discovery runs three times on those samples: with the graph-local library
+(monomials of S and R up to degree 2), with the global library (monomials
+of all four states), and with the library of a deliberately wrong graph (Q
+as the parent of S instead of R). The first candidate of each discovery is
+scored against the true implicit support, `R^2` in the numerator and `R^2`
+in the denominator. Two held-out initial conditions, never used for
+training, give the held-out residual of the hybrid model that uses the
+discovered rate.
+
+The default study is seeds 103, 107, 111, 113, and 127, observation noise
+0, 0.02, and 0.05 (standard deviation of additive Gaussian noise on the
+observations), and the three libraries: 15 trainings and 45 rows.
+`benchmark/library_comparison_study.jl` ran it in 28 minutes on 4 cores
+(median training 107 s) and `benchmark/plot_library_comparison.jl` drew the
+figure.
+
+![Support F1 against observation noise, one line per library, median over five seeds with the interquartile band](assets/library_comparison.png)
+
+Median over the five seeds, with the first and third quartile in brackets:
+
+| library | noise | support F1 | support recall | extra terms | held-out residual | neural-rate error |
+|---|---|---|---|---|---|---|
+| graph-local | 0 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.041 [0.024, 0.044] | 0.073 |
+| graph-local | 0.02 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.032 [0.030, 0.056] | 0.075 |
+| graph-local | 0.05 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.057 [0.054, 0.057] | 0.048 |
+| global | 0 | 0.33 [0.00, 0.33] | 0.5 [0.0, 0.5] | 3 [3, 5] | 0.127 [0.125, 0.127] | 0.073 |
+| global | 0.02 | 0.00 [0.00, 0.33] | 0.0 [0.0, 0.5] | 5 [3, 5] | 0.154 [0.139, 0.154] | 0.075 |
+| global | 0.05 | 0.00 [0.00, 0.33] | 0.0 [0.0, 0.5] | 5 [3, 5] | 0.161 [0.114, 0.208] | 0.048 |
+| wrong graph | 0 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.252 [0.251, 0.257] | 0.073 |
+| wrong graph | 0.02 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.265 [0.249, 0.335] | 0.075 |
+| wrong graph | 0.05 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.266 [0.247, 0.342] | 0.048 |
+
+The neural-rate error is a property of the trained model, so it is the same
+for the three libraries of a run. Three of the 45 rows (graph-local at
+seeds 103 and 111 and global at seed 103, all at noise 0.05) have no finite
+residual because the hybrid model with the discovered rate diverged; the
+residual medians are over the finite values.
+
+Environment of the run: Julia 1.10.12, OrdinaryDiffEq 7.8.1,
+SciMLSensitivity 7.119.2, Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13
+(SciMLBase 3.50.2), 2026-09-05. No Manifest is committed, so a rerun with
+other dependency versions can give other values.
+
+What the numbers show. The graph-local library has the highest support F1
+at every noise level and a held-out residual three to five times smaller
+than the global library's; the wrong-graph library recovers no true term in
+any of its 15 runs and has the largest residual. No library recovers the
+full true support: the graph-local recall is 0.5 in all 15 runs because
+every graph-local candidate is a polynomial in R (`R^2` in the numerator
+with `R` in all 15 runs and `1` in 7 of them, for example
+`2.05 R - 0.62 R^2` at seed 103 without noise) and no denominator term is
+selected, so the rational form of the Hill rate is not recovered.
+The global library recovers `R^2` in 7 of 15 runs and adds `Q^2` and `Z^2`
+in 14 of 15; its median F1 falls from 0.33 without noise to 0 at noise 0.02
+and 0.05. Within this noise range the graph-local scores do not change, and
+the neural-rate error varies more across seeds (0.035 to 0.19) than across
+noise levels. The study therefore supports the ordering graph-local, then
+global, then wrong graph on this network; it does not show recovery of the
+exact mechanism, and it is five seeds on one network.
+
 ## Report fields
 
 | Field | Meaning |
@@ -167,4 +239,8 @@ julia --project=. benchmark/recovery_suite.jl
 julia --project=. benchmark/sindy_baseline.jl
 julia --project=. benchmark/recovery_seeds.jl
 julia --project=. benchmark/noise_grid.jl
+julia --project=. benchmark/library_comparison_study.jl
 ```
+
+`benchmark/library_comparison_study.jl --timed` runs one seed and one noise
+level and prints the extrapolated wall time of the default study.
