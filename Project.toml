@@ -2,7 +2,7 @@ name = "BioDynaX"
 uuid = "b10d7a4f-3e2d-4b1d-9d2e-9c7e8c5f1a6b"
 version = "0.9.2"
 authors = ["Utku Yılmaz"]
-description = "Graph-guided hybrid UDEs: known kinetics stay compiled; unknown destruction D(z) is recovered locally."
+description = "Hybrid models of biochemical networks: compiled known kinetics plus one neural destruction term, recovered symbolically"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"

@@ -1,163 +1,39 @@
 # BioDynaX.jl
 
-Research preview. Not v1.0. Unique claim: known graph, one unknown
-destruction `D(z)`, practical `unidentifiable_edge`, gated residual and
-recall. Not a general network solver.
+Hybrid models of biochemical networks: compiled known kinetics plus one neural destruction term, recovered symbolically.
 
-[![CI](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml) [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Julia](https://img.shields.io/badge/julia-%E2%89%A5%201.10-9558B2.svg)](https://julialang.org)
 
-**Research preview. Not v1.0.** One-hole instrument: known graph, compiled
-known `P` / known `D`, exactly one unknown destruction `D(z)`. Compiled
-dynamics are `du_i = P_i - D_i * u_i`. The current unique-claim hold is
-the Q3 practical scale warning (`unidentifiable_edge`; coefficients are
-not biological constants) together with a gated Q1 hybrid residual versus
-observed data and Q5 true-monomial recall. Q3 is a local practical warning,
-not the whole product and not a structural certificate. Trajectory residual
-is not mechanistic recovery. Canonical Hill from a trained NN is closed.
-This is not a general CRN solver or a global SINDy replacement. The
-scientific contract is
-the scientific scope description in the documentation
-(Q1–Q7 stay conceptually separate; Q4 is a practical
-functional-identifiability diagnostic, not a gate and not a formal
-identifiability certificate; Q7 is reported held-out generalization
-evidence, not an additional success gate). Nine ICs are generated once;
-ICs 1–7 are used for training and ICs 8–9 are held out. M4-B
-trained-UDE graph-local validation is implemented. PR smoke is not
-trained-UDE scientific acceptance. M4-C remains pending future work.
+## What BioDynaX does
 
-Requires **Julia ≥ 1.10**.
+BioDynaX fits hybrid models of small biochemical networks. You give it a
+known interaction graph and known kinetics (mass action, linear decay, Hill,
+Michaelis-Menten saturation, competitive binding, or a custom rate); it
+compiles those into a production-destruction ODE
+`du_i/dt = P_i(u) - D_i(u) * u_i`. Exactly one destruction term may be marked
+unknown. That term is replaced by a small neural network (a universal
+differential equation), trained on time-series data from one or more initial
+conditions, and then approximated symbolically by sparse rational regression
+(implicit SINDy) over a library built only from that node's graph neighbours.
 
-[Documentation](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/) for the
-0.9.2 research preview.
-
----
-
-## Product
-
-1. **Scope** — known graph, compiled known kinetics, exactly one unknown
-   destruction `D(z)`. Zero or two-or-more holes are out of claim; the golden
-   path errors.
-2. **Q3 scale warning (first printed block)** —
-   `unidentifiable_edge` and `coefficients_are_biological_constants`. The
-   flag is a local practical warning: Fisher condition number **or**
-   `k_prod`/`D` scale cosine. It is not the product by itself and not a
-   structural certificate. `k_prod` and the scale of `D(z)` are not
-   separately identifiable from observed concentrations.
-3. **Q1 fit (gated)** — hybrid residual versus observed data on the current
-   protocol / training IC[1]. Not mechanistic recovery. Separate train
-   (ICs 1..7) and holdout (ICs 8, 9) residuals are reported; they are
-   not this gate.
-4. **Q5 symbolic support (gated)** — true-monomial recall on grid-sampled
-   learned `D`. Combined F1 is a skeleton floor (0.50), not 0.99. Extras
-   `1` and `r` remain. `canonical_hill_from_nn` is false and closed.
-5. **Q7 holdout (reported, not a gate)** — after a train-only fit on ICs
-   1..7, residual and neural `D` error on ICs 8 and 9 are reported. The
-   0.30 residual gate is not copied to holdout. Q7 is reported held-out
-   generalization evidence, not an additional success gate. Q4 is a
-   practical functional-identifiability diagnostic, not a success gate.
-
-MM unknown edges gate NN RMSE and data residual only. Combined F1 from a
-trained NN is not canonical Hill.
-
----
-
-## Quick start (15 minutes)
-
-**One command** (standalone / legacy example: seed 103, nine ICs
-generated and still trained on this example path. This is **not** the
-M2 recovery-suite train/holdout protocol. The unique-claim recovery
-suite generates nine ICs once; ICs 1–7 are used for training and
-ICs 8–9 are held out. Adam 100 / BFGS 50, regulator-grid discovery).
-`BIODYNAX_SMOKE=1` is a 1-IC compile check, not that suite protocol.
-
-```bash
-julia --project=. examples/unknown_inhibition.jl
-```
-
-**Product block** (that command prints identifiability first; seed 103, zero
-observation noise). The residual row is the standalone / legacy example,
-which still trains all nine generated ICs. That path is **not** the M2
-recovery-suite train/holdout protocol. The unique-claim suite M2
-validated IC[1] `data_residual` is 0.004195 after training ICs 1–7.
-
-| field | typical value |
-|-------|---------------|
-| `unidentifiable_edge` | `true` (gated) |
-| `coefficients_are_biological_constants` | `false` |
-| hybrid residual vs data | ≈ 0.003 (standalone / legacy example that trains all nine generated ICs; gated) |
-| true-monomial recall | 1.0 (gated) |
-| combined support F1 | ≈ 0.57 (skeleton floor 0.50, not 0.99) |
-| extras | `1`, `r` remain |
-| `canonical_hill_from_nn` | `false` (closed) |
-
-**We do not claim:** canonical Hill from a trained NN; a wet-lab tool for one
-noisy CSV and unknown topology; UDE training on missing states; a licensed
-experimental series that matches this protocol (absence is the result).
-
-Tutorial: [`docs/src/tutorial.md`](docs/src/tutorial.md).
-
-```julia
-ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, data, times, u0, tspan; term = term, verbose = false)
-println(BioDynaX.format_protocol_result(ident; residual = residual))
-```
-
----
-
-## Design highlights
-
-| Topic | Implementation |
-|--------|----------------|
-| **Dynamics** | Compiled `P_i - D_i u_i` IR → `ude_system` / `ude_rhs!` |
-| **Unknown biology** | `NeuralDestructionTerm` with a softplus-headed Lux MLP |
-| **Positivity** | States through `max(0, x)`; optional augmented Lagrangian |
-| **Parameters** | `ComponentVector` with `phys` / `nn` axes |
-| **Training** | `train_ude`, `train_experiments` |
-| **Discovery** | `ImplicitSINDyPI` (default) and `ExplicitSTLSQ` |
-| **SciML** | `ODEProblem(model, u0, tspan, p)` and OrdinaryDiffEq `solve` |
-
----
-
-## SciML integration
-
-```julia
-using BioDynaX, SciMLBase, OrdinaryDiffEq, Random
-
-network = BiologicalNetwork(
-    [NodeSpec(name = :A), NodeSpec(name = :B)],
-    EdgeSpec[];
-    reactions = [
-        ReactionSpec(name = :b_drives_a,
-                     stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     metadata = MassActionMetadata(rate_param = :k_ba)),
-        ReactionSpec(name = :a_decay,
-                     stoichiometry = Dict(1 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_a)),
-        ReactionSpec(name = :b_decay,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_b)),
-    ])
-model, p = build_ude_model(MersenneTwister(0), network)
-prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)
-sol = solve(prob, Tsit5(); saveat = 0:0.5:10.0)
-```
-
-That snippet constructs an ODE. It is not the unique discovery path.
-
-Synthetic multi-IC data come from `generate_experiment_set`, which
-compiles one ground-truth model and then calls
-`generate_from_compiled_model` (the same `ODEProblem(model, u0, tspan, p)`
-path) on every initial condition. Remapped multi-head and two-regulator
-`D(S,I)` fixtures are generated together. Unique-claim suite sections
-are admitted through `admit_recovery_suite_network` before training.
-
----
+The package reports three things: whether the unknown term is practically
+identifiable from the data (a Fisher-information and scale-collinearity
+diagnostic), how well the hybrid model reproduces observed and held-out
+trajectories, and which symbolic terms are recovered. It is a research tool
+for the regime of roughly 2 to 20 states with a known graph, not a
+general-purpose network-inference tool or reaction-network solver.
 
 ## Installation
 
-Until the package is in General, clone and instantiate:
+BioDynaX requires Julia 1.10 or newer. It is not yet in the General registry;
+install it from GitHub:
+
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/utkuyilmaz1903/BioDynaX.jl")
+```
+
+or clone the repository and instantiate its environment:
 
 ```bash
 git clone https://github.com/utkuyilmaz1903/BioDynaX.jl.git
@@ -165,54 +41,196 @@ cd BioDynaX.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
-Optional extensions are **experimental and unexported**. Do not use them in a
-paper or a wet lab. Load the extra package only if you are extending the
-package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
-`BioDynaX.plot_training`, `BioDynaX.DataDrivenSparseSTLSQ`).
+## Quick start
 
----
+The block below builds a two-species network, marks one destruction term as
+unknown, generates synthetic data, trains the hybrid model, prints the
+identifiability warning, and discovers a symbolic rate. It runs in about two
+minutes on a laptop.
 
-## Limitations (honest)
+```julia
+using BioDynaX, Random
 
-- **GPU** copies experiment arrays with `cu`. There is no batched GPU ODE/training stack.
-- **SBML** import does not parse kinetic MathML into Hill/MM.
-- **Identifiability (Q3)** is a practical Fisher/Jacobian warning (condition
-  number or scale cosine), not a structural certificate and not the whole
-  unique-claim hold. Trajectory residual is not mechanistic recovery.
-- **Partial observation:** discovery from subsampled `D` plus hybrid residual versus data is gated. UDE training on missing states is not claimed.
-- **No licensed experimental CSV** matches the unique-claim protocol (known graph, exactly one unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
-- Target regime is **2–20 states** with a known interaction graph.
-- A green `recovery` CI job is **necessary, not sufficient** for v1.0.
-- **Q4** is a practical functional-identifiability diagnostic, not a
-  success gate and not a structural identifiability certificate.
-- **M4** (pending / future work, not implemented): robustness /
-  trajectory-context validation.
+# Two species. S is produced in proportion to R and degraded by a Hill-type
+# mechanism driven by R; R is produced from S and decays linearly.
+# `known = false` marks the Hill degradation as the one unknown term.
+function network(; known::Bool)
+    nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
+    reactions = [
+        ReactionSpec(name = :produce_s, stoichiometry = Dict(1 => 1.0), regulators = [2],
+            metadata = MassActionMetadata(rate_param = :k_prod)),
+        ReactionSpec(name = :degrade_s, stoichiometry = Dict(1 => -1.0), regulators = [2],
+            known = known, family = HILL,
+            metadata = HillMetadata(vmax_param = :vmax, k_param = :K, hill_order = 2)),
+        ReactionSpec(name = :produce_r, stoichiometry = Dict(2 => 1.0), regulators = [1],
+            metadata = MassActionMetadata(rate_param = :k_rs)),
+        ReactionSpec(name = :decay_r, stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_r))]
+    return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
+end
 
----
+rng = MersenneTwister(1)
+tspan = (0.0, 10.0)
+truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
+data = generate_experiment_set(rng; network = network(known = true), truth_params = truth,
+    initial_conditions = [[0.2, 0.1], [1.0, 0.5], [0.5, 1.2]], tspan = tspan,
+    n_points = 40, noise_σ = 0.0)                     # or: experiment_from_csv("data.csv")
+
+model, p0 = build_ude_model(rng, network(known = false))   # unknown term -> neural network
+p_init = pack_parameters((k_prod = 0.8, k_rs = 0.8, k_r = 0.8), p0.nn)
+trained = train_experiments(p_init, data, model;
+    config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20), verbose = false)
+
+e = data.experiments[1]
+ident = BioDynaX.report_production_destruction_tradeoff(
+    model, trained.params, e.observations, e.times, e.u0, tspan; verbose = true)
+println("scale warning raised: ", ident.unidentifiable_edge)
+
+X = hcat((predict_ude(trained.params, ex.u0, tspan, ex.times, model) for ex in data.experiments)...)
+R, D, term = sample_unknown_destruction(model, trained.params, X)
+found = discover_unknown_rate(R, 1:size(R, 2), D; verbose = false)
+println(found.equations)
+```
+
+The full example uses the reference protocol (seed 103, nine initial
+conditions, 50 points each, Adam 100 / BFGS 50, discovery on a regulator grid)
+and takes about 10 to 15 minutes:
+
+```bash
+julia --project=. examples/unknown_inhibition.jl
+```
+
+It prints a four-section report. The lines that matter most:
+
+```text
+  unidentifiable_edge: true
+  coefficients_are_biological_constants: false
+  collinearity: 0.997
+  hybrid_data_residual: 0.0017769252587108318
+dx[1]/dt = (0.24118*1 + -1.3569*x[1] + 7.7609*x[1]^2) / (1 + -0.3862*x[1] + 4.1863*x[1]^2)
+  extras: 1, r
+```
+
+Read top to bottom: the production rate `k_prod` and the scale of the unknown
+term are collinear, so the recovered coefficients are not biological constants;
+the hybrid model with the discovered rational rate reproduces the first
+trajectory with a root-mean-square residual of about 0.002; the discovered
+rate has the Hill-like `x^2 / (K + x^2)` structure, with two nuisance terms (a
+constant and a linear term) remaining. `x[1]` is the regulator `R`.
+
+![Hybrid model and discovered destruction rate for the unknown-inhibition example](docs/src/assets/unknown_inhibition.png)
+
+## How it works
+
+| Step | What happens | Main functions |
+|---|---|---|
+| Network specification | Nodes, edges or reactions, and typed kinetic metadata | `BiologicalNetwork`, `NodeSpec`, `ReactionSpec`, `HillMetadata`, ... |
+| Compile | Known kinetics become production and destruction terms; the unknown term becomes a neural network with a softplus output | `build_ude_model`, `compile_mechanism` |
+| Simulate | The model is an ordinary `ODEProblem` and works with OrdinaryDiffEq solvers | `ODEProblem(model, u0, tspan, p)`, `ude_system`, `ude_rhs!` |
+| Train | Adam followed by BFGS on the trajectory mean-squared error across experiments, with adjoint sensitivities | `train_ude`, `train_experiments`, `TrainingConfig` |
+| Identifiability check | Fisher condition number and the cosine between the production-rate and destruction-scale trajectory Jacobians | `BioDynaX.report_production_destruction_tradeoff` |
+| Symbolic discovery | The learned rate is sampled and fitted by implicit sparse regression over a graph-local rational library | `sample_unknown_destruction`, `discover_unknown_rate`, `local_basis` |
+| Resimulate | The discovered rate replaces the neural term and the hybrid model is compared with data | `compose_hybrid_rhs`, `hybrid_data_residual`, `export_rhs` |
+
+Synthetic data for several initial conditions come from
+`generate_experiment_set`; measured data can be loaded with
+`experiment_from_csv`.
+
+## Scope and limitations
+
+- **One unknown term.** The recovery workflow requires exactly one unknown
+  destruction term. The example and the recovery suite raise an error for zero
+  or two or more unknown terms. The compiler accepts other configurations, but
+  nothing in the package validates them.
+- **The identifiability diagnostic is local and practical.** It flags an edge
+  as unidentifiable when the Fisher condition number exceeds `1e6` or when the
+  production-rate and destruction-scale trajectory Jacobians have a cosine of
+  at least 0.95, on one trajectory. It is not a structural identifiability
+  proof, and a passing check does not certify the recovered mechanism.
+- **A good fit is not mechanism recovery.** A small trajectory residual shows
+  that the hybrid model reproduces the data. It does not by itself show that
+  the true mechanism was found.
+- **Coefficients are not biological constants** unless the scale of production
+  or destruction is fixed by outside information. With observed concentrations
+  alone, the production rate and the scale of the unknown term trade off
+  against each other.
+- **The discovered form is a rational function, not a canonical Hill law.**
+  The reference protocol recovers the true monomials of the Hill term (the
+  acceptance criterion is recall of at least 0.99), but nuisance terms remain.
+  The combined support F1 threshold in the benchmarks is 0.50; the package does
+  not turn the neural term into a canonical Hill expression with named
+  parameters.
+- **Synthetic data only.** All validation uses data generated from the compiled
+  ground-truth mechanism. No experimental dataset ships with the package, and
+  the CSV in `examples/data/` is synthetic.
+- **Held-out validation is reported, not enforced.** The reference protocol
+  trains on seven of nine initial conditions and reports the residual and the
+  destruction-rate error on the other two. Those numbers are evidence; they are
+  not part of the acceptance criteria.
+- **Robustness validation is partial.** The package includes a diagnostic that
+  compares independently trained neural terms across five restart seeds, and a
+  check that runs discovery with the graph-local, a global, and a wrong-graph
+  library on the same trained model. A multi-seed robustness study of the full
+  protocol is not implemented.
+- **Partial observation** is limited to discovery from subsampled
+  destruction-rate values; training on unobserved states is not supported.
+- **Extensions are thin.** The GPU extension only transfers arrays; there is no
+  batched GPU training. SBML import reads species, reactions, and
+  stoichiometry, but does not parse kinetic laws (MathML); such reactions
+  become unknown neural terms.
+- Not in scope: inferring the interaction graph, general reaction-network
+  solving, several unknown terms at once, and experimental design.
+
+## Optional extensions
+
+Each loads automatically when the trigger package is present. All are
+experimental and unexported; call them as `BioDynaX.name`.
+
+| Trigger package | What it adds |
+|---|---|
+| `CUDA` | Moves experiment arrays to the GPU (`BioDynaX.to_device`, `BioDynaX.gpu_execute`) |
+| `Plots` | `BioDynaX.plot_training` for observations, truth, prediction, and the loss history |
+| `ModelingToolkit` | `BioDynaX.export_mtk_system` converts a compiled model to an `ODESystem` |
+| `SBML` | `BioDynaX.import_sbml_network` builds a network from species and reactions |
+| `SBMLToolkit` + `Catalyst` | `BioDynaX.import_sbmltoolkit_network` with mass-action detection through Catalyst |
+| `DataDrivenSparse` | `BioDynaX.DataDrivenSparseSTLSQ`, an alternative sparse-regression backend |
+
+## Documentation
+
+The documentation is at
+[utkuyilmaz1903.github.io/BioDynaX.jl/dev](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/).
+Main pages: Getting started, Tutorial (the unknown-inhibition walkthrough),
+Concepts (model form, identifiability, discovery, the train/holdout protocol),
+How-to recipes, Benchmarks, API reference, and Scope and limitations.
 
 ## Development
 
 ```bash
-julia --project=. test/runtests.jl
-BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
-julia --project=. test/run_recovery_hard.jl
-julia --project=. benchmark/recovery_suite.jl
-julia --project=. benchmark/sindy_baseline.jl
-julia --project=. benchmark/recovery_seeds.jl
-julia --project=. benchmark/noise_grid.jl
-julia --project=docs docs/instantiate.jl
-julia --project=docs docs/make.jl
+julia --project=. -e 'using Pkg; Pkg.test()'                                         # default tests
+BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl  # 1-IC smoke run
+julia --project=. examples/unknown_inhibition.jl                                     # full example
+julia --project=. test/run_recovery_hard.jl                                          # trained-model recovery checks
+julia --project=. benchmark/recovery_suite.jl                                        # fast recovery benchmarks
+julia --project=docs docs/instantiate.jl && julia --project=docs docs/make.jl        # build the docs
 ```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules.
 
----
+## Citing
 
-## Citation
+Citation metadata is in [CITATION.cff](CITATION.cff).
 
-See [`CITATION.cff`](CITATION.cff).
+```bibtex
+@software{biodynax,
+  author  = {Yılmaz, Utku},
+  title   = {BioDynaX.jl: hybrid models of biochemical networks with one neural destruction term},
+  year    = {2026},
+  version = {0.10.0},
+  url     = {https://github.com/utkuyilmaz1903/BioDynaX.jl},
+  license = {MIT}
+}
+```
 
 ## License
 
-MIT. See [LICENSE](LICENSE). See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-for the ColPrac / Contributor Covenant.
+MIT. See [LICENSE](LICENSE).
