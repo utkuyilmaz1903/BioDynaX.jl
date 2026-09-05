@@ -18,6 +18,16 @@
 #   --noise 0.0,0.02      comma-separated noise levels (default: 0.0,0.02,0.05)
 #   --out PATH            CSV path (default: benchmark/results/library_comparison.csv)
 #   --fresh               ignore rows already in the CSV (the file is replaced)
+#   --pruning             graph-local library only, with the stability-selection
+#                         stage on (StabilitySelection() defaults); rows go to
+#                         benchmark/results/library_comparison_pruned.csv
+#   --fixture two_state   the two-state reference-protocol network instead of
+#                         the four-state network; rows go to
+#                         benchmark/results/library_comparison_two_state.csv
+#   --variants all        every discovery variant (study, bootstrap, parents,
+#                         reference) from the same trainings; rows go to
+#                         benchmark/results/library_comparison_variants.csv
+#                         (two_state: library_comparison_two_state_variants.csv)
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -38,8 +48,19 @@ end
 const ARGS_ = copy(ARGS)
 const TIMED = "--timed" in ARGS_
 const FRESH = "--fresh" in ARGS_
+const PRUNING = "--pruning" in ARGS_
+const FIXTURE = Symbol(_option(ARGS_, "--fixture", "four_state"))
+const VARIANTS = _option(ARGS_, "--variants", "study") == "all" ?
+                 BioDynaX.LIBRARY_STUDY_VARIANTS :
+                 Tuple(Symbol.(split(_option(ARGS_, "--variants", "study"), ",")))
 const OUT = _option(ARGS_, "--out",
-    joinpath(@__DIR__, "results", "library_comparison.csv"))
+    joinpath(@__DIR__, "results",
+        string("library_comparison",
+            FIXTURE === :four_state ? "" : "_" * string(FIXTURE),
+            length(VARIANTS) > 1 ? "_variants" : "",
+            PRUNING ? "_pruned" : "", ".csv")))
+const LIBRARIES = PRUNING ? (:graph_local,) : BioDynaX.LIBRARY_STUDY_LIBRARIES
+const SELECTION = PRUNING ? StabilitySelection() : nothing
 const SEEDS = TIMED ? (first(BioDynaX.LIBRARY_STUDY_SEEDS),) :
               Tuple(parse.(
     Int, split(_option(ARGS_, "--seeds",
@@ -60,8 +81,11 @@ end
 function main()
     println("Library comparison study")
     println("Julia ", VERSION, "; ", dependency_versions())
+    println("fixture: ", FIXTURE, "; variants: ", join(VARIANTS, ", "))
     println("seeds: ", join(SEEDS, ", "), "; noise: ", join(NOISE, ", "),
-        "; libraries: ", join(BioDynaX.LIBRARY_STUDY_LIBRARIES, ", "))
+        "; libraries: ", join(LIBRARIES, ", "),
+        "; stability selection: ", SELECTION === nothing ? "off" :
+                                   string("n_boot ", SELECTION.n_boot, ", τ ", SELECTION.τ))
     if FRESH && isfile(OUT)
         rm(OUT)
     end
@@ -70,14 +94,18 @@ function main()
     isempty(done) || println("resuming: ", length(done), " rows already in ", OUT)
     started = time()
     rows = BioDynaX.library_comparison_study(;
-        seeds = SEEDS, noise_levels = NOISE,
-        skip = (seed, noise, library) -> (seed, noise, library) in done,
+        seeds = SEEDS, noise_levels = NOISE, libraries = LIBRARIES,
+        fixture = FIXTURE, variants = VARIANTS,
+        stability_selection = SELECTION,
+        skip = (seed, noise, library, variant) -> (seed, noise, library, variant) in done,
         on_row = row -> begin
             TIMED || BioDynaX.append_library_study_row(OUT, row)
-            println("  ", row.seed, "  ", row.noise, "  ", rpad(string(row.library), 12),
+            println("  ", row.seed, "  ", row.noise, "  ", rpad(string(row.variant), 10),
+                rpad(string(row.library), 12),
                 " F1 ", round(row.support_f1; digits = 3),
                 "  recall ", round(row.support_recall; digits = 3),
-                "  extras ", row.extra_terms,
+                "  extras ", row.extra_terms, isempty(row.extras) ? "" :
+                                              " (" * row.extras * ")",
                 "  holdout ", round(row.holdout_residual; sigdigits = 4),
                 "  nn_rmse ", round(row.nn_rate_rmse; sigdigits = 4),
                 "  train ", round(row.train_time_s; digits = 1), " s")
@@ -98,7 +126,7 @@ function main()
     println("new rows: ", length(rows), " in ", round(elapsed / 60; digits = 1),
         " min; total rows in ", OUT, ": ", length(all_rows))
     println()
-    println("Summary (median [q25, q75] over seeds):")
+    println("Summary (median [q25, q75] over seeds; fixture ", FIXTURE, "):")
     print(BioDynaX.format_library_study_summary(
         BioDynaX.library_study_summary(all_rows;
             metrics = (:support_f1, :support_recall, :extra_terms, :holdout_residual,

@@ -449,6 +449,61 @@ function _bootstrap_frequency(rng, spec, X, derivative, train_indices,
     return selected ./ bootstrap_samples
 end
 
+"""
+    _stability_select(spec, X, derivative, training_indices, threshold,
+                      numerator, denominator, selection; chunk_size)
+
+Stability-selection stage on a fitted implicit candidate: `selection.n_boot`
+plain row resamples of `training_indices`, one thresholded fit per resample,
+selection frequency per library term, and a refit of the candidate terms
+whose frequency reaches `selection.τ`. Returns the (possibly pruned)
+coefficients, the frequencies, and a report; never adds a term.
+"""
+function _stability_select(spec, X, derivative, training_indices, threshold,
+        numerator, denominator, selection::StabilitySelection;
+        chunk_size::Int = 256)
+    rng = MersenneTwister(selection.seed)
+    n_num = length(spec.numerator)
+    n_den = length(spec.denominator)
+    n = length(training_indices)
+    counts = zeros(Float64, n_num + n_den)
+    ws = allocate_streaming_implicit_workspace(
+        eltype(X), n, n_num, n_den, chunk_size)
+    for _ in 1:(selection.n_boot)
+        indices = training_indices[rand(rng, 1:n, n)]
+        num_b, den_b = _fit_implicit(spec, X, derivative, indices, threshold;
+            chunk_size = chunk_size, workspace = ws)
+        counts .+= .!iszero.(vcat(num_b, den_b))
+    end
+    frequency = counts ./ selection.n_boot
+    active = abs.(vcat(numerator, denominator)) .> 1e-8
+    keep = active .& (frequency .≥ selection.τ)
+    labels = vcat([t.label for t in spec.numerator], [t.label for t in spec.denominator])
+    sides = vcat(fill(:numerator, n_num), fill(:denominator, n_den))
+    function report(applied, reason, num_out, den_out)
+        (;
+            n_boot = selection.n_boot, τ = selection.τ, applied, reason,
+            terms = [(; side = sides[i], label = labels[i], frequency = frequency[i],
+                         in_candidate = active[i],
+                         kept = abs(vcat(num_out, den_out)[i]) > 1e-8)
+                     for i in eachindex(labels)])
+    end
+    dropped = active .& .!keep
+    any(dropped) || return (numerator, denominator, frequency,
+        report(false, "every candidate term reached τ", numerator, denominator))
+    any(keep[1:n_num]) || return (numerator, denominator, frequency,
+        report(false, "pruning would remove every numerator term", numerator,
+            denominator))
+    train_X = Matrix(X[:, training_indices])
+    y = Vector(derivative[training_indices])
+    num_new, den_new = _refit_masked_implicit(
+        spec, train_X, y, keep[1:n_num], keep[(n_num + 1):end], threshold)
+    any(abs.(num_new) .> 1e-8) || return (numerator, denominator, frequency,
+        report(false, "refit of the kept terms left no numerator term", numerator,
+            denominator))
+    return (num_new, den_new, frequency, report(true, "", num_new, den_new))
+end
+
 function _consensus_refit(spec, X, derivative, indices, threshold,
         frequencies; minimum_frequency = 0.8,
         chunk_size::Int = 256,
@@ -895,7 +950,9 @@ function _discover_explicit(X, derivatives, network, backend,
 end
 
 function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
-        config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing,
+        stability_reports = nothing)
     rng = MersenneTwister(config.seed)
     sample_count = size(X, 2)
     validation_count = clamp(
@@ -937,6 +994,13 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
                 backend.denominator_floor)
             error = mean(abs2,
                 prediction .- derivative[validation_indices])
+            if stability_selection !== nothing
+                numerator, denominator, frequencies, error, denominator_minimum = _stability_selected_candidate(
+                    spec, X, derivative, training_indices, validation_indices,
+                    train_X, val_X, domain_X, backend, numerator, denominator,
+                    frequencies, error, denominator_minimum,
+                    stability_selection, stability_reports, target)
+            end
             push!(candidates,
                 ImplicitCandidate(
                     target, spec, numerator, denominator, frequencies, error,
@@ -949,6 +1013,38 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     isempty(candidates) && !isempty(denominator_errors) &&
         throw(first(denominator_errors))
     return candidates
+end
+
+"""
+Apply the stability-selection stage to one fitted target and revalidate the
+result. Falls back to the fitted candidate, with the reason in the report,
+when the pruned denominator is unsafe.
+"""
+function _stability_selected_candidate(spec, X, derivative, training_indices,
+        validation_indices, train_X, val_X, domain_X, backend, numerator,
+        denominator, frequencies, error, denominator_minimum,
+        selection::StabilitySelection, reports, target)
+    num_new, den_new, frequency, report = _stability_select(
+        spec, X, derivative, training_indices, backend.threshold,
+        numerator, denominator, selection; chunk_size = backend.chunk_size)
+    if report.applied
+        try
+            prediction, _ = _evaluate_candidate(spec, num_new, den_new, val_X)
+            new_minimum = _check_denominator_safety(
+                spec, num_new, den_new, train_X, val_X, domain_X,
+                backend.denominator_floor)
+            new_error = mean(abs2, prediction .- derivative[validation_indices])
+            reports === nothing || push!(reports, (; target, report...))
+            return (num_new, den_new, frequency, new_error, new_minimum)
+        catch caught
+            caught isa DomainError || rethrow()
+            report = (; report..., applied = false,
+                reason = "pruned denominator is unsafe; candidate kept as fitted",
+                terms = [(; t..., kept = t.in_candidate) for t in report.terms])
+        end
+    end
+    reports === nothing || push!(reports, (; target, report...))
+    return (numerator, denominator, frequency, error, denominator_minimum)
 end
 
 function _candidate_basis(candidates::Vector{ExplicitCandidate})
@@ -970,20 +1066,31 @@ function _candidate_basis(candidates::Vector{ImplicitCandidate{T}}) where {T}
 end
 
 function _run_discovery(X, derivatives, network, backend::ImplicitSINDyPI,
-        config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing)
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
+    reports = stability_selection === nothing ? nothing : NamedTuple[]
     candidates = _discover_implicit(
-        X, derivatives, network, backend, config; targets = targets)
+        X, derivatives, network, backend, config; targets = targets,
+        stability_selection = stability_selection, stability_reports = reports)
     (isempty(candidates) || all(_support_empty, candidates)) &&
         throw(ArgumentError("empty support: no terms survived thresholding"))
     equation_text = join(format_equation.(candidates), "\n")
     basis = _candidate_basis(candidates)
+    config_record = stability_selection === nothing ?
+                    (; backend = string(typeof(backend)), samples = size(X, 2)) :
+                    (; backend = string(typeof(backend)), samples = size(X, 2),
+        stability_selection = (;
+            n_boot = stability_selection.n_boot,
+            τ = stability_selection.τ,
+            seed = stability_selection.seed,
+            reports = reports))
     metadata = RunMetadata(
         seed = config.seed,
         package_version = PACKAGE_VERSION,
         data_hash = data_fingerprint(X, derivatives),
-        config = (; backend = string(typeof(backend)), samples = size(X, 2)))
+        config = config_record)
     return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
         typeof(candidates), RunMetadata, DiscoveryRetcode}(
         true, "ok", equation_text, basis, nothing,
@@ -992,7 +1099,10 @@ end
 
 function _run_discovery(X, derivatives, network,
         backend::Union{ExplicitSTLSQ, DataDrivenSparseSTLSQ},
-        config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing)
+    stability_selection === nothing || throw(ArgumentError(
+        "stability selection is only available for the implicit backend"))
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
     candidates = _discover_explicit(
@@ -1014,8 +1124,52 @@ function _run_discovery(X, derivatives, network,
 end
 
 function _run_discovery(X, derivatives, network, backend,
-        config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing)
     throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
+end
+
+"""
+    stability_selection_report(result::DiscoveryResult)
+
+Report of the stability-selection stage of `result`, or `nothing` when the
+stage was off. The report has `n_boot`, `τ`, `seed`, and `reports`, one entry
+per discovered target with `applied`, `reason`, and `terms`, where every
+library term carries its `side` (numerator or denominator), `label`,
+selection `frequency`, whether it was `in_candidate` before the stage, and
+whether it was `kept`.
+"""
+function stability_selection_report(result::DiscoveryResult)
+    metadata = result.metadata
+    metadata isa RunMetadata || return nothing
+    config = metadata.config
+    (config isa NamedTuple && haskey(config, :stability_selection)) || return nothing
+    return config.stability_selection
+end
+
+"""
+    format_stability_selection(result::DiscoveryResult)
+
+Plain-text table of `stability_selection_report(result)`: one line per
+library term with its side, label, selection frequency, and whether it was
+in the candidate and kept. Returns `"stability selection: off"` when the
+stage was off.
+"""
+function format_stability_selection(result::DiscoveryResult)
+    report = stability_selection_report(result)
+    report === nothing && return "stability selection: off"
+    io = IOBuffer()
+    println(io, "stability selection: n_boot = ", report.n_boot, ", τ = ", report.τ)
+    for entry in report.reports
+        println(io, "  target ", entry.target, ": ",
+            entry.applied ? "pruned" : string("not applied (", entry.reason, ")"))
+        for term in entry.terms
+            println(io, "    ", rpad(string(term.side), 12), rpad(term.label, 14),
+                "frequency ", rpad(string(round(term.frequency; digits = 2)), 6),
+                term.in_candidate ? (term.kept ? "kept" : "dropped") : "not in candidate")
+        end
+    end
+    return String(take!(io))
 end
 
 function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
@@ -1057,7 +1211,8 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
         targets = nothing,
         config::DiscoveryConfig = DiscoveryConfig(),
         verbose::Bool = true,
-        strict::Bool = false)
+        strict::Bool = false,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing)
     observed = _note_equation_discovery_entry(X, times, derivatives)
     observed !== nothing && return observed
     size(X, 2) == length(times) ||
@@ -1072,7 +1227,7 @@ function discover_equations(X::AbstractMatrix, times::AbstractVector,
     try
         result = _run_discovery(
             X_clean, dX_clean, network, config.backend, config;
-            targets = targets)
+            targets = targets, stability_selection = stability_selection)
         verbose && println("\n[Discovery] Recovered system:\n", result.equations)
         return result
     catch error

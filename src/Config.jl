@@ -235,6 +235,36 @@ Base.@kwdef struct ImplicitSINDyPI <: AbstractDiscoveryBackend
 end
 
 """
+    StabilitySelection(; n_boot=100, τ=0.8, seed=7)
+
+Optional pruning stage for implicit discovery, passed as
+`stability_selection = StabilitySelection()` to `discover_unknown_rate` or
+`discover_equations`. After the candidate has been fitted as usual, the
+training rows of the regression are resampled with replacement `n_boot`
+times, the thresholded fit is repeated on every resample, and a term of the
+candidate is kept only if it is selected in at least a fraction `τ` of the
+resamples; the coefficients of the kept terms are then refitted on the
+training rows. Terms are never added, only removed, and the stage is skipped
+when it would remove every numerator term or make the denominator unsafe.
+The frequency of every library term is reported through
+`stability_selection_report`. Off by default (`stability_selection =
+nothing`), in which case discovery output is unchanged. `tau` is accepted as
+an alias of `τ`. Cost: `n_boot` thresholded fits on the training rows.
+"""
+struct StabilitySelection
+    n_boot::Int
+    τ::Float64
+    seed::UInt64
+end
+
+function StabilitySelection(; n_boot::Integer = 100, τ::Real = 0.8, tau::Real = τ,
+        seed::Integer = 7)
+    n_boot ≥ 1 || throw(ArgumentError("n_boot must be at least 1, got $n_boot"))
+    0 < tau ≤ 1 || throw(ArgumentError("τ must be in (0, 1], got $tau"))
+    return StabilitySelection(Int(n_boot), Float64(tau), UInt64(seed))
+end
+
+"""
     DiscoveryConfig(; backend=ImplicitSINDyPI(), basis_scope=:graph, ...)
 
 Discovery options. `basis_scope=:graph` is the product prior; `:global` is
