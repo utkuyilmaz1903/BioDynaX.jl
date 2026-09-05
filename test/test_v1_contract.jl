@@ -295,3 +295,86 @@ end
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
     @test validate_network_stays_open_source()
 end
+
+@testset "M4-0 semantic boundary does not replace Q4, composer, or holdout" begin
+    root = pkgdir(BioDynaX)
+    contract = read(joinpath(root, "docs", "src", "design", "v1_contract.md"),
+        String)
+    scope = read(joinpath(root, "docs", "src", "out-of-scope.md"), String)
+    plan = read(joinpath(root, "docs", "research", "V1-IMPLEMENTATION-PLAN.md"),
+        String)
+    for text in (contract, scope)
+        @test occursin("functional_identifiability_domain` remains the approved M3 domain",
+            text)
+        @test occursin("Q4 is not occupancy-based", text)
+        @test occursin("Q4 is not structural identifiability", text)
+        @test occursin("Q4 does not use M4 trajectory occupancy", text)
+        @test occursin("_evaluate_unknown_rate_recovery", text)
+        @test occursin("_regulator_grid", text)
+        @test occursin("Dummy-time discovery remains", text)
+        @test occursin("M4 occupancy must not replace the composer", text)
+        @test occursin("evaluate_holdout` remains four-scalar `HoldoutEvidence",
+            text)
+        @test occursin("Holdout is not a 0.30 gate", text)
+        @test occursin("Occupancy is not added to `HoldoutEvidence`", text)
+        @test occursin("additional sampling/evaluation context", text)
+        @test occursin("not a replacement for Q4", text)
+        @test occursin("UNIQUE_CLAIM_PROTOCOL.seed = 103", text)
+        @test occursin("FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)",
+            text)
+        @test occursin("ROBUSTNESS_SEEDS = (103, 107, 111, 113, 127)", text)
+        @test occursin("RECOVERY_THRESHOLDS", text)
+        @test occursin("FUNCTIONAL_ID_REPORTING_CUTOFFS", text)
+        @test occursin("LOCKED_PUBLIC_EXPORTS", text)
+        @test occursin("canonical_hill_from_nn == false", text)
+        @test occursin("unique_claim_kpis_hold", text)
+    end
+    @test occursin("üç liste, karışmaz", plan) ||
+          occursin("üç tohum listesi", plan)
+    @test occursin("ROBUSTNESS_SEEDS", plan)
+    @test occursin("FUNCTIONAL_ID_RESTART_SEEDS", plan)
+    @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", plan)
+    @test occursin("(103, 107, 111, 113, 127)", plan)
+    @test occursin("(201, 202, 203, 204, 205)", plan)
+    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
+    @test BioDynaX.FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
+    @test recovery_thresholds_hold()
+    @test public_export_list_holds()
+    @test :ROBUSTNESS_SEEDS ∉ names(BioDynaX)
+    @test :ROBUSTNESS_SEEDS ∉ LOCKED_PUBLIC_EXPORTS
+end
+
+@testset "M4-A2 live separation wording stays distinct from A1/B/C" begin
+    root = pkgdir(BioDynaX)
+    contract = read(joinpath(root, "docs", "src", "design", "v1_contract.md"),
+        String)
+    scope = read(joinpath(root, "docs", "src", "out-of-scope.md"), String)
+    plan = read(joinpath(root, "docs", "research", "V1-IMPLEMENTATION-PLAN.md"),
+        String)
+    for text in (contract, scope)
+        @test occursin("M4-A1 occupancy runtime exists", text)
+        @test occursin("M4-A2 is live separation/contract tests", text)
+        @test occursin("M4-B trained-UDE graph-local validation is implemented", text)
+        @test occursin("PR smoke is not trained-UDE scientific acceptance", text)
+        @test occursin("M4-C remains pending", text)
+        @test !occursin("M4-B remains pending", text)
+        @test occursin("occupancy != Q4 domain.z", text)
+        @test occursin("occupancy != M1 discovery grid", text)
+        @test occursin("occupancy != M2 holdout evaluator", text)
+        @test occursin(
+            "Occupancy is not part of the recovery result, holdout result, or Q4 diagnostic",
+            text)
+        @test !occursin("M4-A runtime code is not present", text)
+        @test !occursin("M4-A/B/C runtime code is not present", text)
+    end
+    @test occursin("M4-A1: implemented runtime", plan)
+    @test occursin("M4-A2: live separation/contract tests", plan)
+    @test occursin("M4-B: implemented", plan)
+    @test occursin("M4-C: pending", plan)
+    @test !occursin("M4-B remains pending", plan)
+    @test occursin("occupancy ≠ M1 discovery grid", plan)
+    @test occursin("occupancy ≠ M2 holdout evaluator", plan)
+    @test occursin("occupancy ≠ M3 Q4 domain", plan)
+    @test occursin("test/test_m4_a2_separation.jl", plan)
+    @test !occursin("testler henüz uygulanmaz", plan)
+end

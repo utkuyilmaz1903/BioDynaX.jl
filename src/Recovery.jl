@@ -437,6 +437,7 @@ function sample_unknown_destruction(model::UDEModel, p, X::AbstractMatrix;
                                     term = nothing)
     terms = neural_destruction_terms(model)
     chosen = term === nothing ? only(terms) : term
+    _note_sample_unknown_destruction(model, p, X, chosen)
     regs = chosen.regulators
     n = size(X, 2)
     rates = Vector{Float64}(undef, n)

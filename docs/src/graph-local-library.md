@@ -59,6 +59,10 @@ Discovery rows (`ablation_discovery_gate_row`,
 run `discover_equations` on 80-point 1-IC samples. They are not
 the seed-103 / 9-IC protocol.
 
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
+
 ## Fixtures
 
 3-state / 6-state true graphs contain R because those fixtures

@@ -46,7 +46,7 @@ unsupported:
 - structural identifiability certificates
 - Q4 as a success gate or formal identifiability certificate
 - public functional-identifiability API
-- trajectory-occupancy discovery
+- trajectory-occupancy discovery as a replacement for Q4 or the M1/Q5 composer
 - arbitrary OOD regimes
 - unknown topology discovery
 - general CRN solving
@@ -67,11 +67,47 @@ reported held-out generalization evidence, not an additional success
 gate. It is not a success gate, not a model-selection gate, and not a
 mechanism-identifiability certificate.
 
+M4 occupancy is an additional sampling/evaluation context, not a replacement for Q4 or the M1/M2 composer.
+`functional_identifiability_domain` remains the approved M3 domain.
+Q4 is not occupancy-based. Q4 is not a success gate.
+Q4 is not structural identifiability.
+Q4 does not use M4 trajectory occupancy.
+`_evaluate_unknown_rate_recovery` remains unchanged.
+The train-derived `_regulator_grid` remains.
+Dummy-time discovery remains.
+M4 occupancy must not replace the composer.
+`evaluate_holdout` remains four-scalar `HoldoutEvidence`.
+The 7/2 train/holdout split remains unchanged.
+Holdout is not a 0.30 gate.
+Occupancy is not added to `HoldoutEvidence`.
+
+The three seed lists are distinct. Do not substitute one for another.
+Do not modify the existing M2/M3 seed constants.
+
+- `UNIQUE_CLAIM_PROTOCOL.seed = 103`
+- `FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)`
+- `ROBUSTNESS_SEEDS = (103, 107, 111, 113, 127)`
+
+M4 must not alter `RECOVERY_THRESHOLDS`,
+`FUNCTIONAL_ID_REPORTING_CUTOFFS`, `LOCKED_PUBLIC_EXPORTS`,
+`canonical_hill_from_nn == false`, or `unique_claim_kpis_hold`.
+
 ## Next milestones (not implemented)
 
-- M4 — Robustness / Trajectory-Context Validation (pending / future work)
+- M4 — Robustness / Trajectory-Context Validation
 
-This is a future milestone, not a present capability.
+M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests.
+M4-B trained-UDE graph-local validation is implemented. PR smoke is not trained-UDE scientific acceptance.
+M4-C remains pending.
+
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
+
+occupancy != Q4 domain.z
+occupancy != M1 discovery grid
+occupancy != M2 holdout evaluator
+Occupancy is not part of the recovery result, holdout result, or Q4 diagnostic.
 
 Current Q1 is a hybrid residual versus observed data on the training
 IC[1], plus separate train/holdout aggregates. Current Q2 is a partial

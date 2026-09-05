@@ -113,7 +113,9 @@ versus the trained UDE vector field.
 The suite reports neural-versus-truth correlation and relative RMSE
 for \(D\) on a one-dimensional regulator grid expanded from **training**
 experiment extrema (`_regulator_grid` on ICs 1..7). That grid is not
-trajectory occupancy.
+trajectory occupancy. `_evaluate_unknown_rate_recovery` remains
+unchanged. The train-derived `_regulator_grid` remains. Dummy-time
+discovery remains. M4 occupancy must not replace the composer.
 
 M2 additionally reports holdout \(D\) error from the **actual neural**
 \(\hat D\), not from symbolic reconstruction and not from a normalized
@@ -169,9 +171,12 @@ not a success gate and is not an input to `unique_claim_kpis_hold`.
 The hold remains Q3 + Q1 residual + Q5 recall. Q3 remains a separate
 scale/parameter practical warning.
 
-Occupancy-based discovery and graph-local trained-\(D\) experiments
-remain M4 / future work. The five-restart research script is not a
-PR gate.
+`functional_identifiability_domain` remains the approved M3 domain.
+Q4 is not occupancy-based. Q4 is not structural identifiability.
+Q4 does not use M4 trajectory occupancy. Occupancy-based discovery
+and graph-local trained-\(D\) experiments remain M4 future work and
+must not rewrite this diagnostic. The five-restart research script
+is not a PR gate.
 
 ### Q5 Symbolic support recovery
 
@@ -180,6 +185,9 @@ PR gate.
 dummy sample index \(t\in[0,1]\). That is function regression of the
 learned destruction rate, not state-derivative SINDy
 (\(D(z)\dot x-N(z)=0\) in the trajectory sense).
+`_evaluate_unknown_rate_recovery` remains the unique-claim composer.
+Dummy-time discovery remains. M4 occupancy must not replace the
+composer.
 
 Current symbolic support recovery on that grid is **not** equivalent to
 canonical Hill recovery.
@@ -237,6 +245,10 @@ or broad generalization over arbitrary input regimes. The current
 holdout is two fixed IC experiments. The train-derived external \(D\)
 domain is not global OOD.
 
+`evaluate_holdout` remains four-scalar `HoldoutEvidence`. The 7/2
+train/holdout split remains unchanged. Holdout is not a 0.30 gate.
+Occupancy is not added to `HoldoutEvidence`.
+
 ## Current unique-claim hold (not a Q collapse)
 
 `unique_claim_kpis_hold` is true only when all three hold:
@@ -258,6 +270,66 @@ Combined F1 is not a hold input. The historical protocol-result field
 `:recall_plus_data_residual` names Q1+Q5; the live gate still requires
 Q3.
 
+## M4 semantic boundary
+
+M4 occupancy is an additional sampling/evaluation context, not a replacement for Q4 or the M1/M2 composer.
+
+M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests, not production wiring. M4-B trained-UDE graph-local validation is implemented. PR smoke is not trained-UDE scientific acceptance. M4-C remains pending. The lock exists so later slices cannot silently change M2 or M3 semantics.
+
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
+
+occupancy != Q4 domain.z
+occupancy != M1 discovery grid
+occupancy != M2 holdout evaluator
+Occupancy is not part of the recovery result, holdout result, or Q4 diagnostic.
+
+### M3 / Q4 stays the approved diagnostic
+
+- `functional_identifiability_domain` remains the approved M3 domain.
+- Q4 remains a practical functional-identifiability diagnostic.
+- Q4 is not occupancy-based.
+- Q4 is not a success gate.
+- Q4 is not structural identifiability.
+- Q4 does not use M4 trajectory occupancy.
+
+### M1 / Q5 composer stays the discovery owner
+
+- `_evaluate_unknown_rate_recovery` remains unchanged.
+- The train-derived `_regulator_grid` remains.
+- Dummy-time discovery remains.
+- M4 occupancy must not replace the composer.
+
+### M2 holdout stays four scalars
+
+- The 7/2 train/holdout split remains unchanged.
+- `evaluate_holdout` remains four-scalar `HoldoutEvidence`.
+- Holdout is not a 0.30 gate.
+- Occupancy is not added to `HoldoutEvidence`.
+
+### Seed lists stay distinct
+
+These three lists are distinct. Do not substitute one for another.
+Do not modify the existing M2/M3 seed constants.
+
+- `UNIQUE_CLAIM_PROTOCOL.seed = 103`
+- `FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)`
+- `ROBUSTNESS_SEEDS = (103, 107, 111, 113, 127)`
+
+`ROBUSTNESS_SEEDS` is the documented M4-C list. Naming it here does
+not add a Julia constant, an export, or a multi-seed product claim.
+
+### Preserved locks
+
+M4 must not alter:
+
+- `RECOVERY_THRESHOLDS`
+- `FUNCTIONAL_ID_REPORTING_CUTOFFS`
+- `LOCKED_PUBLIC_EXPORTS`
+- `canonical_hill_from_nn == false`
+- `unique_claim_kpis_hold`
+
 ## Out of scope
 
 The following remain unsupported. Naming them here does not implement
@@ -267,7 +339,7 @@ them.
 - Q4 as a success gate or formal identifiability certificate
 - public functional-identifiability API
 - M4 — Robustness / Trajectory-Context Validation (pending / future work; not implemented)
-- trajectory-occupancy discovery
+- trajectory-occupancy discovery as a replacement for Q4 or the M1/Q5 composer
 - arbitrary OOD regimes
 - unknown topology discovery
 - general CRN solving
@@ -289,6 +361,12 @@ matching this protocol, and treating
 ## What this contract does not change
 
 - `RECOVERY_THRESHOLDS` (loosening a number is breaking)
+- `FUNCTIONAL_ID_REPORTING_CUTOFFS`
+- `LOCKED_PUBLIC_EXPORTS`
+- `canonical_hill_from_nn === false`
+- `unique_claim_kpis_hold`
+- `UNIQUE_CLAIM_PROTOCOL.seed === 103`
+- `FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)`
 - the compiler’s \(P-D\cdot u\) formulation
 - the public export / freeze list
 - `validate_network` as a topology/metadata checker

@@ -26,6 +26,21 @@ todos:
   - id: m3-functional-id
     content: "M3: LIVE-path assess sözleşmesi; p0+params→D; holdout inclusion/HP sentinel; derive-live A/B/C; X bağ; zero-live; walk; assess CALL; M2 hash"
     status: completed
+  - id: m4-0-boundary
+    content: "M4-0: Q4 ≠ occupancy ≠ composer; üç tohum listesi ayrı; M2/M3 semantiği kilit; runtime yok"
+    status: completed
+  - id: m4-a1-occupancy
+    content: "M4-A1: TrajectoryOccupancy + observed-state occupancy + sample_destruction_occupancy; production caller yok"
+    status: completed
+  - id: m4-a2-separation
+    content: "M4-A2: T-A2-M1 / T-A2-M1-TIME / T-A2-Q4 / T-A2-Q4SEP / T-A2-M2 / T-A2-M2-D canlı ayrım; production wiring değil"
+    status: completed
+  - id: m4-b-spec
+    content: "M4-B: trained-UDE graph-local spesifikasyonu kilitlendi; canlı fit-dönüş tanığı; smoke ≠ protokol kabulü"
+    status: completed
+  - id: m4-b-impl
+    content: "M4-B: trained-UDE graph-local uygulandı; smoke ≠ protokol kabulü; canlı fit-dönüş tanığı"
+    status: completed
   - id: m4-robustness
     content: "M4: yörünge-örnekli D, eğitilmiş-UDE graph-local, çok tohum artifact (her PR’da N×40 dk yok)"
     status: pending
@@ -4260,31 +4275,1922 @@ unique-claim hold’a girmesi.
 
 ## Milestone 4 — Kurtarma kanıtını sağlamlaştır (P3)
 
-Üç bağlı ama ayrı iş; tek “başarı hikayesi” yazılmadan bitmez.
+**Durum (M4-A1 sonrası): M4-0 completed (yalnız belgeleme).**
+**M4-A1: implemented runtime.** `TrajectoryOccupancy`, observed-state
+occupancy construction ve `sample_destruction_occupancy` vardır.
+**M4-A2: live separation/contract tests**
+(`test/test_m4_a2_separation.jl`; production wiring değildir).
+**M4-B: implemented.**
+**M4-C: pending.** Çok-tohum artifact henüz yoktur.
+`sample_destruction_occupancy` için production caller
+eklenmez. M4-B bilimsel kabulü PR smoke yeşili değildir.
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
+
+M4 occupancy ek bir örnekleme/değerlendirme bağlamıdır; Q4 veya
+M1/Q5 composer yerine geçmez. Üç bağlı ama ayrı iş (A/B/C) tek
+“başarı hikayesi” yazılmadan bitmez.
+
+### M4-0 — Kapsam ve semantik sınır (tamamlandı)
+
+Amaç: sonraki M4 dilimleri M2 veya M3 semantiğini sessizce
+değiştiremesin. Sözleşme:
+[docs/src/design/v1_contract.md](docs/src/design/v1_contract.md)
+ve [docs/src/out-of-scope.md](docs/src/out-of-scope.md).
+
+Kilit cümle: M4 occupancy ek bir örnekleme/değerlendirme
+bağlamıdır; Q4 veya M1/M2 composer yerine geçmez.
+occupancy ≠ M1 discovery grid; occupancy ≠ M2 holdout
+evaluator; occupancy ≠ M3 Q4 domain.
+
+#### M3 / Q4
+
+- `functional_identifiability_domain` onaylı M3 alanıdır
+  (train-sonra-holdout gözlenen regülatör `z`;
+  `construction === :train_obs_union_holdout_obs`).
+- Q4 pratik fonksiyonel-identifiability tanısıdır.
+- Q4 occupancy tabanlı değildir.
+- Q4 başarı kapısı değildir.
+- Q4 yapısal identifiability değildir.
+- Q4 M4 yörünge occupancy kullanmaz.
+
+#### M1 / Q5 composer
+
+- `_evaluate_unknown_rate_recovery` değişmez.
+- Train-türevli `_regulator_grid` durur.
+- Dummy-time keşif durur.
+- M4 occupancy composer’ın yerine geçmez.
+
+#### M2
+
+- 7/2 train/holdout değişmez.
+- `evaluate_holdout` dört skaler `HoldoutEvidence` kalır.
+- Holdout 0.30 kapısı değildir.
+- Occupancy `HoldoutEvidence`’a eklenmez.
+
+#### Tohum listeleri (üç liste, karışmaz)
+
+Mevcut M2/M3 tohum sabitleri değiştirilmez. Listeler birbirinin
+yerine kullanılamaz.
+
+```
+UNIQUE_CLAIM_PROTOCOL.seed          = 103
+FUNCTIONAL_ID_RESTART_SEEDS         = (201, 202, 203, 204, 205)
+ROBUSTNESS_SEEDS                    = (103, 107, 111, 113, 127)
+```
+
+`ROBUSTNESS_SEEDS` belgelenmiş M4-C listesidir. M4-0 bir Julia
+sabiti, export veya çok-tohum ürün iddiası eklemez.
+
+#### Korunan kilitler
+
+M4 şunları değiştirmez:
+
+- `RECOVERY_THRESHOLDS`
+- `FUNCTIONAL_ID_REPORTING_CUTOFFS`
+- `LOCKED_PUBLIC_EXPORTS`
+- `canonical_hill_from_nn == false`
+- `unique_claim_kpis_hold`
+
+### M4-A2 — Canlı ayrım kilidi (live separation/contract tests)
+
+**Bu dilim production wiring değildir.** M4-A2, A1 occupancy
+runtime’ının M1 / M2 / M3 yollarının yerine geçmediğini
+`test/test_m4_a2_separation.jl` içindeki **canlı adversarial
+test** ile kilitler. Production semantiği değişmez.
+
+Yasak (bu dilim ve hemen sonraki test uygulaması):
+
+- `src/` production semantiği
+- `src/`’e production observer / occupancy caller eklemek
+- `TrajectoryOccupancy.jl`
+- M1 composer (`_unique_claim_rate_recovery` /
+  `_evaluate_unknown_rate_recovery`)
+- `discover_unknown_rate` gövdesi
+- `evaluate_holdout`
+- `FunctionalIdentifiability.jl` semantiği
+- A1 test dosyası (`test/test_trajectory_occupancy.jl`) —
+  **READ-ONLY**
+- A1 test ID’lerini yeniden adlandırmak, silmek, zayıflatmak
+  veya A2’de yeniden kullanmak
+- M4-B, M4-C
+
+A1 `T-A-M1` dummy-evaled erken dönüş **A2 kabulü değildir**.
+A2, gerçek üretim çağrı yerini gözler.
+
+#### M4-A1 / M4-A2 ayrımı
+
+**M4-A1 (tamamlandı; implemented runtime):**
+
+- `TrajectoryOccupancy`
+- observed-state occupancy construction
+  (`collect_observed_occupancy`)
+- occupancy sampling helper (`sample_destruction_occupancy`)
+- production caller **yok**
+- public export **yok**
+- `MechanismRecoveryResult` occupancy alanı **yok**
+
+**M4-A2 (bu dilim; live separation/contract tests):**
+
+Canlı adversarial ayrım testleri. Occupancy şunların **yerine
+geçmez:**
+
+1. M1 unique-claim keşif alanı / dummy-time yolu
+2. M2 holdout değerlendirici / holdout \(D\) örnekleme yolu
+3. M3 Q4 fonksiyonel-identifiability alanı
+
+Korunan cümleler (retarget edilmez):
+
+- occupancy ≠ M1 discovery grid
+- occupancy ≠ M2 holdout evaluator
+- occupancy ≠ M3 Q4 domain
+- Q4 ≠ occupancy
+- M4-A `MechanismRecoveryResult`’a occupancy eklemez
+- public export yoktur
+
+M4-A2 `sample_destruction_occupancy` için production caller
+**eklemez**. Occupancy ürün kablolaması yoktur.
+
+**M4-B: implemented.**
+**M4-C: pending.** M4-A2, M4-B uygulaması değildir.
+
+#### A1 test ID’leri READ-ONLY; A2 ID’leri ayrıdır
+
+A1 dosyası M4-A2 için **READ-ONLY**’dir. A1 ID’leri değişmez,
+silinmez, zayıflatılmaz ve A2’de **yeniden kullanılmaz**.
+
+A1 ID’leri (dokunulmaz; tam liste A1 dosyasındadır):
+`T-A-API`, `T-A-SRC`, `T-A-XNEQ`, `T-A-PROV`, `T-A-SPLIT`,
+`T-A-LEN`, `T-A-R`, `T-A-Q4SEP`, `T-A-SAMP`, `T-A-DTRUTH`,
+`T-A-M1`, `T-A-TIME`, `T-A-M2`, `T-A-RES`, `T-A-INTACT`,
+`T-A-VECTOR`.
+
+A2 ID’leri (yalnız bunlar; A1 ile çakışmaz):
+
+- `T-A2-M1`
+- `T-A2-M1-TIME`
+- `T-A2-Q4`
+- `T-A2-Q4SEP`
+- `T-A2-M2`
+- `T-A2-M2-D`
+
+**A1 `T-A-Q4SEP` occupancy sampling’i test eder** (occupancy
+yolunun `occupancy.X` ile `sample_unknown_destruction` çağırdığı).
+**A2 `T-A2-Q4SEP` Q4’ün occupancy’den ayrıldığını test eder.**
+Bunlar **ters yönlü** testlerdir ve **birlikte durmak
+zorundadır**. A2, A1 `T-A-Q4SEP`’i “Q4 ayrımı”na çevirmez.
+
+#### İki fikstür — ölçek karışmaz
+
+İki ayrı fikstür vardır. A2 M1 / Q4 iddiaları A1 küçük
+composer fikstürüne yazılamaz.
+
+**A1 küçük composer fikstürü** (`_m4a_composer_set` / eşdeğeri):
+
+```
+n_points              = 5
+train occupancy       = 35 sütun
+holdout occupancy     = 10 sütun
+Q4 domain             = 45 nokta
+```
+
+**A2 protokol fikstürü** (`UNIQUE_CLAIM_PROTOCOL`):
+
+```
+n_ics                 = UNIQUE_CLAIM_PROTOCOL.n_ics          # 9
+n_points              = UNIQUE_CLAIM_PROTOCOL.n_points       # 50
+train indices         = UNIQUE_CLAIM_TRAIN_INDICES           # 1..7
+holdout indices       = UNIQUE_CLAIM_HOLDOUT_INDICES         # 8..9
+train occupancy       = 7 * n_points                        # 350
+holdout occupancy     = 2 * n_points                        # 100
+Q4 domain             = 9 * n_points                        # 450
+```
+
+`T-A2-M1`, `T-A2-M1-TIME`, `T-A2-Q4` ve `T-A2-Q4SEP` **zorunlu
+olarak protokol fikstürünü** kullanır.
+
+Bağımsız boyut oracles (yakalanan değerden türetilmez):
+
+```
+n_ics     = UNIQUE_CLAIM_PROTOCOL.n_ics
+n_points  = UNIQUE_CLAIM_PROTOCOL.n_points
+n_train   = length(UNIQUE_CLAIM_TRAIN_INDICES)      # 7
+n_hold    = length(UNIQUE_CLAIM_HOLDOUT_INDICES)    # 2
+train_occ_cols = n_train * n_points                 # 350
+hold_occ_cols  = n_hold * n_points                  # 100
+q4_len         = (n_train + n_hold) * n_points      # 450
+```
+
+**Yasak:** A1 5-nokta fikstürü üzerinde
+`length(domain.z) != 450` gibi bir A2 M1 assert’i yazmak.
+O assert A1 ölçeğinde (`domain.z` uzunluğu 45) yanlış
+nedenle yeşil kalır ve protokol Q4 sızıntısını kaçırır.
+
+#### Provenance: sayısal eşitlik ≠ semantik kimlik
+
+**SAYISAL EŞİTLİK** (kanıt değildir):
+
+```
+occupancy.X[term.regulator, :] == r_holdout_expected
+```
+
+holdout occupancy regülatör satırı ile
+`_holdout_observed_regulators(split.holdout, term)` aynı
+sayısal değerleri içerebilir. Bu yüzden
+
+```
+captured_r == occupancy.X[term.regulator, :]
+```
+
+semantik ayırıcı **değildir**. Sayısal eşitsizlik provenance
+kanıtı **olarak iddia edilemez**.
+
+**SEMANTİK KİMLİK** (zorunlu kanıt):
+
+M2 production sampler’ın gerçekten `occupancy.X` alıp
+almadığı, canlı `sample_unknown_destruction` `X` argümanından
+sınıflandırılır.
+
+Kanıt, canlı örneklenen `X`’in şekli / içeriği /
+sınıflandırmasıdır; `r_range` ile occupancy satırı arasındaki
+sayısal `==` / `!=` değildir.
+
+`src/`’e production observer eklenmez. Mevcut test-yanı
+`with_sample_unknown_destruction_observer` /
+`with_sample_unknown_destruction_grid_observer` /
+`with_sample_unknown_destruction_result_observer`
+altyapısı kullanılır.
+
+#### Canlı `X` sınıflandırıcısı (test-yanı; src yok)
+
+Her canlı `sample_unknown_destruction` çağrısının yakalanan
+`X`’i bağımsız olarak şu sınıflara ayrılır. Sınıf, casustan
+kopyalanan bir etiketten değil, `X` içeriğinden türetilir.
+
+**Fill-ızgara** (M1 / M2 / Q4 production grid `X`):
+
+- taze fill-ızgara temsili (`fill(fill_value, nstates, length(r))`
+  + regülatör satırı `r`)
+- `size(X, 1) == nstates`
+- `size(X, 2) == length(r_range)`
+- tüm regülatör-dışı satırlar **tam** `0.3`
+- `X[term.regulator, :] == collect(r_range)`
+- `X !== occupancy.X` ve `X != occupancy.X`
+- `X != hcat(train_occ.X, hold_occ.X)`
+- `X != reshape(domain.z, 1, :)`
+- `X` türev / predicted yörünge matrisi değil
+  (`predict_ude` / `estimate_derivatives` çıktısı değil)
+
+**Occupancy-sınıflı** (gizli occupancy hesabı):
+
+- `X === occupancy.X` veya `X == occupancy.X`
+  (train veya holdout occupancy)
+- veya `X == hcat(train_occ.X, hold_occ.X)`
+- veya `sample_destruction_occupancy` yolunun `X`’i
+
+Bağımsız sayaçlar (tek log’u iki kez okumak yetmez):
+
+```
+production_grid_calls
+    = sample_unknown_destruction_grid casus ateş sayısı
+      (yalnız production kapsamında)
+
+occupancy_classified_sample_calls
+    = sample_unknown_destruction casusunda occupancy-sınıflı
+      X sayısı (yalnız production kapsamında)
+```
+
+Bağımsız replay oracle **ayrı logging scope** kullanır.
+Replay çağrıları `production_grid_calls` /
+`occupancy_classified_sample_calls` içine **girmez**.
+
+#### Canlı-yol kuralı
+
+`T-A2-M1`, `T-A2-M1-TIME`, `T-A2-Q4`, `T-A2-Q4SEP`,
+`T-A2-M2`, `T-A2-M2-D` **gerçek production çağrı yerini**
+gözler. Yalnız şunlara dayanmak yasaktır:
+
+- kaynak-string / `occursin`
+- constructor / alan listesi
+- dummy evaled erken dönüş
+- `_evaluate_unknown_rate_recovery`’yi uydurma veri ile
+  doğrudan çağırmak (composer’ı atlamak)
+- testin kendi ürettiği beklenen değeri kendisiyle
+  karşılaştırması (`expected = ev.d_rmse_*`)
+- üretim skalerini expected değişkenine kopyalamak
+- ikinci bir `evaluate_holdout`’u oracle saymak
+- ölü / çağrılmayan yardımcı
+- `src/`’e yeni observer eklemek
+
+Mevcut casuslar kullanılır
+(`with_sample_unknown_destruction_grid_observer`,
+`with_sample_unknown_destruction_observer`,
+`with_sample_unknown_destruction_result_observer`,
+`with_discover_unknown_rate_observer`,
+`with_evaluate_unknown_rate_recovery_range_observer`,
+`with_evaluate_holdout_observer`,
+`with_fit_unknown_destruction_observer`).
+
+Range / holdout casusu **kayıt eder, üretimi yerine geçmez:**
+range casusu dummy evaled döndürmez; holdout casusu
+`HoldoutEvidence` döndürmez. Grid casusu dönüşü değiştirmez.
+`discover_unknown_rate` casusu kayıttan sonra dummy discovery
+döndürebilir; `discover_unknown_rate` **değiştirilmez**.
+
+Bar: M2-G1. Her test: gerçek çağrı yeri + casus ateşler +
+bağımsız beklenti + yanlış gövde + o gövdeyi kırmızı yapan
+assert.
+
+#### T-A2-M1 — canlı M1 composer / domain kilidi
+
+Zorunlu fikstür: **A2 protokol fikstürü**
+(`UNIQUE_CLAIM_PROTOCOL`). A1 5-nokta composer fikstürü
+yasaktır.
+
+Zorunlu canlı yol (uydurma `_evaluate_unknown_rate_recovery`
+çağrısı yetmez):
+
+```
+_unique_claim_rate_recovery
+    → _evaluate_unknown_rate_recovery
+    → sample_unknown_destruction_grid(...; r_range)
+```
+
+Grid casusu **gerçek çağrıdan önce** kurulur. Casus
+**ateşlemek zorundadır**. Ateş etmezse test kırmızıdır
+(ölü yardımcı / dummy-evaled kısa devre / kaynak-only).
+
+Range casusu kullanılırsa `nothing` döner. Dummy evaled
+dönüş **tek kanıt değildir** ve grid’i atlatmak için
+kullanılamaz.
+
+Bağımsız beklenti (casustan ve `domain.z` uzunluğundan
+türetilmez):
+
+```
+expected_r = collect(_regulator_grid(split.train, term))
+z_expected = vcat(r_train_obs, r_holdout_obs)   # protokol; 450
+fixed      = collect(range(0.05, 2.0; length = 80))
+train_occ  = collect_observed_occupancy(split, :train_observed_states)
+hold_occ   = collect_observed_occupancy(split, :holdout_observed_states)
+```
+
+`length(expected_r) == 80` mevcut `_regulator_grid`
+`npoints` sözleşmesidir. `length(z_expected) == 450`
+`UNIQUE_CLAIM_PROTOCOL`’dan bağımsız kurulur
+(`(7+2)*50`). A1 fikstüründe `45` ile karşılaştırılmaz.
+
+Zorunlu kanıt:
+
+- grid casusu ateş sayısı `≥ 1`
+- yakalanan `r_range == expected_r`
+- `collect(r_range) != z_expected`
+- `collect(r_range) != fixed`
+- `r_range` `occupancy.X` değil
+- `r_range` occupancy regülatör satırı değil
+- canlı grid `X` fill-ızgara sınıflıdır:
+  `X[regulator, :] == expected_r`
+  `X[nonregulator, :] == 0.3`
+  `X !== train_occ.X`, `X != train_occ.X`
+  `X !== hold_occ.X`, `X != hold_occ.X`
+  `X != hcat(train_occ.X, hold_occ.X)`
+  `X != reshape(z_expected, 1, :)`
+- `occupancy_classified_sample_calls == 0`
+
+Test, M1 `r_range` şu ikamelerle değiştirilirse kırmızı
+kalır:
+
+- `occupancy.X`
+- occupancy regülatör satırı
+- Q4 `domain.z`
+- `range(0.05, 2.0; length = 80)`
+
+#### T-A2-M1-TIME — canlı M1 dummy-time kilidi
+
+Zorunlu fikstür: **A2 protokol fikstürü**.
+`discover_unknown_rate` **değiştirilmez**.
+
+Zorunlu canlı yol:
+
+```
+_unique_claim_rate_recovery
+    → _evaluate_unknown_rate_recovery
+    → sample_unknown_destruction_grid
+    → discover_unknown_rate(R_grid, times, D_nn; ...)
+```
+
+`training_ok` açılmalıdır (eşleşen truth / mevcut A1
+`_m4a_matching_truth` eşdeğeri). Dummy-time kanıtı erken
+`training_ok == false` dönüşünden önce durmaz.
+
+`with_discover_unknown_rate_observer` gerçek çağrıdan önce
+kurulur. Yalnız kaynak-string (`occursin("times = collect...")`)
+yetmez.
+
+Bağımsız beklenti:
+
+```
+expected_r = collect(_regulator_grid(split.train, term))
+dummy      = collect(range(0.0, 1.0; length = length(expected_r)))
+train_occ  = collect_observed_occupancy(split, :train_observed_states)
+hold_occ   = collect_observed_occupancy(split, :holdout_observed_states)
+```
+
+Zorunlu kanıt:
+
+- yakalanan discovery çağrı sayısı `≥ 1`
+- `captured.times == dummy`
+- `captured.times != train_occ.times`
+- `captured.times != hold_occ.times`
+- `occupancy_classified_sample_calls == 0`
+
+#### T-A2-Q4 — canlı Q4 ızgara / alan kilidi
+
+Zorunlu fikstür: **A2 protokol fikstürü**.
+
+Zorunlu canlı yol:
+
+```
+fit_functional_identifiability_restart
+    → sample_unknown_destruction_grid(
+           r_range = domain.z,
+           fill_value = domain.fill_value)
+```
+
+Çağrı yeri: `fit_functional_identifiability_restart` (testin
+kendi `sample_*` kopyası değil). PR bütçesi için mevcut
+`with_fit_unknown_destruction_observer` + geçerli
+`TrainingResult` (M3 PR kalıbı) fiti kısaltabilir; restart
+gövdesi canlı `sample_unknown_destruction_grid`’e **girmek
+zorundadır**. Occupancy nesnesi Q4 production yoluna
+sokulmaz.
+
+Grid casusu gerçek çağrıdan önce kurulur ve **ateşler**.
+
+Bağımsız beklenti (`UNIQUE_CLAIM_PROTOCOL`’dan; casustan
+değil):
+
+```
+z_expected = vcat(r_train_obs, r_holdout_obs)   # sıra, tekrarlar
+length(z_expected) == 450                       # 7×50 + 2×50
+domain.z == z_expected
+domain.fill_value == 0.3
+domain.construction === :train_obs_union_holdout_obs
+```
+
+Zorunlu kanıt:
+
+- `captured_r == domain.z == z_expected`
+- `length(domain.z) == 450`
+- `domain.fill_value == 0.3`
+- canlı grid `X` fill-ızgara sınıflıdır:
+  `X[regulator, :] == domain.z == z_expected`
+  `X[nonregulator, :] == 0.3`
+  `X` occupancy.X değil
+  `X != hcat(train_occ.X, hold_occ.X)`
+  `X != reshape(domain.z, 1, :)`
+- `occupancy_classified_sample_calls == 0`
+
+#### T-A2-Q4SEP — canlı Q4 ↔ occupancy ayrımı + sentinel
+
+A1 `T-A-Q4SEP` **değişmez** (occupancy sampling).
+`T-A2-Q4SEP` onun tersidir: Q4 occupancy okumaz.
+
+`T-A2-Q4` canlı yolunu protokol fikstürü ile koşar, sonra
+occupancy mutasyon sentineli uygular:
+
+1. `train_occ` ve `hold_occ` oluştur.
+2. `train_occ.X` ve `hold_occ.X`’i sentinel değerle
+   **yerinde** boz (regülatör ve regülatör-dışı satırlar
+   tanınabilir unique sentinel).
+3. Canlı Q4 örnekleme yolunu **yeniden** çalıştır
+   (`fit_functional_identifiability_restart` → grid).
+4. Yakalanan Q4 `r_range` ve grid `X` bağımsız domain
+   beklentisine **tam eşit** kalır:
+   `captured_r == z_expected`
+   `X[regulator, :] == z_expected`
+   `X[nonregulator, :] == 0.3`
+   `X != train_occ.X` (sentinel sonrası)
+   `X != hold_occ.X`
+   `X != hcat(train_occ.X, hold_occ.X)`
+
+Bu, Q4’ün occupancy okumadığını kanıtlar. Occupancy
+sızıntısı sentinel’i `r_range` veya `X`’e taşır ve test
+kırmızı kalır.
+
+`occupancy_classified_sample_calls == 0` her iki canlı
+koşuda da durur.
+
+#### T-A2-M2 — canlı M2 holdout yolu + `X` sınıflandırması
+
+İkinci bir sahte değerlendirici yazılmaz. Gerçek
+`evaluate_holdout` çalışır.
+
+Zorunlu canlı yol:
+
+```
+evaluate_holdout
+    → holdout observed regulator coordinates
+    → sample_unknown_destruction_grid   # 1. production grid
+    → train-derived external band
+    → sample_unknown_destruction_grid   # 2. production grid
+    → four HoldoutEvidence scalars
+```
+
+Holdout casusu kayıt eder, `HoldoutEvidence` **döndürmez**.
+`evaluate_holdout` çağrı sayısı `== 1`.
+
+İki gerçek M2 grid çağrısının her biri için, production
+grid sampler’ın canlı `sample_unknown_destruction` `X`
+argümanı yakalanır (mevcut test-yanı observer; `src/`’e
+observer eklenmez).
+
+Bağımsız beklenti (occupancy’den ve casustan kopyalanmaz):
+
+```
+r_holdout_expected = vcat(
+    split.holdout[1].observations[term.regulator, :],
+    split.holdout[2].observations[term.regulator, :])
+r_band_expected = collect(
+    _unique_claim_external_regulator_band(split.train, term))
+```
+
+**Açık uyarı:** `hold_occ.X[term.regulator, :]` ile
+`r_holdout_expected` sayısal olarak eşit olabilir. Bu
+eşitlik semantik eşdeğerlik **değildir**. Ayırıcı canlı
+`X` sınıflandırmasıdır.
+
+**Birinci production grid çağrısı:**
+
+- `r_range == r_holdout_expected`
+- `fill_value == 0.3`
+- `X[regulator, :] == r_holdout_expected`
+- `X[nonregulator, :] == 0.3`
+- `X` taze fill-ızgara; `nstates` satır
+- `X !== occupancy.X` ve `X != occupancy.X`
+  (train ve holdout)
+- `X != hcat(train_occ.X, hold_occ.X)`
+- `X != reshape(domain.z, 1, :)`
+- `X` türev / predicted yörünge değil
+
+**İkinci production grid çağrısı:**
+
+- `r_range == r_band_expected`
+- `fill_value == 0.3`
+- `X[regulator, :] == r_band_expected`
+- `X[nonregulator, :] == 0.3`
+- aynı fill-ızgara / anti-occupancy / anti-Q4 / anti-yörünge
+  sınıflandırması
+
+Zorunlu sayaçlar (production scope; replay hariç):
+
+```
+evaluate_holdout call count              == 1
+production_grid_calls                    == 2
+occupancy_classified_sample_calls        == 0
+```
+
+Dönüş:
+
+- `isa HoldoutEvidence`
+- `fieldnames` tam eşitlik:
+
+```
+(
+    :data_residual_train,
+    :data_residual_holdout,
+    :d_rmse_holdout,
+    :d_rmse_holdout_domain
+)
+```
+
+- `:occupancy ∉ fieldnames(HoldoutEvidence)`
+- `:occupancy ∉ fieldnames(MechanismRecoveryResult)`
+- `:occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)`
+
+Bu üç struct **değiştirilmez**.
+
+`grid → gizli occupancy → grid` yolu, dört
+`HoldoutEvidence` skalerı sayısal olarak doğru olsa bile
+kırmızıdır: `occupancy_classified_sample_calls == 0` ve
+`production_grid_calls == 2` birlikte zorunludur. Gizli
+üçüncü occupancy sample’ı sayacı 0’dan çıkarır.
+
+#### T-A2-M2-D — canlı M2 \(D\) semantiği; iki bağımsız oracle
+
+`ev.d_rmse_holdout` ve `ev.d_rmse_holdout_domain` LIVE
+production örneklenen \(D\) değerlerinden hesaplanır.
+
+**A) Production yakalama** (production scope; `evaluate_holdout`
+içinde):
+
+- birinci grid sonucu `(R, D, term, params)`
+- ikinci grid sonucu `(R, D, term, params)`
+
+Mevcut `with_sample_unknown_destruction_result_observer`.
+
+**B) Bağımsız oracle #1** (yalnız yakalanan production
+`D`/`R` + bağımsız seçilmiş `truth_rate`):
+
+```
+oracle1_holdout = _finite_rate_rel_rmse(
+    captured_holdout_D,
+    truth_rate(vec(captured_holdout_R)))
+oracle1_domain = _finite_rate_rel_rmse(
+    captured_domain_D,
+    truth_rate(vec(captured_domain_R)))
+```
+
+Zorunlu: `ev.d_rmse_holdout == oracle1_holdout`
+(tam eşitlik). `ev.d_rmse_holdout_domain == oracle1_domain`.
+
+**C) Bağımsız oracle #2** — production `evaluate_holdout`
+**dışında**, ayrı replay:
+
+- bağımsız kurulan `r_holdout_expected`, `r_band_expected`
+- `fill_value = 0.3`
+- aynı `model` / `params` / `term`
+- neural \(D\) yeniden örneklenir
+  (`sample_unknown_destruction_grid`)
+- **ayrı logging scope** — production
+  `production_grid_calls` /
+  `occupancy_classified_sample_calls` artmaz
+
+```
+(replay_hold_R, replay_hold_D, _) = sample_unknown_destruction_grid(
+    model, params, term;
+    r_range = r_holdout_expected, fill_value = 0.3)
+(replay_band_R, replay_band_D, _) = sample_unknown_destruction_grid(
+    model, params, term;
+    r_range = r_band_expected, fill_value = 0.3)
+oracle2_holdout = _finite_rate_rel_rmse(
+    replay_hold_D, truth_rate(vec(replay_hold_R)))
+oracle2_domain = _finite_rate_rel_rmse(
+    replay_band_D, truth_rate(vec(replay_band_R)))
+```
+
+Zorunlu: `ev.d_rmse_holdout == oracle2_holdout` ve
+`ev.d_rmse_holdout_domain == oracle2_domain`.
+
+**Açık yasak:**
+
+- `expected = ev.d_rmse_*`
+- üretim skalerini expected değişkenine kopyalamak
+- ikinci bir `evaluate_holdout`’u oracle saymak
+- sembolik denklem yeniden kurulumu
+  (`equation_to_function` / keşif adayı)
+- M2 holdout \(D\) oracle’ında
+  `normalize_destruction_samples`
+
+#### Occupancy ürün kablolaması yok
+
+Struct’lar değişmez. A2 yalnızca kilitler:
+
+```
+:occupancy ∉ fieldnames(HoldoutEvidence)
+:occupancy ∉ fieldnames(MechanismRecoveryResult)
+:occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
+```
+
+#### Saldırı kataloğu (on dokuz; her satır canlı kırmızı)
+
+String-only yeşil yetmez. Her saldırı: gözlenen production
+çağrısı + bağımsız beklenti + tam kırmızı assert.
+
+| # | Saldırı | Gözlenen production çağrısı | Bağımsız beklenti | Tam kırmızı assert |
+|---|---|---|---|---|
+| 1 | M1 `occupancy.X` kullanır | `_unique_claim_rate_recovery` → grid → canlı `sample_unknown_destruction` `X` | `expected_r = collect(_regulator_grid(split.train, term))` (protokol) | grid ateşler; `r_range == expected_r`; canlı `X` fill-ızgara; `X != occupancy.X`; occupancy-sınıflı sample `== 0` |
+| 2 | M1 occupancy regülatör satırı kullanır | aynı M1 canlı grid / `X` | `expected_r` (80); occupancy satırı 350 / 100 | `r_range == expected_r`; `r_range != occupancy.X[reg, :]` **yalnız uzunluk/şekil için değil** — kanıt fill-ızgara `X[reg,:] == expected_r` ve `X` occupancy satırı/matrisi değil |
+| 3 | M1 Q4 `domain.z` kullanır | aynı M1 canlı grid | `expected_r` (80); `z_expected` protokolden 450 | `r_range == expected_r`; `r_range != z_expected`; `length(r_range) == 80`; `length(z_expected) == 450` (A1 45-nokta fikstürü yasak) |
+| 4 | M1 sabit ızgara | aynı M1 canlı grid | `expected_r`; `fixed = collect(range(0.05, 2.0; length=80))` | `r_range == expected_r`; `r_range != fixed` |
+| 5 | Q4 `occupancy.X` kullanır | `fit_functional_identifiability_restart` → grid → canlı `X` | `z_expected` (450); `domain.z == z_expected` | `captured_r == z_expected`; canlı `X` fill-ızgara; `X != occupancy.X`; occupancy-sınıflı `== 0` |
+| 6 | Q4 occupancy regülatör satırı kullanır | aynı Q4 canlı grid / `X` | `z_expected` train-sonra-holdout 450 | `captured_r == z_expected`; `X[reg,:] == z_expected`; `X` occupancy satırı değil |
+| 7 | Q4 `hcat(train_occ, hold_occ)` kullanır | aynı Q4 canlı `X` | fill-ızgara `z_expected` × `0.3` | `X != hcat(train_occ.X, hold_occ.X)`; `X[nonreg,:] == 0.3` |
+| 8 | Q4 yanlış fill | aynı Q4 canlı `X` | `domain.fill_value == 0.3` | `domain.fill_value == 0.3`; `X[nonreg,:] == 0.3` |
+| 9 | M2 `sample_destruction_occupancy` kullanır | canlı `evaluate_holdout` + sample casusu | `production_grid_calls == 2` | occupancy-sınıflı sample `== 0`; grid `== 2`; canlı `X` fill-ızgara, `!== occupancy.X` |
+| 10 | M2, sayısal eşit koordinatlı occupancy-türevli ızgara kullanır | iki canlı M2 `sample_unknown_destruction` `X` | `r_holdout_expected` / `r_band_expected`; fill-ızgara sınıflandırıcısı | `r` sayısal olarak occupancy satırına eşit **olsa bile** `X` occupancy.X / hcat / Q4 reshape / yörünge değil; `X` taze fill-ızgara; `X[nonreg,:] == 0.3`; `X[reg,:] ==` o çağrının `r_range`’i |
+| 11 | M2 `fill_value` değiştirir | iki canlı M2 `X` | `fill_value == 0.3` | `X[nonreg,:] == 0.3` (her iki çağrı) |
+| 12 | M2 gizli ikinci occupancy değerlendirmesi (`grid → occupancy → grid`) | production grid + occupancy-sınıflı sample sayaçları | grid `== 2`; occupancy-sınıflı `== 0` | dört skaler doğru olsa bile occupancy-sınıflı `== 0` ve grid `== 2`; gizli occupancy kırmızı |
+| 13 | sahte `d_rmse_holdout` skaler | `evaluate_holdout` + result casusu + replay | oracle #1 ve oracle #2 | `ev.d_rmse_holdout == oracle1 == oracle2`; `expected = ev.d_rmse_*` yasak |
+| 14 | sembolik M2 \(D\) | aynı D oracles | neural grid `D` | oracle `sample_unknown_destruction_grid` neural \(D\); `equation_to_function` / normalize yasak |
+| 15 | occupancy sonuç tiplerine eklenir | `fieldnames` | kilitli 4 alan; üç tipte `:occupancy` yok | `:occupancy ∉` `HoldoutEvidence` / `MechanismRecoveryResult` / `FunctionalIdentifiabilityDiagnostic`; struct değişmez |
+| 16 | A1 test zayıflatma | A1 dosyası READ-ONLY; A1 ID’leri durur | A1 `T-A-Q4SEP` occupancy sampling olarak kalır | A1 ID rename/delete/reuse yok; A2 `T-A2-*` ayrı; ters yönlü `T-A-Q4SEP` + `T-A2-Q4SEP` birlikte |
+| 17 | yalnız-kaynak ölü yardımcı | grid / discover / holdout casusları | casus ateşler | grid/discover/holdout ateş sayısı `≥ 1` / M2’de grid `== 2`; `occursin` tek kanıt değil |
+| 18 | M4-B bulaşması | diff + yasak liste | A2 yalnız ayrım testleri | graph-local eğitilmiş kurtarma / composer göçü / occupancy keşif ürünü yok |
+| 19 | M4-C bulaşması | diff + yasak liste | A2 yalnız ayrım testleri | robustness tohum ürünü / nightly / çok-tohum artifact yok |
+
+Saldırı 10 için tekrar: occupancy regülatör koordinatları ile
+holdout gözlenen-\(r\) vektörünün sayısal eşitliği semantik
+eşdeğerlik **değildir**. Kırmızı koşul, canlı `X`’in occupancy
+matrisi (veya hcat / Q4 reshape / yörünge) olarak
+sınıflanmasıdır; `captured_r != occupancy.X[reg,:]` iddiası
+değildir.
+
+#### M4-A2 yasak kapsam
+
+M4-A2 **uygulamaz:**
+
+- occupancy RMSE ürünü
+- composer göçü
+- `evaluate_holdout` göçü
+- Q4 göçü
+- graph-local eğitilmiş kurtarma
+- robustness tohumları
+- nightly workflow
+- M4-B
+- M4-C
+- yeni recovery pipeline
+- public export
+- yeni bilimsel sonuç tipi
+- `sample_destruction_occupancy` production caller
+- occupancy’nin `MechanismRecoveryResult` /
+  `HoldoutEvidence` /
+  `FunctionalIdentifiabilityDiagnostic`’e eklenmesi
+- `src/`’e production observer
+- A1 test dosyası değişikliği
+- A1 test ID reuse
+
+#### Test evi ve uygulama sırası
+
+Testler **yeni** `test/test_m4_a2_separation.jl` dosyasındadır
+(yalnız test; `src/` yok). A1
+`test/test_trajectory_occupancy.jl` **READ-ONLY**’dir. A1
+constructor / dummy-evaled `T-A-M1` A2 kabulü sayılmaz ve
+aynı ID’ye “yükseltilmez”.
+
+Uygulama sırası:
+
+1–7. A2 test dosyası ve altı canlı ID uygulandı
+8. M2 / M3 / A1 regresyon
+9. adversarial test review
+10. diff-check
+11. adversarial preflight
+12. ancak o zaman commit / tag
+
+Production değişikliği yoktur. Commit / tag / push yoktur.
+
+#### Kabul
+
+M4-A2, occupancy helper’ın varlığı veya A1 birim yeşili ile
+kabul **edilmez**. Altı canlı A2 ID + on dokuz saldırının
+canlı kırmızı koşulu + yasak listenin uygulanmamış olması
+gerekir. Occupancy Q4, composer veya holdout değerlendirici
+olmaz.
+
+A1 yeşili A2’yi örtmez. A2, A1 `T-A-Q4SEP`’i bozmadan
+ters-yön Q4 ayrımını kilitler.
+
+### M4-B — Eğitilmiş UDE graph-local kütüphane doğrulaması
+
+**Durum:** spesifikasyon kilitli; **uygulandı**. M4-A1 occupancy
+runtime vardır. M4-A2 canlı ayrım testleri vardır. M2 ve M3 tamamdır
+ve **dokunulmaz**. M4-C pending kalır.
+
+**Bu dilim occupancy wiring değildir.** `sample_destruction_occupancy`
+production caller eklenmez. Graph-local kod occupancy’ye,
+`FunctionalIdentifiabilityDomain`’e veya Q4 `domain.z`’ye bağlanmaz.
+
+**Bu dilim PR smoke kabulü değildir.** PR smoke, eğitilmiş-UDE
+graph-local bilimsel sonuç **değildir**. Milestone COMPLETE yalnız
+protokol yolunun gerçek eğitilmiş `D` sonucunu üretmesiyle
+verilir. `smoke yeşil + protokol dosyası var` kabul **değildir**.
+
+#### Bilimsel iddia (zayıflatılmaz)
+
+M4-B:
+
+```
+TRAINED-UDE GRAPH-LOCAL LIBRARY VALIDATION
+```
+
+Birincil sonuç **gerçek eğitilmiş nöral `D`** üzerinden gelmek
+zorundadır. Aşağıdakilerden **çıkarılamaz**:
+
+- analitik Hill truth
+- sembolik truth denklemi
+- elde üretilmiş `D`
+- elde üretilmiş aday
+- kopyalanmış keşif sonucu
+- graf etiketleri
+- yalnız smoke sonucu
+
+Analitik Hill deneyi **yalnız**:
+
+```
+analytic library-membership control
+```
+
+Bu, **trained-UDE graph-local evidence değildir**. Bu cümle her
+etiket / sonuç / kabul yerinde tekrarlanır.
+
+Kapatılan sızıntı: mevcut graph-prior kanıtı analitik Hill `D`
+üzerindedir (`hill_rate_truth` → `discover_equations`). Bu, eğitilmiş
+UDE `D` kanıtı değildir.
+
+#### Bu dilimin kanıtladığı
+
+1. Protokol yolunda UDE eğitimi gerçekten olur.
+2. Keşfe giren `D`, **gerçek `fit_unknown_destruction` çağrısının
+   yakalanan dönüşündeki** `TrainingResult.params` kaynağından
+   `sample_unknown_destruction` ile üretilir. Oracle
+   `evidence.training.params` **değildir**.
+3. Aynı öğrenilmiş `D` (aynı model, yakalanan fit-dönüş params,
+   aynı term, aynı sayısal `D`) graph / global / wrong-graph
+   kapsamlarına gider.
+4. Graph kapsamında gerçek ebeveyn kütüphanede vardır; wrong-graph
+   kapsamında yoktur. Bu, canlı keşif adayından türetilir.
+5. Wrong-graph destek kapısı gerçek ebeveyni alamaz. Boolean
+   rapora yazılmaz; bağımsız yeniden keşif adayından hesaplanır.
+6. Analitik Hill yolu ayrı test ID ve ayrı etikettedir.
+
+#### Bu dilimin iddia etmediği
+
+- yeni topoloji keşfi / genel graf keşfi
+- çok-delikli onarım
+- `canonical_hill_from_nn`
+- yapısal identifiability
+- fonksiyonel identifiability (Q4)
+- keyfi ağlarda tam mekanizma keşfi
+- graph F1’in global F1’den zorunlu üstünlüğü
+- analitik Hill başarısının trained-UDE kanıtı sayılması
+- occupancy’nin keşif alanı olması
+- M4-C çok-tohum artifact
+- PR smoke’un bilimsel kabul olması
+
+#### Depoda bugün ne var (varsayım değil)
+
+Yeni `RecoveryPipeline` / `TrainingReuse` observer **yasaktır**.
+Gerekli görülürse dur; sessiz `src/` kancası eklenmez. Mevcut
+fit casusları **dönüşü görmez**. Canlı dönüş tanığı test-yanı
+sarmalayıcıdır (aşağıda).
+
+| Yüzey | Gerçek sahip | M4-B rolü |
+|---|---|---|
+| Graph vs global kütüphane | `graph_library_variables`, `global_library_variables`, `graph_parent_set`, `local_basis(...; scope)` | Bağımsız kütüphane oracle’ı |
+| Wrong-graph kütüphane | `graph_library_variables(wrong_net, 1)` (test-yanı adı: `wrong_graph_library_variables`) | Yapısal yanlış-graf oracle’ı. Yeni production fonksiyon **yok** |
+| Analitik `D` keşif kapıları | `graph_local_rate_samples` → `hill_rate_truth`; `three_state_discovery_gate_row` / `wrong_graph_discovery_gate_row`; suite `:three_state`, `:wrong_graph` | **analytic library-membership control.** Trained-UDE kanıtı **değil** |
+| Destek kapıları | `support_uses_variable`, `local_has_true_parent_gate`, `local_has_false_parent_gate` | Canlı / yeniden koşulan aday üzerinde. Rapor Boolean’ı kanıt değil |
+| Keşif sonucu | `DiscoveryResult.candidates[i].specification.variables` (`LocalBasisSpec.variables`); `DiscoveryResult.basis` | `DiscoveryResult.variables` **yoktur**; uydurulmaz |
+| Unique-claim eğitilmiş `D` | `_train_unknown_edge` → `fit_unknown_destruction` → `sample_unknown_destruction_grid` → `discover_unknown_rate` | M1/M2 yolu. M4-B bunu **kullanmaz** |
+| 2-durumlu Hill unique-claim | `build_hill_recovery_network` | `candidate_parents` boş. **M4-B fikstürü olamaz** |
+| 3-durumlu + distractor | `build_three_state_unknown_network()` (S,R,Q,Z; ebeveyn R=2) | **Kanonik true-graph** |
+| Wrong-graph | `build_wrong_graph_unknown_network()` = aynı ağ, `parent=3` (Q→S) | **Konstrüktif yanlış graf** |
+| Derleme | `compile_mechanism`: nöral terim **bilinmeyen `hill_deg` reaksiyonundan** gelir (`!reaction.known` → `NeuralDestructionTerm`). `INHIBITION+HILL` kenarı nöral terim **üretmez** (`_edge_destruction_term` `nothing` döner) | 1 delik korunur; kenar gerekçesi uydurulmaz |
+| Öğrenilmiş `D` | `sample_unknown_destruction(model, p, X; term)` → `D` **1×N `Matrix`**. Grid sarmalayıcısı `sample_unknown_destruction_grid` de 1×N döner ama M4-B onu **kullanmaz** | Tek learned-`D` kaynağı |
+| Eğitim | `fit_unknown_destruction` → entry casusu `(p0, set, adam, bfgs, ...)`; SET casusu **yalnız `ExperimentSet` görür** ve `TrainingResult` dönerse üretimi atlar; aksi halde `train_experiments_with_warmup` | Tek eğitim isteği. **Dönüş görülmez** |
+| Fit dönüşü | Mevcut kancalar `TrainingResult` **dönüşünü görmez**. Entry dönüş taşımaz. `train_experiments_with_warmup` sonuç casusu **yok**. Julia method overwrite güvensiz (world-age, method table, paylaşılan test durumu) ve **yasak** | Test-yanı sarmalayıcı: gerçek fit çalışır, dönen nesne kaydedilir, aynı nesne geri verilir. Yeni `FIT_*_RESULT_OBSERVER` **yok** |
+| Eğitim kaybı | `train_experiments` → `loss_mse(..., nn, st)` → `predict_ude(p, u0, tspan, times, nn, st)`. Bu overload `_note_predict_ude` **çağırmaz** | `predict_ude` casusu eğitim tanığı **değildir** |
+| Keşif | `discover_equations(X, times, network; derivatives, targets=1, config)` | `discover_equations(...; scope=:graph)` **yoktur** |
+| Kapsam | `rate_discovery_config(; scope=:graph|:global, ...)` → `DiscoveryConfig.basis_scope`; içeride `local_basis(...; scope=config.basis_scope)` | Üç çağrı bu API’yi kullanır |
+| 3-durum `targets` | Mevcut 3-state / wrong-graph yolu **her zaman** `targets=1` | Yoksa 4 durum keşfedilir |
+| Keşif casusu | `DISCOVER_EQUATIONS_OBSERVER` yalnız `(X, times, derivatives)` görür; `network` / `config` / dönüş **yok**. `!== nothing` dönerse production atlanır | Casus dönüş bağından yetmez; observer-OFF yeniden koşu zorunlu |
+| Occupancy | `TrajectoryOccupancy` / `sample_destruction_occupancy`; production caller yok; occupancy observer **yok** | M4-B **dokunmaz** |
+| M2 | 7/2, train-only fit, holdout `D`, dört skaler `HoldoutEvidence` | M4-B `evaluate_holdout` **çağırmaz** |
+| M3 | `FunctionalIdentifiabilityDomain`, `FUNCTIONAL_ID_RESTART_SEEDS`, `FUNCTIONAL_ID_REPORTING_CUTOFFS`, Q4 `status` | M4-B **değiştirmez** |
+
+#### Kanonik protokol fikstürü (tek)
+
+Mevcut builder’lar. Yeni ağ icat edilmez.
+
+```
+truth_net  = build_three_state_unknown_network(; known = true,  with_distractor = true, parent = 2)
+ude_net    = build_three_state_unknown_network(; known = false, with_distractor = true, parent = 2)
+wrong_net  = build_wrong_graph_unknown_network(; known = false, with_distractor = true)
+```
+
+Kilitli indeksler (mevcut `three_state_library_row` / `wrong_graph_library_row`):
+
+| Sembol | Durum | Rol |
+|---|---|---|
+| 1 | S | hedef (`targets = 1`) |
+| 2 | R | gerçek ebeveyn |
+| 3 | Q | wrong-graph iddia edilen ebeveyn |
+| 4 | Z | distractor (yalnız global kütüphanede) |
+
+Bağımsız yapısal oracle (etiket değil):
+
+```
+2 ∈ candidate_parents(ude_net, 1)
+3 ∉ candidate_parents(ude_net, 1)
+4 ∉ candidate_parents(ude_net, 1)
+3 ∈ candidate_parents(wrong_net, 1)
+2 ∉ candidate_parents(wrong_net, 1)
+graph_parent_set(ude_net, 1) != graph_parent_set(wrong_net, 1)
+```
+
+Test-yanı kütüphane oracle’ları (production API; yeni export yok):
+
+```
+graph_library_variables(ude_net, 1; degree=2, include_interactions=false)
+global_library_variables(ude_net, 1; degree=2, include_interactions=false)
+wrong_graph_library_variables(wrong_net, 1) =
+    graph_library_variables(wrong_net, 1; degree=2, include_interactions=false)
+```
+
+Zorunlu üyelik (constructor **ve** canlı keşif spec’i):
+
+```
+true parent ∈ graph library
+true parent ∉ wrong-graph library
+```
+
+`build_hill_recovery_network` kullanılamaz: reaksiyon-only, graph
+parent set boş. Relabel (`parent=2` dururken ad değiştirmek)
+wrong-graph **değildir**.
+
+#### Tek deney (üç ayrı UDE yok; holdout kapsam seçimi yok)
+
+```
+generate / train once
+    → captured fit_unknown_destruction return params
+    → sample learned neural D once
+    → run graph-local
+    → run global
+    → run wrong-graph
+    → compare structural support
+```
+
+Kapsam başına yeniden eğitim yok. Kapsam-özel `D` yok.
+Holdout ile kapsam seçimi yok.
+
+Kilitli sıra (gerçek depo API’si; uydurma
+`generate_experiment_set(truth_net, …)` **yazılmaz**):
+
+```
+generate_experiment_set(
+        MersenneTwister(seed);
+        network = truth_net,
+        initial_conditions = kilitli 4-boyutlu IC tablosu,
+        tspan = tspan,
+        n_points = n_points,
+        noise_σ = noise_σ,
+        truth_params = m4b_truth_params(),
+        generator = :compiled_mechanism)
+    → (model, p0) = build_ude_model(MersenneTwister(401), ude_net)
+    → captured_fit_return = training_call(model, p0, train_set; adam, bfgs)
+          # training_call varsayılanı = fit_unknown_destruction; tam 1
+          # protokol: test-yanı sarmalayıcı gerçek fit’i çağırır, dönüşü kaydeder,
+          # aynı nesneyi değiştirmeden geri verir
+    → X = kilitli tasarlanmış 4×n koordinat
+    → (R, D, term) = sample_unknown_destruction(
+          model, captured_fit_return.params, X; term)
+          # tam 1; D :: 1×N Matrix
+    → dX = zeros(4, n); dX[1, :] = vec(D)
+    → dummy times = collect(range(0.0, 1.0; length = n))
+    → isteğe bağlı tek _permute_rate_samples(X, dX, x_seed)   # üç çağrıdan önce bir kez
+    → discover_equations(X, times, ude_net;
+          derivatives=dX, targets=1,
+          config=rate_discovery_config(scope=:graph, bootstrap=0, seed=11))
+    → discover_equations(X, times, ude_net;
+          derivatives=dX, targets=1,
+          config=rate_discovery_config(scope=:global, bootstrap=0, seed=11))
+    → discover_equations(X, times, wrong_net;
+          derivatives=dX, targets=1,
+          config=rate_discovery_config(scope=:graph, bootstrap=0, seed=11))
+```
+
+`discover_equations(...; scope=:graph)` **yazılmaz**. Kapsam yalnız
+`DiscoveryConfig.basis_scope` / `rate_discovery_config` ile seçilir.
+
+Aynı `model`, aynı `params`, aynı `term`, aynı `X`, aynı `D`/`dX`.
+Sayılar:
+
+```
+fit isteği          = 1
+learned-D kaynağı   = 1
+keşif kapsamı       = 3
+```
+
+Yasak yollar (production):
+
+- `hill_rate_truth` / `graph_local_rate_samples` → keşif `D`
+- `sample_unknown_destruction_grid` / `sample_destruction`
+- `sample_learned_function` (ham Lux)
+- `discover_unknown_rate` (1D rate ağı)
+- `discover_equations(p_trained, model)` (`ẋ` keşfi, `D` değil)
+- `equation_to_function` ile truth adayı
+- `unique_claim_experiment_split` / `evaluate_holdout`
+- `_evaluate_unknown_rate_recovery` / `_unique_claim_rate_recovery`
+- `sample_destruction_occupancy` / `TrajectoryOccupancy`
+- `FunctionalIdentifiabilityDomain` / Q4 `domain.z` occupancy olarak
+- `select_discovery_config` (holdout/AIC kapsam seçimi)
+- `run_recovery_suite`’e yeni default bölüm
+- `_train_unknown_edge` / `generate_recovery_experiments`
+
+`generate_recovery_experiments` 9-IC unique-claim setidir;
+`_unknown_edge_ics()` 2-durumludur. M4-B mevcut
+`generate_experiment_set(rng::AbstractRNG; network, initial_conditions,
+tspan, n_points, noise_σ, truth_params, generator)` + 4-boyutlu IC
+tablosu kullanır. Birinci argüman `truth_net` **değildir**.
+
+#### Smoke ≠ protokol (zorunlu ayrım)
+
+PR smoke bilimsel kabul **değildir**.
+
+**A) PR smoke** (`T-B4-SMOKE-*`)
+
+- kısa bütçe
+- eğitilmiş-`D` **orkestrasyonunun** canlı olduğunu test eder
+- pahalı `fit` mevcut SET casusu ile kesilebilir
+- trained-UDE bilimsel sonuç **olarak sunulamaz**
+- `runtests.jl` içindedir
+
+**B) M4-B protokol** (`T-B4-PROTO-*`)
+
+- gerçek UDE eğitimi
+- gerçek `fit_unknown_destruction` dönüşü yakalanır
+  (`captured_fit_return_count == 1`)
+- yakalanan `TrainingResult.params` learned-`D` kaynağıdır
+- gerçek öğrenilmiş `D`
+- üç gerçek kapsam keşfi
+- graph / global / wrong-graph karşılaştırması
+- protokol-düzeyi bilimsel kabul
+
+Milestone COMPLETE protokol yolunu **zorunlu** kılar.
+
+#### Eğitim sözleşmesi (a priori; holdout seçmez)
+
+Yeni iç sabit. `UNIQUE_CLAIM_PROTOCOL` **değiştirilmez**. Tohum
+listeleri karışmaz.
+
+`103`, `107`, `111`, `113`, `127`, `201..205` kullanılmaz.
+Analitik graph-local RNG (`204`, `214`, `607`, `613`, `617`)
+kopyalanmaz. İsimsiz `(401, 402, …)` retry döngüsü de yoktur.
+
+```
+M4B_PROTOCOL = (
+    seed              = 401,
+    n_ics             = 3,
+    n_points          = 40,
+    tspan             = (0.0, 8.0),
+    noise_σ           = 0.0,
+    adam_iterations   = UNIQUE_CLAIM_PROTOCOL.adam_iterations,   # 100; yeni sayı değil
+    bfgs_iterations   = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,   # 50
+    discovery_seed    = 11,
+    bootstrap         = 0,
+    n_sample_points   = 80,
+    x_seed            = 619,
+)
+
+M4B_SMOKE = (
+    seed              = 401,
+    n_ics             = 1,
+    n_points          = 8,
+    tspan             = (0.0, 8.0),
+    noise_σ           = 0.0,
+    adam_iterations   = 2,
+    bfgs_iterations   = 0,
+    discovery_seed    = 11,
+    bootstrap         = 0,
+    n_sample_points   = 24,    # _run_discovery size(X,2) ≥ 20
+    x_seed            = 619,
+)
+
+M4B_SCOPE_PLAN = (
+    (name = :graph,       network = :ude,   basis_scope = :graph),
+    (name = :global,      network = :ude,   basis_scope = :global),
+    (name = :wrong_graph, network = :wrong, basis_scope = :graph),
+)
+```
+
+`M4B_SCOPE_PLAN` a priori sabittir. Holdout kazanan seçmez.
+`best_scope` / `selected_scope` eklenirse bilimsel sonucu
+**belirlemez**; eklenmemesi tercih edilir.
+
+Optimizer / init **her holdout değerlendirmesinden önce** kilitlenir.
+
+Yasak:
+
+```
+evaluate_holdout(...) → choose Adam/BFGS → train
+```
+
+Holdout skoru şunları seçemez: Adam iterasyonu, BFGS iterasyonu,
+fiziksel init, nöral init, optimizer, kapsam, graf.
+
+Canlı holdout-optimizer sentinel:
+
+```
+decoy_preferred_adam = 50
+```
+
+Sahte holdout kanıtı Adam=50’yi tercih ettirse bile canlı fit
+isteği a priori değeri kullanır (protokol 100/50, smoke 2/0).
+Holdout kanıtını değiştirmek canlı `adam` / `bfgs` / `phys_init` /
+`frozen_phys` / `fit_set` kimliğini **değiştirmez**.
+
+Stopping: bütçe tükenmesi. Holdout early-stop yok. Retry yok.
+Eğitim seti: üretilen **tüm** M4-B deneyleri. 7/2 split yok.
+Holdout, fit setinde **yoktur**.
+
+Kilitli truth (veri üretimi; keşif `D` değil):
+
+```
+m4b_truth_params() = (
+    k_prod = 0.9, vmax = 1.7, K = 0.6,
+    k_rq = 1.0, k_r = 0.6, k_qs = 0.8, k_q = 0.5, k_z = 0.4)
+```
+
+UDE `phys_init`: `fit_unknown_destruction` varsayılanı (şema
+adlarına `0.8`). Unknown Hill `vmax`/`K` UDE phys’te yoktur.
+
+NN init: `build_ude_model(MersenneTwister(401), ude_net)`.
+
+IC (4 durum; `_unknown_edge_ics` değil):
+
+```
+smoke:    [[0.30, 0.25, 0.20, 0.15]]
+protocol: [0.30, 0.25, 0.20, 0.15]
+          [0.80, 0.40, 0.35, 0.20]
+          [0.45, 1.10, 0.50, 0.30]
+```
+
+#### Tasarlanmış `X` (occupancy değil; fill-ızgara değil; Q4 `z` değil)
+
+`three_state_discovery_gate_row` düzeni, **ayrı** `x_seed = 619`,
+analitik `D` yok:
+
+```
+r = range(0.1, 2.0; length = n_sample_points)
+s = fill(0.4, n)
+q = r.^2 .+ 0.08 .* maximum(r.^2) .* randn(MersenneTwister(619), n)
+z = r .+ 0.10 .* (maximum(r)-minimum(r)) .* randn(MersenneTwister(619), n)
+X = permutedims(hcat(s, r, q, z))   # 4 × n
+```
+
+Sonra `D = sample_unknown_destruction(...)`. `hill_rate_truth(r)`
+keşfe girmez. Dummy time mevcut graph-local / M1 dummy time’dır;
+occupancy zamanı değildir.
+
+Permütasyon varsa sample’dan **sonra**, üç keşiften **önce**, bir
+kez. Kapsam-özel permütasyon yok. Learned-`D` replay’i kilitli
+tasarımı `x_seed = 619` ile **bağımsız yeniden kurar**; oracle
+`evidence.X` değildir. Keşif observer-OFF replay’i yakalanan
+`X` / `times` / `derivatives` üzerindedir.
+
+#### Retry yasağı
+
+```
+eğitim denemesi     = 1
+keşif yürütmesi     = 3
+```
+
+Şunlara göre retry yok: fit failure, discovery failure, holdout
+skoru, graph skoru. Eğitim başarısızsa başarısızlık **raporlanır**.
+Bir keşif kapsamı başarısızsa o kapsam **failed olarak kaydedilir**.
+Sessiz seed 206, 207, … eklenmez. Graph-local başarana kadar
+döngü yok. İç `_run_discovery` / `_discover_implicit` yeniden
+denemesi yok. Test katmanı protocol’ü tohum değiştirene kadar
+koşamaz.
+
+#### Canlı tanıklar (yeni RecoveryPipeline observer yok)
+
+Hepsi mevcut test-yanı kanca **veya** test dosyasındaki sarmalayıcı.
+`predict_ude` **zorunlu tanık değildir**. `T-B4-*-FIT`
+`predict_ude ≥ 1` **yazmaz**.
+
+| Tanık | Kanca | Ne görür / ne kanıtlar |
+|---|---|---|
+| Fit isteği | `with_fit_unknown_destruction_entry_observer` | `p0`, `p0_nn`, `fit_set`, `fit_set_length`, `fit_experiments_identity`, `adam`, `bfgs`, `frozen_phys`, `phys_init`. Short-circuit **yok**. **Dönüş yok** |
+| Fit SET | `with_fit_unknown_destruction_observer` | Yalnız `ExperimentSet`. `TrainingResult` dönerse production eğitim atlanır. **Gerçek dönüş tanığı değildir** |
+| **Canlı fit dönüşü** | **Test-yanı sarmalayıcı** (`training_call`) | Gerçek `fit_unknown_destruction` çalışır; dönen `TrainingResult` nesnesi kaydedilir; aynı nesne değiştirilmeden geri verilir. `captured_fit_return_count == 1`. Test `TrainingResult` **üretmez** |
+| Öğrenilmiş `D` yolu | `with_sample_unknown_destruction_observer` | `(model, params, X, term)`. `D` taşımaz; short-circuit **yok** |
+| Keşif girdileri | `with_discover_equations_observer` | `(X, times, derivatives)`. `network` / `config` / dönüş yok. `!== nothing` short-circuit |
+| Grid kaçışı | `with_sample_unknown_destruction_grid_observer` + result observer | ikisi de **0** |
+| Unique-claim trainer | `with_train_unknown_edge_counter` | **0** |
+| Holdout | `with_evaluate_holdout_observer` | **0** |
+| M1 composer | `with_evaluate_unknown_rate_recovery_range_observer` / `with_discover_unknown_rate_observer` | **0** |
+| Split | `with_unique_claim_experiment_split_observer` | **0** |
+
+`predict_ude` casusu kurulmaz ve sayı assert edilmez. Gerçek
+eğitim bu casusu ateşlemez; sahte yardımcı ateşleyebilir.
+
+Casuslar **ayrı logging scope** kullanır. Replay çağrıları
+production sayaçlarına **girmez**.
+
+#### Canlı fit-dönüş tanığı (döngüsel olmayan oracle)
+
+Bu alt bölüm önceki NEEDS REVISION blokajını kapatır.
+
+**Neden mevcut casuslar yetmez**
+
+```
+FIT_UNKNOWN_DESTRUCTION_OBSERVER
+    yalnız ExperimentSet görür
+    TrainingResult dönerse gerçek eğitimi keser
+FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER
+    p0 / set / adam / bfgs görür; dönüşü görmez
+train_experiments_with_warmup
+    sonuç casusu yoktur
+```
+
+Bu yüzden şu yanlış gövde, eski zincirle yeşil kalırdı:
+
+```
+real = fit_unknown_destruction(...)
+fake_training = TrainingResult(p0, fake_history, ...)
+evidence.training = fake_training
+sample_unknown_destruction(model, p0, X; term)
+```
+
+Saklanan `evidence.training.params ==` sample params `==` sahte
+`TrainingResult.params` döngüsüdür. Bu, gerçek dönüş provenance
+kanıtı **değildir**.
+
+`fingerprint(evidence.training.params)` **tek oracle olarak
+kullanılamaz**. Çünkü test, orkestratörün yazdığı alanı okur;
+orkestratör o alanı uydurabilir. Döngü:
+
+```
+stored training.params
+    ==
+sampled params
+    ==
+fake TrainingResult.params
+```
+
+**Julia method overwrite yasak.** `fit_unknown_destruction`
+üzerine method table yaması world-age, paylaşılan test durumu
+ve kwargs yüzünden güvensizdir. Spec bunu istemez.
+
+**Yeni RecoveryPipeline observer yok.**
+`FIT_UNKNOWN_DESTRUCTION_RESULT_OBSERVER`,
+`_note_fit_unknown_destruction_result` veya
+`train_experiments_with_warmup` sonuç casusu **eklenmez**.
+Mevcut `src/RecoveryPipeline.jl` observer imzaları durur.
+
+**Test-yanı sarmalayıcı (tek onaylı canlı dönüş tanığı)**
+
+Yeni unexported orkestratör eğitimi **yalnız** çağıran-verilen
+`training_call` üzerinden yapar. Varsayılan
+`fit_unknown_destruction`’dır. Bu bir süreç-global observer
+`Ref` **değildir**; yeni dosyanın bileşim argümanıdır.
+Short-circuit etmez.
+
+Protokol (ve `T-B4-*-D` / `T-B4-PROTO-RET`) test-yerel
+sarmalayıcı verir:
+
+```
+captured_fit_return = Ref{Any}(nothing)
+captured_fit_return_count = Ref(0)
+
+function capture_fit_return(args...; kwargs...)
+    result = fit_unknown_destruction(args...; kwargs...)
+    captured_fit_return[] = result
+    captured_fit_return_count[] += 1
+    return result    # aynı nesne; değiştirilmez
+end
+
+evaluate_trained_graph_local(...; training_call = capture_fit_return)
+```
+
+Sarmalayıcı:
+
+1. gerçek production `fit_unknown_destruction`’ı çalıştırır
+2. **gerçek dönen** `TrainingResult` nesnesini kaydeder
+3. aynı nesneyi değiştirmeden geri verir
+4. `TrainingResult(...)` **kurmaz**
+5. SET casusuna `TrainingResult` **inject etmez**
+6. `captured_fit_return.params` parmak izini kaydeder
+7. sonra learned-D sample `params`’ı gözler
+
+Orkestratör `training_call`’ı atlayıp doğrudan
+`fit_unknown_destruction` çağırırsa
+`captured_fit_return_count == 0` → **kırmızı**.
+
+**Zorunlu sayaç / kimlik**
+
+```
+captured_fit_return_count == 1
+captured_fit_return isa TrainingResult
+captured_fit_return.params
+    = gerçek fit_unknown_destruction dönüşünün params alanı
+```
+
+Nesne kimliği bilimsel özellik **değildir**. Downstream
+`deepcopy` sayısal olarak aynı öğrenilmiş parametreleri
+taşıyorsa kabul edilir; çünkü
+`nn_parameter_fingerprint` / `_params_nn_fingerprint`
+değer eşitliğidir (`objectid` değil). Spec her `deepcopy`’yi
+bilimsel hata saymaz. Kaynak semantiği:
+
+```
+actual fit return params
+    →
+downstream params
+```
+
+değer-eşdeğer kopya bu semantiği korur.
+
+**Döngüsel olmayan birincil provenance**
+
+```
+A. actual fit return:
+       captured_fit_return.params
+B. production learned-D sample:
+       sample casusu params
+C. independent replay:
+       sample_unknown_destruction(
+           same model,
+           captured_fit_return.params,
+           independently constructed X;
+           term)
+```
+
+`independently constructed X` = kilitli 4×n tasarım
+(`x_seed = 619`) testte **yeniden kurulur**. Oracle
+`evidence.X` değildir.
+
+Birincil assert (protokol):
+
+```
+captured_fit_return_count == 1
+production_sample_params_fp
+    ==
+nn_parameter_fingerprint(captured_fit_return.params.nn)
+production_D == independent_replay_D
+```
+
+`fingerprint(evidence.training.params)` bu birincil
+eşitliğin yerine **geçemez**.
+
+**p0 ayrımı (protokol bütçesine bağlı; evrensel değil)**
+
+`M4B_PROTOCOL` (`adam = 100`, `bfgs = 50`) nöral
+parametrelerin güncellenmesini gerektirir:
+
+```
+nn_parameter_fingerprint(captured_fit_return.params.nn)
+    !=
+nn_parameter_fingerprint(entry.p0.nn)
+```
+
+Bu, no-op optimizer evrensel kuralı **değildir**. Smoke
+(`adam = 2`, `bfgs = 0` veya SET inject) bu eşitsizliği
+istemez. Asıl invariant “params değişti” değil:
+
+```
+REAL FIT RETURN → DOWNSTREAM LEARNED D
+```
+
+**Protokol (gerçek eğitim):**
+
+1. Test SET casusu kaydeder ve `nothing` döner (inject yok).
+2. Entry tam 1; `fit_set` kilitli eğitim `ExperimentSet`; holdout
+   deneyi yok; `adam`/`bfgs` a priori protokol değerleri.
+3. Test SET casusu tam 1 kez ateşlenir (production iç inject
+   yuvayı çalmaz).
+4. Sarmalayıcı gerçek `fit_unknown_destruction` dönüşünü
+   yakalar; bu dönüş `train_experiments_with_warmup`
+   yolundandır.
+5. `with_fit_unknown_destruction_observer(...) -> fake result`
+   iken gerçek eğitim yoksa protokol **kırmızı**.
+6. `captured_fit_return_count == 1`.
+7. Sample params parmak izi
+   `fingerprint(captured_fit_return.params.nn)` ile eşit.
+8. Bağımsız replay `D` production `D` ile eşit.
+
+**Smoke (orkestrasyon; bilimsel iddia değil):**
+
+1. Test SET casusu pahalı eğitimi kesebilir ve bir `TrainingResult`
+   döndürebilir.
+2. Entry yine tam 1; intended `ExperimentSet`; a priori smoke
+   `adam=2`, `bfgs=0`; holdout fit setinde yok.
+3. Aynı sarmalayıcı `fit_unknown_destruction`’ın **gerçekten
+   döndürdüğü** nesneyi yakalar (inject edilmiş olsa bile).
+4. Orkestratör o yakalanan dönüşün `params`’ı ile learned `D`
+   örnekler. Smoke oracle’ı da `evidence.training.params`
+   **değildir**.
+5. Smoke, trained-UDE bilimsel sonuç diye yazılamaz.
+
+**Saldırı — gerçek `TrainingResult.params` atılır (ZORUNLU KIRMIZI)**
+
+Yanlış gövde:
+
+```
+real = fit_unknown_destruction(...)
+fake = TrainingResult(p0, ...)
+store(fake)
+sample_unknown_destruction(model, p0, ...)
+```
+
+Gerekli kırmızı kanıt:
+
+```
+nn_parameter_fingerprint(captured_fit_return.params.nn)
+    !=
+production_sample_params_fp
+```
+
+veya
+
+```
+production_D != independent_replay_D(captured_fit_return.params)
+```
+
+Bu saldırı **kırmızı olmak zorundadır**.
+
+**İkinci saldırı — gerçek params yeni sahte sonuca kopyalanır**
+
+```
+real = fit_unknown_destruction(...)
+fake = TrainingResult(deepcopy(real.params), ...)
+store(fake)
+```
+
+Downstream gerçekten aynı öğrenilmiş parametre değerlerini
+kullanıyorsa bu otomatik hata **değildir**. Yalnız nesne
+kimliğine (`===` / `objectid`) dayanılmaz. Değer-eşdeğer
+öğrenilmiş parametreler kaynak semantiğini koruyorsa test
+kabul edebilir. Sample parmak izi hâlâ
+`fingerprint(captured_fit_return.params.nn)` olmalıdır.
+
+**Kapsam-paylaşımlı `D` yakalanan dönüşe bağlanır**
+
+Tek gerçek fit → tek öğrenilmiş `D` → graph / global /
+wrong-graph. Üç kapsamın `D`’si yakalanan **gerçek** fit
+dönüş params’ına dayanır:
+
+```
+graph_D_params_fp
+    == global_D_params_fp
+    == wrong_graph_D_params_fp
+    == nn_parameter_fingerprint(captured_fit_return.params.nn)
+graph_D == independently_replayed_D
+global_D == independently_replayed_D
+wrong_graph_D == independently_replayed_D
+```
+
+Tek sample olduğu için üç kapsam aynı sample `params`
+parmak izini paylaşır; o iz yakalanan dönüşe eşit olmalıdır.
+
+#### Aynı `D` üç kapsam (unforgeable)
+
+Üç canlı keşif `derivatives` yakalanır.
+
+```
+D_graph == D_global == D_wrong_graph
+```
+
+veya açık bitwise / `==` parmak izi. Yalnız destek veya model
+etiketi karşılaştırması yetmez. Üç kez eğitim yasak.
+
+Ayrıca:
+
+```
+independently_replayed_D
+    = sample_unknown_destruction(
+          same model,
+          captured_fit_return.params,
+          independently constructed X;
+          term)
+vec(independently_replayed_D) bağları:
+    production sample D
+    ve (permute yoksa) her üç captured_dX[1, :]
+captured_X ve captured_times üçünde eşit
+sample_count == 1
+fit_entry_count == 1
+captured_fit_return_count == 1
+graph_D_params_fp
+    == global_D_params_fp
+    == wrong_graph_D_params_fp
+    == nn_parameter_fingerprint(captured_fit_return.params.nn)
+```
+
+`graph → D1`, `global → D2`, `wrong_graph → D3` kırmızı.
+Üç kapsam, yakalanan fit dönüşünden gelmeyen params alırsa
+kırmızı.
+
+#### Keşif sonuçlarını `discover_equations` dönüşüne bağlama
+
+`DISCOVER_EQUATIONS_OBSERVER` dönüş görmez. Casus ateşinden sonra
+uydurma aday/rapor yeşil kalamaz.
+
+Zorunlu observer-OFF oracle:
+
+1. Canlı graph / global / wrong-graph `discover_equations` çağrıları
+   olsun. Casus kaydeder ve `nothing` döner.
+2. Her kapsam için gerçek `X`, `times`, `derivatives` kaydedilir.
+3. Casus kapatılır (ayrı scope).
+4. Her kapsam için bağımsız yeniden koşu:
+
+```
+discover_equations(captured_X, captured_times, corresponding_network;
+    derivatives = captured_dX,
+    targets = 1,
+    config = rate_discovery_config(
+        scope = corresponding_basis_scope,   # :graph veya :global
+        bootstrap = 0, seed = 11),
+    verbose = false)
+```
+
+5. Production `DiscoveryResult` / aday / destek, bu observer-OFF
+   sonuçla bağlanır.
+
+Bağ:
+
+- `success` / `retcode` eşit
+- başarıysa `candidates[1].specification.variables` eşit
+- `local_has_true_parent_gate` / `support_uses_variable` eşit
+- katsayılar `≈`
+
+Elde `ImplicitCandidate` kırmızı. `discover_equations` çıktısını
+yoksayan sahte rapor kırmızı. Hard-coded
+`graph_true_in_support::Bool` kırmızı. Kaynak-string tek kanıt
+değil.
+
+Üç kapsamın canlı yürütüldüğü `discover_count == 3` ile
+**kanıtlanmaz**. Her kapsam ayırt edilebilir ağ/config taşır.
+Casus ağ görmez; kanıt = kapsam-özel girdi + observer-OFF
+yeniden koşunun production sonuçla eşleşmesi.
+
+Rapor bu canlı sonuçlardan kurulur.
+
+#### Destek metrikleri
+
+Destek, gerçek aday / keşif sonucundan türetilir. Mevcut temsil:
+
+```
+candidate.specification.variables          # LocalBasisSpec
+library_contains_variable(spec, variable)
+support_uses_variable(candidate; variable=2)
+local_has_true_parent_gate(candidate; variable=2)
+local_has_false_parent_gate(candidate; variables=(3,4))
+```
+
+`DiscoveryResult.variables` uydurulmaz.
+
+```
+graph_local_true_parent_support == true
+wrong_graph_true_parent_support == false
+```
+
+Bu Boolean’lar **bağımsız yeniden koşulan / yakalanan gerçek
+adaydan** türetilir. Rapora yazılmış sabit `true`/`false` kırmızı.
+“Wrong graph fails” hard-code edilemez.
+
+Protokol: graph keşif fail bilimsel kırmızıdır; bütçe/tohum
+sessiz büyütülmez. Smoke: graph-local *davranış* iddiası yok;
+yalnız orkestrasyon + kütüphane ayrımı + yanlış-graf kütüphane
+dışlaması.
+
+#### Analitik kontrol
+
+Durur, yeniden adlandırılmaz, trained-UDE sayılmaz:
+
+- `graph_local_rate_samples` / `*_discovery_gate_row`
+- `run_recovery_suite` graph-prior bölümleri
+- `test/test_graph_local_library.jl`, `test/test_recovery.jl`
+  3-state/wrong-graph, `test/test_invariants.jl` Z dışlama
+
+Ayrı test ID: `T-B4-CTRL`. Ayrı etiket:
+`:analytic_library_membership_control`.
+`evaluate_trained_graph_local` bu etiketi trained sonuç diye
+dönemez. Analitik kontrol renamed veya trained-`D` sonucu olarak
+raporlanırsa kırmızı.
+
+Kilit cümleler (uygulama dokümanı; bu spec adımı yalnız plan
+dosyasını değiştirir):
+
+```
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
+```
+
+#### Sonuç yüzeyi
+
+Yeni public export yok. `LOCKED_PUBLIC_EXPORTS` durur.
+`training_call` unexported bileşim argümanıdır; export edilmez.
+`MechanismRecoveryResult`, `HoldoutEvidence`,
+`FunctionalIdentifiabilityDiagnostic` değişmez. Occupancy alanı
+yok. `MechanismHypothesis` yok.
+
+Unexported, minimal, tam alan listesi (catch-all yok):
+
+```
+struct TrainedGraphLocalEvidence   # export yok
+    kind::Symbol                   # yalnız :smoke | :protocol
+    training::TrainingResult
+    model::UDEModel
+    term::NeuralDestructionTerm
+    params_nn_fingerprint::UInt64
+    X::Matrix{Float64}
+    D::Matrix{Float64}             # 1×N
+    times::Vector{Float64}
+    graph_discovery::DiscoveryResult
+    global_discovery::DiscoveryResult
+    wrong_graph_discovery::DiscoveryResult
+end
+```
+
+Yasak alanlar: `success` (M2 `success` ile karışır), `holdout`,
+`occupancy`, `z`, `domain`, Q4 `status`, `payload`, `extra`,
+`misc`, `Any` catch-all. `best_scope` bilimsel seçici olamaz.
+
+Destek Boolean’ları tipe **yazılmaz**. Test, canlı / replay
+adayından hesaplar. `training::TrainingResult` saklanan alan
+provenance oracle **değildir**; oracle
+`captured_fit_return.params`’tır.
+
+Analitik kontrol bu tip değildir.
+
+Mevcut iç yapılar tercih edilir; bu struct yalnız M4-B
+orkestrasyon çıktısı için gerekirse eklenir.
+
+#### M3 / Q4 regresyon (M3 testleri değiştirilmez)
+
+M3 mevcut suite otoriter regresyon yüzeyidir. M4-B açıkça
+doğrular, M3 dosyasına dokunmaz:
+
+- `FunctionalIdentifiabilityDomain` değişmez
+- construction `=== :train_obs_union_holdout_obs` değişmez
+- `domain.z` semantiği değişmez (train-sonra-holdout gözlenen
+  regülatör)
+- `FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)`
+- `FUNCTIONAL_ID_REPORTING_CUTOFFS` değişmez
+- Q4’e occupancy eklenmez
+- Q4 `status` / `FUNCTIONAL_ID_STATUS_VOCABULARY` değişmez
+
+M3 `T-B-*` / `T-E-*` ID’leri **yeniden kullanılmaz**. M4-B
+önek’i `T-B4-*`’tir.
+
+#### M2 / M4-A regresyon
+
+M2 durur: 7/2, train-only fit, holdout `D`, train-türevli dış
+bant, dört-alan `HoldoutEvidence`, `RECOVERY_THRESHOLDS`,
+occupancy alanı yok, `evaluate_holdout` değişmez.
+
+M4-A durur: occupancy full `X`, observed-state construction,
+A1 testleri değişmez, A2 ayrım testleri değişmez.
+
+#### Sahiplik çarpışması yasağı
+
+M4-B **kullanmaz**:
+
+- `FunctionalIdentifiabilityDomain` graph-local occupancy olarak
+- `TrajectoryOccupancy` Q4 alanı olarak
+- Q4 `domain.z` M4-B occupancy olarak
+- `sample_destruction_occupancy` (bu spec istemez)
+
+M4-B `D` trained-UDE learned-`D` yolundan gelir.
+
+#### Beklenen bilimsel sinyal (yalnız protokol)
+
+Kilitlenen yapısal ilişkidir; evrensel F1 zaferi değil.
+
+| Kapsam | Kütüphane (bağımsız) | Destek (observer-OFF aday) |
+|---|---|---|
+| graph | 2 ∈, 3 ∉, 4 ∉ | `local_has_true_parent_gate(..., variable=2) === true` |
+| wrong-graph | 2 ∉, 3 ∈ | `local_has_true_parent_gate(..., variable=2) === false` |
+| global | 2 ∈ ve {3,4} en az biri ∈ | karşılaştırma; F1(graph)>F1(global) zorunlu değil |
+
+NN’nin Hill’e sayısal yakın olması kırmızı değildir. Kırmızı,
+keşif `D`’nin yakalanan fit-dönüş params’ından
+`sample_unknown_destruction` replay’i olmamasıdır.
+
+#### Korunan kilitler
+
+M2 7/2, `evaluate_holdout`, M2 nöral `D`, M3 Q4, A1 occupancy,
+A2 ayrım, `RECOVERY_THRESHOLDS`, `FUNCTIONAL_ID_REPORTING_CUTOFFS`,
+`FUNCTIONAL_ID_RESTART_SEEDS`, `LOCKED_PUBLIC_EXPORTS`,
+`canonical_hill_from_nn == false`, `unique_claim_kpis_hold`,
+unique-claim fingerprint (103 / 9 IC / 50), graph-prior
+`trains_unknown_edge = false`.
+
+A1 `test/test_trajectory_occupancy.jl` ve A2
+`test/test_m4_a2_separation.jl` READ-ONLY. ID’ler (`T-A-*`,
+`T-A2-*`, M3 `T-B-*`, `T-E-*`) yeniden kullanılmaz.
+
+`graph_local_library_contract_holds()` eğitilmiş UDE çalıştırmaz.
+
+#### Test ID’leri
+
+A1 / A2 / M3 ile çakışmaz. Smoke dosyası `runtests.jl` içinde;
+protokol dosyası **dışında**.
+
+| ID | Dosya | Kilit |
+|---|---|---|
+| `T-B4-API` | smoke | yardımcılar unexported; `public_export_list_holds`; `RECOVERY_THRESHOLDS`; `FUNCTIONAL_ID_REPORTING_CUTOFFS`; yasak alan yok |
+| `T-B4-FIX` | smoke | true/wrong parent kümeleri konstrüktif; relabel değil |
+| `T-B4-SRC` | smoke | kaynak yardımcısı: `generate_experiment_set(rng; network, …)`, `training_call` / `fit_unknown_destruction`, `sample_unknown_destruction(`, `discover_equations` ×3, `rate_discovery_config`, `targets = 1`, `basis_scope`; yasak yollar yok. **Tek kanıt değil** |
+| `T-B4-LAB` | smoke | doküman / etiket: analitik kontrol ≠ trained-UDE; smoke ≠ bilimsel kabul |
+| `T-B4-CTRL` | smoke | ayrı analitik kontrol ID/etiket; analitik sonuç trained diye yazılırsa kırmızı |
+| `T-B4-SMOKE-FIT` | smoke | canlı 1 fit isteği; intended set; holdout yok; a priori 2/0; SET kesmesine izin; sarmalayıcı `fit` dönüşünü yakalar; `predict_ude` assert **yok** |
+| `T-B4-SMOKE-D` | smoke | sarmalayıcı yakalanan `fit` dönüşü → sample; `fingerprint(evidence.training.params)` tek oracle değil |
+| `T-B4-SMOKE-SAME` | smoke | 3 canlı `derivatives` eşit; `D_graph == D_global == D_wrong`; sample 1; fit 1; params fp yakalanan dönüşe eşit |
+| `T-B4-SMOKE-DISC` | smoke | 3 canlı keşif; observer-OFF yeniden koşu bağlar; elde aday kırmızı |
+| `T-B4-SMOKE-LIB` | smoke | canlı spec `graph_library_variables` / `global_library_variables` / `wrong_graph_library_variables` ile |
+| `T-B4-SMOKE-HP` | smoke | decoy holdout Adam=50 ister; canlı entry 2/0 kalır; `evaluate_holdout==0` |
+| `T-B4-SMOKE-SCOPE` | smoke | `M4B_SCOPE_PLAN` a priori; üç kapsam çalışır; holdout kazanan seçmez |
+| `T-B4-SMOKE-RETRY` | smoke | fit==1; discover==3; sample==1; seed döngüsü yok |
+| `T-B4-SMOKE-SEP` | smoke | holdout/composer/rate-discovery/occupancy/`_train_unknown_edge`/Q4 sahipliği 0 |
+| `T-B4-ATK` | smoke | A–Z kırmızı gövdeleri (P: smoke bilimsel kabul diye yazılamaz; E/X/Y/Z: fit-dönüş provenance) |
+| `T-B4-REG-M2` | smoke | 7/2; train-only; holdout `D`; dış bant; 4 alan; `RECOVERY_THRESHOLDS`; occupancy yok; `evaluate_holdout` durur |
+| `T-B4-REG-M3` | smoke | domain / `z` / construction / seeds / cutoffs / Q4 occupancy yok / status durur. M3 testleri değişmez |
+| `T-B4-REG-A` | smoke | A1/A2 dosya+ID durur; occupancy full `X`; observed-state construction |
+| `T-B4-PROTO-FIT` | protocol | gerçek UDE; SET `nothing`; inject kırmızı; sarmalayıcı gerçek fit’i çalıştırır; `predict_ude` assert yok |
+| `T-B4-PROTO-RET` | protocol | `captured_fit_return_count == 1`; sarmalayıcı gerçek dönüşü kaydeder; test `TrainingResult` üretmez |
+| `T-B4-PROTO-D` | protocol | `production_sample_params_fp == fingerprint(captured_fit_return.params.nn)`; bağımsız replay `D`; `evidence.training.params` tek oracle değil |
+| `T-B4-PROTO-SAME` | protocol | aynı öğrenilmiş `D`; üç fp == `fingerprint(captured_fit_return.params.nn)`; fit 1; sample 1; kapsam 3 |
+| `T-B4-PROTO-DISC` | protocol | observer-OFF bağ; üç ayırt edilebilir ağ/config |
+| `T-B4-PROTO-SUP` | protocol | graph true-parent destek true; wrong-graph false; replay adayından |
+| `T-B4-PROTO-HP` | protocol | decoy Adam=50; canlı 100/50; holdout seçmez |
+| `T-B4-PROTO-SCOPE` | protocol | kapsam listesi a priori; holdout kazanan değil |
+| `T-B4-PROTO-RETRY` | protocol | 1 eğitim, 3 keşif; fail raporlanır; sessiz tohum yok |
+| `T-B4-PROTO-ACC` | protocol | bilimsel kabul demeti; canlı dönüş tanığı + üç kapsam + observer-OFF; smoke ile karşılanamaz |
+
+#### CI
+
+`test/runtests.jl` yalnız smoke. `.github/workflows/ci.yml`
+`recovery` işine full UDE eklenmez. Nightly/M4-C yok.
+Protokol runner vardır; bu dilimde CI job yoktur. Protokolün
+**çalıştırılıp yeşil olması** milestone kapısıdır; dosyanın
+varlığı yetmez.
+
+#### Adversarial saldırı tablosu
+
+Her satır: canlı production çağrısı / test-yanı tanık / bağımsız
+oracle / tam kırmızı assert. Kaynak-string tek kanıt değildir.
+
+| # | Saldırı | Canlı production çağrısı | Test-yanı tanık | Bağımsız oracle | Tam kırmızı assert |
+|---|---|---|---|---|---|
+| A | Bir eğitilmiş params beş sahte restart’a kopyalanır | `fit_unknown_destruction` tam 1 | entry count==1; M3 restart casusu yok | `FUNCTIONAL_ID_RESTART_SEEDS` çağrılmaz; tek `TrainingResult` | `fit_entry_count!=1` **veya** 5 kopya fingerprint / restart raporu |
+| B | UDE bir kez eğitilir, üç sahte kapsam sonucu yazılır | 3× canlı `discover_equations` | discover casusu 3× `nothing` döner | observer-OFF üç yeniden koşu | production aday ≠ oracle aday **veya** rapor oracle’ı yoksayar |
+| C | graph/global/wrong farklı `D` alır | 3× `_note_equation_discovery_entry` | üç `derivatives` | `==` / bitwise `D` parmak izi + `replay_D(captured_fit_return.params)` | herhangi iki `dX` farklı **veya** `D ≉ independently_replayed_D` |
+| D | Eğitim sonrası analitik Hill `D` konur | sample + 3× discover | sample 1; sarmalayıcı params | `replay_D(captured_fit_return.params)`; `hill_rate_truth` keşif `D` değil | `sample_count==0` **veya** `D ≉ independently_replayed_D` **veya** `graph_local_rate_samples` keşif türevi |
+| E | Gerçek `TrainingResult.params` atılır | gerçek `fit_unknown_destruction` → sample | test-yanı sarmalayıcı + sample `params` | `fingerprint(captured_fit_return.params.nn)`; `evidence.training.params` oracle değil | `production_sample_params_fp != fingerprint(captured_fit_return.params.nn)` **veya** `production_D != replay_D(captured_fit_return.params)` |
+| F | Graph adayı elle kurulur | canlı `discover_equations` dönüşü | casus `nothing`; production sonuç | observer-OFF `candidates[1]` | elle `ImplicitCandidate` ≠ oracle **veya** `local_has_true_parent_gate(elle_aday)` tek kanıt |
+| G | Rapor Boolean hard-code | canlı aday | discover bağ | `local_has_true_parent_gate(oracle_cand; variable=2)` | `graph_true_in_support=true` yazılmış **veya** assert sabit Boolean |
+| H | Global hiç çalışmaz | 2. discover | 3 ateş yetmez | observer-OFF `ude_net` + `basis_scope=:global`; `4 ∈ global_library_variables` | global production ≠ global oracle **veya** global `variables` graph ile aynı ve 4 ∉ |
+| I | Graph hiç çalışmaz | 1. discover | 3 ateş yetmez | observer-OFF `ude_net` + `basis_scope=:graph`; `2 ∈ graph_library_variables` | graph production ≠ graph oracle **veya** graph raporu kopya |
+| J | Wrong-graph yalnız relabel | 3. discover `wrong_net` | canlı spec.variables | `2 ∉ wrong_graph_library_variables`; `graph_parent_set` eşit değil | `2 ∈ wrong parents/vars` **veya** parent set eşit **veya** keşif `ude_net` ile `:graph` |
+| K | Holdout optimizer seçer | fit entry `adam`/`bfgs` | holdout observer 0; entry config | decoy holdout Adam=50 tercih eder; a priori 100/50 veya 2/0 | `entry.adam==50` **veya** decoy değişince config değişir **veya** `evaluate_holdout≥1` |
+| L | Holdout graph kapsamını seçer | 3 kapsam canlı | holdout 0; `M4B_SCOPE_PLAN` | üç oracle yeniden koşu | holdout≥1 **veya** yalnız kazanan kapsam çalışır **veya** `best_scope` bilimsel sonucu belirler |
+| M | Retry-until-success | fit + 3 discover | entry==1; discover==3; sample==1 | kaynak + canlı sayaç; seed 206+ yok | `fit_entry_count>1` **veya** `discover_count!=3` **veya** tohum döngüsü |
+| N | İç discover retry | `discover_equations` | discover==3 | `_run_discovery` yeniden deneme yok; test retry yok | `discover_count>3` **veya** fail sonrası ikinci çağrı |
+| O | Eğitim olmaz, casus sahte | `fit_unknown_destruction` | protokol: test SET `nothing` + count==1; sarmalayıcı gerçek fit’i çağırır | inject yasak; `captured_fit_return_count==1` | protokolde SET `TrainingResult` inject **veya** `entry==0` **veya** sarmalayıcı `TrainingResult` üretir. `predict_ude` kullanılmaz |
+| P | Smoke bilimsel kabul sayılır | protokol ID’leri | `T-B4-PROTO-ACC` | protokol gerçekten koşar ve yeşil | yalnız smoke yeşil + “protocol exists” **veya** smoke `:protocol` / trained-UDE diye etiketlenir |
+| Q | M2 semantiği değişir | M2 tipleri / `evaluate_holdout` | `T-B4-REG-M2` | 7/2; 4 alan; `RECOVERY_THRESHOLDS`; occupancy yok | split/holdout/eşik/alan değişir |
+| R | M3 semantiği değişir | Q4 domain / seeds / cutoffs | `T-B4-REG-M3` | construction; `z`; `(201..205)`; cutoffs; status; occupancy∉Q4 | domain/`z`/seed/cutoff/status değişir veya occupancy eklenir |
+| S | M4-A1/A2 zayıflar | A1/A2 dosyaları READ-ONLY | `T-B4-REG-A` | `T-A-*` / `T-A2-*` durur; occupancy full `X` | silme/rename/reuse/eşik gevşetme |
+| T | Analitik kontrol trained diye yazılır | analitik gate vs trained orkestratör | `T-B4-CTRL` / `T-B4-LAB` | `three_state_discovery_gate_row` / `hill_rate_truth` ayrı etiket | analitik sonuç `:protocol` / trained-UDE / `TrainedGraphLocalEvidence.kind` |
+| U | Yalnız-kaynak ölü yardımcı | fit/sample/discover casusları | ateş sayıları | canlı çağrı + oracle | `occursin` tek kanıt **veya** yardımcı hiç çağrılmaz |
+| V | Discover casusundan sonra sahte aday | canlı discover, casus `nothing` | production sonuç | observer-OFF yeniden koşu | production candidate ≠ oracle candidate |
+| W | Wrong-graph kütüphane tanımı yok sayılır | 3. discover `wrong_net` + `:graph` | canlı `specification.variables` | `wrong_graph_library_variables`; `2 ∉` | canlı spec 2 içerir **veya** keşif true-graph kütüphanesi ile koşar |
+| X | Eğitim sonrası `p0` / bayat paylaşılan `p0` ile `D` örneklenir | fit → sample | sarmalayıcı + sample `params` | `fingerprint(captured_fit_return.params.nn) != fingerprint(entry.p0.nn)` (yalnız protokol 100/50) ve sample ≠ captured return | sample fp `==` `p0` fp **veya** sample fp ≠ captured-return fp |
+| Y | Gerçek eğitim sonrası sahte `TrainingResult` saklanır ve downstream yakalanan dönüşten farklı params kullanır | fit → store(fake) → sample | sarmalayıcı + sample | captured return vs sample fp | sample fp ≠ `fingerprint(captured_fit_return.params.nn)`. **Yalnız deepcopy + aynı değer kırmızı değildir** |
+| Z | graph / global / wrong-graph yakalanan fit dönüşünden gelmeyen params alır | 1 sample + 3 discover | sample `params` + üç `dX` | üç fp `== fingerprint(captured_fit_return.params.nn)`; üç `D == replay_D` | herhangi bir kapsam `D` / params fp captured return’dan sapar |
+
+#### Kabul (M4-B COMPLETE)
+
+Aşağıdakilerin **hepsi** doğru olmadan COMPLETE yazılmaz:
+
+1. Gerçek `fit_unknown_destruction` çağrısı protokolde yürütülür.
+2. Gerçek fit dönüşü test-yanı sarmalayıcı ile yakalanır
+   (`captured_fit_return_count == 1`).
+3. Yakalanan dönen `TrainingResult.params` learned-`D` kaynağıdır.
+   Oracle `evidence.training.params` **değildir**.
+4. Downstream learned-`D` sample o yakalanan params’ı kullanır
+   (`production_sample_params_fp == fingerprint(captured_fit_return.params.nn)`).
+5. Yakalanan dönen params ile bağımsız `D` replay production
+   `D` ile eşleşir.
+6. Aynı öğrenilmiş `D` üç kapsamda kullanılır ve üçü de
+   yakalanan fit dönüş params’ına dayanır.
+7. Her kapsam gerçek bir `discover_equations` dönüşü kullanır
+   (observer-OFF bağ).
+8. Wrong-graph yapısal olarak yanlıştır (relabel değil).
+9. Bilimsel tamamlanma protokol ile belirlenir; smoke değildir.
+10. Tam 1 eğitim denemesi; retry yoktur.
+11. Graph-local destek gerçek adaydan türetilir.
+12. Analitik kontrol ayrı kalır.
+13. Holdout tabanlı optimizer / kapsam seçimi yoktur.
+14. Smoke bilimsel kanıt sayılmaz.
+15. M2 değişmez.
+16. M3 değişmez.
+17. M4-A1/A2 değişmez.
+18. Onaysız public API genişlemesi yoktur; M4-C uygulanmaz.
+19. A–Z saldırılarının her biri kırmızıya düşer (E/X/Y/Z: gerçek
+    dönüş atma, `p0` ikamesi, sahte saklanan sonuç, kapsamların
+    yakalanan dönüşten sapması). Her `deepcopy` bilimsel hata
+    sayılmaz.
+
+`T-B4-SMOKE-*` yeşili + protokol dosyasının varlığı yetmez.
+`T-B4-PROTO-ACC` koşturulmadan COMPLETE yoktur.
+
+#### Uygulama dosyaları (bu spec adımı bunları yazmaz)
+
+Sonraki uygulama diliminde, bu spec onayından sonra:
+
+- `src/TrainedGraphLocal.jl` — unexported orkestratör;
+  `training_call` varsayılanı `fit_unknown_destruction`; yeni
+  RecoveryPipeline observer **yok**
+- `src/BioDynaX.jl` — yalnız `include` (export yok)
+- `test/test_m4_b_trained_graph_local.jl` — smoke + A–Z
+- `test/test_m4_b_trained_graph_local_protocol.jl` — protokol (`runtests` dışı)
+- `test/run_m4_b_protocol.jl` — runner; bu dilimde CI job yok
+- sözleşme dokümanı retarget edildi (eski M4-B pending cümlesi →
+  implemented; M4-C pending durur)
+
+Bu spec adımı **yalnız** bu alt bölümü yazar.
+
+#### Bu spec adımında ve uygulamada yasak dosyalar
+
+Şimdi ve M4-B uygulamasında production semantiği **değiştirilmez**:
+
+- `src/GraphLocalLibrary.jl` (analitik kontrol durur)
+- `src/Recovery.jl` graph-prior suite gövdeleri
+- `src/RecoveryPipeline.jl` observer imzaları (yeni observer yok;
+  fit-dönüş casusu eklenmez; `train_experiments_with_warmup`
+  sonuç casusu eklenmez)
+- `src/TrajectoryOccupancy.jl`
+- `src/FunctionalIdentifiability.jl`
+- `src/UniqueClaim.jl` export / fingerprint kilidi
+- `src/Training.jl` `predict_ude` eğitim tanığı yapılmaz
+- `src/TrainingReuse.jl` (`train_experiments_with_warmup` sonuç
+  casusu eklenmez)
+- `test/test_trajectory_occupancy.jl`
+- `test/test_m4_a2_separation.jl`
+- `test/test_holdout.jl`
+- `test/test_functional_identifiability.jl`
+- `test/test_graph_local_library.jl` (analitik kontrol; trained diye yazılmaz)
+- `benchmark/recovery_suite.jl`, `benchmark/recovery_seeds.jl`
+- `test/run_recovery_hard.jl` / `test/test_recovery_hard.jl`
+- `LOCKED_PUBLIC_EXPORTS`
+- `RECOVERY_THRESHOLDS`
+- `FUNCTIONAL_ID_RESTART_SEEDS` / `FUNCTIONAL_ID_REPORTING_CUTOFFS`
+- `UNIQUE_CLAIM_PROTOCOL` / 7/2 indeksler
+- default `run_recovery_suite` sections
+- M4-C nightly / `ROBUSTNESS_SEEDS` ürünü
+
+#### Rollback
+
+`TrainedGraphLocal.jl` include’unu ve M4-B testlerini kaldır;
+analitik graph-local kontrole dön. M2 / M3 / A1 / A2 durur.
+
+#### Ertelenen
+
+M4-C çok tohum, occupancy keşif ürünü, composer göçü, her PR’da
+full UDE, public M4-B API, `scope=` keyword’lü `discover_equations`.
 
 ### 4a Yörünge bağlamında `D` örnekleme
 
-- **Hedef:** Keşfi yalnızca sentetik 1D ızgara + sahte `t∈[0,1]` olmaktan çıkarmak.
-- **Bilimsel soru:** `D` eğitimde gerçekten ziyaret edilen \((z,t)\)’de mi, yoksa düzgün \(r\) ızgarasında mı öğrenildi?
-- **Sorun:** `_regulator_grid` + dummy times; `discover_equations` API’si `times` ister.
-- **Mimari:** Birincil: IC yörüngelerinden `(z(t), D_nn(x(t)))`. Izgara ikincil / görselleştirme. Dummy time kalırsa adı `sample_index` veya keşif API’sine “times optional” — bilimsel iddia “dinamik SINDy” olmaz.
-- **Kabul:** Unique-claim keşfi yörünge-örnekli `D` üzerinde çalışır; ızgara ablation olarak kalabilir.
-- **Ertelenen:** `ImplicitCandidate` docstring’indeki `D(z)ẋ-N=0`’ı unique-claim’e zorlamak. Unique-claim `y=D_nn` fonksiyon regresyonudur; bunu dokümante edin ([docs/src/architecture.md](docs/src/architecture.md) satır 22 şu an yanıltıcı).
+- **Hedef:** Öğrenilmiş \(\hat D\)’yi eğitimde ziyaret edilen
+  durumlarda **ek** örnekleme bağlamı olarak görmek.
+- **Bilimsel soru:** `D` eğitimde gerçekten ziyaret edilen
+  \((x(t))\) üzerinde mi, yoksa düzgün \(r\) ızgarasında mı
+  örnekleniyor? Bu, Q4’ün “bağımsız restart’lar aynı `z`
+  diliminde anlaşır mı?” sorusu değildir.
+- **Sorun:** `_regulator_grid` + dummy times; ızgara eğitim
+  yörüngesi occupancy’si değildir.
+- **Mimari (M4-0 daraltması):** Occupancy ek bağlamdır. Q4 alanı
+  (`functional_identifiability_domain`) durur. Unique-claim
+  composer (`_evaluate_unknown_rate_recovery` + train-türevli
+  `_regulator_grid` + dummy-time) durur. Izgara ikincil / kontrol
+  olarak kalır. Dummy time keşif API’sinde kalırsa adı
+  `sample_index`’tir; bilimsel iddia “dinamik SINDy” olmaz.
+- **Kabul (M4-0):** Occupancy Q4’ü veya composer’ı değiştirmez.
+  Eski “unique-claim keşfi occupancy’ye geçsin” cümlesi M4
+  default değildir. Composer göçü ayrı, kanıtlı bir dilim ister.
+  M4-A1: implemented runtime. M4-A2: live
+  separation/contract tests. M4-B: implemented.
+  M4-C: pending.
+  occupancy ≠ M1 discovery grid; occupancy ≠ M2 holdout
+  evaluator; occupancy ≠ M3 Q4 domain.
+- **Ertelenen:** `ImplicitCandidate` docstring’indeki
+  `D(z)ẋ-N=0`’ı unique-claim’e zorlamak. Unique-claim `y=D_nn`
+  fonksiyon regresyonudur; bunu dokümante edin
+  ([docs/src/architecture.md](docs/src/architecture.md) satır 22
+  şu an yanıltıcı).
 
 ### 4b Graph-local eğitilmiş `D`
 
-- **Hedef:** Prior sızıntısını kapatmak (analitik `D` ≠ yöntem).
-- **Bilimsel soru:** Eğitilmiş UDE `D` üzerinde graph kütüphanesi yanlış ebeveyni düşürür mü?
-- **Dosyalar:** [src/Recovery.jl](src/Recovery.jl) ablation, [src/GraphLocalLibrary.jl](src/GraphLocalLibrary.jl), [test/test_recovery.jl](test/test_recovery.jl).
-- **Mimari:** 3-durum (veya 2-durum + distractor durum) unknown Hill → UDE eğit → `sample_*` → `scope=:graph` vs `:global` vs wrong-graph. Analitik ablation “library membership control” olarak etiketlenir, UDE iddiası olmaz.
-- **Kabul:** En az bir eğitilmiş-`D` graph vs wrong-graph satırı CI’da (bütçe: 3-durum, kısaltılmış iterasyon kabul — kapı gevşetilmeden protokol küçültülürse açıkça `:ude_graph_prior` smoke vs protocol ayrılır).
-- **Risk:** 40 dk iş. Ayrı section + kısa iterasyon smoke; tam protokol recovery/nightly.
+Otoriter sözleşme: yukarıdaki **M4-B** alt bölümü. Bu özet onu
+zayıflatmaz.
+
+- **Hedef:** Prior sızıntısını kapatmak. Analitik Hill
+  `D` = analytic library-membership control; trained-UDE
+  graph-local evidence **değildir**.
+- **Bilimsel soru:** Aynı eğitilmiş nöral `D` üzerinde graph
+  kütüphanesi gerçek ebeveyni taşır mı, wrong-graph dışlar mı?
+- **Mimari (kilitli):** tek `fit_unknown_destruction` (test-yanı
+  sarmalayıcı gerçek dönüşü yakalar) →
+  `captured_fit_return.params` → tek `sample_unknown_destruction` →
+  üç `discover_equations(..., targets=1, config=rate_discovery_config(...))`
+  (`basis_scope` `:graph` / `:global` / wrong-net).
+  `discover_equations(...; scope=:graph)` yoktur.
+  `evidence.training.params` provenance oracle değildir.
+- **Kabul:** Yalnız protokol yolu. PR smoke orkestrasyon tanığıdır;
+  bilimsel kabul değildir. Tam kilit M4-B kabul listesi 1–19.
+- **Risk:** 40 dk protokol. Smoke her PR’da; protokol
+  `runtests` / recovery job dışı. Smoke yeşili COMPLETE sayılmaz.
 
 ### 4c Çok tohum başarı oranı
 
 - **Hedef:** Tek şanslı optimizasyonun ürün olmaması.
 - **Sorun:** [docs/src/out-of-scope.md](docs/src/out-of-scope.md) “N × 40 dk CI’ya ekleme” diyor — bu kısıt korunsun.
-- **Mimari:** [benchmark/recovery_seeds.jl](benchmark/recovery_seeds.jl) persist JSON/CSV + `RunMetadata`. Release/nightly job. PR: seed 103 iskelet. v1.0 **iddiası** N tohumda başarı oranı (N≥5, önceden kilitli liste `(103,107,111,113,127)`). Başarısız tohum gizlenmez.
+- **Mimari:** [benchmark/recovery_seeds.jl](benchmark/recovery_seeds.jl) persist JSON/CSV + `RunMetadata`. Release/nightly job. PR: seed 103 iskelet. v1.0 **iddiası** N tohumda başarı oranı (N≥5, önceden kilitli `ROBUSTNESS_SEEDS = (103, 107, 111, 113, 127)`). Bu liste `UNIQUE_CLAIM_PROTOCOL.seed = 103` ve `FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)` ile **ayrıdır**; M3 restart listesinin yerine geçmez. Başarısız tohum gizlenmez.
 - **Kabul:** Medyan + başarı oranı yayın artifact’ında. “Typical” yalnızca en iyi tohum değildir.
 - **Eşik:** Körlemesine N’den 1’e düşürmeyin; başarı tanımı M2/M3 katmanlarına bağlanır.
 

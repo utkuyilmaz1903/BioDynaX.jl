@@ -422,7 +422,7 @@ Q7 is reported held-out generalization evidence, not an additional
 success gate. Discovery failure does not erase Q7. Q4 is a practical
 functional-identifiability diagnostic, not a success gate and not a
 certificate. This page is still a narrow one-hole research preview.
-M4 remains pending future work.
+M4-B trained-UDE graph-local validation is implemented. PR smoke is not trained-UDE scientific acceptance. M4-C remains pending future work.
 
 ## What this page is not
 

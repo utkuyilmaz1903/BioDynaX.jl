@@ -131,6 +131,7 @@ const DISCOVER_EQUATIONS_OBSERVER = Ref{Any}(nothing)
 const EVALUATE_HOLDOUT_OBSERVER = Ref{Any}(nothing)
 const FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER = Ref{Any}(nothing)
 const SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER = Ref{Any}(nothing)
+const SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER = Ref{Any}(nothing)
 
 function _note_generate_recovery_experiments(set)
     observer = GENERATE_RECOVERY_EXPERIMENTS_OBSERVER[]
@@ -179,6 +180,17 @@ function _note_sample_unknown_destruction_grid(r_range)
     observer = SAMPLE_UNKNOWN_DESTRUCTION_GRID_OBSERVER[]
     observer === nothing && return nothing
     observer(r_range)
+    return nothing
+end
+
+function _note_sample_unknown_destruction(model, params, X, term)
+    observer = SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER[]
+    observer === nothing && return nothing
+    observer((;
+        model = model,
+        params = params,
+        X = X,
+        term = term))
     return nothing
 end
 
@@ -312,6 +324,16 @@ function with_sample_unknown_destruction_result_observer(f::Function, observer)
         return f()
     finally
         SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER[] = previous
+    end
+end
+
+function with_sample_unknown_destruction_observer(f::Function, observer)
+    previous = SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER[]
+    SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER[] = observer
+    try
+        return f()
+    finally
+        SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER[] = previous
     end
 end
 
