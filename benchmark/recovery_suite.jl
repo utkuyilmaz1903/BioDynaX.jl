@@ -4,7 +4,8 @@
 # then the trained-model sections (:ude_discovery and :mm_unknown) on the
 # reference protocol, printing the full report for each. Not run in CI; the
 # CI equivalents are test/test_recovery.jl and test/run_recovery_hard.jl.
-# Runtime: about 45 minutes.
+# Runtime: not measured for this release; the two trained-model sections take
+# about as long as test/run_recovery_hard.jl (about 10 minutes on 4 cores).
 # Run:  julia --project=. benchmark/recovery_suite.jl
 
 using Pkg

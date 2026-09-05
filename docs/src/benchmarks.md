@@ -36,7 +36,8 @@ destruction-rate samples and short training runs:
 - **Negative control at 5% noise**: analytical recovery must fail the 0.99
   criterion, so that the noise limit stays visible.
 
-The trained-model checks run in `test/run_recovery_hard.jl` (about 40 minutes)
+The trained-model checks run in `test/run_recovery_hard.jl` (about 10 minutes
+on a 4-core machine; CI allows 180)
 and follow the [reference protocol](concepts.md#The-reference-protocol):
 
 - **Hill unknown term, no noise**: nine experiments generated once, training
@@ -93,6 +94,12 @@ recall 1.0, F1 0.571, `data_residual` 0.0020, train 0.0010, held-out 0.0015,
 `d_rmse_holdout` 0.0046; Hill seed 113 with 2% noise gave 0.098, 1.0, 0.571,
 0.022, 0.020, 0.020, 0.072; Michaelis-Menten seed 123 gave 0.028, recall not
 applied, F1 0.571, 0.0033, 0.0008, 0.0010, 0.0099.
+
+Environment of the rerun: Julia 1.10.12, OrdinaryDiffEq 7.8.1,
+SciMLSensitivity 7.119.2, Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13
+(SciMLBase 3.50.2). No Manifest is committed, so each installation resolves
+its own dependency versions, and benchmark values move with them; the
+thresholds in `RECOVERY_THRESHOLDS` are what is checked.
 
 A support F1 of 0.571 means the true Hill monomials were all recovered
 (recall 1.0) together with two nuisance terms, a constant and a linear term.

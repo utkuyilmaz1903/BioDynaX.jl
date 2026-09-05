@@ -25,7 +25,7 @@ GitHub for git-based package downloads.
 julia --project=. -e 'using Pkg; Pkg.test()'                      # default test suite
 BIODYNAX_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()' # plus the multi-minute training-loop tests
 BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
-julia --project=. test/run_recovery_hard.jl                       # trained-model recovery (about 40 minutes)
+julia --project=. test/run_recovery_hard.jl                       # trained-model recovery (about 10 minutes on 4 cores)
 julia --project=docs docs/instantiate.jl && julia --project=docs docs/make.jl
 julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
 ```

@@ -4,7 +4,8 @@
 # maximum. With `--ude` it instead runs the trained-model reference protocol
 # on each seed and prints the recovery metrics per seed. Not run in CI, which
 # uses seeds 103 and 104 only.
-# Runtime: about a minute (analytical); several hours with `--ude`.
+# Runtime: about a minute (analytical); with `--ude`, five runs of the
+# reference protocol (each about the length of the example).
 # Run:  julia --project=. benchmark/recovery_seeds.jl [--ude]
 
 using Pkg
