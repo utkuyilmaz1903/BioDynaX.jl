@@ -17,7 +17,11 @@
 #                configuration, unchanged.
 #   :two_state   the reference-protocol network (`build_hill_recovery_network`):
 #                nine initial conditions split 7/2; samples on the regulator
-#                grid of the training experiments.
+#                grid of the training experiments. That network declares its
+#                unknown term as a reaction only, and the interaction graph is
+#                built from edges, so the discovery networks of this fixture
+#                add the unknown edge explicitly (R -> S, or S -> S for the
+#                wrong graph); training uses the reference network as is.
 #
 # Discovery variants, all on the same learned-rate samples of a training:
 #   :study        the library check's configuration: libraries built by
@@ -117,8 +121,10 @@ end
 
 Support scores of the first candidate of `discovery` against `truth`
 (`(numerator, denominator)` sets of monomial keys): recall, precision, and
-F1 of the combined numerator and denominator support, the number of extra
-terms, and their labels. A failed discovery scores zero with no extras.
+F1 of the combined numerator and denominator support, and the extra
+monomials (those in the candidate but not in the truth, counted once even
+when they appear in both numerator and denominator) with their labels. A
+failed discovery scores zero with no extras.
 """
 function library_study_scores(discovery::DiscoveryResult, truth; names)
     candidate = discovery.success && !isempty(discovery.candidates) ?
@@ -141,7 +147,7 @@ function library_study_scores(discovery::DiscoveryResult, truth; names)
         support_recall = scores.combined.recall,
         support_precision = scores.combined.precision,
         support_f1 = scores.combined.f1,
-        extra_terms = scores.combined.fp,
+        extra_terms = length(extras),
         extras)
 end
 
@@ -312,13 +318,27 @@ function _library_study_two_state_coordinates(train_set, term, n_points, x_seed)
     return permutedims(hcat(s, r))
 end
 
+"""
+Two-state network with the unknown Hill edge `parent -> S` declared as an
+edge, for library construction. `build_hill_recovery_network` declares the
+unknown term as a reaction only, and `local_basis` reads parents from the
+interaction graph, which is built from edges.
+"""
+function _library_study_two_state_graph_network(; parent::Int = 2)
+    base = build_hill_recovery_network(; known = false, hill_order = 2, parent = parent)
+    edges = [EdgeSpec(source = parent, target = 1, kind = INHIBITION,
+        family = HILL, known = false)]
+    return BiologicalNetwork(base.nodes, edges; reactions = base.reactions)
+end
+
 function _library_study_train_two_state(seed, noise_σ, kind, training_call)
     budget = kind === :smoke ? LIBRARY_STUDY_TWO_STATE_BUDGET.smoke :
              kind === :protocol ? LIBRARY_STUDY_TWO_STATE_BUDGET.protocol :
              throw(ArgumentError("kind must be :smoke or :protocol; got $(kind)"))
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
-    wrong_net = build_hill_recovery_network(; known = false, hill_order = 2, parent = 1)
+    graph_net = _library_study_two_state_graph_network(; parent = 2)
+    wrong_net = _library_study_two_state_graph_network(; parent = 1)
     started = time()
     set = generate_recovery_experiments(
         MersenneTwister(seed), truth_net, LIBRARY_STUDY_TWO_STATE_PARAMS;
@@ -342,7 +362,7 @@ function _library_study_train_two_state(seed, noise_σ, kind, training_call)
         fixture = :two_state,
         model, params = training.params, term, X = Matrix{Float64}(X), D, times,
         train_set = split.train, holdout_set = split.holdout,
-        networks = (; ude = ude_net, wrong = wrong_net),
+        networks = (; ude = graph_net, wrong = wrong_net),
         parent_rows = (; true_parent = [2], wrong_parent = [1], all_parents = [2]),
         all_rows = collect(1:2),
         truth = LIBRARY_STUDY_TWO_STATE_TRUTH,
