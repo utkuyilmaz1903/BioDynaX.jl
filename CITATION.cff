@@ -3,20 +3,23 @@ message: If you use this software, please cite it using these metadata.
 type: software
 title: BioDynaX.jl
 abstract: >-
-  Research preview (not v1.0). Graph-guided hybrid universal differential
-  equations: known kinetics stay compiled; unknown destruction D(z) is
-  recovered locally. The gated claim is true-monomial recall plus hybrid
-  residual versus data on Hill-class edges, not canonical Hill from a
-  trained neural network, and not a general CRN or SINDy replacement.
+  BioDynaX.jl fits hybrid models of small biochemical networks in Julia:
+  known kinetics on a known interaction graph are compiled into a
+  production-destruction ODE, one unknown destruction term is learned by a
+  neural network trained on time-series data, and that term is then
+  approximated symbolically by sparse rational regression over a library
+  built from the node's graph neighbours.
 authors:
   - family-names: Yılmaz
     given-names: Utku
 license: MIT
 repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
 url: https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
-version: 0.9.2
+version: 0.10.0
 date-released: "2026-08-14"
 keywords:
+  - julia
   - universal-differential-equations
   - systems-biology
-  - research-preview
+  - equation-discovery
+  - sindy

@@ -18,7 +18,7 @@ not the whole product and not a structural certificate. Trajectory residual
 is not mechanistic recovery. Canonical Hill from a trained NN is closed.
 This is not a general CRN solver or a global SINDy replacement. The
 scientific contract is
-[`docs/src/design/v1_contract.md`](docs/src/design/v1_contract.md)
+the scientific scope description in the documentation
 (Q1–Q7 stay conceptually separate; Q4 is a practical
 functional-identifiability diagnostic, not a gate and not a formal
 identifiability certificate; Q7 is reported held-out generalization
@@ -182,7 +182,7 @@ package (`BioDynaX.export_mtk_system`, `BioDynaX.import_sbml_network`,
 - **Partial observation:** discovery from subsampled `D` plus hybrid residual versus data is gated. UDE training on missing states is not claimed.
 - **No licensed experimental CSV** matches the unique-claim protocol (known graph, exactly one unknown destruction edge). Elowitz is a synthetic ODE fixture. Absence is the result.
 - Target regime is **2–20 states** with a known interaction graph.
-- A green `recovery` CI job is **necessary, not sufficient** for v1.0. See [API stability](docs/src/stability.md).
+- A green `recovery` CI job is **necessary, not sufficient** for v1.0.
 - **Q4** is a practical functional-identifiability diagnostic, not a
   success gate and not a structural identifiability certificate.
 - **M4** (pending / future work, not implemented): robustness /

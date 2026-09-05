@@ -10,8 +10,7 @@ BIODYNAX_SMOKE=1 (1 IC / 8 points) is not the seed-103 / 9-IC protocol.
 Helpers on this page are **not exported**. Call them as `BioDynaX.foo`.
 They do not grow the public freeze list.
 
-The authoritative scientific contract is
-[v1.0 scientific contract](design/v1_contract.md). Compiled dynamics are
+Compiled dynamics are
 \(\dot u_i = P_i - D_i u_i\). Current gates map to Q1 (training IC[1]
 residual), Q3 (practical scale warning), and Q5 (true-monomial recall).
 Q4 is implemented as a practical functional-identifiability diagnostic,
@@ -436,4 +435,4 @@ M4-B trained-UDE graph-local validation is implemented. PR smoke is not trained-
   experimental and unexported.
 
 Gates live in `RECOVERY_THRESHOLDS`. Loosening a number is breaking.
-See [Recovery benchmarks](benchmarks.md) and [API stability](stability.md).
+See [Recovery benchmarks](benchmarks.md).

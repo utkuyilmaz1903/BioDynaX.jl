@@ -3,8 +3,7 @@
 BioDynaX separates biological semantics, numerical execution, optimization and
 equation discovery.
 
-The authoritative scientific contract is
-[v1.0 scientific contract](design/v1_contract.md). Compiled dynamics are
+Compiled dynamics are
 \(\dot u_i = P_i(u,p,t) - D_i(u,p,t)\, u_i\). The vision form
 \(\dot x = f_{\mathrm{known}} + D\) is not the v1.0 product.
 
@@ -38,7 +37,7 @@ The unique-claim hold is printed and stored in that same order:
    (Fisher condition number **or** \(k_{\mathrm{prod}}/D\) scale cosine),
    not the whole product and not a structural certificate.
 2. **FIT (Q1 + Q5)** — hybrid residual versus observed data on the
-   current training IC[1] (`first(experiments)`), and true-monomial
+   current training IC 1 (`first(experiments)`), and true-monomial
    recall. Residual is not mechanistic recovery. Separate train and
    holdout aggregates are reported later; they are not this gate.
 3. **DISCOVERY** — symbolic `D(z)` from grid-sampled learned \(D\), live
@@ -140,8 +139,6 @@ denominator_split_counts walks train, validation, and the orthant domain grid se
 See [Denominator and domain safety](denominator-domain.md).
 parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.
 See [Parameter schema and pack](parameter-schema-pack.md).
-The executable docs path joins hybrid residual, identifiability product, graph-local library, denominator domain, and parameter schema pack.
-See [Docs executable path](docs-executable.md).
 Allocation gates use measured hot-path byte ceilings that can fail.
 See [Allocation and type-stability gates](allocation-gates.md).
 

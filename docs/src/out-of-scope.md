@@ -40,8 +40,7 @@ Do not add N × 40 min recovery jobs to CI.
 
 ## Also unsupported in this preview
 
-See [v1.0 scientific contract](design/v1_contract.md). These remain
-unsupported:
+These remain unsupported:
 
 - structural identifiability certificates
 - Q4 as a success gate or formal identifiability certificate
