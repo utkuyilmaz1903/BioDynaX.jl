@@ -1,18 +1,18 @@
 ###############################################################################
 # Practical functional-identifiability primitives (not exported).
 #
-# M3-A: observed train-then-holdout regulator coordinates and pairwise
+# Domain: observed train-then-holdout regulator coordinates and pairwise
 # destruction / trajectory metrics.
-# M3-B: five independent restart fits on split.train.
-# M3-C: live pairwise assembly and derived diagnostic flags / status.
-# M3-D: internal diagnostic reporting; not a unique-claim stdout block.
-# M3-E: live assess-path binding; not a second recovery pipeline.
+# Restarts: five independent restart fits on split.train.
+# Assembly: live pairwise assembly and derived diagnostic flags / status.
+# Reporting: internal diagnostic reporting; not a reference-protocol stdout block.
+# Binding: live assess-path binding; not a second recovery pipeline.
 ###############################################################################
 
 """
     FunctionalIdentifiabilityDomain
 
-Observed-coordinate Q4 domain: train regulator samples, then holdout
+Observed-coordinate functional-identifiability domain: train regulator samples, then holdout
 regulator samples, original experiment and sample order. Duplicates are
 kept. Not a grid, not a restart product, and not a structural certificate.
 """
@@ -138,19 +138,19 @@ function pairwise_trajectory_metrics(
             pred_i_holdout, pred_j_holdout))
 end
 
-# -- M3-B independent restart training ----------------------------------------
+# -- Independent restart training ----------------------------------------
 
-"""Locked functional-identifiability restart seeds. Not M4 robustness seeds."""
+"""Locked functional-identifiability restart seeds. Not the robustness seeds."""
 const FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)
 
-"""A-priori M3 restart training configuration. Not selected from holdout."""
+"""Restart training configuration fixed in advance. Not selected from holdout."""
 const FUNCTIONAL_ID_TRAINING_CONFIG = (
     adam = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
     bfgs = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
     frozen_phys = Symbol[],
     phys_init = nothing)
 
-"""Reporting cutoffs for the practical Q4 diagnostic. Not a success gate."""
+"""Reporting cutoffs for the practical functional-identifiability diagnostic. Not an acceptance criterion."""
 const FUNCTIONAL_ID_REPORTING_CUTOFFS = (
     min_successful_restarts = 3,
     n_attempted_restarts = 5,
@@ -170,7 +170,7 @@ const FUNCTIONAL_ID_FAILURE_REASONS = (
 """
     FunctionalIdentifiabilityRestart
 
-One attempted restart. `included` is an M3-B-local validity flag, not a
+One attempted restart. `included` is a restart-local validity flag, not a
 holdout score and not a best-of-N choice.
 """
 struct FunctionalIdentifiabilityRestart
@@ -433,7 +433,7 @@ end
 """
     train_functional_identifiability_restarts(split, ude_net; ...)
 
-M3-B owner of restart fits. Attempts each locked seed exactly once,
+Owner of the restart fits. Attempts each locked seed exactly once,
 independently, on `split.train`. Failures are isolated. There is no retry
 and no best-of-N selection.
 """
@@ -517,7 +517,7 @@ function with_assess_functional_identifiability_observer(f::Function, observer)
     end
 end
 
-# -- M3-C diagnostic assembly -------------------------------------------------
+# -- Diagnostic assembly -------------------------------------------------
 
 """
     FunctionalIdentifiabilityPair
@@ -671,8 +671,8 @@ end
 """
     FunctionalIdentifiabilityDiagnostic
 
-Practical Q4 diagnostic assembled from five locked restarts. Flags and
-`status` are derived; they are not a structural certificate or a gate.
+Practical functional-identifiability diagnostic assembled from five locked restarts. Flags and
+`status` are derived; they are not a structural certificate or an acceptance criterion.
 """
 struct FunctionalIdentifiabilityDiagnostic
     family::Symbol
@@ -828,8 +828,8 @@ end
 """
     assess_functional_identifiability(split, ude_net; ...)
 
-Q4 owner: M3-B restarts, pairwise destruction / trajectory metrics on the
-M3-A domain, then derived flags and status. Not a unique-claim gate.
+Functional-identifiability owner: the restart fits, pairwise destruction / trajectory metrics on the
+shared domain, then derived flags and status. Not an acceptance criterion.
 """
 function assess_functional_identifiability(
         split::ExperimentSplit,
@@ -856,7 +856,7 @@ function assess_functional_identifiability(
     return assemble_functional_identifiability_diagnostic(family, trained)
 end
 
-# -- M3-D internal reporting --------------------------------------------------
+# -- Internal reporting --------------------------------------------------
 
 function _format_functional_id_restart_row(
         restart::FunctionalIdentifiabilityRestart)
@@ -884,15 +884,15 @@ end
 
 Internal practical functional diagnostic report. Prints every restart and
 every stored pair from `diag`. Does not recompute pairwise metrics and is
-not a unique-claim gate.
+not an acceptance criterion.
 """
 function format_functional_identifiability_diagnostic(
         diag::FunctionalIdentifiabilityDiagnostic)
     io = IOBuffer()
-    println(io, "PRACTICAL FUNCTIONAL DIAGNOSTIC")
-    println(io, "practical functional diagnostic")
-    println(io, "not a structural identifiability certificate")
-    println(io, "not a unique-claim gate")
+    println(io, "FUNCTIONAL DIAGNOSTIC")
+    println(io, "functional identifiability diagnostic across independent training restarts")
+    println(io, "local diagnostic; not a structural identifiability proof")
+    println(io, "not an acceptance criterion of the recovery protocol")
     println(io, "status: ", diag.status)
     println(io, "complete: ", diag.complete)
     println(io, "family: ", diag.family)
@@ -925,8 +925,8 @@ end
 
 function _format_q3_scale_warning(ident)
     io = IOBuffer()
-    println(io, "Q3 PRACTICAL SCALE WARNING")
-    println(io, "  layer: Q3")
+    println(io, "SCALE WARNING")
+    println(io, "  layer: scale")
     println(io, "  unidentifiable_edge: ", ident.unidentifiable_edge)
     if hasproperty(ident, :production_param)
         println(io, "  production_param: ", ident.production_param)
@@ -937,9 +937,9 @@ function _format_q3_scale_warning(ident)
     if hasproperty(ident, :condition_number)
         println(io, "  condition_number: ", ident.condition_number)
     end
-    println(io, "  practical Fisher/Jacobian; k_prod-D collinearity")
+    println(io, "  local Fisher and trajectory-Jacobian diagnostic of production-rate versus destruction-scale collinearity")
     println(io, "  practical scale warning; not a mechanism-success claim")
-    println(io, "  Q3 is not an asymptotic Fisher interval for D(z)")
+    println(io, "  this is not an asymptotic Fisher interval for the unknown term")
     if hasproperty(ident, :production_param) &&
        hasproperty(ident, :collinearity)
         println(io, "  ", format_production_destruction_warning(ident))
@@ -950,18 +950,18 @@ end
 """
     format_q3_q4_side_by_side(ident, diag) -> String
 
-Print the Q3 practical scale warning and the Q4 practical functional
+Print the scale warning and the functional-identifiability
 diagnostic as separate layers. Does not map `unidentifiable_edge` to
 `function_disagree` or the reverse.
 """
 function format_q3_q4_side_by_side(
         ident, diag::FunctionalIdentifiabilityDiagnostic)
     hasproperty(ident, :unidentifiable_edge) || throw(ArgumentError(
-        "Q3 ident must expose unidentifiable_edge"))
+        "scale-warning ident must expose unidentifiable_edge"))
     return string(
         _format_q3_scale_warning(ident),
         "\n",
-        "Q4 PRACTICAL FUNCTIONAL DIAGNOSTIC\n",
-        "  layer: Q4\n",
+        "FUNCTIONAL DIAGNOSTIC\n",
+        "  layer: functional\n",
         format_functional_identifiability_diagnostic(diag))
 end

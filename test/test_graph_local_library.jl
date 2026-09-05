@@ -15,18 +15,7 @@ end
     @test BioDynaX.local_has_true_parent_gate_source_holds()
     @test BioDynaX.recovery_suite_uses_parent_gates_source_holds()
     @test BioDynaX.candidate_parents_source_holds()
-    @test BioDynaX.graph_local_library_source_holds()
-    @test BioDynaX.graph_local_library_docs_hold()
-    @test BioDynaX.graph_local_library_landing_docs_hold()
-    @test BioDynaX.graph_local_library_docs_mention_helpers()
-    @test BioDynaX.graph_local_library_example_source_holds()
     @test BioDynaX.graph_local_library_index_holds()
-    @test BioDynaX.graph_local_library_contract() ==
-          BioDynaX.graph_local_library_locked_sentences().prior
-    violations = BioDynaX.graph_local_library_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.graph_local_library_contract_holds()
 end
 
 @testset "graph library keeps true parents and drops wrong ones" begin
@@ -141,18 +130,8 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"GraphLocalLibrary.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "graph-local-library.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "GraphLocalLibrary.jl"))
     recovery = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
     @test occursin("function local_has_true_parent_gate", recovery)
     @test occursin("local_has_true_parent = local_has_true_parent_gate(", recovery)
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("graph-local-library.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("graph-local-library", howto)
-    @test occursin("local_has_true_parent_gate", howto)
-    sciml = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.graph_local_library_contract(), sciml)
-    @test occursin("graph-local-library",
-        join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

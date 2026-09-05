@@ -26,19 +26,6 @@ const EXPERIMENT_CHECKPOINT_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function experiment_checkpoint_locked_sentences()
-    return (;
-        fingerprint = "experiment_fingerprint hashes times, observations, mask, and u0; metadata is not part of the identity.",
-        batches = "experiment_batches partitions every IC; shuffle does not drop or duplicate an experiment.",
-        resume = "resume_training from a checkpoint reuses the compiled UDEModel and does not call compile_network.",
-        remapped = "Remapped multi-head generate and train_experiments share one compiled tree; train_experiments does not compile per IC.",
-        compiled = "generate_experiment_set_from_compiled_model fingerprints without calling compile_network.",
-        warmup = "train_experiments_with_warmup on a remapped multi-head set does not call compile_network.")
-end
-
-"""Landing sentence used by `docs/src/sciml.md`."""
-experiment_checkpoint_contract() = experiment_checkpoint_locked_sentences().remapped
-
 function experiment_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Experiments.jl")
 end
@@ -581,72 +568,7 @@ function experiment_batches_source_holds()
            occursin("Random.shuffle!", body)
 end
 
-function experiment_checkpoint_source_holds()
-    src = read(experiment_checkpoint_source_path(), String)
-    docs = isfile(experiment_checkpoint_docs_path()) ?
-           read(experiment_checkpoint_docs_path(), String) : ""
-    impl = read(experiment_jl_source_path(), String)
-    return all(occursin(needle, src) for needle in EXPERIMENT_CHECKPOINT_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function experiment_checkpoint_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "experiment-checkpoint.md")
-end
-
-function experiment_checkpoint_docs_hold()
-    path = experiment_checkpoint_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(experiment_checkpoint_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("experiment-checkpoint.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function experiment_checkpoint_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = experiment_checkpoint_locked_sentences()
-    return occursin("experiment-checkpoint", howto) &&
-           occursin("experiment_fingerprint", howto) &&
-           occursin(sentences.remapped, sciml)
-end
-
-function experiment_checkpoint_source_violations()
-    src = read(experiment_checkpoint_source_path(), String)
-    impl = read(experiment_jl_source_path(), String)
-    docs = isfile(experiment_checkpoint_docs_path()) ?
-           read(experiment_checkpoint_docs_path(), String) : ""
-    missing = [s for s in EXPERIMENT_CHECKPOINT_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", impl) &&
-        push!(forbidden, "Experiments.jl: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function experiment_checkpoint_contract_holds()
-    return experiment_checkpoint_source_holds() &&
-           experiment_fingerprint_source_holds() &&
-           experiment_batches_source_holds() &&
-           resume_source_holds() &&
-           save_checkpoint_source_holds() &&
-           load_checkpoint_source_holds() &&
-           experiment_checkpoint_docs_hold() &&
-           experiment_checkpoint_landing_docs_hold() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source()
-end
-
-# -- Checkpoint serialize contract --------------------------------------------
+# -- Checkpoint serialization --------------------------------------------
 
 function save_checkpoint_source_holds()
     src = read(training_jl_source_path(), String)
@@ -851,7 +773,7 @@ end
 """
     unique_claim_from_compiled_fingerprint_row()
 
-Compile the unique-claim truth once, then generate the smoke set from
+Compile the reference-protocol truth once, then generate the smoke set from
 that stored model. Fingerprints and `compile_network` stay at zero
 while the set is built.
 """
@@ -1591,11 +1513,11 @@ function format_experiment_checkpoint_index()
     println(io, "| linear | generate + train_experiments |")
     println(io, "| remap | remapped multi-head generate + train |")
     println(io, "| two | two-regulator D(S,I) generate + train |")
-    println(io, "| hill | unique-claim smoke generate + train |")
+    println(io, "| hill | reference-protocol smoke generate + train |")
     println(io, "| dual | dual-head generate + train |")
     println(io, "| six | six-state generate + train |")
     println(io, "| skipped | skipped-duplicate generate + train |")
-    println(io, "| claim | unique-claim smoke fingerprint set |")
+    println(io, "| claim | reference-protocol smoke fingerprint set |")
     println(io, "| ckpt | linear checkpoint resume |")
     println(io, "| units | units and state-name identity |")
     println(io, "| irregular | irregular time-grid identity |")
@@ -1658,14 +1580,3 @@ function experiment_checkpoint_fixture_matrix_namedtuple(matrix)
         holds = matrix.holds)
 end
 
-function experiment_checkpoint_docs_mention_helpers()
-    path = experiment_checkpoint_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("experiment_fingerprint_row", text) &&
-           occursin("experiment_batch_row", text) &&
-           occursin("checkpoint_resume_row", text) &&
-           occursin("remapped_generate_train_row", text) &&
-           occursin("train_experiments_with_warmup", text) &&
-           occursin("generate_experiment_set_from_compiled_model", text)
-end

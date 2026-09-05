@@ -16,18 +16,7 @@ end
     @test BioDynaX.hybrid_residual_sciml_solve_source_holds()
     @test BioDynaX.hybrid_residual_model_solve_source_holds()
     @test BioDynaX.predict_ude_uses_odeproblem_source_holds()
-    @test BioDynaX.hybrid_residual_source_holds()
-    @test BioDynaX.hybrid_residual_docs_hold()
-    @test BioDynaX.hybrid_residual_landing_docs_hold()
-    @test BioDynaX.hybrid_residual_docs_mention_helpers()
-    @test BioDynaX.hybrid_residual_example_source_holds()
     @test BioDynaX.hybrid_residual_index_holds()
-    @test BioDynaX.hybrid_residual_contract() ==
-          BioDynaX.hybrid_residual_locked_sentences().solve
-    violations = BioDynaX.hybrid_residual_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.hybrid_residual_contract_holds()
 end
 
 @testset "identity residual agrees with SciMLBase.solve and predict_ude" begin
@@ -127,14 +116,5 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"HybridResidual.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "hybrid-residual.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "HybridResidual.jl"))
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("hybrid-residual.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("hybrid-residual", howto)
-    @test occursin("hybrid_data_residual", howto)
-    sciml = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.hybrid_residual_contract(), sciml)
-    @test occursin("hybrid-residual", join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

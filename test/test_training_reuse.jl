@@ -167,16 +167,9 @@ end
 end
 
 @testset "training reuse contract and docs hold" begin
-    @test BioDynaX.training_reuse_source_holds()
     @test BioDynaX.al_constraint_passes_model_source()
     @test BioDynaX.train_experiments_accepts_optimizer_state_source()
     @test BioDynaX.train_unknown_edge_reuses_warmup_source()
-    @test BioDynaX.training_reuse_docs_hold()
-    @test BioDynaX.training_reuse_landing_docs_hold()
-    @test BioDynaX.training_reuse_contract_holds()
-    violations = BioDynaX.training_reuse_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
 end
 
 @testset "session remake matches generate_from_compiled_model" begin

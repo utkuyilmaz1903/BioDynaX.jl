@@ -38,6 +38,7 @@ end
 
 function _format_protocol_value(value)
     value === nothing && return "NA"
+    value isa AbstractFloat && return string(round(value; sigdigits = 4))
     return string(value)
 end
 
@@ -53,11 +54,20 @@ function _format_protocol_equations(equations)
     return rstrip(string(equations))
 end
 
-"""
-    format_protocol_result(ident; kwargs...)
+"""Plain-language summary of the three acceptance criteria of the reference protocol."""
+function _acceptance_criteria_label()
+    t = RECOVERY_THRESHOLDS
+    return string("scale warning raised, hybrid residual at most ", t.data_residual,
+        ", support recall at least ", t.support_recall)
+end
 
-Locked unique-claim stdout. Print order is the product: identifiability,
-fit, discovery, reproduction. Not exported.
+"""
+    format_protocol_result(ident; kwargs...) -> String
+
+Format the printed recovery report. The four sections are printed in the
+order identifiability, fit, discovery, reproduction, matching the field order
+of `build_protocol_result`. Floating-point values are shown with four
+significant digits. Not exported.
 """
 function format_protocol_result(ident;
         residual = nothing,
@@ -85,26 +95,32 @@ function format_protocol_result(ident;
     println(io, "  unidentifiable_edge: ", edge)
     println(io, "  coefficients_are_biological_constants: ", !edge)
     println(io, "  production_param: ", production)
-    println(io, "  k_prod and D(z) scale are not separately identifiable")
-    println(io, "  practical Fisher/Jacobian; not StructuralIdentifiability.jl")
+    if edge
+        println(io, "  the production rate (", production,
+            ") and the scale of the unknown term are not separately identifiable from these data")
+    else
+        println(io, "  no scale collinearity warning was raised for ", production)
+    end
+    println(io, "  local diagnostic (Fisher condition number and scale collinearity); not a structural identifiability proof")
     if hasproperty(ident, :collinearity) && isfinite(ident.collinearity)
-        println(io, "  collinearity: ", round(ident.collinearity; digits = 3))
+        println(io, "  collinearity: ", _format_protocol_value(float(ident.collinearity)))
     end
     println(io, "FIT")
     println(io, "  hybrid_data_residual: ", _format_protocol_value(residual))
     recall = support_recall === nothing ?
-             "CI gate on synthetic Hill truth (not scored here)" :
-             support_recall
+             "not scored (needs the synthetic ground truth)" :
+             _format_protocol_value(support_recall)
     println(io, "  support_recall: ", recall)
     println(io, "DISCOVERY")
     println(io, "  equations:")
     println(io, _format_protocol_equations(equations))
     f1 = support_f1 === nothing ?
-         "skeleton floor 0.50; not the UDE claim" : support_f1
+         "not scored (needs the synthetic ground truth)" :
+         _format_protocol_value(support_f1)
     println(io, "  support_f1: ", f1)
     println(io, "  extras: ", _format_protocol_extras(extras))
     println(io, "  canonical_hill_from_nn: false")
-    println(io, "  claim: recall_plus_data_residual")
+    println(io, "  acceptance_criteria: ", _acceptance_criteria_label())
     println(io, "REPRODUCTION")
     println(io, "  seed: ", _format_protocol_value(seed))
     println(io, "  n_ics: ", _format_protocol_value(n_ics))
@@ -121,7 +137,7 @@ end
 """
     build_protocol_result(ude)
 
-Locked unique-claim product object. Field order is the claim: identifiability
+Reference-protocol result object. Field order is the claim: identifiability
 first, then fit, then discovery. Not exported. Does not replace
 `locked_ude_kpis` or existing `ude_discovery` fields.
 """
@@ -148,7 +164,7 @@ end
     unique_claim_kpis_hold(kpis) -> Bool
 
 True when the locked UDE claim holds: `unidentifiable_edge`, hybrid residual
-versus data, and true-monomial recall. Combined F1 is not a claim gate.
+versus data, and true-monomial recall. Combined F1 is not an acceptance criterion.
 Not exported.
 """
 function unique_claim_kpis_hold(kpis)
@@ -160,7 +176,7 @@ end
 """
     assert_unique_claim_residual(residual)
 
-Golden-path residual gate. Same number as `RECOVERY_THRESHOLDS.data_residual`.
+Reference-example residual threshold. Same number as `RECOVERY_THRESHOLDS.data_residual`.
 Not exported.
 """
 function assert_unique_claim_residual(residual)
@@ -173,11 +189,11 @@ end
 """
     RECOVERY_THRESHOLDS
 
-Locked scientific-recovery contract. Loosening a threshold is a breaking change.
-UDE combined F1 is not the analytical Hill gate; that gate is `support_f1_clean`
+Recovery thresholds. Loosening a threshold is a breaking change.
+UDE combined F1 is not the analytical Hill threshold; that threshold is `support_f1_clean`
 on exact/noisy analytical `D`. A same-library F1 attempt
 (`benchmark/ude_f1_attempt.jl`) left extras `1` and `r`. The UDE claim is
-recall + data residual until a new major gate.
+recall + data residual until a new major version.
 """
 const RECOVERY_THRESHOLDS = (
     nn_correlation = 0.90,
@@ -410,14 +426,14 @@ neural_destruction_terms(model::UDEModel) =
 """
     assert_single_unknown_destruction(model) -> 1
 
-The unique-claim protocol is a single-hole instrument. Throws
+The reference protocol is a single-unknown-term workflow. Throws
 `ErrorException` unless `model` has exactly one `NeuralDestructionTerm`.
 Not exported. Does not change `validate_network`.
 """
 function assert_single_unknown_destruction(model::UDEModel)
     n = length(neural_destruction_terms(model))
     n == 1 || throw(ErrorException(
-        "unique-claim protocol requires exactly one unknown destruction D(z); got $n"))
+        "reference protocol requires exactly one unknown destruction D(z); got $n"))
     return n
 end
 
@@ -608,7 +624,7 @@ function _unknown_edge_ics()
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20],
     ]
     length(ics) == UNIQUE_CLAIM_PROTOCOL.n_ics || throw(ErrorException(
-        "unique-claim IC table must have $(UNIQUE_CLAIM_PROTOCOL.n_ics) rows; got $(length(ics))"))
+        "reference-protocol IC table must have $(UNIQUE_CLAIM_PROTOCOL.n_ics) rows; got $(length(ics))"))
     return ics
 end
 
@@ -642,7 +658,7 @@ end
     _unique_claim_rate_recovery(ude_model, ude_params, term, truth_rate, set;
                                order, family, noise_σ, data_residual_fn)
 
-Unique-claim production domain + composer step. The discovery domain is
+Reference-protocol production domain + composer step. The discovery domain is
 exactly `_regulator_grid(split.train, term)`. The composer signature is
 unchanged and does not receive `split` or `holdout`. Not exported.
 """
@@ -889,7 +905,7 @@ build_wrong_graph_unknown_network(; known::Bool = false,
 
 `parent` is the graph source of that edge (2 = true parent R; 3 = wrong parent Q).
 Known production/decay on the remaining states stay compiled. Combined F1 is
-not the 1D Hill analytical gate (the target state sits in `local_basis`).
+not the 1D Hill analytical threshold (the target state sits in `local_basis`).
 """
 function build_six_state_unknown_network(; known::Bool = false,
                                          parent::Int = 2)::BiologicalNetwork

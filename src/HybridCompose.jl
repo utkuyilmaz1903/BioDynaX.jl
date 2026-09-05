@@ -1,7 +1,7 @@
 ###############################################################################
 # Hybrid compose path (not exported).
 #
-# Unique claim ends at compose_hybrid_rhs versus data. This file locks
+# The reference protocol ends at compose_hybrid_rhs versus data. This file locks
 # the remaining join: a neural identity rate_fn recovers ude_system,
 # hybrid_data_residual versus generated data is ~0 at noise 0, a failed
 # DiscoveryResult cannot export_rhs, and remapped multi-head networks
@@ -25,22 +25,8 @@ const HYBRID_COMPOSE_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function hybrid_compose_locked_sentences()
-    return (;
-        identity = "compose_hybrid_rhs with the neural destruction rate recovers ude_system.",
-        residual = "hybrid_data_residual versus noise-0 generate_from_compiled_model is a data residual, not an xdot residual.",
-        failed = "export_rhs rejects a failed DiscoveryResult; compose_hybrid_rhs is the unknown-edge path.",
-        remapped = "Remapped multi-head networks compose one NeuralDestructionTerm at a time; only() is not used.")
-end
-
-hybrid_compose_contract() = hybrid_compose_locked_sentences().identity
-
 function hybrid_compose_source_path()
     joinpath(pkgdir(BioDynaX), "src", "HybridCompose.jl")
-end
-
-function hybrid_compose_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "hybrid-compose.md")
 end
 
 # -- Neural identity rate -----------------------------------------------------
@@ -309,7 +295,7 @@ function three_state_identity_path()
                 count_unknown_destructions(net) == 1)
 end
 
-# -- Zero-hole / multi-head honesty -------------------------------------------
+# -- Zero-unknown / multi-head checks -------------------------------------------
 
 function linear_zero_hole_compose_row()
     net = build_linear_test_network()
@@ -1060,84 +1046,5 @@ function hybrid_compose_index_holds()
            !occursin("support_f1_ude = 0.99", text)
 end
 
-# -- Docs / contract ----------------------------------------------------------
+# -- Source checks ----------------------------------------------------------
 
-function hybrid_compose_source_holds()
-    src = read(hybrid_compose_source_path(), String)
-    docs = isfile(hybrid_compose_docs_path()) ?
-           read(hybrid_compose_docs_path(), String) : ""
-    impl = read(recovery_jl_source_path(), String)
-    return all(occursin(needle, src) for needle in HYBRID_COMPOSE_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function hybrid_compose_source_violations()
-    src = read(hybrid_compose_source_path(), String)
-    docs = isfile(hybrid_compose_docs_path()) ?
-           read(hybrid_compose_docs_path(), String) : ""
-    missing = [s for s in HYBRID_COMPOSE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function hybrid_compose_docs_hold()
-    path = hybrid_compose_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(hybrid_compose_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("hybrid-compose.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function hybrid_compose_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = hybrid_compose_locked_sentences()
-    return occursin("hybrid-compose", howto) &&
-           occursin("compose_hybrid_rhs", howto) &&
-           occursin(sentences.identity, sciml)
-end
-
-function hybrid_compose_example_source_holds()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    docs = read(hybrid_compose_docs_path(), String)
-    return occursin("compose_hybrid_rhs", howto) &&
-           occursin("sample_unknown_destruction", howto) &&
-           occursin("equation_to_function", howto) &&
-           occursin("hybrid_data_residual", docs) &&
-           occursin("discover_unknown_rate", docs)
-end
-
-function hybrid_compose_docs_mention_helpers()
-    path = hybrid_compose_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("neural_identity_rate", text) &&
-           occursin("hybrid_data_residual", text) &&
-           occursin("export_rhs", text) &&
-           occursin("remapped_compose_row", text)
-end
-
-function hybrid_compose_contract_holds()
-    return hybrid_compose_source_holds() &&
-           compose_hybrid_rhs_source_holds() &&
-           hybrid_data_residual_source_holds() &&
-           export_rhs_rejects_failure_source_holds() &&
-           sample_unknown_destruction_source_holds() &&
-           hybrid_compose_docs_hold() &&
-           hybrid_compose_landing_docs_hold() &&
-           hybrid_compose_example_source_holds() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source()
-end

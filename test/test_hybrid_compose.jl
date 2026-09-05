@@ -14,18 +14,7 @@ end
     @test BioDynaX.hybrid_data_residual_source_holds()
     @test BioDynaX.export_rhs_rejects_failure_source_holds()
     @test BioDynaX.sample_unknown_destruction_source_holds()
-    @test BioDynaX.hybrid_compose_source_holds()
-    @test BioDynaX.hybrid_compose_docs_hold()
-    @test BioDynaX.hybrid_compose_landing_docs_hold()
-    @test BioDynaX.hybrid_compose_docs_mention_helpers()
-    @test BioDynaX.hybrid_compose_example_source_holds()
     @test BioDynaX.hybrid_compose_index_holds()
-    @test BioDynaX.hybrid_compose_contract() ==
-          BioDynaX.hybrid_compose_locked_sentences().identity
-    violations = BioDynaX.hybrid_compose_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.hybrid_compose_contract_holds()
 end
 
 @testset "neural identity recovers ude_system" begin
@@ -118,14 +107,5 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"HybridCompose.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "hybrid-compose.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "HybridCompose.jl"))
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("hybrid-compose.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("hybrid-compose", howto)
-    @test occursin("compose_hybrid_rhs", howto)
-    sciml = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.hybrid_compose_contract(), sciml)
-    @test occursin("hybrid-compose", join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

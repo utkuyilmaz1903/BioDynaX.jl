@@ -10,7 +10,7 @@
 # PR smoke is not trained-UDE scientific acceptance.
 #
 # This file does not change RECOVERY_THRESHOLDS, LOCKED_PUBLIC_EXPORTS,
-# evaluate_holdout, Q4, occupancy, or UNIQUE_CLAIM_PROTOCOL. No public
+# evaluate_holdout, the functional-identifiability diagnostic, occupancy, or UNIQUE_CLAIM_PROTOCOL. No public
 # export is added. training_call is an unexported composition argument.
 ###############################################################################
 
@@ -45,7 +45,7 @@ const M4B_SCOPE_PLAN = (
     (name = :global, network = :ude, basis_scope = :global),
     (name = :wrong_graph, network = :wrong, basis_scope = :graph))
 
-"""Locked M4-B truth parameters for data generation. Not discovery D."""
+"""Truth parameters of the trained-model library check for data generation. Not discovery D."""
 m4b_truth_params() = (
     k_prod = 0.9, vmax = 1.7, K = 0.6,
     k_rq = 1.0, k_r = 0.6, k_qs = 0.8, k_q = 0.5, k_z = 0.4)
@@ -53,7 +53,7 @@ m4b_truth_params() = (
 function m4b_budget(kind::Symbol)
     kind === :smoke && return M4B_SMOKE
     kind === :protocol && return M4B_PROTOCOL
-    throw(ArgumentError("M4-B kind must be :smoke or :protocol; got $(kind)"))
+    throw(ArgumentError("kind must be :smoke or :protocol; got $(kind)"))
 end
 
 function m4b_initial_conditions(kind::Symbol)
@@ -65,14 +65,14 @@ function m4b_initial_conditions(kind::Symbol)
             [0.80, 0.40, 0.35, 0.20],
             [0.45, 1.10, 0.50, 0.30]]
     end
-    throw(ArgumentError("M4-B kind must be :smoke or :protocol; got $(kind)"))
+    throw(ArgumentError("kind must be :smoke or :protocol; got $(kind)"))
 end
 
 """
     designed_trained_graph_local_coordinates(n_sample_points; x_seed=619)
 
 Locked 4×n designed coordinates (S, R, Q, Z). Not occupancy, not a fill
-grid, and not Q4 `domain.z`. Independent of any stored evidence.X.
+grid, and not functional-identifiability `domain.z`. Independent of any stored evidence.X.
 """
 function designed_trained_graph_local_coordinates(n_sample_points::Integer;
         x_seed::Integer = 619)
@@ -92,7 +92,7 @@ end
 """
     TrainedGraphLocalEvidence
 
-Unexported M4-B orchestration output. `training` is the stored fit
+Unexported output of the trained-model library check. `training` is the stored fit
 result and is not the provenance oracle; the oracle is the captured
 `fit_unknown_destruction` return params on the test side.
 """
@@ -134,7 +134,7 @@ end
 function _m4b_scope_network(name::Symbol, ude_net, wrong_net)
     name === :ude && return ude_net
     name === :wrong && return wrong_net
-    throw(ArgumentError("M4-B scope network must be :ude or :wrong; got $(name)"))
+    throw(ArgumentError("scope network must be :ude or :wrong; got $(name)"))
 end
 
 function _m4b_discovery_config(budget, scope::Symbol)
@@ -147,7 +147,7 @@ end
 """
     evaluate_trained_graph_local(; kind, training_call=fit_unknown_destruction)
 
-Unexported M4-B orchestrator. Exactly one `training_call`, one learned-D
+Unexported orchestrator of the trained-model library check. Exactly one `training_call`, one learned-D
 sample, and three `discover_equations` executions. Holdout does not
 select the optimizer, initialization, or scope.
 """

@@ -55,17 +55,13 @@ include("Identifiability.jl")
 include("BenchmarkNetworks.jl")
 include("Recovery.jl")
 include("UniqueClaim.jl")
-include("ClaimMetricHonesty.jl")
-include("ClaimScopeHonesty.jl")
 include("CompilerContract.jl")
 include("DataGenContract.jl")
 include("RecoveryAdmission.jl")
-include("CompiledPath.jl")
 include("TrainingReuse.jl")
 include("RecoveryPipeline.jl")
 include("FunctionalIdentifiability.jl")
 include("TrajectoryOccupancy.jl")
-include("SciMLSolveSurface.jl")
 include("RecoverySuiteSkip.jl")
 include("ExperimentCheckpoint.jl")
 include("FailureModes.jl")
@@ -76,15 +72,13 @@ include("GraphLocalLibrary.jl")
 include("TrainedGraphLocal.jl")
 include("DenominatorDomain.jl")
 include("ParameterSchemaPack.jl")
-include("DocsExecutable.jl")
-include("AllocationGates.jl")
 include("Bridge.jl")
 include("Execution.jl")
 include("Visualization.jl")
 include("Precompile.jl")
 
 # -- Public API ---------------------------------------------------------------
-# Freeze list + golden-path verbs. Fixtures, Fisher, GPU/SBML/MTK, and
+# Freeze list + reference-example verbs. Fixtures, Fisher, GPU/SBML/MTK, and
 # library internals are `BioDynaX.foo` (not exported).
 export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        EdgeKind, NodeKind, KineticFamily,

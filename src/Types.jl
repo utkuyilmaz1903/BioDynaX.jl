@@ -23,7 +23,7 @@ end
 """
     TrainingResult
 
-Stable, typed output contract for optimization runs.
+Stable, typed output for optimization runs.
 """
 struct TrainingResult{P,T,H,M,D,R}
     params::P
@@ -61,7 +61,7 @@ end
 """
     DiscoveryResult
 
-Stable output contract shared by explicit and implicit discovery backends.
+Stable output type shared by explicit and implicit discovery backends.
 `retcode` is a `DiscoveryRetcode`; `success` is `retcode === DiscoverySuccess`.
 """
 struct DiscoveryResult{E,B,S,C,M,R}

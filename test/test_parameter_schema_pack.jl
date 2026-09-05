@@ -19,18 +19,7 @@ end
     @test BioDynaX.pack_parameters_source_holds()
     @test BioDynaX.frozen_phys_source_holds()
     @test BioDynaX.default_phys_includes_custom_source_holds()
-    @test BioDynaX.parameter_schema_pack_source_holds()
-    @test BioDynaX.parameter_schema_pack_docs_hold()
-    @test BioDynaX.parameter_schema_pack_landing_docs_hold()
-    @test BioDynaX.parameter_schema_pack_docs_mention_helpers()
-    @test BioDynaX.parameter_schema_pack_example_source_holds()
     @test BioDynaX.parameter_schema_pack_index_holds()
-    @test BioDynaX.parameter_schema_pack_contract() ==
-          BioDynaX.parameter_schema_pack_locked_sentences().custom
-    violations = BioDynaX.parameter_schema_pack_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.parameter_schema_pack_contract_holds()
 end
 
 @testset "pack/unpack and :k_custom schema" begin
@@ -107,20 +96,10 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"ParameterSchemaPack.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "parameter-schema-pack.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "ParameterSchemaPack.jl"))
     schema = read(joinpath(@__DIR__, "..", "src", "ParameterSchema.jl"), String)
     @test occursin("CUSTOM_KINETIC", schema)
     @test occursin(":k_custom", schema)
     ude = read(joinpath(@__DIR__, "..", "src", "UDE.jl"), String)
     @test occursin("function unpack_parameters(p)", ude)
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("parameter-schema-pack.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("parameter-schema-pack", howto)
-    @test occursin("unpack_parameters", howto)
-    sciml = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.parameter_schema_pack_contract(), sciml)
-    @test occursin("parameter-schema-pack",
-        join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

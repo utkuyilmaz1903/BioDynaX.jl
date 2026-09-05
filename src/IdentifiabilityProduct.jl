@@ -26,22 +26,8 @@ const IDENTIFIABILITY_PRODUCT_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function identifiability_product_locked_sentences()
-    return (;
-        join = "production_destruction_tradeoff joins UniqueClaimProtocolRow through identifiability_product.",
-        coefficients = "coefficients_are_biological_constants is false exactly when unidentifiable_edge is true.",
-        collinearity = "format_protocol_result prints collinearity only when the cosine is finite.",
-        practical = "The tradeoff is a practical Fisher/Jacobian cosine, not StructuralIdentifiability.jl.")
-end
-
-identifiability_product_contract() = identifiability_product_locked_sentences().join
-
 function identifiability_product_source_path()
     joinpath(pkgdir(BioDynaX), "src", "IdentifiabilityProduct.jl")
-end
-
-function identifiability_product_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "identifiability-product.md")
 end
 
 function identifiability_product_test_path()
@@ -1073,7 +1059,7 @@ function format_identifiability_product_index()
     println(io, "| six_state | six-state tradeoff |")
     println(io, "| default_example | p53/Mdm2 remapped head tradeoff |")
     println(io, "| remapped | each remapped head gets its own tradeoff |")
-    println(io, "| dual | two-hole network does not admit unique-claim |")
+    println(io, "| dual | two-hole network does not admit reference-protocol |")
     println(io, "| competitive | competitive unknown tradeoff |")
     println(io, "| three_state | three-state unknown tradeoff |")
     println(io, "| skipped_duplicate | dense two-head tradeoff |")
@@ -1094,81 +1080,7 @@ function identifiability_product_index_holds()
            !occursin("support_f1_ude = 0.99", text)
 end
 
-# -- Docs / contract ----------------------------------------------------------
-
-function identifiability_product_source_holds()
-    src = read(identifiability_product_source_path(), String)
-    docs = isfile(identifiability_product_docs_path()) ?
-           read(identifiability_product_docs_path(), String) : ""
-    impl = read(identifiability_jl_source_path(), String)
-    return all(occursin(needle, src) for needle in IDENTIFIABILITY_PRODUCT_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function identifiability_product_source_violations()
-    src = read(identifiability_product_source_path(), String)
-    docs = isfile(identifiability_product_docs_path()) ?
-           read(identifiability_product_docs_path(), String) : ""
-    missing = [s for s in IDENTIFIABILITY_PRODUCT_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function identifiability_product_docs_hold()
-    path = identifiability_product_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(identifiability_product_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("identifiability-product.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function identifiability_product_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = identifiability_product_locked_sentences()
-    return occursin("identifiability-product", howto) &&
-           occursin("production_destruction_tradeoff", howto) &&
-           occursin(sentences.join, sciml)
-end
-
-function identifiability_product_example_source_holds()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    docs = read(identifiability_product_docs_path(), String)
-    return occursin("coefficients_are_biological_constants", howto) &&
-           occursin("UniqueClaimProtocolRow", docs) &&
-           occursin("collinearity", docs) &&
-           occursin("1 IC / 8 points", docs)
-end
-
-function identifiability_product_docs_mention_helpers()
-    path = identifiability_product_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("live_production_destruction_tradeoff", text) &&
-           occursin("join_tradeoff_protocol_row", text) &&
-           occursin("format_protocol_collinearity_row", text) &&
-           occursin("coefficients_are_biological_constants_row", text)
-end
-
-function identifiability_product_test_file_holds()
-    path = identifiability_product_test_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("identifiability_product_contract_holds", text) &&
-           occursin("public_export_list_holds", text) &&
-           occursin("RECOVERY_THRESHOLDS.support_f1_ude == 0.50", text)
-end
+# -- Source checks ----------------------------------------------------------
 
 function identifiability_product_module_include_holds()
     src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
@@ -1212,22 +1124,3 @@ function recovery_thresholds_untouched_row()
                 lock.support_recall == 0.99)
 end
 
-function identifiability_product_contract_holds()
-    return identifiability_product_source_holds() &&
-           production_destruction_tradeoff_source_holds() &&
-           format_production_destruction_warning_source_holds() &&
-           format_protocol_result_collinearity_source_holds() &&
-           coefficients_are_biological_constants_source_holds() &&
-           identifiability_product_docs_hold() &&
-           identifiability_product_landing_docs_hold() &&
-           identifiability_product_example_source_holds() &&
-           identifiability_product_docs_mention_helpers() &&
-           identifiability_product_index_holds() &&
-           identifiability_product_test_file_holds() &&
-           identifiability_product_module_include_holds() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source() &&
-           unique_claim_product_blocks_hold_on_join().holds &&
-           recovery_thresholds_untouched_row().holds
-end

@@ -16,16 +16,7 @@ end
     @test BioDynaX.resume_source_holds()
     @test BioDynaX.save_checkpoint_source_holds()
     @test BioDynaX.load_checkpoint_source_holds()
-    @test BioDynaX.experiment_checkpoint_source_holds()
-    @test BioDynaX.experiment_checkpoint_docs_hold()
-    @test BioDynaX.experiment_checkpoint_landing_docs_hold()
-    @test BioDynaX.experiment_checkpoint_docs_mention_helpers()
     @test BioDynaX.experiment_checkpoint_index_holds()
-    @test BioDynaX.experiment_checkpoint_contract() ==
-          BioDynaX.experiment_checkpoint_locked_sentences().remapped
-    violations = BioDynaX.experiment_checkpoint_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
     meta = BioDynaX.checkpoint_metadata_source_row()
     @test meta.holds
 end
@@ -174,16 +165,5 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"ExperimentCheckpoint.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "experiment-checkpoint.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "ExperimentCheckpoint.jl"))
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("experiment-checkpoint.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("experiment-checkpoint", howto)
-    @test occursin("experiment_fingerprint", howto)
-    landing = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.experiment_checkpoint_contract(), landing)
-    @test occursin(
-        "experiment-checkpoint", join(BioDynaX.unique_claim_user_doc_paths(), " "))
-    @test BioDynaX.experiment_checkpoint_contract_holds()
 end

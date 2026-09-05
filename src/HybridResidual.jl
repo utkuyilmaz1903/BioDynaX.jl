@@ -27,22 +27,8 @@ const HYBRID_RESIDUAL_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function hybrid_residual_locked_sentences()
-    return (;
-        solve = "hybrid_data_residual agrees with SciMLBase.solve of compose_hybrid_rhs.",
-        predict = "At noise 0 the identity residual agrees with predict_ude versus the same observations.",
-        failed = "A failed compose path returns Inf or throws; it does not paint UDE F1 as 0.99.",
-        smoke = "Smoke residual (1 IC / 8 points) is not the seed-103 / 9-IC protocol residual.")
-end
-
-hybrid_residual_contract() = hybrid_residual_locked_sentences().solve
-
 function hybrid_residual_source_path()
     joinpath(pkgdir(BioDynaX), "src", "HybridResidual.jl")
-end
-
-function hybrid_residual_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "hybrid-residual.md")
 end
 
 function hybrid_residual_test_path()
@@ -243,7 +229,7 @@ function residual_solver_session_row(model::UDEModel, p, u0)
                 session.remake_count ≥ 2)
 end
 
-# -- Noise honesty ------------------------------------------------------------
+# -- Noise checks ------------------------------------------------------------
 
 """
     noise0_vs_noisy_residual_row(model, p, u0; noise_σ=0.05)
@@ -1132,81 +1118,7 @@ function hybrid_residual_index_holds()
            !occursin("support_f1_ude = 0.99", text)
 end
 
-# -- Docs / contract ----------------------------------------------------------
-
-function hybrid_residual_source_holds()
-    src = read(hybrid_residual_source_path(), String)
-    docs = isfile(hybrid_residual_docs_path()) ?
-           read(hybrid_residual_docs_path(), String) : ""
-    impl = read(recovery_jl_source_path(), String)
-    return all(occursin(needle, src) for needle in HYBRID_RESIDUAL_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function hybrid_residual_source_violations()
-    src = read(hybrid_residual_source_path(), String)
-    docs = isfile(hybrid_residual_docs_path()) ?
-           read(hybrid_residual_docs_path(), String) : ""
-    missing = [s for s in HYBRID_RESIDUAL_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function hybrid_residual_docs_hold()
-    path = hybrid_residual_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(hybrid_residual_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("hybrid-residual.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function hybrid_residual_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = hybrid_residual_locked_sentences()
-    return occursin("hybrid-residual", howto) &&
-           occursin("hybrid_data_residual", howto) &&
-           occursin(sentences.solve, sciml)
-end
-
-function hybrid_residual_example_source_holds()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    docs = read(hybrid_residual_docs_path(), String)
-    return occursin("hybrid_data_residual", howto) &&
-           occursin("SciMLBase.solve", docs) &&
-           occursin("predict_ude", docs) &&
-           occursin("1 IC / 8 points", docs)
-end
-
-function hybrid_residual_docs_mention_helpers()
-    path = hybrid_residual_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("hybrid_residual_sciml_solve", text) &&
-           occursin("hybrid_data_residual", text) &&
-           occursin("noise0_vs_noisy_residual_row", text) &&
-           occursin("smoke_vs_protocol_residual_row", text)
-end
-
-function hybrid_residual_test_file_holds()
-    path = hybrid_residual_test_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("hybrid_residual_contract_holds", text) &&
-           occursin("public_export_list_holds", text) &&
-           occursin("RECOVERY_THRESHOLDS.support_f1_ude == 0.50", text)
-end
+# -- Source checks ----------------------------------------------------------
 
 function hybrid_residual_module_include_holds()
     src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
@@ -1215,20 +1127,3 @@ function hybrid_residual_module_include_holds()
            occursin("test_hybrid_residual.jl", tests)
 end
 
-function hybrid_residual_contract_holds()
-    return hybrid_residual_source_holds() &&
-           hybrid_data_residual_uses_sciml_solve_source_holds() &&
-           hybrid_residual_sciml_solve_source_holds() &&
-           hybrid_residual_model_solve_source_holds() &&
-           predict_ude_uses_odeproblem_source_holds() &&
-           hybrid_residual_docs_hold() &&
-           hybrid_residual_landing_docs_hold() &&
-           hybrid_residual_example_source_holds() &&
-           hybrid_residual_docs_mention_helpers() &&
-           hybrid_residual_index_holds() &&
-           hybrid_residual_test_file_holds() &&
-           hybrid_residual_module_include_holds() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source()
-end

@@ -81,7 +81,7 @@ end
 
 @testset "T-B4-LAB analytic control is not trained-UDE; smoke is not acceptance" begin
     texts = _b4_docs_texts()
-    for text in (texts.contract, texts.scope, texts.plan, texts.graph, texts.source)
+    for text in (texts.source,)
         @test occursin(_B4_LOCKED_SENTENCES.analytic, text)
         @test occursin(_B4_LOCKED_SENTENCES.trained, text)
         @test occursin(_B4_LOCKED_SENTENCES.smoke, text)

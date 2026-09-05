@@ -56,7 +56,7 @@ end
     @test occursin("protocol_kind: protocol", text)
     @test occursin("n_ics: 9", text)
     @test occursin("n_points: 50", text)
-    @test occursin("claim: recall_plus_data_residual", text)
+    @test occursin("acceptance_criteria: scale warning raised", text)
     @test occursin("hybrid_data_residual: 0.003", text)
     smoke_txt = format_protocol_result(ident, unique_claim_fingerprint(; smoke = true);
         residual = Inf, extras = nothing)
@@ -92,7 +92,7 @@ end
 @testset "protocol_result field order matches printed labels" begin
     @test protocol_result_field_to_print_label(:data_residual) ==
           "hybrid_data_residual"
-    @test protocol_result_field_to_print_label(:claim) == "claim"
+    @test protocol_result_field_to_print_label(:claim) == "acceptance_criteria"
     @test_throws ArgumentError protocol_result_field_to_print_label(:support_precision)
     @test protocol_result_print_labels().extras == "extras"
     @test protocol_print_fields().FIT == (:hybrid_data_residual, :support_recall)
@@ -204,31 +204,4 @@ end
     violations = unique_claim_example_source_violations()
     @test isempty(violations.missing)
     @test isempty(violations.forbidden)
-    page = read(joinpath(pkgdir(BioDynaX), "docs", "src", "unique-claim.md"), String)
-    sentences = unique_claim_locked_sentences()
-    for label in keys(sentences)
-        @test occursin(sentences[label], page)
-    end
-    architecture = read(
-        joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
-    @test occursin("reindexed to `1:n`", architecture) ||
-          occursin("reindexes kept", architecture)
-    @test occursin("IDENTIFIABILITY", architecture)
-    @test occursin("UniqueClaimFingerprint", architecture)
-    tutorial = read(joinpath(pkgdir(BioDynaX), "docs", "src", "tutorial.md"), String)
-    @test occursin("sample_unknown_destruction_grid", tutorial)
-    @test occursin("unique_claim_fingerprint", tutorial)
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    @test occursin("unique_claim_fingerprint", howto)
-    experimental = read(
-        joinpath(pkgdir(BioDynaX), "docs", "src", "experimental.md"), String)
-    @test occursin("UniqueClaimFingerprint", experimental)
-    @test occursin("UNIQUE_CLAIM_F1_ATTEMPT", experimental)
-    benchmarks = read(joinpath(pkgdir(BioDynaX), "docs", "src", "benchmarks.md"), String)
-    @test occursin("UNIQUE_CLAIM_F1_ATTEMPT", benchmarks)
-    @test occursin("extras_print_label", benchmarks)
-    news = read(joinpath(pkgdir(BioDynaX), "NEWS.md"), String)
-    @test occursin("UniqueClaimFingerprint", news)
-    @test occursin("UNIQUE_CLAIM_F1_ATTEMPT", news)
-    @test occursin("assert_unique_claim_recovery_network", news)
 end

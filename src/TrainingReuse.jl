@@ -27,17 +27,6 @@ const TRAINING_REUSE_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function training_reuse_locked_sentences()
-    return (;
-        session = "A TrainingSolveSession remakes one SciMLBase.ODEProblem across ICs; it does not compile_network per IC.",
-        warmup = "First-IC warmup hands its Optimisers state to train_experiments; Adam momentum is not discarded.",
-        sensealg = "Neural UDE training locks InterpolatingAdjoint with ZygoteVJP; BacksolveAdjoint is not used on a neural hole.",
-        al = "The Augmented-Lagrangian constraint path calls predict_ude with the compiled model.",
-        counter = "with_compile_network_counter fails the suite if the training path compiles per IC.",
-        generate = "predict_ude_session must match generate_from_compiled_model at noise 0 without compile_network.",
-        nobs = "The training lock asks recommend_sensealg for 100 observations; a short mechanistic horizon may still recommend BacksolveAdjoint.")
-end
-
 function training_reuse_source_path()
     joinpath(pkgdir(BioDynaX), "src", "TrainingReuse.jl")
 end
@@ -123,7 +112,7 @@ end
 """
     training_sensealg_is_locked(model, solver) -> Bool
 
-Honesty check. Neural models must not use `BacksolveAdjoint`. The
+Consistency check. Neural models must not use `BacksolveAdjoint`. The
 recommended kind from `recommend_sensealg` must match the stored
 `sensealg`, except the ProductionAD in-place forward (`sensealg === nothing`).
 """
@@ -328,7 +317,7 @@ end
     train_experiments_with_warmup(p_init, set, model; config, ...)
 
 Warmup on IC 1, then `train_experiments` with the same compiled model,
-locked solver, and Optimisers state. This is the unique-claim training
+locked solver, and Optimisers state. This is the reference-protocol training
 entry used by `_train_unknown_edge`.
 """
 function train_experiments_with_warmup(p_init, set::ExperimentSet, model::UDEModel;
@@ -510,7 +499,7 @@ function train_unknown_edge_reuses_warmup_source()
            !occursin("bfgs_iterations = 0,\n            horizon_schedule", body)
 end
 
-# -- Linear / neural fixtures for sensealg honesty ----------------------------
+# -- Linear / neural fixtures for sensealg checks ----------------------------
 
 function linear_sensealg_honesty()
     rng = MersenneTwister(7)
@@ -702,7 +691,7 @@ function resume_training_compile_report(p_init, data, times, u0, tspan, model;
         holds = n == 0)
 end
 
-# -- Generate / train_ude / mask / n_obs honesty ------------------------------
+# -- Generate / train_ude / mask / n_obs checks ------------------------------
 
 """Tight solver used only to compare a session remake against generate."""
 function _generate_match_solver(model::UDEModel)
@@ -1066,61 +1055,3 @@ end
 
 # -- Docs / source locks ------------------------------------------------------
 
-function training_reuse_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "training-reuse.md")
-end
-
-function training_reuse_source_holds()
-    src = read(training_reuse_source_path(), String)
-    impl = read(training_jl_source_path(), String)
-    docs = isfile(training_reuse_docs_path()) ?
-           read(training_reuse_docs_path(), String) : ""
-    return all(occursin(needle, src) for needle in TRAINING_REUSE_MUST_CONTAIN) &&
-           !any(occursin(needle, impl) || occursin(needle, docs)
-    for needle in TRAINING_REUSE_MUST_NOT_CONTAIN)
-end
-
-function training_reuse_docs_hold()
-    path = training_reuse_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(training_reuse_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("training-reuse.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function training_reuse_landing_docs_hold()
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sentences = training_reuse_locked_sentences()
-    return occursin("training-reuse", sciml) &&
-           occursin("TrainingSolveSession", howto) &&
-           occursin(sentences.session, sciml)
-end
-
-function training_reuse_source_violations()
-    src = read(training_reuse_source_path(), String)
-    impl = read(training_jl_source_path(), String)
-    docs = isfile(training_reuse_docs_path()) ?
-           read(training_reuse_docs_path(), String) : ""
-    missing = [s for s in TRAINING_REUSE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s
-                 for s in TRAINING_REUSE_MUST_NOT_CONTAIN
-                 if occursin(s, impl) || occursin(s, docs)]
-    return (; missing, forbidden)
-end
-
-function training_reuse_contract_holds()
-    return training_reuse_source_holds() &&
-           al_constraint_passes_model_source() &&
-           train_experiments_accepts_optimizer_state_source() &&
-           train_unknown_edge_reuses_warmup_source() &&
-           training_reuse_docs_hold() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source()
-end

@@ -1,10 +1,10 @@
 ###############################################################################
-# Compiler remapping contract (not exported).
+# Compiler remapping rules (not exported).
 #
 # Duplicate unknown reaction+edge pairs skip the edge after incrementing
 # nn_index. compile_mechanism reindexes kept NeuralDestructionTerm heads to
 # 1:n so ude_system / ude_rhs! / allocate_cache stay in bounds.
-# validate_network does not own this contract. generate_data /
+# validate_network does not own these rules. generate_data /
 # default_parameters build the compiled NN tree (multi-head and
 # multi-regulator); they are not a 1-input dummy hole.
 ###############################################################################
@@ -15,10 +15,10 @@ const COMPILER_REINDEX_MUST_CONTAIN = (
     "_reindex_neural_destruction!",
     "Renumber kept heads to 1:n")
 
-"""Phrases that would put a unique-claim hole gate into the compiler."""
+"""Phrases that would put a reference-protocol unknown-term check into the compiler."""
 const COMPILER_REINDEX_MUST_NOT_CONTAIN = (
     "assert_single_unknown_destruction",
-    "unique-claim protocol requires exactly one")
+    "reference protocol requires exactly one")
 
 function neural_destruction_terms(compiled::CompiledMechanism)
     [term for term in compiled.destruction_terms if term isa NeuralDestructionTerm]
@@ -208,7 +208,7 @@ end
     build_two_regulator_unknown_network()
 
 Unknown destruction with two regulators `D(S, I)`. `build_ude_model`
-must size the NN input to 2. This fixture is not the unique-claim path.
+must size the NN input to 2. This fixture is not the reference-protocol path.
 """
 function build_two_regulator_unknown_network()::BiologicalNetwork
     nodes = [NodeSpec(name = :S), NodeSpec(name = :I), NodeSpec(name = :E)]
