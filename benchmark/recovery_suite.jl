@@ -1,4 +1,12 @@
 #!/usr/bin/env julia
+# Recovery benchmark report. First the fast sections (known linear, Michaelis-
+# Menten, Hill and competitive kinetics; graph-local versus global library),
+# then the trained-model sections (:ude_discovery and :mm_unknown) on the
+# reference protocol, printing the full report for each. Not run in CI; the
+# CI equivalents are test/test_recovery.jl and test/run_recovery_hard.jl.
+# Runtime: about 45 minutes.
+# Run:  julia --project=. benchmark/recovery_suite.jl
+
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 

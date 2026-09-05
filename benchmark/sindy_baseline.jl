@@ -1,6 +1,11 @@
 #!/usr/bin/env julia
-# Same (R, D) + distractor z. Columns differ only by prior / backend.
-# DataDrivenDiffEq is optional and is never a CI dependency.
+# Graph-local versus global library on the same samples: a Hill rate with
+# 0.5% noise plus a correlated distractor (seed 104). Prints F1, false-parent
+# flag, denominator violations, rate error and wall time for the two library
+# scopes, and a DataDrivenSparse row when that package is loaded (it is not a
+# dependency of the package). Not run in CI. Runtime: about two minutes.
+# Run:  julia --project=. benchmark/sindy_baseline.jl
+
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
@@ -48,8 +53,8 @@ X_ab, dX_ab = BioDynaX._permute_rate_samples(X_ab, dX_ab, 104)
 times_ab = collect(range(0.0, 1.0; length = length(r)))
 dd = _try_datadriven(X_ab, dX_ab, times_ab)
 if dd === nothing
-    println("  DataDrivenSparse global  skipped (package not loaded; not a CI dep)")
-    println("  Frozen row in docs: unavailable (DataDrivenSparse resolve conflicts with this preview; not a win)")
+    println("  DataDrivenSparse global  skipped (package not loaded)")
+    println("  The docs list this row as unavailable: DataDrivenSparse does not resolve against this package")
 else
     truth = hill_rate_support(2; variable = 1)
     cand = dd.success && !isempty(dd.result.candidates) ?

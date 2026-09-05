@@ -3,20 +3,28 @@ name: CI
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
   pull_request:
+  schedule:
+    # Weekly heavy tier: trained-model recovery protocol and the multi-minute
+    # training-loop tests.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: Test (Julia ${{ matrix.julia-version }})
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
         julia-version: ["1.10", "1"]
-        include:
-          # Single macOS cell (Julia 1, not 1.10 and not recovery).
-          - os: macos-latest
-            julia-version: "1"
-    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
@@ -25,192 +33,79 @@ jobs:
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
         with:
-          version: "1"
-      - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
-        with:
-          coverage: true
+          coverage: ${{ matrix.julia-version == '1' }}
       - uses: julia-actions/julia-processcoverage@v1
+        if: matrix.julia-version == '1'
       - uses: codecov/codecov-action@v5
+        if: matrix.julia-version == '1'
         with:
           files: lcov.info
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
   format:
+    name: Formatting (JuliaFormatter, SciML style)
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1"
-      - name: SciMLFormatter config and new-file check
+      - name: Check that the tree is formatted
         run: |
-          test -f .JuliaFormatter.toml
           julia -e '
           using Pkg
           Pkg.activate(; temp=true)
           Pkg.add(PackageSpec(name="JuliaFormatter", version="1"))
           using JuliaFormatter
-          files = [
-              "test/test_invariants.jl",
-              "test/test_example_smoke.jl",
-              "src/Precompile.jl",
-              "src/UniqueClaim.jl",
-              "test/test_unique_claim_product.jl",
-              "test/test_protocol_fingerprint.jl",
-              "src/CompilerContract.jl",
-              "test/test_compiler_contract.jl",
-              "test/test_protocol_surface.jl",
-              "src/DataGenContract.jl",
-              "src/RecoveryAdmission.jl",
-              "test/test_datagen_contract.jl",
-              "test/test_recovery_admission.jl",
-              "src/DiscoveryWorkspace.jl",
-              "src/TrainingReuse.jl",
-              "src/RecoverySuiteSkip.jl",
-              "src/ExperimentCheckpoint.jl",
-              "src/FailureModes.jl",
-              "src/HybridCompose.jl",
-              "src/HybridResidual.jl",
-              "src/IdentifiabilityProduct.jl",
-              "src/GraphLocalLibrary.jl",
-              "src/DenominatorDomain.jl",
-              "src/ParameterSchemaPack.jl",
-              "test/test_discovery_workspace.jl",
-              "test/test_training_reuse.jl",
-              "test/test_recovery_suite_skip.jl",
-              "test/test_experiment_checkpoint.jl",
-              "test/test_failure_modes.jl",
-              "test/test_hybrid_compose.jl",
-              "test/test_hybrid_residual.jl",
-              "test/test_identifiability_product.jl",
-              "test/test_graph_local_library.jl",
-              "test/test_denominator_domain.jl",
-              "test/test_parameter_schema_pack.jl",
-              "test/quality.jl",
-              "test/run_standards.jl",
-              "test/test_standards.jl",
-              "test/test_standards_jet.jl",
-          ]
-          ok = true
-          for file in files
-              format(file; overwrite=false) || (ok = false)
-          end
-          ok || error("JuliaFormatter would change a listed file; re-run format")
+          format(["src", "ext", "test", "examples", "benchmark", "docs"]; overwrite=false) ||
+              error("JuliaFormatter would change a file; run format([\"src\", \"ext\", \"test\", \"examples\", \"benchmark\", \"docs\"])")
           '
 
-  allocation-gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1"
-      - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-buildpkg@v1
-      - name: Allocation regression gate
-        run: julia --project=. benchmark/allocation_gate.jl
-
-  benchmark-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1"
-      - uses: julia-actions/cache@v2
-      - uses: julia-actions/julia-buildpkg@v1
-      - name: Benchmark smoke
-        run: |
-          julia --project=. -e 'using BioDynaX, Random; rng=MersenneTwister(0); net=BioDynaX.build_linear_test_network(); model,p=build_ude_model(rng,net); cache=allocate_cache(model,Float64); u=[0.2,0.1]; params=pack_parameters((k_ba=0.8,k_a=1.2,k_b=0.5), p.nn); for _ in 1:10; ude_rhs!(cache.du,u,params,0.0,model,cache); end; println(@allocated ude_rhs!(cache.du,u,params,0.0,model,cache))'
-
   quality:
+    name: Aqua and JET
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1"
       - uses: julia-actions/cache@v2
-      - name: Static quality gates
+      - name: Aqua and JET checks
         run: |
           julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
 
-  standards:
+  allocation-gate:
+    name: Allocation check
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1"
-      - uses: julia-actions/cache@v2
-      - name: Industry-bar SciML standards
-        run: |
-          julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["JET", "ForwardDiff"]); include("test/run_standards.jl")'
-
-  docs:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: read
-      statuses: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1"
-      - uses: julia-actions/cache@v2
-      - name: Build documentation
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-        run: |
-          julia --project=docs docs/instantiate.jl
-          julia --project=docs docs/make.jl
-
-  recovery:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1.10"
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
-      - name: Unknown-edge scientific recovery
-        run: julia --project=. --color=yes test/run_recovery_hard.jl
-
-  external-baseline:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1"
-      - name: Isolated DataDrivenSparse resolve probe
-        run: julia --project=. benchmark/probe_datadriven.jl
-        continue-on-error: true
+      - name: In-place right-hand side allocations
+        run: julia --project=. benchmark/allocation_gate.jl
 
   compat:
+    name: Project.toml compat entries
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1"
-      - name: Validate Project.toml compat entries
+      - name: Every dependency and weak dependency has a compat bound
         run: |
           julia -e '
           using Pkg
@@ -233,3 +128,65 @@ jobs:
                   @test haskey(deps, name)
               end
           end'
+
+  docs:
+    name: Documentation
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - uses: julia-actions/cache@v2
+      - name: Build documentation (deploys from main and version tags)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: |
+          julia --project=docs docs/instantiate.jl
+          julia --project=docs docs/make.jl
+
+  external-baseline:
+    name: DataDrivenSparse resolve probe
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - name: Isolated resolve probe (allowed to fail)
+        run: julia --project=. benchmark/probe_datadriven.jl
+
+  heavy:
+    name: Heavy tier (recovery protocol, weekly)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Default suite plus the heavy tier
+        env:
+          BIODYNAX_TEST_HEAVY: "1"
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+      - name: Trained-model recovery protocol
+        run: julia --project=. --color=yes test/run_recovery_hard.jl
+      - name: Trained-model library comparison
+        run: julia --project=. --color=yes test/run_m4_b_protocol.jl
+      - name: JET and SciML standards
+        run: |
+          julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["JET", "ForwardDiff"]); include("test/run_standards.jl")'

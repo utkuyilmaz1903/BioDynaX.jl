@@ -1,7 +1,13 @@
 #!/usr/bin/env julia
-# One F1 attempt on the same monomial library. No new atoms.
-# Does not change RECOVERY_THRESHOLDS or the default Occam path.
-# This is not the unique-claim recovery protocol (seed 103, 9 ICs).
+# Replays the nuisance terms left by trained-model discovery (a constant and
+# a linear term) on the same monomial library, with subset selection and
+# scale normalization, to document whether they can be removed without
+# changing the library. No new atoms are added to the library. Does not train
+# a model and does not change any threshold. Prints F1, recall and extras per
+# variant. Not run in CI.
+# Runtime: about a minute.
+# Run:  julia --project=. benchmark/ude_f1_attempt.jl
+
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
@@ -59,7 +65,7 @@ function main()
         " n_points=$(proto.n_points) (smoke is $(proto.smoke_n_ics) IC / ",
         "$(proto.smoke_n_points) points)")
     println("  skeleton floor support_f1_ude=$(RECOVERY_THRESHOLDS.support_f1_ude)",
-        " analytical gate support_f1_clean=$(RECOVERY_THRESHOLDS.support_f1_clean)")
+        " analytical threshold support_f1_clean=$(RECOVERY_THRESHOLDS.support_f1_clean)")
     for (name, row) in pairs(rows)
         @printf "  %-22s F1=%.3f recall=%.3f extras=%s clean_gate=%s skeleton=%s verdict=%s\n" string(name) row.f1 row.recall string(row.extras) string(row.reaches_clean) string(row.meets_skeleton) string(row.verdict)
     end

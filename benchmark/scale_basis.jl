@@ -1,4 +1,11 @@
+#!/usr/bin/env julia
+# Library size versus network size. Builds sparse networks with bounded
+# in-degree and prints the number of graph-local library terms per target
+# for increasing node counts. Not run in CI. Runtime: under a minute.
+# Run:  julia --project=. benchmark/scale_basis.jl
+
 using BioDynaX
+using BioDynaX: candidate_count, each_library_chunk, evaluate_library
 using Random
 
 function sparse_network(node_count; indegree = 3)

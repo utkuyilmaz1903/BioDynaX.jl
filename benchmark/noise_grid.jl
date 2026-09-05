@@ -1,6 +1,10 @@
 #!/usr/bin/env julia
-# Analytical Hill D(r) noise grid. Not a CI job.
-# σ is a fraction of rate amplitude (same definition as the 0.5% Occam gate).
+# Analytical Hill rate recovery under rate noise of 0, 0.5, 2, 5 and 10% of
+# the rate amplitude (seed 104). Prints F1, recall, denominator violations and
+# whether the 0.99 F1 threshold holds at each noise level, plus the first
+# noise level at which it breaks. Not run in CI. Runtime: about a minute.
+# Run:  julia --project=. benchmark/noise_grid.jl
+
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 

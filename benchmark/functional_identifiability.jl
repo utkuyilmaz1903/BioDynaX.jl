@@ -1,15 +1,12 @@
 #!/usr/bin/env julia
-# Research / nightly functional-identifiability benchmark.
-#
-# Calls the live assess_functional_identifiability entry on the locked
-# M2 7/2 Hill split. Five fixed restart seeds (201, 202, 203, 204, 205).
-# Q4 is a practical diagnostic. It is not a PR gate, not a unique-claim
-# success gate, and not structural identifiability. Nightly scheduling
-# is deferred to M7.
-#
-# Not a public API. The five-restart UDE workload is not part of ordinary
-# PR tests. Failures stay in the five-attempt accounting. The printed
-# status is not a success decision.
+# Research benchmark: the functional-identifiability diagnostic on the
+# reference protocol (seed 103, nine experiments split 7/2) with five fixed
+# training restarts (seeds 201 to 205). Prints the full diagnostic report:
+# every restart including failures, pairwise rate and trajectory agreement,
+# and the derived status. The status is a diagnostic and not an acceptance criterion.
+# The script is not run in CI.
+# Runtime: about 30 to 60 minutes (five trainings).
+# Run:  julia --project=. benchmark/functional_identifiability.jl
 
 if !isdefined(Main, :BioDynaX)
     using Pkg
