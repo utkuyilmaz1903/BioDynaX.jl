@@ -1802,6 +1802,10 @@ const _M2F_LOCKED_DECISION = """
         holdout = evaluate_holdout(
 """
 
+# Indentation-insensitive comparison so that reformatting the source does not
+# change what this lock checks (the statement sequence).
+_m2f_dedent(text) = join(lstrip.(split(text, '\n')), '\n')
+
 const _M2F_FORBIDDEN_DECISION = (
     "evaled.discovery === nothing || evaled.success == false",
     "!discovery.success",
@@ -1884,7 +1888,7 @@ end
     end
     for body in (ude, mm)
         window = replace(_m2e_decision_window(body), "\r\n" => "\n")
-        @test occursin(_M2F_LOCKED_DECISION, window)
+        @test occursin(_m2f_dedent(_M2F_LOCKED_DECISION), _m2f_dedent(window))
         @test count("holdout =", window) == 2
         @test count("evaluate_holdout(", window) == 1
         for token in _M2F_FORBIDDEN_DECISION

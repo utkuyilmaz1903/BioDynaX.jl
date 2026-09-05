@@ -1,3 +1,6 @@
+# Default test suite. Set BIODYNAX_TEST_HEAVY=1 to also run the multi-minute
+# training-loop testsets; the trained-model recovery protocol lives in
+# run_recovery_hard.jl and run_m4_b_protocol.jl and is not part of Pkg.test().
 using BioDynaX
 include("internals.jl")
 using ComponentArrays

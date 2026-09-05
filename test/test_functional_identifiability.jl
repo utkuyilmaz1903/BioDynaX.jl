@@ -3062,8 +3062,8 @@ end
         @test !occursin("assess_functional_identifiability", text)
     end
     src = read(official, String)
-    @test occursin("not a PR gate", src)
-    @test occursin("deferred to M7", src)
+    @test occursin("not run in CI", src)
+    @test occursin("not an acceptance criterion", src)
 end
 
 @testset "T-G-API M2 locks and public exports stay" begin
