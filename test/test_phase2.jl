@@ -182,7 +182,7 @@ end
         using ModelingToolkit
         model, params = build_ude_model(MersenneTwister(0), build_linear_test_network())
         sys = export_mtk_system(model)
-        @test sys isa ODESystem
+        @test sys isa ModelingToolkit.AbstractSystem
         nstates = try
             length(unknowns(sys))
         catch

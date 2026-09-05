@@ -11,7 +11,7 @@ Kinetic laws are **not** guessed: mass-action-looking reactions stay
 `MASS_ACTION`; everything else is `known=false` so the compiler uses a neural
 unknown. Prefer `import_sbmltoolkit_network` for Catalyst/MTK lowering.
 """
-function BioDynaX.import_sbml_network(path::AbstractString)
+function import_sbml_network(path::AbstractString)
     model = _sbml_model(readSBML(path))
     species = _sbml_species(model)
     nodes = NodeSpec[]

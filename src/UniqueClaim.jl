@@ -832,9 +832,9 @@ function assert_format_matches_protocol_result(result, text::AbstractString)
     occursin(
         "hybrid_data_residual: $(_format_protocol_value(result.data_residual))", text) ||
         throw(ErrorException("printed hybrid_data_residual does not match data_residual"))
-    occursin("support_recall: $(result.support_recall)", text) ||
+    occursin("support_recall: $(_format_protocol_value(result.support_recall))", text) ||
         throw(ErrorException("printed support_recall does not match protocol_result"))
-    occursin("support_f1: $(result.support_f1)", text) ||
+    occursin("support_f1: $(_format_protocol_value(result.support_f1))", text) ||
         throw(ErrorException("printed support_f1 does not match protocol_result"))
     extras_line = extras_print_label(result.extras)
     occursin("extras: $(extras_line)", text) || throw(ErrorException(

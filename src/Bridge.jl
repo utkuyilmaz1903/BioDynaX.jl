@@ -1,21 +1,54 @@
-# Optional extension entry points (implemented in weakdep extensions).
-function export_mtk_system(model::UDEModel; kwargs...)
-    throw(ErrorException(
-        "export_mtk_system requires `using ModelingToolkit` " *
-        "(BioDynaXModelingToolkitExt)"))
+# Optional extension entry points. The methods live in the weak-dependency
+# extensions; these wrappers look the extension up at call time so that the
+# extension modules never redefine a method of this module.
+function _optional_extension(name::Symbol, hint::AbstractString)
+    extension = Base.get_extension(@__MODULE__, name)
+    extension === nothing && throw(ErrorException(hint))
+    return extension
 end
 
+"""
+    export_mtk_system(model::UDEModel; name = :BioDynaXNetwork)
+
+Convert the compiled known terms of `model` to a ModelingToolkit `ODESystem`.
+Neural terms appear as placeholder variables `nn_i(t)`. Requires
+`using ModelingToolkit` (extension `BioDynaXModelingToolkitExt`). Not exported.
+"""
+function export_mtk_system(model::UDEModel; kwargs...)
+    extension = _optional_extension(:BioDynaXModelingToolkitExt,
+        "export_mtk_system requires `using ModelingToolkit` (BioDynaXModelingToolkitExt)")
+    return extension.export_mtk_system(model; kwargs...)
+end
+
+"""
+    import_sbml_network(path::AbstractString)
+
+Build a `BiologicalNetwork` from the species, reactions, and stoichiometry of
+an SBML file. Kinetic laws are not parsed; reactions with an explicit kinetic
+law compile as unknown neural terms. Requires `using SBML` (extension
+`BioDynaXSBMLExt`). Not exported.
+"""
 function import_sbml_network(path::AbstractString)
-    throw(ErrorException(
+    extension = _optional_extension(:BioDynaXSBMLExt,
         "import_sbml_network requires `using SBML` (BioDynaXSBMLExt). " *
         "The importer maps species and stoichiometry; unrecognized kinetic " *
-        "laws become unknown reactions rather than guessed Michaelis forms."))
+        "laws become unknown reactions rather than guessed Michaelis forms.")
+    return extension.import_sbml_network(path)
 end
 
+"""
+    import_sbmltoolkit_network(path::AbstractString)
+
+Build a `BiologicalNetwork` from an SBML file through SBMLToolkit and Catalyst.
+Mass-action reactions are recognized; other rate laws become unknown neural
+terms. Requires `using SBMLToolkit` and `using Catalyst` (extension
+`BioDynaXSBMLToolkitExt`). Not exported.
+"""
 function import_sbmltoolkit_network(path::AbstractString)
-    throw(ErrorException(
-        "import_sbmltoolkit_network requires `using SBMLToolkit` " *
-        "(BioDynaXSBMLToolkitExt)"))
+    extension = _optional_extension(:BioDynaXSBMLToolkitExt,
+        "import_sbmltoolkit_network requires `using SBMLToolkit` and `using Catalyst` " *
+        "(BioDynaXSBMLToolkitExt)")
+    return extension.import_sbmltoolkit_network(path)
 end
 
 """Two-state network with two independent neural unknowns (multi-head test fixture)."""

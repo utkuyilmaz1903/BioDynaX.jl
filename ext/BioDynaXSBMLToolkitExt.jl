@@ -13,7 +13,7 @@ map species and stoichiometry onto a `BiologicalNetwork`. Rate laws are not
 re-parsed into Hill/MM metadata; reactions become mass-action when Catalyst
 reports a mass-action rate, otherwise `known=false`.
 """
-function BioDynaX.import_sbmltoolkit_network(path::AbstractString)
+function import_sbmltoolkit_network(path::AbstractString)
     rs = SBMLToolkit.readSBML(path)
     sps = Catalyst.species(rs)
     isempty(sps) && throw(ArgumentError("SBMLToolkit model contains no species"))
