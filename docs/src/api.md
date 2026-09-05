@@ -1,10 +1,11 @@
-# API
+# API reference
 
-The exported names plus the golden-path verbs a
-stranger types in the [tutorial](tutorial.md). Experimental entry points are
-**not exported**; see [Experimental](experimental.md).
+Every exported name is documented here. Unexported helpers mentioned in the
+guide (for example `BioDynaX.report_production_destruction_tradeoff`,
+`BioDynaX.run_recovery_suite`, `BioDynaX.assess_functional_identifiability`)
+are internal and may change between minor versions.
 
-## Network and compile
+## Network specification
 
 ```@docs
 BiologicalNetwork
@@ -28,64 +29,51 @@ CUSTOM_KINETIC
 validate_network
 state_nodes
 candidate_parents
+```
+
+## Kinetic metadata
+
+```@docs
+KineticMetadata
+MetadataLike
+EmptyMetadata
+InputDriveMetadata
+MassActionMetadata
+HillMetadata
+CompetitiveMetadata
+LinearDecayMetadata
+SaturationMetadata
+CustomKineticMetadata
+```
+
+## Compiled models
+
+```@docs
 compile_mechanism
 build_ude_model
 UDEModel
+NeuralDestructionTerm
 ude_system
 ude_rhs!
-NeuralDestructionTerm
+allocate_cache
+pack_parameters
+parameter_schema
+ParameterSchema
+positive_parameter
 ```
 
-## Metadata
-
-Typed kinetic metadata, including `MetadataLike`, lives on the
-[Metadata](metadata.md) page.
-
-## Training
+## SciML interface
 
 ```@docs
-train_ude
-train_experiments
-TrainingResult
-TrainingRetcode
-TrainingConfig
-HorizonCurriculum
+build_ude_function
+SciMLBase.ODEProblem(::UDEModel, ::Any, ::Any, ::Any)
+SciMLBase.solve(::UDEModel, ::Any, ::Any, ::Any)
+auto_sensealg
+default_solver_config
 SolverConfig
-StructuralPositivity
-AugmentedLagrangianConfig
-AbstractConstraintStrategy
 AbstractADPolicy
 ZygoteAD
 ProductionAD
-predict_ude
-```
-
-## Discovery
-
-```@docs
-discover_equations
-discover_unknown_rate
-DiscoveryResult
-DiscoveryRetcode
-DiscoverySuccess
-InsufficientSamples
-DenominatorUnsafe
-EmptySupport
-SingularLibrary
-DiscoveryFailed
-DiscoveryConfig
-ImplicitSINDyPI
-ExplicitSTLSQ
-ImplicitCandidate
-ExplicitCandidate
-local_basis
-export_rhs
-equation_to_latex
-equation_to_function
-estimate_derivatives
-sample_unknown_destruction
-compose_hybrid_rhs
-hybrid_data_residual
 ```
 
 ## Experiments
@@ -98,47 +86,51 @@ write_experiment_csv
 generate_experiment_set
 ```
 
-## Parameters and SciML
-
-`build_ude_function`, `auto_sensealg`, and `default_solver_config` are
-documented on [SciML Integration](sciml.md).
+## Training
 
 ```@docs
-pack_parameters
-parameter_schema
-ParameterSchema
-allocate_cache
-positive_parameter
+train_ude
+train_experiments
+predict_ude
+TrainingConfig
+HorizonCurriculum
+TrainingResult
+TrainingRetcode
+AbstractConstraintStrategy
+StructuralPositivity
+AugmentedLagrangianConfig
 ```
 
-## Contract
+## Symbolic discovery
+
+```@docs
+discover_unknown_rate
+discover_equations
+sample_unknown_destruction
+estimate_derivatives
+local_basis
+DiscoveryConfig
+ImplicitSINDyPI
+ExplicitSTLSQ
+DiscoveryResult
+ImplicitCandidate
+ExplicitCandidate
+DiscoveryRetcode
+DiscoverySuccess
+InsufficientSamples
+DenominatorUnsafe
+EmptySupport
+SingularLibrary
+DiscoveryFailed
+equation_to_function
+equation_to_latex
+export_rhs
+compose_hybrid_rhs
+hybrid_data_residual
+```
+
+## Benchmark thresholds
 
 ```@docs
 RECOVERY_THRESHOLDS
 ```
-
-Recovery fixtures (`run_recovery_suite`, `build_*_recovery_network`) are
-internal. Call them as `BioDynaX.run_recovery_suite` from tests and
-benchmarks. They are not on the freeze list.
-
-Unique-claim product helpers are also internal (`BioDynaX.foo`):
-`UNIQUE_CLAIM_PROTOCOL`, `UniqueClaimFingerprint`,
-`unique_claim_fingerprint`, `format_protocol_result`,
-`build_protocol_result`, `assert_single_unknown_destruction`,
-`assert_unique_claim_recovery_network`, `unique_claim_kpis_hold`,
-`unique_claim_discovery_extras`, `unique_claim_protocol_ics`,
-`extras_print_label`, `UNIQUE_CLAIM_F1_ATTEMPT`. Compiler remapping
-helpers (`assert_dense_neural_index`,
-`build_skipped_duplicate_unknown_network`,
-`build_two_regulator_unknown_network`,
-`build_remapped_two_regulator_network`,
-`generate_from_compiled_model`,
-`unique_claim_experiment_set`,
-`compile_ground_truth_model`,
-`generate_experiment_set_from_compiled_model`) live in the same unexported
-surface. Recovery admission (`admit_recovery_suite_network`,
-`UniqueClaimProtocolRow`, `unique_claim_kpi_failure_symbols`,
-`recovery_suite_admission_matrix`) is
-documented with executable snippets on
-[Unique claim](unique-claim.md) and
-[Compiled experiment path](compiled-path.md). Do not export them to silence Documenter.
