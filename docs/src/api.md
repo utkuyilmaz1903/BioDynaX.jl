@@ -127,6 +127,9 @@ equation_to_latex
 export_rhs
 compose_hybrid_rhs
 hybrid_data_residual
+StabilitySelection
+stability_selection_report
+format_stability_selection
 ```
 
 ## Benchmark thresholds

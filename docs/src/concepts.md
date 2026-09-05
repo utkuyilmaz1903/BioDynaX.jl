@@ -171,6 +171,27 @@ callable (`equation_to_function`), or as a full right-hand side
 term, and `hybrid_data_residual` integrates the result and compares it with
 observations.
 
+### Pruning nuisance terms
+
+Discovery on a learned rate often keeps small terms that fit the neural
+network's approximation error rather than the mechanism; on the reference
+protocol these are a constant and a linear term next to the true Hill
+monomials. The optional stability-selection stage,
+`discover_unknown_rate(...; stability_selection = StabilitySelection())`,
+resamples the training rows of the regression with replacement `n_boot`
+times (default 100), repeats the thresholded fit on every resample, and
+keeps a term of the fitted candidate only if it was selected in at least a
+fraction `τ` of the resamples (default 0.8), refitting the coefficients of
+the kept terms afterwards. Terms are never added, the stage is skipped when
+it would remove every numerator term or make the denominator unsafe, and
+the selection frequency of every library term is available through
+`stability_selection_report` and `format_stability_selection`, so a user can
+see why a term was kept or dropped. Its cost is `n_boot` thresholded fits on
+the training rows, which for the reference protocol is a fraction of a
+second. It is off by default, and with it off the discovery output is
+unchanged; the [Benchmarks](benchmarks.md#Stability-selection-on-the-library-comparison-study)
+page reports what it does on the library comparison study.
+
 ## The reference protocol
 
 The recovery benchmarks and the example share one protocol, stored in

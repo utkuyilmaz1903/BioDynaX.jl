@@ -187,13 +187,15 @@ select the optimizer, initialization, or scope.
 `noise_σ` is the observation-noise standard deviation of the generated
 experiments. Their defaults are the budget's own values (seed 401, no noise),
 so a call without them reproduces the original single run. The library
-comparison study varies them.
+comparison study varies them. `stability_selection` is passed to every
+`discover_equations` call (off by default).
 """
 function evaluate_trained_graph_local(;
         kind::Symbol,
         training_call = fit_unknown_destruction,
         seed::Integer = m4b_budget(kind).seed,
-        noise_σ::Real = m4b_budget(kind).noise_σ)
+        noise_σ::Real = m4b_budget(kind).noise_σ,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing)
     budget = m4b_budget(kind)
     ude_net = build_three_state_unknown_network(;
         known = false, with_distractor = true, parent = 2)
@@ -224,7 +226,8 @@ function evaluate_trained_graph_local(;
                 derivatives = dX,
                 targets = 1,
                 config = _m4b_discovery_config(budget, scope.basis_scope),
-                verbose = false))
+                verbose = false,
+                stability_selection = stability_selection))
     end
     return TrainedGraphLocalEvidence(
         kind,

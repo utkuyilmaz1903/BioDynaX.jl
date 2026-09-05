@@ -102,6 +102,7 @@ export discover_equations, discover_unknown_rate, DiscoveryResult, DiscoveryRetc
        DiscoverySuccess, InsufficientSamples, DenominatorUnsafe, EmptySupport,
        SingularLibrary, DiscoveryFailed,
        DiscoveryConfig, ImplicitSINDyPI, ExplicitSTLSQ,
+       StabilitySelection, stability_selection_report, format_stability_selection,
        ImplicitCandidate, ExplicitCandidate,
        local_basis, export_rhs, equation_to_latex, equation_to_function,
        estimate_derivatives, compose_hybrid_rhs, sample_unknown_destruction,

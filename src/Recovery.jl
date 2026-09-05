@@ -540,12 +540,14 @@ end
     discover_unknown_rate(R, times, D; network, config, ...)
 
 Discover a scalar destruction rate `D(r)` with graph-local implicit SINDy-PI.
-`R` is `n_regulators × n` and `D` is `1 × n`.
+`R` is `n_regulators × n` and `D` is `1 × n`. `stability_selection =
+StabilitySelection()` enables the optional pruning stage (off by default).
 """
 function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
         network = nothing,
         config::DiscoveryConfig = rate_discovery_config(),
-        verbose::Bool = false, strict::Bool = false)
+        verbose::Bool = false, strict::Bool = false,
+        stability_selection::Union{Nothing, StabilitySelection} = nothing)
     observed = _note_rate_discovery_entry(R, times, D, config)
     observed !== nothing && return observed
     net = network === nothing ? _rate_network_from_samples(R) : network
@@ -560,7 +562,8 @@ function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
     R_perm, D_perm = _permute_rate_samples(R, D_full, config.seed)
     return discover_equations(
         R_perm, times, net; derivatives = D_perm, targets = 1,
-        config = config, verbose = verbose, strict = strict)
+        config = config, verbose = verbose, strict = strict,
+        stability_selection = stability_selection)
 end
 
 """
@@ -767,14 +770,14 @@ Two-state Hill degradation of `S` by `R`. Set `known=false` to replace the Hill
 edge with a neural unknown for the UDE → discovery path.
 """
 function build_hill_recovery_network(; known::Bool = true,
-        hill_order::Int = 2)::BiologicalNetwork
+        hill_order::Int = 2, parent::Int = 2)::BiologicalNetwork
     nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
     reactions = [
         ReactionSpec(name = :produce_s,
             stoichiometry = Dict(1 => 1.0), regulators = [2],
             metadata = MassActionMetadata(rate_param = :k_prod)),
         ReactionSpec(name = :hill_deg,
-            stoichiometry = Dict(1 => -1.0), regulators = [2],
+            stoichiometry = Dict(1 => -1.0), regulators = [parent],
             known = known, family = HILL,
             metadata = HillMetadata(
                 vmax_param = :vmax, k_param = :K,

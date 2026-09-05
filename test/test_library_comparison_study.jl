@@ -115,12 +115,12 @@ end
         @test length(keys) == 3
         # Resuming from a complete CSV trains nothing.
         resumed = _LCS.library_comparison_smoke(
-            skip = (seed, noise, library) -> (seed, noise, library) in keys,
+            skip = (seed, noise, library, variant) -> (seed, noise, library, variant) in keys,
             training_call = (args...; kwargs...) -> error("must not train"))
         @test isempty(resumed)
         # A partially written pair is rerun for the missing libraries only.
         partial = _LCS.library_comparison_smoke(
-            skip = (seed, noise, library) -> library !== :wrong_graph)
+            skip = (seed, noise, library, variant) -> library !== :wrong_graph)
         @test length(partial) == 1
         @test partial[1].library === :wrong_graph
         @test partial[1].support_f1 == rows[3].support_f1
@@ -136,5 +136,88 @@ end
         @test occursin("| graph_local | 0.0 | 1 |", table)
         @test occursin("| wrong_graph |", table)
         @test count(==('\n'), table) == 5
+        @test all(row.fixture === :four_state && row.variant === :study for row in back)
+        # Files written before the fixture and variant columns existed still read.
+        old_path = joinpath(mktempdir(), "old.csv")
+        open(old_path, "w") do io
+            println(io, join(string.(_LCS.LIBRARY_STUDY_COLUMNS_V1), ","))
+            for row in rows
+                fields = [_LCS._library_study_csv_field(getproperty(row, column))
+                          for column in _LCS.LIBRARY_STUDY_COLUMNS_V1]
+                println(io, join(fields, ","))
+            end
+        end
+        old_rows = _LCS.read_library_study_csv(old_path)
+        @test length(old_rows) == 3
+        @test all(row.fixture === :four_state && row.variant === :study for row in old_rows)
+        @test old_rows[1].support_f1 == rows[1].support_f1
+    end
+
+    @testset "discovery variants share the training" begin
+        rows = _LCS.library_comparison_smoke(variants = _LCS.LIBRARY_STUDY_VARIANTS)
+        @test length(rows) == 12
+        @test [row.variant for row in rows] ==
+              vec([v
+                   for l in _LCS.LIBRARY_STUDY_LIBRARIES, v in _LCS.LIBRARY_STUDY_VARIANTS])
+        @test length(unique(row.train_time_s for row in rows)) == 1
+        @test length(unique(row.nn_rate_rmse for row in rows)) == 1
+        study = [row for row in rows if row.variant === :study]
+        plain = _LCS.library_comparison_smoke()
+        for (a, b) in zip(study, plain)
+            @test a.support_f1 == b.support_f1
+            @test a.extras == b.extras
+            @test isequal(a.holdout_residual, b.holdout_residual)
+        end
+        for row in rows
+            @test 0 <= row.support_recall <= 1
+            @test row.extra_terms ==
+                  (isempty(row.extras) ? 0 : count(==(';'), row.extras) + 1)
+        end
+        # Parent-only libraries never contain the target state S.
+        for row in rows
+            row.variant in (:parents, :reference) || continue
+            @test !occursin("S", row.extras)
+        end
+        @test_throws ArgumentError _LCS.library_comparison_run(
+            seed = 1, noise_σ = 0.0, kind = :smoke, variants = (:other,))
+        summary = _LCS.library_study_summary(rows)
+        @test length(summary) == 12
+        table = _LCS.format_library_study_summary(summary)
+        @test occursin("| variant |", table)
+        @test !occursin("| fixture |", table)
+    end
+
+    @testset "two-state fixture (smoke)" begin
+        rows = _LCS.library_comparison_smoke(fixture = :two_state,
+            variants = (:study, :reference))
+        @test length(rows) == 6
+        @test all(row.fixture === :two_state for row in rows)
+        @test all(row.seed == _LCS.M4B_SMOKE.seed for row in rows)
+        @test length(unique(row.train_time_s for row in rows)) == 1
+        @test all(isfinite(row.nn_rate_rmse) for row in rows)
+        # Graph-local and global coincide on a two-state network.
+        for variant in (:study, :reference)
+            graph = only(r
+            for r in rows if r.variant === variant && r.library === :graph_local)
+            glob = only(r for r in rows if r.variant === variant && r.library === :global)
+            @test graph.support_f1 == glob.support_f1
+            @test graph.extras == glob.extras
+        end
+        set = _LCS.generate_recovery_experiments(
+            Random.MersenneTwister(1), _LCS.build_hill_recovery_network(; known = true),
+            _LCS.LIBRARY_STUDY_TWO_STATE_PARAMS;
+            tspan = _LCS.UNIQUE_CLAIM_PROTOCOL.tspan, n_points = 8, noise_σ = 0.0)
+        @test length(set.experiments) == 9
+        wrong = _LCS.build_hill_recovery_network(; known = false, parent = 1)
+        @test _LCS.local_basis(wrong, 1; degree = 2, include_interactions = false,
+            scope = :graph).variables == [1]
+        default_net = _LCS.build_hill_recovery_network(; known = false)
+        @test _LCS.local_basis(default_net, 1; degree = 2, include_interactions = false,
+            scope = :graph).variables == [1, 2]
+        @test_throws ArgumentError _LCS.library_comparison_run(
+            seed = 1, noise_σ = 0.0, kind = :smoke, fixture = :three_state)
+        both = vcat(_LCS.library_comparison_smoke(), rows)
+        table = _LCS.format_library_study_summary(_LCS.library_study_summary(both))
+        @test occursin("| fixture |", table)
     end
 end
