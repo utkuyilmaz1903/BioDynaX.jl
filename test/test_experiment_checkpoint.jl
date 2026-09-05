@@ -106,60 +106,64 @@ end
     @test optstate.holds
 end
 
-@testset "joint generate+train stays compile-free" begin
-    remap = BioDynaX.remapped_generate_train_row()
-    @test remap.holds
-    @test remap.compiles == 0
-    @test remap.n_heads == 2
-    @test remap.arities == [1, 2]
-    warmup = BioDynaX.remapped_warmup_generate_train_row()
-    @test warmup.holds
-    @test warmup.compiles == 0
-    two = BioDynaX.two_regulator_generate_train_row()
-    @test two.holds
-    linear = BioDynaX.linear_generate_train_row()
-    @test linear.holds
-    hill = BioDynaX.hill_ude_generate_train_row()
-    @test hill.holds
-    dual = BioDynaX.dual_generate_train_row()
-    @test dual.holds
-    six = BioDynaX.six_state_generate_train_row()
-    @test six.holds
-    skipped = BioDynaX.skipped_duplicate_generate_train_row()
-    @test skipped.holds
-end
+# The two training-loop testsets below take several minutes; they run in the
+# heavy tier (BIODYNAX_TEST_HEAVY=1), which CI runs on a schedule.
+if get(ENV, "BIODYNAX_TEST_HEAVY", "0") == "1"
+    @testset "joint generate+train stays compile-free" begin
+        remap = BioDynaX.remapped_generate_train_row()
+        @test remap.holds
+        @test remap.compiles == 0
+        @test remap.n_heads == 2
+        @test remap.arities == [1, 2]
+        warmup = BioDynaX.remapped_warmup_generate_train_row()
+        @test warmup.holds
+        @test warmup.compiles == 0
+        two = BioDynaX.two_regulator_generate_train_row()
+        @test two.holds
+        linear = BioDynaX.linear_generate_train_row()
+        @test linear.holds
+        hill = BioDynaX.hill_ude_generate_train_row()
+        @test hill.holds
+        dual = BioDynaX.dual_generate_train_row()
+        @test dual.holds
+        six = BioDynaX.six_state_generate_train_row()
+        @test six.holds
+        skipped = BioDynaX.skipped_duplicate_generate_train_row()
+        @test skipped.holds
+    end
 
-@testset "additional generate+train fixtures stay compile-free" begin
-    mm_u = BioDynaX.mm_unknown_generate_train_row()
-    @test mm_u.holds
-    @test mm_u.compiles == 0
-    comp_k = BioDynaX.competitive_known_generate_train_row()
-    @test comp_k.holds
-    comp_u = BioDynaX.competitive_unknown_generate_train_row()
-    @test comp_u.holds
-    middle = BioDynaX.skipped_middle_generate_train_row()
-    @test middle.holds
-    zero = BioDynaX.zero_hole_generate_fingerprint_row()
-    @test zero.holds
-    @test zero.holes == 0
-    @test zero.recovery_admits == false
-    @test zero.validate_open
-    default = BioDynaX.default_example_generate_train_row()
-    @test default.holds
-    mm_k = BioDynaX.mm_known_generate_row()
-    @test mm_k.holds
-    mm_t = BioDynaX.mm_test_generate_train_row()
-    @test mm_t.holds
-    repress = BioDynaX.repressilator_generate_row()
-    @test repress.holds
-    linear_w = BioDynaX.linear_warmup_generate_train_row()
-    @test linear_w.holds
-    hill_w = BioDynaX.hill_warmup_from_compiled_row()
-    @test hill_w.holds
-    two_w = BioDynaX.two_regulator_warmup_generate_train_row()
-    @test two_w.holds
-    masked = BioDynaX.masked_fingerprint_train_row()
-    @test masked.holds
+    @testset "additional generate+train fixtures stay compile-free" begin
+        mm_u = BioDynaX.mm_unknown_generate_train_row()
+        @test mm_u.holds
+        @test mm_u.compiles == 0
+        comp_k = BioDynaX.competitive_known_generate_train_row()
+        @test comp_k.holds
+        comp_u = BioDynaX.competitive_unknown_generate_train_row()
+        @test comp_u.holds
+        middle = BioDynaX.skipped_middle_generate_train_row()
+        @test middle.holds
+        zero = BioDynaX.zero_hole_generate_fingerprint_row()
+        @test zero.holds
+        @test zero.holes == 0
+        @test zero.recovery_admits == false
+        @test zero.validate_open
+        default = BioDynaX.default_example_generate_train_row()
+        @test default.holds
+        mm_k = BioDynaX.mm_known_generate_row()
+        @test mm_k.holds
+        mm_t = BioDynaX.mm_test_generate_train_row()
+        @test mm_t.holds
+        repress = BioDynaX.repressilator_generate_row()
+        @test repress.holds
+        linear_w = BioDynaX.linear_warmup_generate_train_row()
+        @test linear_w.holds
+        hill_w = BioDynaX.hill_warmup_from_compiled_row()
+        @test hill_w.holds
+        two_w = BioDynaX.two_regulator_warmup_generate_train_row()
+        @test two_w.holds
+        masked = BioDynaX.masked_fingerprint_train_row()
+        @test masked.holds
+    end
 end
 
 @testset "module include and docs page exist" begin
