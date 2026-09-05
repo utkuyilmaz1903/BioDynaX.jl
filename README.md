@@ -47,9 +47,11 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ## Quick start
 
 The block below builds a two-species network, marks one destruction term as
-unknown, generates synthetic data, trains the hybrid model, prints the
-identifiability warning, and discovers a symbolic rate. It runs in about two
-minutes on a laptop.
+unknown, generates synthetic data from four initial conditions, and calls
+`discover_unknown_term`, which trains the hybrid model on three of them,
+prints the identifiability warning, discovers a symbolic rate, and reports
+the residuals on the training and on the held-out experiment. It takes a
+few minutes on a laptop.
 
 ```julia
 using BioDynaX, Random
@@ -73,37 +75,51 @@ function network(; known::Bool)
 end
 
 rng = MersenneTwister(1)
-tspan = (0.0, 10.0)
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
 data = generate_experiment_set(rng; network = network(known = true), truth_params = truth,
-    initial_conditions = [[0.2, 0.1], [1.0, 0.5], [0.5, 1.2]], tspan = tspan,
-    n_points = 40, noise_σ = 0.0)
+    initial_conditions = [[0.2, 0.1], [1.0, 0.5], [0.5, 1.2], [0.3, 0.8]],
+    tspan = (0.0, 10.0), n_points = 40, noise_σ = 0.0)
 
-model, p0 = build_ude_model(rng, network(known = false))   # unknown term -> neural network
-p_init = pack_parameters((k_prod = 0.8, k_rs = 0.8, k_r = 0.8), p0.nn)
-trained = train_experiments(p_init, data, model;
-    config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20), verbose = false)
-
-e = data.experiments[1]
-ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, e.observations, e.times, e.u0, tspan; verbose = true)
-println("scale warning raised: ", ident.unidentifiable_edge)
-
-X = hcat((predict_ude(trained.params, ex.u0, tspan, ex.times, model) for ex in data.experiments)...)
-R, D, term = sample_unknown_destruction(model, trained.params, X)
-found = discover_unknown_rate(R, 1:size(R, 2), D; verbose = false)
-println(found.equations)
+# Trains on the first three experiments, holds out the fourth, and prints the report.
+result = discover_unknown_term(network(known = false), data; rng = rng, holdout = 1,
+    training = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20, log_every = 10^6))
 ```
 
-The full example uses the reference protocol (seed 103, nine initial
+`discover_unknown_term` prints a four-section report (identifiability, fit,
+discovery, reproduction) and returns an `UnknownTermResult` that holds the
+trained model, the identifiability diagnostic, the discovery, and the
+residuals; `report(result)` returns the report as a string. The lines that
+matter most, from a run in September 2026:
+
+```text
+  unidentifiable_edge: true
+  coefficients_are_biological_constants: false
+  collinearity: 0.9952
+  hybrid_data_residual: 0.01272
+  hybrid_data_residual_train: 0.009773
+  hybrid_data_residual_holdout: 0.02114
+dx[1]/dt = (0.21548*1 + -0.83814*x[1] + 2.8172*x[1]^2) / (1 + -1.6151*x[1] + 2.3666*x[1]^2)
+```
+
+Read top to bottom: the production rate `k_prod` and the scale of the unknown
+term are collinear, so the recovered coefficients are not biological constants;
+the hybrid model with the discovered rational rate reproduces the training
+trajectories with a root-mean-square residual of about 0.01 and the held-out
+trajectory with about 0.02; the discovered rate has the Hill-like
+`x^2 / (K + x^2)` structure, with a constant and a linear term remaining.
+`x[1]` is the regulator `R`.
+
+The [tutorial](https://utkuyilmaz1903.github.io/BioDynaX.jl/stable/tutorial/)
+shows the same call on the reference protocol and then the step-by-step
+version of what it does. The reference example (seed 103, nine initial
 conditions, 50 points each, Adam 100 / BFGS 50, discovery on a regulator grid)
-and takes about 10 to 15 minutes:
+takes about 10 to 15 minutes:
 
 ```bash
 julia --project=. examples/unknown_inhibition.jl
 ```
 
-It prints a four-section report. The lines that matter most:
+It prints the same four-section report. The lines that matter most:
 
 ```text
   unidentifiable_edge: true
@@ -113,13 +129,6 @@ It prints a four-section report. The lines that matter most:
 dx[1]/dt = (0.24118*1 + -1.3569*x[1] + 7.7609*x[1]^2) / (1 + -0.3862*x[1] + 4.1863*x[1]^2)
   extras: 1, r
 ```
-
-Read top to bottom: the production rate `k_prod` and the scale of the unknown
-term are collinear, so the recovered coefficients are not biological constants;
-the hybrid model with the discovered rational rate reproduces the first
-trajectory with a root-mean-square residual of about 0.002; the discovered
-rate has the Hill-like `x^2 / (K + x^2)` structure, with two nuisance terms (a
-constant and a linear term) remaining. `x[1]` is the regulator `R`.
 
 ![Hybrid model and discovered destruction rate for the unknown-inhibition example](docs/src/assets/unknown_inhibition.png)
 
