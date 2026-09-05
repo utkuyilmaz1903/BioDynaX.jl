@@ -35,6 +35,13 @@ const LABELS = Dict(
     :global => "global library",
     :wrong_graph => "wrong-graph library")
 
+# Distinct styles so that coinciding lines (graph-local and global on a
+# two-state network) stay visible.
+const STYLES = Dict(
+    :graph_local => (linestyle = :solid, linewidth = 4, marker = :circle, markersize = 6),
+    :global => (linestyle = :dash, linewidth = 2, marker = :square, markersize = 4),
+    :wrong_graph => (linestyle = :dot, linewidth = 2, marker = :diamond, markersize = 4))
+
 function panel(rows, title)
     rows = [row for row in rows if row.variant === :study]
     summary = BioDynaX.library_study_summary(rows; metrics = (:support_f1,))
@@ -53,8 +60,7 @@ function panel(rows, title)
         lo = [entry.support_f1_median - entry.support_f1_q25 for entry in entries]
         hi = [entry.support_f1_q75 - entry.support_f1_median for entry in entries]
         plot!(figure, x, y; ribbon = (lo, hi), fillalpha = 0.15,
-            marker = :circle, markersize = 4, linewidth = 2,
-            label = LABELS[library])
+            STYLES[library]..., label = LABELS[library])
     end
     xticks!(figure, sort(unique(row.noise for row in rows)))
     return figure

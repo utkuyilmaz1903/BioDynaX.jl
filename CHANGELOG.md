@@ -7,7 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `discover_unknown_term(network, experiments; ...)`, a one-call entry
+  point that builds the hybrid model, trains it (warm-up on the first
+  experiment, then Adam 100 and BFGS 50), samples the learned rate on the
+  regulator grid of the training experiments, discovers a rational rate,
+  computes the identifiability diagnostic and the residuals on the first,
+  the training, and the held-out experiments (`holdout = 2` by default), and
+  returns an `UnknownTermResult`; `report(result)` gives the four-section
+  report and `show` prints it. It calls the same functions as the reference
+  example, in the same order, with the same defaults, and a test checks
+  that its result matches the chained calls field by field.
+- An optional stability-selection stage for implicit discovery:
+  `discover_unknown_rate(...; stability_selection = StabilitySelection())`
+  (also on `discover_equations` and `discover_unknown_term`) resamples the
+  training rows of the regression, repeats the thresholded fit on every
+  resample, and drops candidate terms selected in fewer than a fraction `τ`
+  of the resamples. Terms are never added. `stability_selection_report` and
+  `format_stability_selection` show the selection frequency of every library
+  term. Off by default; with it off, discovery output is unchanged.
+- The library comparison study (`BioDynaX.library_comparison_study`,
+  unexported): the trained-model library comparison over seeds and
+  observation-noise levels, scoring the graph-local, global, and wrong-graph
+  libraries on the same trained model, on the four-state fixture and on the
+  two-state reference network, with discovery variants that isolate the
+  library construction and the bootstrap. `benchmark/library_comparison_study.jl`
+  runs it, appends each row to a CSV as it finishes, and resumes from that
+  file; `benchmark/plot_library_comparison.jl` draws the figure. The smoke
+  configuration runs in the default test suite and the study runs in the
+  weekly heavy CI job.
+- `evaluate_trained_graph_local` accepts `seed`, `noise_σ`, and
+  `stability_selection` keywords; `build_hill_recovery_network` accepts
+  `parent`. All defaults reproduce the previous behaviour.
+- `format_protocol_result` accepts `residual_train` and `residual_holdout`
+  (printed only when given).
+
+### Changed
+
+- Documentation: the README quick start and the first tutorial section use
+  `discover_unknown_term`; the tutorial keeps the step-by-step chain as
+  "What the one call does". The benchmarks page has a "Library comparison
+  study" section with the figure, the summary tables for both networks, the
+  investigation of the recall gap between the study and the reference
+  protocol, and the stability-selection comparison; the concepts page
+  explains the pruning stage; the how-to page has a one-call recipe.
 
 ## [0.10.0] - 2026-09-05
 

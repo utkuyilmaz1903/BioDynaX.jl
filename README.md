@@ -50,8 +50,8 @@ The block below builds a two-species network, marks one destruction term as
 unknown, generates synthetic data from four initial conditions, and calls
 `discover_unknown_term`, which trains the hybrid model on three of them,
 prints the identifiability warning, discovers a symbolic rate, and reports
-the residuals on the training and on the held-out experiment. It takes a
-few minutes on a laptop.
+the residuals on the training and on the held-out experiment. It took
+about three minutes on a 4-core machine.
 
 ```julia
 using BioDynaX, Random
