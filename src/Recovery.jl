@@ -71,6 +71,8 @@ significant digits. Not exported.
 """
 function format_protocol_result(ident;
         residual = nothing,
+        residual_train = nothing,
+        residual_holdout = nothing,
         equations = nothing,
         extras = nothing,
         support_f1 = nothing,
@@ -108,6 +110,12 @@ function format_protocol_result(ident;
     end
     println(io, "FIT")
     println(io, "  hybrid_data_residual: ", _format_protocol_value(residual))
+    residual_train === nothing ||
+        println(
+            io, "  hybrid_data_residual_train: ", _format_protocol_value(residual_train))
+    residual_holdout === nothing ||
+        println(io, "  hybrid_data_residual_holdout: ",
+            _format_protocol_value(residual_holdout))
     recall = support_recall === nothing ?
              "not scored (needs the synthetic ground truth)" :
              _format_protocol_value(support_recall)

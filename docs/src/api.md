@@ -101,6 +101,14 @@ StructuralPositivity
 AugmentedLagrangianConfig
 ```
 
+## One-call workflow
+
+```@docs
+discover_unknown_term
+UnknownTermResult
+report
+```
+
 ## Symbolic discovery
 
 ```@docs
