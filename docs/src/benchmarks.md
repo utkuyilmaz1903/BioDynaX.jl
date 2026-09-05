@@ -168,9 +168,14 @@ observations), and the three libraries: 15 trainings and 45 rows.
 (median training 107 s) and `benchmark/plot_library_comparison.jl` drew the
 figure.
 
-![Support F1 against observation noise, one line per library, median over five seeds with the interquartile band](assets/library_comparison.png)
+![Support F1 against observation noise, one line per library, median over five seeds with the interquartile band; left the four-state network, right the two-state network](assets/library_comparison.png)
 
-Median over the five seeds, with the first and third quartile in brackets:
+The left panel is the four-state network of this section; the right panel
+is the two-state reference network described below, where the graph-local
+and global libraries coincide and their lines overlap.
+
+Four-state network, median over the five seeds, with the first and third
+quartile in brackets:
 
 | library | noise | support F1 | support recall | extra terms | held-out residual | neural-rate error |
 |---|---|---|---|---|---|---|
@@ -210,7 +215,143 @@ and 0.05. Within this noise range the graph-local scores do not change, and
 the neural-rate error varies more across seeds (0.035 to 0.19) than across
 noise levels. The study therefore supports the ordering graph-local, then
 global, then wrong graph on this network; it does not show recovery of the
-exact mechanism, and it is five seeds on one network.
+exact mechanism, and it is five seeds on one network. The two subsections
+below run the same study on the two-state reference network and trace the
+recall of 0.5 to the library construction.
+
+### Two-state network
+
+The same study function (`fixture = :two_state`) trains the two-state
+reference network of the tutorial with the reference protocol at each seed
+and noise level: nine initial conditions with 50 points each, experiments
+1 to 7 for training and 8 and 9 held out, Adam 100 then BFGS 50, the truth
+parameters `k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6`. The
+learned rate is sampled on the regulator grid of the training experiments
+(80 points, as in the reference protocol) with S spread over its observed
+range in a fixed shuffled order, and discovery runs with the same three
+libraries. On a two-state network the graph-local library (S and its
+parent R) and the global library (S and the only other state, R) are the
+same library, so their rows coincide; the wrong graph makes S its own
+parent and its library is S alone. `benchmark/library_comparison_study.jl
+--fixture two_state --variants all` ran the 15 trainings in 39 minutes
+(median training 128 s, four studies sharing 4 cores). Median over the
+five seeds:
+
+| library | noise | support F1 | support recall | extra terms | held-out residual | neural-rate error |
+|---|---|---|---|---|---|---|
+| graph-local | 0 | 0.57 [0.57, 0.57] | 1.0 | 2 [2, 2] | 0.008 [0.007, 0.010] | 0.046 |
+| graph-local | 0.02 | 0.57 [0.57, 0.57] | 1.0 | 2 [2, 2] | 0.021 [0.020, 0.022] | 0.040 |
+| graph-local | 0.05 | 0.57 [0.57, 0.57] | 1.0 | 2 [2, 2] | 0.050 [0.049, 0.051] | 0.042 |
+| global | 0 | 0.57 [0.57, 0.57] | 1.0 | 2 [2, 2] | 0.008 [0.007, 0.010] | 0.046 |
+| global | 0.02 | 0.57 [0.57, 0.57] | 1.0 | 2 [2, 2] | 0.021 [0.020, 0.022] | 0.040 |
+| global | 0.05 | 0.57 [0.57, 0.57] | 1.0 | 2 [2, 2] | 0.050 [0.049, 0.051] | 0.042 |
+| wrong graph | 0 | 0.00 | 0.0 | 1 | 1.303 [1.302, 1.310] | 0.046 |
+| wrong graph | 0.02 | 0.00 | 0.0 | 1 | 1.242 [1.240, 1.245] | 0.040 |
+| wrong graph | 0.05 | 0.00 | 0.0 | 1 | 1.160 [1.136, 1.167] | 0.042 |
+
+On this network the true support is recovered in all 15 runs of the
+graph-local library (recall 1.0), with the same two extra terms as the
+reference protocol, a constant and a linear term, at every noise level. The
+wrong-graph library recovers nothing and its hybrid model has a residual
+more than a hundred times larger; one of its 15 discoveries failed
+(seed 111, noise 0.05). Same environment as above.
+
+### Why the four-state recall is 0.5
+
+The four-state study and the reference protocol use the same discovery
+thresholds and degrees but differ in the library (the study's library is
+built by `local_basis`, which always includes the target state S, and on the
+designed sample coordinates S is fixed at 0.4, so its column is a multiple
+of the constant term), in the bootstrap (the study uses none; the reference
+protocol uses a block bootstrap of 8 with a consensus refit and nested
+pruning), and in the sample order (the reference protocol permutes the
+samples before the validation split). The denominator candidates are the
+same in both: every non-constant monomial, including `R^2`. To find which
+difference matters, the study reran discovery on the same learned-rate
+samples of the same 15 trained models in four variants: `study` (as
+above), `bootstrap` (the study's libraries with the reference bootstrap),
+`parents` (libraries over the parent states only, no bootstrap), and
+`reference` (parent-only libraries with the reference bootstrap, seed, and
+permutation; for the graph-local library this is exactly
+`discover_unknown_rate` with `rate_discovery_config()`). Pooled over the 15
+runs of each library:
+
+| variant | library | runs with recall 1.0 | support F1 | extra terms | held-out residual | extra-term labels (runs) |
+|---|---|---|---|---|---|---|
+| study | graph-local | 0 of 15 | 0.40 [0.40, 0.50] | 2 [1, 2] | 0.044 [0.030, 0.056] | R 15, 1 7, S^2 2 |
+| study | global | 0 of 15 | 0.00 [0.00, 0.33] | 5 [3, 5] | 0.132 [0.123, 0.154] | R 15, Q^2 14, Z^2 14, Q 7, S 5, S^2 4, Z 1 |
+| study | wrong graph | 0 of 15 | 0.00 | 2 [2, 2] | 0.257 [0.248, 0.301] | Q 15, S^2 8, 1 4, S 3 |
+| bootstrap | graph-local | 0 of 15 | 0.50 [0.50, 0.50] | 1 [1, 1] | 0.032 [0.024, 0.054] | R 15, 1 1 |
+| bootstrap | global | 0 of 15 | 0.50 [0.00, 0.50] | 1 [1, 1] | 0.133 [0.053, 0.174] | R 11, Q^2 3, Z^2 1 |
+| bootstrap | wrong graph | 0 of 15 | 0.00 | 1 [1, 1] | 0.499 [0.491, 0.503] | Q 15, Q^2 3 |
+| parents | graph-local | 15 of 15 | 0.57 [0.57, 0.57] | 2 [2, 2] | 0.021 [0.009, 0.047] | 1 15, R 15 |
+| parents | global | 15 of 15 | 0.31 [0.31, 0.36] | 5 [5, 5] | 0.171 [0.116, 0.298] | 1 15, Q 15, Q^2 15, Z 15, Z^2 14 |
+| parents | wrong graph | 0 of 15 | 0.00 | 2 [2, 2] | 0.339 [0.337, 0.343] | 1 15, Q 15 |
+| reference | graph-local | 15 of 15 | 0.57 [0.57, 0.62] | 2 [2, 2] | 0.020 [0.007, 0.047] | 1 14, R 14 |
+| reference | global | 14 of 15 | 0.36 [0.36, 0.38] | 5 [4, 5] | 0.139 [0.046, 0.200] | 1 14, Q 14, Z 14, Q^2 11, Z^2 11 |
+| reference | wrong graph | 0 of 15 | 0.00 | 3 [3, 3] | 0.255 [0.252, 0.258] | 1 14, Q^2 14, Q 13 |
+
+Two discoveries failed (reference variant, global and wrong-graph
+libraries, seed 111, noise 0.05); they count as recall 0. The runs took
+33 minutes (`benchmark/library_comparison_study.jl --variants all`, median
+training 119 s, four studies sharing 4 cores) and their `study` rows are
+identical to the table above, row for row.
+
+What the numbers show. The bootstrap removes the extra constant term but
+leaves recall at 0.5 in every run. Leaving the target state S out of the
+library restores recall 1.0 in all 15 runs, with the reference protocol's
+two extra terms, whether or not the bootstrap and the permutation are
+added. The recall gap between the four-state study and the reference
+protocol is therefore a library-construction difference: on the designed
+sample coordinates S is constant, and with that column in the library the
+implicit fit settles on a polynomial in R and never selects a denominator
+term. The two-state table above, where S varies across the samples and the
+library still contains S, reaches recall 1.0 as well, which points at the
+constant column rather than at the presence of the target state; a
+four-state run with S varying on the designed coordinates was not part of
+this study. The ordering graph-local, then global, then wrong graph holds
+in all four variants: with parent-only libraries the global library also
+recovers the true support but keeps five extra terms and has a residual
+five to eight times larger than the graph-local library's. The `study`
+variant remains the default of the study and of
+`evaluate_trained_graph_local`; the other variants are available through
+the `variants` keyword.
+
+### Stability selection on the library comparison study
+
+The optional stability-selection stage (see
+[Concepts](concepts.md#Pruning-nuisance-terms)) was run with its defaults
+(100 resamples, τ = 0.8) on the graph-local library of both networks, for
+the `study` and the `reference` discovery variants, on the same 15
+trainings (`benchmark/library_comparison_study.jl --pruning --variants
+study,reference`; 34 and 39 minutes; the trainings reproduced the
+neural-rate errors of the runs above exactly). Median over the five seeds,
+pruning off against pruning on:
+
+| network | variant | noise | F1 off | F1 on | recall off | recall on | extra terms off | extra terms on |
+|---|---|---|---|---|---|---|---|---|
+| four-state | study | 0 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
+| four-state | study | 0.02 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
+| four-state | study | 0.05 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
+| four-state | reference | 0 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
+| four-state | reference | 0.02 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
+| four-state | reference | 0.05 | 0.67 [0.67, 0.67] | 0.67 [0.67, 0.67] | 1.0 | 1.0 | 2 | 2 |
+| two-state | study | 0 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
+| two-state | study | 0.02 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
+| two-state | study | 0.05 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
+| two-state | reference | 0 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
+| two-state | reference | 0.02 | 0.57 [0.57, 0.67] | 0.57 [0.57, 0.80] | 1.0 | 1.0 | 2 | 2 [1, 2] |
+| two-state | reference | 0.05 | 0.67 [0.57, 0.80] | 0.67 [0.57, 0.80] | 1.0 | 1.0 | 2 [1, 2] | 2 [1, 2] |
+
+Pruning never reduced recall. It changed 9 of the 15 four-state `study`
+rows, dropping the constant or the `S^2` term and leaving `R` as the only
+extra term (F1 0.40 to 0.50), and 1 of the 30 two-state rows (seed 127,
+noise 0.02, reference variant: the linear term dropped, F1 0.67 to 0.80).
+It did not remove the reference protocol's constant and linear terms in any
+other run: those terms are selected in at least 80% of the row resamples,
+so at τ = 0.8 they are stable, not spurious. The stage therefore does not
+raise F1 on the reference protocol; it stays available and off by default.
+Same environment as above.
 
 ## Report fields
 
