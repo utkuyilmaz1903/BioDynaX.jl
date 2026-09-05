@@ -6,10 +6,10 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BioDynaX
 using BioDynaX:
-    run_recovery_suite, discover_equations, DiscoveryConfig,
-    DataDrivenSparseSTLSQ, build_rate_ablation_network, hill_rate_truth,
-    hill_rate_support, support_f1, denominator_violation_count,
-    rate_rel_rmse, equation_to_function, support_uses_variable
+                run_recovery_suite, discover_equations, DiscoveryConfig,
+                DataDrivenSparseSTLSQ, build_rate_ablation_network, hill_rate_truth,
+                hill_rate_support, support_f1, denominator_violation_count,
+                rate_rel_rmse, equation_to_function, support_uses_variable
 using Printf
 using Random
 
@@ -48,18 +48,19 @@ X_ab, dX_ab = BioDynaX._permute_rate_samples(X_ab, dX_ab, 104)
 times_ab = collect(range(0.0, 1.0; length = length(r)))
 dd = _try_datadriven(X_ab, dX_ab, times_ab)
 if dd === nothing
-println("  DataDrivenSparse global  skipped (package not loaded; not a CI dep)")
+    println("  DataDrivenSparse global  skipped (package not loaded; not a CI dep)")
     println("  Frozen row in docs: unavailable (DataDrivenSparse resolve conflicts with this preview; not a win)")
 else
     truth = hill_rate_support(2; variable = 1)
     cand = dd.success && !isempty(dd.result.candidates) ?
-        dd.result.candidates[1] : nothing
+           dd.result.candidates[1] : nothing
     f1 = cand === nothing ? 0.0 :
-        support_f1(cand, truth.numerator, truth.denominator).combined.f1
+         support_f1(cand, truth.numerator, truth.denominator).combined.f1
     fp = cand !== nothing && support_uses_variable(cand; variable = 2)
     den = cand === nothing ? typemax(Int) : denominator_violation_count(cand, X_ab)
     rmse = cand === nothing ? Inf :
-        rate_rel_rmse([equation_to_function(cand)(X_ab[:, j])
-                       for j in axes(X_ab, 2)], vec(dX_ab[1, :]))
+           rate_rel_rmse(
+        [equation_to_function(cand)(X_ab[:, j])
+         for j in axes(X_ab, 2)], vec(dX_ab[1, :]))
     @printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "DataDrivenSparse global" f1 string(fp) string(den) rmse dd.elapsed
 end

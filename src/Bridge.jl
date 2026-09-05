@@ -23,26 +23,26 @@ function build_dual_unknown_network()::BiologicalNetwork
     nodes = [
         NodeSpec(name = :A),
         NodeSpec(name = :B),
-        NodeSpec(name = :C),
+        NodeSpec(name = :C)
     ]
     reactions = [
         ReactionSpec(name = :drive_a,
-                     stoichiometry = Dict(1 => 1.0), regulators = [3],
-                     metadata = MassActionMetadata(rate_param = :k_ca)),
+            stoichiometry = Dict(1 => 1.0), regulators = [3],
+            metadata = MassActionMetadata(rate_param = :k_ca)),
         ReactionSpec(name = :drive_b,
-                     stoichiometry = Dict(2 => 1.0), regulators = [3],
-                     metadata = MassActionMetadata(rate_param = :k_cb)),
+            stoichiometry = Dict(2 => 1.0), regulators = [3],
+            metadata = MassActionMetadata(rate_param = :k_cb)),
         ReactionSpec(name = :unknown_a_decay,
-                     stoichiometry = Dict(1 => -1.0), regulators = [2],
-                     known = false, family = HILL,
-                     metadata = HillMetadata()),
+            stoichiometry = Dict(1 => -1.0), regulators = [2],
+            known = false, family = HILL,
+            metadata = HillMetadata()),
         ReactionSpec(name = :unknown_b_decay,
-                     stoichiometry = Dict(2 => -1.0), regulators = [1],
-                     known = false, family = HILL,
-                     metadata = HillMetadata()),
+            stoichiometry = Dict(2 => -1.0), regulators = [1],
+            known = false, family = HILL,
+            metadata = HillMetadata()),
         ReactionSpec(name = :c_decay,
-                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_c)),
+            stoichiometry = Dict(3 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_c))
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
@@ -51,7 +51,7 @@ end
 function build_kinetic_generalization_network()::BiologicalNetwork
     nodes = [
         NodeSpec(name = :E),
-        NodeSpec(name = :S),
+        NodeSpec(name = :S)
     ]
     custom_eval = (x, p, regulators) -> begin
         reg = max(zero(eltype(x)), x[only(regulators)])
@@ -59,18 +59,18 @@ function build_kinetic_generalization_network()::BiologicalNetwork
     end
     reactions = [
         ReactionSpec(name = :sat_prod,
-                     stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     known = true, family = SATURATION,
-                     metadata = SaturationMetadata(
-                         vmax_param = :vmax, km_param = :km)),
+            stoichiometry = Dict(1 => 1.0), regulators = [2],
+            known = true, family = SATURATION,
+            metadata = SaturationMetadata(
+                vmax_param = :vmax, km_param = :km)),
         ReactionSpec(name = :custom_decay,
-                     stoichiometry = Dict(1 => -2.0), regulators = [2],
-                     known = true, family = CUSTOM_KINETIC,
-                     metadata = CustomKineticMetadata(
-                         rate_param = :k_custom, evaluator = custom_eval)),
+            stoichiometry = Dict(1 => -2.0), regulators = [2],
+            known = true, family = CUSTOM_KINETIC,
+            metadata = CustomKineticMetadata(
+                rate_param = :k_custom, evaluator = custom_eval)),
         ReactionSpec(name = :s_decay,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_s)),
+            stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_s))
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end

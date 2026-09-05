@@ -34,9 +34,9 @@ function BioDynaX.export_mtk_system(model::UDEModel; name::Symbol = :BioDynaXNet
     end
     unique!(param_syms)
     @parameters (param_syms...)
-    pmap = Dict{Symbol,Num}(s => s for s in param_syms)
+    pmap = Dict{Symbol, Num}(s => s for s in param_syms)
 
-    nn_map = Dict{Int,Num}()
+    nn_map = Dict{Int, Num}()
     for term in cm.destruction_terms
         term isa NeuralDestructionTerm || continue
         sym = Symbol("nn_", term.nn_index)

@@ -39,7 +39,6 @@ Base.@kwdef struct AugmentedLagrangianConfig <: AbstractConstraintStrategy
     progress_ratio::Float64 = 0.5
 end
 
-
 """Compatibility AD backend using Zygote out-of-place sensitivities."""
 struct ZygoteAD <: AbstractADPolicy end
 
@@ -67,7 +66,7 @@ end
 ODE integrator and adjoint settings used by `train_ude`, `predict_ude`, and
 `SciMLBase.solve(::UDEModel, ...)`.
 """
-struct SolverConfig{A,S,T<:AbstractFloat,P<:AbstractADPolicy}
+struct SolverConfig{A, S, T <: AbstractFloat, P <: AbstractADPolicy}
     algorithm::A
     sensealg::S
     abstol::T
@@ -77,10 +76,10 @@ struct SolverConfig{A,S,T<:AbstractFloat,P<:AbstractADPolicy}
 end
 
 function SolverConfig(; algorithm = Tsit5(),
-                      ad_policy::AbstractADPolicy = ZygoteAD(),
-                      sensealg = sensealg(ad_policy),
-                      abstol::Real = 1e-6, reltol::Real = 1e-6,
-                      maxiters::Int = 1_000_000)
+        ad_policy::AbstractADPolicy = ZygoteAD(),
+        sensealg = sensealg(ad_policy),
+        abstol::Real = 1e-6, reltol::Real = 1e-6,
+        maxiters::Int = 1_000_000)
     tolerance_type = promote_type(typeof(float(abstol)), typeof(float(reltol)))
     return SolverConfig(
         algorithm, sensealg, tolerance_type(abstol), tolerance_type(reltol),
@@ -95,7 +94,7 @@ Adam then optional BFGS settings for `train_ude` / `train_experiments`.
 (gradient zeroed; restored after BFGS). Use this to pin a known production
 rate; it does not remove `k_prod`↔`D(z)` Jacobian collinearity.
 """
-struct TrainingConfig{T<:AbstractFloat,C<:AbstractConstraintStrategy,S,H}
+struct TrainingConfig{T <: AbstractFloat, C <: AbstractConstraintStrategy, S, H}
     adam_iterations::Int
     adam_learning_rate::T
     bfgs_iterations::Int
@@ -113,7 +112,7 @@ end
 Typed horizon curriculum for stable long-horizon UDE training. Pass as
 `horizon_schedule` to `TrainingConfig` instead of a raw fraction vector.
 """
-struct HorizonCurriculum{T<:AbstractFloat}
+struct HorizonCurriculum{T <: AbstractFloat}
     fractions::Vector{T}
     min_points::Int
     minimum_fraction::T
@@ -153,23 +152,23 @@ the payload adjoint switches between `BacksolveAdjoint` and
 `InterpolatingAdjoint`.
 """
 struct SensealgRecommendation
-    sensealg
+    sensealg::Any
     name::Symbol
     rationale::String
 end
 
 function TrainingConfig(; adam_iterations::Int = 300,
-                        adam_learning_rate::Real = 1e-2,
-                        bfgs_iterations::Int = 100,
-                        gradient_clip::Real = 10,
-                        log_every::Int = 20,
-                        constraint::AbstractConstraintStrategy =
-                            StructuralPositivity(),
-                        solver::SolverConfig = SolverConfig(),
-                        horizon_schedule = [0.25, 0.5, 1.0],
-                        frozen_phys::Vector{Symbol} = Symbol[])
+        adam_learning_rate::Real = 1e-2,
+        bfgs_iterations::Int = 100,
+        gradient_clip::Real = 10,
+        log_every::Int = 20,
+        constraint::AbstractConstraintStrategy =
+        StructuralPositivity(),
+        solver::SolverConfig = SolverConfig(),
+        horizon_schedule = [0.25, 0.5, 1.0],
+        frozen_phys::Vector{Symbol} = Symbol[])
     T = promote_type(typeof(float(adam_learning_rate)),
-                     typeof(float(gradient_clip)))
+        typeof(float(gradient_clip)))
     resolved_schedule = if horizon_schedule isa HorizonCurriculum
         horizon_schedule
     else
@@ -182,15 +181,15 @@ function TrainingConfig(; adam_iterations::Int = 300,
 end
 
 function TrainingConfig(base::TrainingConfig;
-                        adam_iterations = base.adam_iterations,
-                        adam_learning_rate = base.adam_learning_rate,
-                        bfgs_iterations = base.bfgs_iterations,
-                        gradient_clip = base.gradient_clip,
-                        log_every = base.log_every,
-                        constraint = base.constraint,
-                        solver = base.solver,
-                        horizon_schedule = base.horizon_schedule,
-                        frozen_phys = base.frozen_phys)
+        adam_iterations = base.adam_iterations,
+        adam_learning_rate = base.adam_learning_rate,
+        bfgs_iterations = base.bfgs_iterations,
+        gradient_clip = base.gradient_clip,
+        log_every = base.log_every,
+        constraint = base.constraint,
+        solver = base.solver,
+        horizon_schedule = base.horizon_schedule,
+        frozen_phys = base.frozen_phys)
     return TrainingConfig(;
         adam_iterations, adam_learning_rate, bfgs_iterations, gradient_clip,
         log_every, constraint, solver, horizon_schedule,
@@ -241,7 +240,7 @@ end
 Discovery options. `basis_scope=:graph` is the product prior; `:global` is
 the internal ablation that adds every other dynamic node to the library.
 """
-struct DiscoveryConfig{B<:AbstractDiscoveryBackend}
+struct DiscoveryConfig{B <: AbstractDiscoveryBackend}
     backend::B
     include_constant::Bool
     include_interactions::Bool
@@ -251,11 +250,11 @@ struct DiscoveryConfig{B<:AbstractDiscoveryBackend}
 end
 
 function DiscoveryConfig(; backend::AbstractDiscoveryBackend = ImplicitSINDyPI(),
-                         include_constant::Bool = true,
-                         include_interactions::Bool = true,
-                         max_interaction_order::Int = 2,
-                         seed::Integer = 42,
-                         basis_scope::Symbol = :graph)
+        include_constant::Bool = true,
+        include_interactions::Bool = true,
+        max_interaction_order::Int = 2,
+        seed::Integer = 42,
+        basis_scope::Symbol = :graph)
     basis_scope === :graph || basis_scope === :global ||
         throw(ArgumentError("basis_scope must be :graph or :global, got $basis_scope"))
     return DiscoveryConfig(

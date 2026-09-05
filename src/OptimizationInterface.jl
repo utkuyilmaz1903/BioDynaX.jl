@@ -15,13 +15,16 @@ function build_optimization_problem(
         dual = zeros(eltype(p_init), size(data, 1)),
         ρ = config.constraint isa AugmentedLagrangianConfig ?
             config.constraint.initial_ρ : zero(eltype(p_init)))
-    objective(p, _) = loss_mse(
-        p, data, t_data, u0, tspan, model;
-        constraint = config.constraint, dual, ρ,
-        solver_config = config.solver, mask = mask)
+    function objective(p, _)
+        loss_mse(
+            p, data, t_data, u0, tspan, model;
+            constraint = config.constraint, dual, ρ,
+            solver_config = config.solver, mask = mask)
+    end
     return Optimization.OptimizationProblem(
         Optimization.OptimizationFunction(objective, Optimization.AutoZygote()),
-        p_init), objective
+        p_init),
+    objective
 end
 
 """
@@ -30,8 +33,8 @@ end
 Integrate a BioDynaX optimization problem with Optimization.jl defaults.
 """
 function solve_optimization(prob::Optimization.OptimizationProblem;
-                            maxiters::Int = 100,
-                            algorithm = OptimizationOptimJL.BFGS())
+        maxiters::Int = 100,
+        algorithm = OptimizationOptimJL.BFGS())
     return Optimization.solve(prob, algorithm; maxiters = maxiters)
 end
 
@@ -41,12 +44,12 @@ end
 One-shot training through Optimization.jl (BFGS by default).
 """
 function train_via_optimization(model::UDEModel, p_init, data, t_data, u0, tspan;
-                                config::TrainingConfig = TrainingConfig(),
-                                maxiters::Int = 100,
-                                algorithm = OptimizationOptimJL.BFGS(),
-                                seed::Integer = 0,
-                                verbose::Bool = false,
-                                kwargs...)
+        config::TrainingConfig = TrainingConfig(),
+        maxiters::Int = 100,
+        algorithm = OptimizationOptimJL.BFGS(),
+        seed::Integer = 0,
+        verbose::Bool = false,
+        kwargs...)
     prob, objective = build_optimization_problem(
         model, p_init, data, t_data, u0, tspan; config = config, kwargs...)
     initial_loss = objective(p_init, nothing)
@@ -63,8 +66,8 @@ function train_via_optimization(model::UDEModel, p_init, data, t_data, u0, tspan
         opt_result.u, Float64[initial_loss, final_loss],
         initial_loss, final_loss, metadata,
         (mse = final_loss, constraint = 0.0, primal_residual = 0.0,
-         final_gradient_norm = NaN, gradient_norm_history = Float64[],
-         bfgs = (attempted = true, success = converged, retcode = :success,
-                 message = "Optimization.jl solve")),
+            final_gradient_norm = NaN, gradient_norm_history = Float64[],
+            bfgs = (attempted = true, success = converged, retcode = :success,
+                message = "Optimization.jl solve")),
         converged, retcode)
 end

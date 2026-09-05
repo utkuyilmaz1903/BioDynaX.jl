@@ -83,7 +83,8 @@ function make_figure(path = joinpath(@__DIR__, "..", "docs", "src", "assets",
     plot!(p2, r, vec(res.D); label = "learned (neural)", linewidth = 2, linestyle = :dash)
     plot!(p2, r, found; label = "discovered (rational)", linewidth = 2, linestyle = :dot)
 
-    figure = plot(p1, p2; layout = (1, 2), size = (1100, 400), left_margin = 8Plots.mm, bottom_margin = 6Plots.mm)
+    figure = plot(p1, p2; layout = (1, 2), size = (1100, 400),
+        left_margin = 8Plots.mm, bottom_margin = 6Plots.mm)
     mkpath(dirname(path))
     savefig(figure, path)
     println("wrote ", path)

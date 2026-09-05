@@ -982,4 +982,3 @@ function basis_factory_evaluates_in_place()
     return occursin("evaluate_term!", body) &&
            !occursin("evaluate_term(term, X)", body)
 end
-

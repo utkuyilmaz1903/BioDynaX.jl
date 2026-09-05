@@ -57,7 +57,7 @@ struct DiscoveryUncertaintyReport
     support_frequency::Vector{Float64}
     validation_error::Float64
     stable_terms::Vector{String}
-    coefficient_intervals::Vector{Tuple{String,Float64,Float64}}
+    coefficient_intervals::Vector{Tuple{String, Float64, Float64}}
 end
 
 """
@@ -72,12 +72,12 @@ function uncertainty_reports(result::DiscoveryResult)
         return map(result.candidates) do candidate
             stable = String[]
             for (coefficient, term) in zip(
-                    candidate.coefficients, candidate.specification.numerator)
+                candidate.coefficients, candidate.specification.numerator)
                 abs(coefficient) > 0 && push!(stable, term.label)
             end
             DiscoveryUncertaintyReport(
                 candidate.target, Float64[], candidate.validation_error,
-                stable, Tuple{String,Float64,Float64}[])
+                stable, Tuple{String, Float64, Float64}[])
         end
     end
     reports = DiscoveryUncertaintyReport[]
@@ -89,16 +89,17 @@ function uncertainty_reports(result::DiscoveryResult)
             candidate.numerator_coefficients,
             candidate.denominator_coefficients)
         stable = String[]
-        intervals = Tuple{String,Float64,Float64}[]
+        intervals = Tuple{String, Float64, Float64}[]
         for (coefficient, term, frequency) in zip(
-                coefficients, terms, candidate.selection_frequency)
+            coefficients, terms, candidate.selection_frequency)
             frequency ≥ 0.5 || continue
             push!(stable, term.label)
             push!(intervals, (term.label, coefficient, coefficient))
         end
-        push!(reports, DiscoveryUncertaintyReport(
-            candidate.target, candidate.selection_frequency,
-            candidate.validation_error, stable, intervals))
+        push!(reports,
+            DiscoveryUncertaintyReport(
+                candidate.target, candidate.selection_frequency,
+                candidate.validation_error, stable, intervals))
     end
     return reports
 end

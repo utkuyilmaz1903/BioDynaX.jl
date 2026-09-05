@@ -15,18 +15,19 @@ function BioDynaX.import_sbml_network(path::AbstractString)
     model = _sbml_model(readSBML(path))
     species = _sbml_species(model)
     nodes = NodeSpec[]
-    name_to_idx = Dict{String,Int}()
+    name_to_idx = Dict{String, Int}()
     for (i, (sid, spec)) in enumerate(species)
-        push!(nodes, NodeSpec(
-            name = Symbol(replace(sid, "-" => "_")),
-            kind = _sbml_boundary(spec) ? INPUT : STATE,
-            observed = !_sbml_boundary(spec)))
+        push!(nodes,
+            NodeSpec(
+                name = Symbol(replace(sid, "-" => "_")),
+                kind = _sbml_boundary(spec) ? INPUT : STATE,
+                observed = !_sbml_boundary(spec)))
         name_to_idx[sid] = i
     end
     isempty(nodes) && throw(ArgumentError("SBML model contains no species"))
     reactions = ReactionSpec[]
     for (rid, rxn) in _sbml_reactions(model)
-        stoich = Dict{Int,Float64}()
+        stoich = Dict{Int, Float64}()
         for (sid, coeff) in _sbml_stoichiometry(rxn)
             idx = get(name_to_idx, sid) do
                 throw(ArgumentError("unknown species $sid in reaction $rid"))
@@ -45,13 +46,14 @@ function BioDynaX.import_sbml_network(path::AbstractString)
         end
         safe_id = replace(string(rid), "-" => "_")
         known, family, meta = _honest_kinetic_metadata(rxn, safe_id)
-        push!(reactions, ReactionSpec(
-            name = Symbol(safe_id),
-            stoichiometry = stoich,
-            regulators = regulators,
-            known = known,
-            family = family,
-            metadata = meta))
+        push!(reactions,
+            ReactionSpec(
+                name = Symbol(safe_id),
+                stoichiometry = stoich,
+                regulators = regulators,
+                known = known,
+                family = family,
+                metadata = meta))
     end
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
@@ -68,15 +70,17 @@ function _sbml_reactions(model)
     raw isa AbstractDict ? collect(raw) : collect(pairs(raw))
 end
 
-_sbml_boundary(spec) = hasproperty(spec, :boundary_condition) ?
+function _sbml_boundary(spec)
+    hasproperty(spec, :boundary_condition) ?
     spec.boundary_condition :
     (hasproperty(spec, :boundary) ? spec.boundary : false)
+end
 
 function _sbml_stoichiometry(rxn)
     if hasproperty(rxn, :stoichiometry)
         return rxn.stoichiometry
     end
-    stoich = Dict{String,Float64}()
+    stoich = Dict{String, Float64}()
     if hasproperty(rxn, :reactants)
         for ref in rxn.reactants
             stoich[string(ref.species)] = -Float64(ref.stoichiometry)

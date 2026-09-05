@@ -14,8 +14,8 @@
 
     @test mean(abs2, prediction .- derivative) < 1e-8
     @test minimum(abs, denominator_values) > 0
-    @test numerator[2] ≈ vmax / km atol = 1e-3
-    @test denominator[1] ≈ inv(km) atol = 1e-3
+    @test numerator[2]≈vmax / km atol=1e-3
+    @test denominator[1]≈inv(km) atol=1e-3
 end
 
 @testset "Hill and competitive inhibition recovery" begin
@@ -37,7 +37,7 @@ end
     nodes = [NodeSpec(name = :substrate), NodeSpec(name = :inhibitor)]
     network = BiologicalNetwork(
         nodes, [EdgeSpec(source = 2, target = 1, kind = INHIBITION,
-                         family = COMPETITIVE)])
+            family = COMPETITIVE)])
     substrate = repeat(collect(range(0.1, 2.0; length = 30)), 30)
     inhibitor = repeat(collect(range(0.0, 1.5; length = 30)); inner = 30)
     states = permutedims(hcat(substrate, inhibitor))

@@ -155,9 +155,11 @@ end
 
 if abspath(PROGRAM_FILE) == abspath(@__FILE__)
     smoke = get(ENV, "BIODYNAX_SMOKE", "0") == "1"
-    adam = parse(Int, get(ENV, "ADAM_ITERS",
-        string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.adam_iterations)))
-    bfgs = parse(Int, get(ENV, "BFGS_ITERS",
-        string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.bfgs_iterations)))
+    adam = parse(
+        Int, get(ENV, "ADAM_ITERS",
+            string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.adam_iterations)))
+    bfgs = parse(
+        Int, get(ENV, "BFGS_ITERS",
+            string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.bfgs_iterations)))
     main(; adam_iters = adam, bfgs_iters = bfgs, smoke = smoke)
 end

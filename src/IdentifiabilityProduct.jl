@@ -1108,4 +1108,3 @@ function recovery_thresholds_untouched_row()
                 lock.data_residual == 0.30 &&
                 lock.support_recall == 0.99)
 end
-

@@ -1579,4 +1579,3 @@ function experiment_checkpoint_fixture_matrix_namedtuple(matrix)
         from_compiled_compiles = extra.from_compiled.compiles,
         holds = matrix.holds)
 end
-

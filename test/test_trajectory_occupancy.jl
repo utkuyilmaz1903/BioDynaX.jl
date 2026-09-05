@@ -21,8 +21,7 @@ const _M4A_FORBIDDEN_MUTATORS = (
 
 const _M4A_PROTOCOL_TRAIN_COLS = 7 * UNIQUE_CLAIM_PROTOCOL.n_points
 const _M4A_PROTOCOL_HOLDOUT_COLS = 2 * UNIQUE_CLAIM_PROTOCOL.n_points
-const _M4A_PROTOCOL_TOTAL_COLS =
-    _M4A_PROTOCOL_TRAIN_COLS + _M4A_PROTOCOL_HOLDOUT_COLS
+const _M4A_PROTOCOL_TOTAL_COLS = _M4A_PROTOCOL_TRAIN_COLS + _M4A_PROTOCOL_HOLDOUT_COLS
 
 function _m4a_source()
     return read(joinpath(@__DIR__, "..", "src", "TrajectoryOccupancy.jl"),
@@ -67,16 +66,15 @@ end
 # the regulator row alone (the two 0.1 columns have different S and Q).
 function _m4a_three_state_split()
     train = (
-        _m4a_experiment(:T1, [10.0, 11.0, 12.0], [
-            4.40 7.70 1.10;
-            0.10 0.50 0.10;
-            2.20 5.50 8.80]),
+        _m4a_experiment(
+            :T1, [10.0, 11.0, 12.0], [4.40 7.70 1.10;
+                                      0.10 0.50 0.10;
+                                      2.20 5.50 8.80]),
         _m4a_experiment(:T2, [1.0], reshape([9.90, 0.80, 3.30], 3, 1)))
     holdout = (
-        _m4a_experiment(:H1, [30.0, 31.0], [
-            6.60 0.44;
-            1.75 1.75;
-            9.91 0.22]),
+        _m4a_experiment(:H1, [30.0, 31.0], [6.60 0.44;
+                                            1.75 1.75;
+                                            9.91 0.22]),
         _m4a_experiment(:H2, [0.5], reshape([1.33, 0.40, 4.40], 3, 1)))
     return ExperimentSplit(
         UNIQUE_CLAIM_TRAIN_INDICES,
@@ -87,14 +85,12 @@ end
 
 function _m4a_two_state_split()
     train = (
-        _m4a_experiment(:T1, [10.0, 11.0, 12.0], [
-            4.40 7.70 1.10;
-            0.10 0.50 0.10]),
+        _m4a_experiment(:T1, [10.0, 11.0, 12.0], [4.40 7.70 1.10;
+                                                  0.10 0.50 0.10]),
         _m4a_experiment(:T2, [1.0], reshape([9.90, 0.80], 2, 1)))
     holdout = (
-        _m4a_experiment(:H1, [30.0, 31.0], [
-            6.60 0.44;
-            1.75 1.75]),
+        _m4a_experiment(:H1, [30.0, 31.0], [6.60 0.44;
+                                            1.75 1.75]),
         _m4a_experiment(:H2, [0.5], reshape([1.33, 0.40], 2, 1)))
     return ExperimentSplit(
         UNIQUE_CLAIM_TRAIN_INDICES,
@@ -105,7 +101,7 @@ end
 
 function _m4a_nine_ic_set()
     experiments = [_m4a_experiment(Symbol("E$i"), [Float64(i)],
-        reshape(Float64[0.71, 0.10 + 0.01 * i, 4.4], 3, 1)) for i in 1:9]
+                       reshape(Float64[0.71, 0.10 + 0.01 * i, 4.4], 3, 1)) for i in 1:9]
     return ExperimentSet(experiments, [:S, :R, :Q])
 end
 
@@ -199,7 +195,7 @@ function _m4a_assert_intact(set::ExperimentSet, snap)
     @test length(set.experiments) == snap.n
     @test length(set) == snap.n
     @test all(set.experiments[i] === snap.experiments[i]
-              for i in eachindex(snap.experiments))
+    for i in eachindex(snap.experiments))
     @test set.state_names == snap.state_names
     @test set.units == snap.units
     @test set.metadata == snap.metadata
@@ -228,7 +224,8 @@ end
 # keep only the last log entry.
 function _m4a_with_sample_call_log(f::Function, captured_calls::Vector)
     empty!(captured_calls)
-    return with_sample_unknown_destruction_observer(f, obs -> begin
+    return with_sample_unknown_destruction_observer(
+        f, obs -> begin
             push!(captured_calls, obs)
             nothing
         end)
@@ -335,10 +332,9 @@ end
 @testset "T-A-SRC producer uses observed hcat, not a hand-built constructor" begin
     split = _m4a_three_state_split()
     expected_X = _m4a_independent_X(split.train.experiments)
-    @test expected_X == [
-        4.40 7.70 1.10 9.90;
-        0.10 0.50 0.10 0.80;
-        2.20 5.50 8.80 3.30]
+    @test expected_X == [4.40 7.70 1.10 9.90;
+                         0.10 0.50 0.10 0.80;
+                         2.20 5.50 8.80 3.30]
     occupancy = collect_observed_occupancy(split, :train_observed_states)
     @test occupancy isa TrajectoryOccupancy
     @test occupancy.X == expected_X
@@ -410,10 +406,9 @@ end
     @test hold_occ.construction === :holdout_observed_states
     @test hold_occ.construction !== :train_obs_union_holdout_obs
     @test hold_occ.X == hold_X
-    @test hold_occ.X == [
-        6.60 0.44 1.33;
-        1.75 1.75 0.40;
-        9.91 0.22 4.40]
+    @test hold_occ.X == [6.60 0.44 1.33;
+                         1.75 1.75 0.40;
+                         9.91 0.22 4.40]
     @test hold_occ.experiment_index == [8, 8, 9]
     @test hold_occ.sample_index_in_exp == [1, 2, 1]
     @test hold_occ.split_indices == (8, 9)
@@ -421,7 +416,7 @@ end
     @test train_occ.X != mixed_X
     @test hold_occ.X != mixed_X
     @test size(train_occ.X, 2) != size(mixed_X, 2)
-    @test all(c -> train_occ.X[:, c] != hold_X[:, 1], 1:train_occ.n_points)
+    @test all(c -> train_occ.X[:, c] != hold_X[:, 1], 1:(train_occ.n_points))
     @test_throws ArgumentError collect_observed_occupancy(
         _m4a_nine_ic_set(), :train_observed_states)
     @test_throws ArgumentError collect_observed_occupancy(
@@ -432,7 +427,7 @@ end
     set = _m4a_protocol_set()
     @test length(set) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
     @test all(size(exp.observations, 2) == UNIQUE_CLAIM_PROTOCOL.n_points
-              for exp in set.experiments)
+    for exp in set.experiments)
     model, params, term = _m4a_probe_models()
     split = unique_claim_experiment_split(set)
     @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES ===
@@ -472,7 +467,7 @@ end
     nonreg = filter(!=(term.regulator), 1:size(train_occ.X, 1))
     @test !isempty(nonreg)
     @test any(train_occ.X[i, :] != train_occ.X[term.regulator, :]
-              for i in nonreg)
+    for i in nonreg)
     @test train_occ.X != domain.z
     @test hold_occ.X != domain.z
     @test size(train_occ.X) != size(reshape(domain.z, 1, :))
@@ -533,7 +528,7 @@ end
     set = _m4a_protocol_set()
     @test length(set) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
     @test all(size(exp.observations, 2) == UNIQUE_CLAIM_PROTOCOL.n_points
-              for exp in set.experiments)
+    for exp in set.experiments)
     model, params, term = _m4a_probe_models()
     split = unique_claim_experiment_split(set)
     @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES ===
@@ -578,7 +573,7 @@ end
     set = _m4a_protocol_set()
     @test length(set) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
     @test all(size(exp.observations, 2) == UNIQUE_CLAIM_PROTOCOL.n_points
-              for exp in set.experiments)
+    for exp in set.experiments)
     model, params, term = _m4a_probe_models()
     split = unique_claim_experiment_split(set)
     @test split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
@@ -648,7 +643,7 @@ end
     sample_body = _m4a_function_body("sample_destruction_occupancy")
     occ_src = _m4a_source()
     for token in ("hill_rate_truth", "equation_to_function",
-                  "normalize_destruction_samples")
+        "normalize_destruction_samples")
         @test !occursin(token, sample_body)
         @test !occursin(token, occ_src)
     end
@@ -662,10 +657,10 @@ end
     captured = Ref{Any}()
     occupancy_hits = Ref(0)
     evaled = with_evaluate_unknown_rate_recovery_range_observer(r_range -> begin
-            captured[] = r_range
-            occupancy_hits[] += r_range isa TrajectoryOccupancy
-            _m4a_dummy_evaled(term)
-        end) do
+        captured[] = r_range
+        occupancy_hits[] += r_range isa TrajectoryOccupancy
+        _m4a_dummy_evaled(term)
+    end) do
         _unique_claim_rate_recovery(
             model, params, term, _ -> 0.0, set;
             order = 2, family = :hill, noise_σ = 0.0,
@@ -693,10 +688,10 @@ end
     captured = Any[]
     truth_rate = _m4a_matching_truth(model, params, term)
     with_discover_unknown_rate_observer((R, times, D, config) -> begin
-            push!(captured, (;
-                R = copy(R), times = copy(times), D = copy(D), config))
-            return _m4a_dummy_discovery()
-        end) do
+        push!(captured, (;
+            R = copy(R), times = copy(times), D = copy(D), config))
+        return _m4a_dummy_discovery()
+    end) do
         _unique_claim_rate_recovery(
             model, params, term, truth_rate, set;
             order = 2, family = :hill, noise_σ = 0.0,
@@ -711,10 +706,8 @@ end
     @test occursin("times = collect(range(0.0, 1.0; length = length(r)))",
         composer)
     sample_hits = Ref(0)
-    with_discover_unknown_rate_observer((_...) ->
-        error("occupancy sampling must not enter discover_unknown_rate")) do
-        with_sample_unknown_destruction_observer(_ ->
-            (sample_hits[] += 1; nothing)) do
+    with_discover_unknown_rate_observer((_...) -> error("occupancy sampling must not enter discover_unknown_rate")) do
+        with_sample_unknown_destruction_observer(_ -> (sample_hits[] += 1; nothing)) do
             sample_destruction_occupancy(model, params, term, occupancy)
         end
     end

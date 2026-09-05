@@ -9,7 +9,7 @@
 
     duplicate = [
         EdgeSpec(source = 1, target = 2, kind = ACTIVATION),
-        EdgeSpec(source = 1, target = 2, kind = ACTIVATION),
+        EdgeSpec(source = 1, target = 2, kind = ACTIVATION)
     ]
     @test_throws ArgumentError BiologicalNetwork(
         [NodeSpec(name = :a), NodeSpec(name = :b)], duplicate)

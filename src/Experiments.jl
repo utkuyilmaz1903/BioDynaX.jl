@@ -4,29 +4,29 @@
 One biological experiment with irregular sampling, missing-data mask and
 arbitrary metadata. Observations are stored as `(states, times)`.
 """
-struct Experiment{T<:AbstractFloat,M<:AbstractMatrix{T},V<:AbstractVector{T}}
+struct Experiment{T <: AbstractFloat, M <: AbstractMatrix{T}, V <: AbstractVector{T}}
     name::Symbol
     times::V
     observations::M
     mask::BitMatrix
     u0::V
-    metadata::Dict{Symbol,Any}
+    metadata::Dict{Symbol, Any}
 end
 
 """Device-resident experiment view used by optional accelerator extensions."""
-struct DeviceExperiment{TA,OA,MA,UA}
+struct DeviceExperiment{TA, OA, MA, UA}
     name::Symbol
     times::TA
     observations::OA
     mask::MA
     u0::UA
-    metadata::Dict{Symbol,Any}
+    metadata::Dict{Symbol, Any}
 end
 
 function Experiment(name::Symbol, times::AbstractVector{T},
-                    observations::AbstractMatrix{T}, u0::AbstractVector{T};
-                    mask = isfinite.(observations),
-                    metadata = Dict{Symbol,Any}()) where {T<:AbstractFloat}
+        observations::AbstractMatrix{T}, u0::AbstractVector{T};
+        mask = isfinite.(observations),
+        metadata = Dict{Symbol, Any}()) where {T <: AbstractFloat}
     issorted(times) || throw(ArgumentError("experiment times must be sorted"))
     length(times) == size(observations, 2) ||
         throw(DimensionMismatch("observations must have one column per time"))
@@ -36,9 +36,9 @@ function Experiment(name::Symbol, times::AbstractVector{T},
         throw(DimensionMismatch("mask and observations must have equal size"))
     all(diff(times) .> zero(T)) ||
         throw(ArgumentError("experiment times must be strictly increasing"))
-    return Experiment{T,Matrix{T},Vector{T}}(
+    return Experiment{T, Matrix{T}, Vector{T}}(
         name, collect(times), Matrix(observations), BitMatrix(mask),
-        collect(u0), Dict{Symbol,Any}(metadata))
+        collect(u0), Dict{Symbol, Any}(metadata))
 end
 
 """
@@ -47,17 +47,17 @@ end
 A named collection of `Experiment`s that share state dimension and labels.
 This is the multi-IC training input for `train_experiments`.
 """
-struct ExperimentSet{T<:AbstractFloat,E<:Experiment}
+struct ExperimentSet{T <: AbstractFloat, E <: Experiment}
     experiments::Vector{E}
     state_names::Vector{Symbol}
     units::Vector{Symbol}
-    metadata::Dict{Symbol,Any}
+    metadata::Dict{Symbol, Any}
 end
 
 function ExperimentSet(experiments::AbstractVector{<:Experiment},
-                       state_names::Vector{Symbol};
-                       units = fill(:dimensionless, length(state_names)),
-                       metadata = Dict{Symbol,Any}())
+        state_names::Vector{Symbol};
+        units = fill(:dimensionless, length(state_names)),
+        metadata = Dict{Symbol, Any}())
     isempty(experiments) &&
         throw(ArgumentError("ExperimentSet cannot be empty"))
     T = eltype(first(experiments).times)
@@ -72,15 +72,15 @@ function ExperimentSet(experiments::AbstractVector{<:Experiment},
     length(units) == nstates ||
         throw(DimensionMismatch("units and state_names must align"))
     all(size(experiment.observations, 1) == nstates
-        for experiment in experiments) ||
+    for experiment in experiments) ||
         throw(DimensionMismatch("all experiments must share state dimension"))
     stored = Vector{E}(undef, length(experiments))
     for (index, experiment) in pairs(experiments)
         stored[index] = experiment
     end
-    return ExperimentSet{T,E}(
+    return ExperimentSet{T, E}(
         stored, copy(state_names), collect(Symbol, units),
-        Dict{Symbol,Any}(metadata))
+        Dict{Symbol, Any}(metadata))
 end
 
 Base.length(set::ExperimentSet) = length(set.experiments)
@@ -96,23 +96,22 @@ function experiment_fingerprint(set::ExperimentSet)
 end
 
 function as_experiment_set(data, times, u0;
-                           name::Symbol = :experiment,
-                           state_names = [Symbol("x$i") for i in axes(data, 1)])
+        name::Symbol = :experiment,
+        state_names = [Symbol("x$i") for i in axes(data, 1)])
     exp = Experiment(name, times, data, u0)
     return ExperimentSet([exp], collect(state_names))
 end
 
 """Relative experiment weight from metadata (`:weight`, default `1.0`)."""
-experiment_weight(experiment::Experiment) =
-    Float64(get(experiment.metadata, :weight, 1.0))
+experiment_weight(experiment::Experiment) = Float64(get(experiment.metadata, :weight, 1.0))
 
 """Observation noise scale for heteroskedastic weighting (`:noise_σ`, default `1.0`)."""
-experiment_noise_scale(experiment::Experiment) =
-    Float64(get(experiment.metadata, :noise_σ, 1.0))
+experiment_noise_scale(experiment::Experiment) = Float64(get(
+    experiment.metadata, :noise_σ, 1.0))
 
 function experiment_batches(set::ExperimentSet, batch_size::Integer;
-                            shuffle::Bool = false,
-                            rng::AbstractRNG = Random.default_rng())
+        shuffle::Bool = false,
+        rng::AbstractRNG = Random.default_rng())
     batch_size > 0 || throw(ArgumentError("batch_size must be positive"))
     indices = collect(eachindex(set.experiments))
     shuffle && Random.shuffle!(rng, indices)
@@ -129,12 +128,12 @@ Load a time-series table into an `Experiment`. The first numeric column is time
 unless `time_column` is set; remaining columns are states (rows of `observations`).
 """
 function experiment_from_csv(path::AbstractString;
-                             time_column::Int = 1,
-                             u0 = nothing,
-                             name::Symbol = :experiment,
-                             state_names = nothing,
-                             delim::Char = ',',
-                             header::Bool = true)
+        time_column::Int = 1,
+        u0 = nothing,
+        name::Symbol = :experiment,
+        state_names = nothing,
+        delim::Char = ',',
+        header::Bool = true)
     raw = readdlm(path, delim, Float64; header = header)
     if header
         body, header_row = raw
@@ -152,8 +151,8 @@ function experiment_from_csv(path::AbstractString;
     initial = u0 === nothing ? observations[:, 1] : Float64.(u0)
     labels = if state_names === nothing
         header ?
-            [Symbol(replace(names[i], r"[^A-Za-z0-9_]" => "_")) for i in state_cols] :
-            [Symbol("x$i") for i in eachindex(state_cols)]
+        [Symbol(replace(names[i], r"[^A-Za-z0-9_]" => "_")) for i in state_cols] :
+        [Symbol("x$i") for i in eachindex(state_cols)]
     else
         collect(Symbol, state_names)
     end
@@ -169,9 +168,9 @@ end
 Write `times` plus one row per state of an `Experiment` to CSV.
 """
 function write_experiment_csv(path::AbstractString, experiment::Experiment;
-                              state_names = [Symbol("x$i")
-                                             for i in axes(experiment.observations, 1)],
-                              delim::Char = ',')
+        state_names = [Symbol("x$i")
+                       for i in axes(experiment.observations, 1)],
+        delim::Char = ',')
     length(state_names) == size(experiment.observations, 1) ||
         throw(DimensionMismatch("state_names must match observation rows"))
     header = ["t"; string.(state_names)]
@@ -195,7 +194,7 @@ end
 
 """Zero a fraction of one state's observation mask (column 1 is kept)."""
 function subsample_state_mask(experiment::Experiment, state::Int,
-                              keep_fraction::Real, rng::AbstractRNG)
+        keep_fraction::Real, rng::AbstractRNG)
     mask = copy(experiment.mask)
     n = size(mask, 2)
     nkeep = max(2, round(Int, keep_fraction * n))

@@ -1,4 +1,4 @@
-struct UDEModelImpl{N,NN,ST,C}
+struct UDEModelImpl{N, NN, ST, C}
     network::N
     nn::NN
     st::ST
@@ -57,8 +57,9 @@ and return `(; phys, nn)`. Not exported.
 function unpack_parameters(p)
     hasproperty(p, :phys) ||
         throw(ArgumentError("packed parameters need a phys block"))
-    phys = (; (name => positive_parameter(getproperty(p.phys, name))
-               for name in propertynames(p.phys))...)
+    phys = (;
+        (name => positive_parameter(getproperty(p.phys, name))
+        for name in propertynames(p.phys))...)
     nn = hasproperty(p, :nn) ? p.nn : nothing
     return (; phys, nn)
 end
@@ -76,14 +77,13 @@ constant (`softplus(raw) + floor`). The one-argument form uses
 """
 @inline positive_parameter(raw) = softplus(raw) + eps(typeof(raw))
 @inline positive_parameter(raw, floor) = softplus(raw) + floor
-@inline inverse_softplus(value) =
-    value > zero(value) ? value + log(-expm1(-value)) :
-    throw(DomainError(value, "positive parameters must be > 0"))
-@inline bounded_parameter(raw, lower, upper) =
-    lower + (upper - lower) * sigmoid(raw)
+@inline inverse_softplus(value) = value > zero(value) ? value + log(-expm1(-value)) :
+                                  throw(DomainError(
+    value, "positive parameters must be > 0"))
+@inline bounded_parameter(raw, lower, upper) = lower + (upper - lower) * sigmoid(raw)
 
 """Independent Lux head per unknown mechanism (Phase 2 multi-NN)."""
-struct MultiHeadNetwork{T<:Tuple}
+struct MultiHeadNetwork{T <: Tuple}
     heads::T
 end
 
@@ -114,7 +114,7 @@ function _single_head_chain(preset::Symbol = :medium; input::Int = 1)
         return _chain_from_widths([4, 1], [tanh, softplus]; input = input)
     preset == :large &&
         return _chain_from_widths([16, 16, 16, 1], [tanh, tanh, tanh, softplus];
-                                  input = input)
+            input = input)
     preset == :medium &&
         return _chain_from_widths([8, 8, 1], [tanh, tanh, softplus]; input = input)
     throw(ArgumentError("unknown NN preset $preset; choose :small, :medium, or :large"))
@@ -158,7 +158,7 @@ const _DEFAULT_MEDIUM_PACK_AXIS = let
     getfield(packed, :axes)
 end
 const _DEFAULT_PACKED_TYPE = ComponentVector{Float64, Vector{Float64},
-                                            typeof(_DEFAULT_MEDIUM_PACK_AXIS)}
+    typeof(_DEFAULT_MEDIUM_PACK_AXIS)}
 
 # More specific than the keyword method so `build_ude_nn(MersenneTwister(...))`
 # (the standards allocation fixture) infers a concrete parameter tree.
@@ -168,16 +168,16 @@ function build_ude_nn(rng::MersenneTwister)
 end
 
 function pack_parameters(phys::NamedTuple{(:k_ba, :k_a, :k_b)},
-                         nn_ps::NamedTuple{(:layer_1, :layer_2, :layer_3)})
+        nn_ps::NamedTuple{(:layer_1, :layer_2, :layer_3)})
     raw_phys = map(inverse_softplus, phys)
     tmp = ComponentVector(phys = raw_phys, nn = ComponentVector(nn_ps))
     packed = ComponentVector(getfield(tmp, :data)::Vector{Float64},
-                             _DEFAULT_MEDIUM_PACK_AXIS)
+        _DEFAULT_MEDIUM_PACK_AXIS)
     return packed::_DEFAULT_PACKED_TYPE
 end
 
 function build_ude_nn(rng::AbstractRNG; n_heads::Int = 1, preset::Symbol = :medium,
-                      input_dims = nothing)
+        input_dims = nothing)
     n_heads == 1 && preset === :medium && input_dims === nothing &&
         return _build_default_nn(rng)
     n_heads ≥ 1 || throw(ArgumentError("n_heads must be ≥ 1"))
@@ -190,16 +190,16 @@ function build_ude_nn(rng::AbstractRNG; n_heads::Int = 1, preset::Symbol = :medi
         return model, _float64_param_tree(ps), st
     end
     heads = ntuple(i -> _single_head_chain(preset; input = dims[i]), n_heads)
-    ps_pairs = Pair{Symbol,Any}[]
-    st_pairs = Pair{Symbol,Any}[]
+    ps_pairs = Pair{Symbol, Any}[]
+    st_pairs = Pair{Symbol, Any}[]
     for i in 1:n_heads
         ps_i, st_i = Lux.setup(rng, heads[i])
         push!(ps_pairs, Symbol("head_$i") => _float64_param_tree(ps_i))
         push!(st_pairs, Symbol("head_$i") => st_i)
     end
     return MultiHeadNetwork(heads),
-           ComponentVector(; ps_pairs...),
-           NamedTuple(st_pairs)
+    ComponentVector(; ps_pairs...),
+    NamedTuple(st_pairs)
 end
 
 @inline function _nn_head_params(p_nn, st, slot::Int)

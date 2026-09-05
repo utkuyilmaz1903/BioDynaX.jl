@@ -5,45 +5,45 @@ function build_repressilator_network(; hill_order::Int = 4)::BiologicalNetwork
     nodes = [
         NodeSpec(name = :A),
         NodeSpec(name = :B),
-        NodeSpec(name = :C),
+        NodeSpec(name = :C)
     ]
     reactions = [
         ReactionSpec(name = :basal_a,
-                     stoichiometry = Dict(1 => 1.0), regulators = Int[],
-                     metadata = InputDriveMetadata(
-                         rate_param = :basal, input_param = :unit)),
+            stoichiometry = Dict(1 => 1.0), regulators = Int[],
+            metadata = InputDriveMetadata(
+                rate_param = :basal, input_param = :unit)),
         ReactionSpec(name = :b_inhibits_a,
-                     stoichiometry = Dict(1 => -1.0), regulators = [3],
-                     known = true, family = HILL,
-                     metadata = HillMetadata(
-                         vmax_param = :vmax_a, k_param = :K_c, hill_order = hill_order)),
+            stoichiometry = Dict(1 => -1.0), regulators = [3],
+            known = true, family = HILL,
+            metadata = HillMetadata(
+                vmax_param = :vmax_a, k_param = :K_c, hill_order = hill_order)),
         ReactionSpec(name = :basal_b,
-                     stoichiometry = Dict(2 => 1.0), regulators = Int[],
-                     metadata = InputDriveMetadata(
-                         rate_param = :basal, input_param = :unit)),
+            stoichiometry = Dict(2 => 1.0), regulators = Int[],
+            metadata = InputDriveMetadata(
+                rate_param = :basal, input_param = :unit)),
         ReactionSpec(name = :c_inhibits_b,
-                     stoichiometry = Dict(2 => -1.0), regulators = [1],
-                     known = true, family = HILL,
-                     metadata = HillMetadata(
-                         vmax_param = :vmax_b, k_param = :K_a, hill_order = hill_order)),
+            stoichiometry = Dict(2 => -1.0), regulators = [1],
+            known = true, family = HILL,
+            metadata = HillMetadata(
+                vmax_param = :vmax_b, k_param = :K_a, hill_order = hill_order)),
         ReactionSpec(name = :basal_c,
-                     stoichiometry = Dict(3 => 1.0), regulators = Int[],
-                     metadata = InputDriveMetadata(
-                         rate_param = :basal, input_param = :unit)),
+            stoichiometry = Dict(3 => 1.0), regulators = Int[],
+            metadata = InputDriveMetadata(
+                rate_param = :basal, input_param = :unit)),
         ReactionSpec(name = :a_inhibits_c,
-                     stoichiometry = Dict(3 => -1.0), regulators = [2],
-                     known = true, family = HILL,
-                     metadata = HillMetadata(
-                         vmax_param = :vmax_c, k_param = :K_b, hill_order = hill_order)),
+            stoichiometry = Dict(3 => -1.0), regulators = [2],
+            known = true, family = HILL,
+            metadata = HillMetadata(
+                vmax_param = :vmax_c, k_param = :K_b, hill_order = hill_order)),
         ReactionSpec(name = :decay_a,
-                     stoichiometry = Dict(1 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :γ)),
+            stoichiometry = Dict(1 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :γ)),
         ReactionSpec(name = :decay_b,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :γ)),
+            stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :γ)),
         ReactionSpec(name = :decay_c,
-                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :γ)),
+            stoichiometry = Dict(3 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :γ))
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
@@ -52,7 +52,7 @@ end
 benchmark_networks() = (
     p53 = DEFAULT_EXAMPLE_NETWORK,
     linear = build_linear_test_network(),
-    repressilator = build_repressilator_network(),
+    repressilator = build_repressilator_network()
 )
 
 struct BenchmarkOutcome
@@ -70,10 +70,10 @@ end
 End-to-end smoke benchmark across standard network topologies.
 """
 function run_benchmark_suite(rng::AbstractRNG = Random.default_rng();
-                             discovery::Bool = true,
-                             noise_σ::Real = 0.02,
-                             n_points::Int = 16,
-                             train_kwargs...)
+        discovery::Bool = true,
+        noise_σ::Real = 0.02,
+        n_points::Int = 16,
+        train_kwargs...)
     outcomes = BenchmarkOutcome[]
     for (name, network) in pairs(benchmark_networks())
         model, params = build_ude_model(rng, network)
@@ -97,9 +97,10 @@ function run_benchmark_suite(rng::AbstractRNG = Random.default_rng();
                 verbose = false)
             disc_ok = result.success
         end
-        push!(outcomes, BenchmarkOutcome(
-            name, trained.initial_loss, trained.final_loss,
-            trained.converged, trained.retcode, disc_ok))
+        push!(outcomes,
+            BenchmarkOutcome(
+                name, trained.initial_loss, trained.final_loss,
+                trained.converged, trained.retcode, disc_ok))
     end
     return outcomes
 end

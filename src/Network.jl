@@ -75,7 +75,7 @@ coefficients; regulators affect the rate but are not necessarily consumed.
 """
 Base.@kwdef struct ReactionSpec
     name::Symbol
-    stoichiometry::Dict{Int,Float64}
+    stoichiometry::Dict{Int, Float64}
     regulators::Vector{Int} = Int[]
     known::Bool = true
     family::KineticFamily = MASS_ACTION
@@ -92,17 +92,17 @@ to neural destruction terms; known families become mechanistic IR.
 struct BiologicalNetwork
     graph::SimpleDiGraph{Int}
     nodes::Vector{NodeSpec}
-    interactions::Dict{Tuple{Int,Int},EdgeSpec}
+    interactions::Dict{Tuple{Int, Int}, EdgeSpec}
     reactions::Vector{ReactionSpec}
     # Compatibility views retained through the 0.x migration.
-    node_names::Dict{Int,String}
-    edge_kinds::Dict{Tuple{Int,Int},EdgeKind}
+    node_names::Dict{Int, String}
+    edge_kinds::Dict{Tuple{Int, Int}, EdgeKind}
 end
 
 function BiologicalNetwork(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec};
-                           reactions::Vector{ReactionSpec} = ReactionSpec[])
+        reactions::Vector{ReactionSpec} = ReactionSpec[])
     g = SimpleDiGraph(length(nodes))
-    interactions = Dict{Tuple{Int,Int},EdgeSpec}()
+    interactions = Dict{Tuple{Int, Int}, EdgeSpec}()
     for edge in edges
         1 ≤ edge.source ≤ length(nodes) ||
             throw(ArgumentError("invalid source node $(edge.source)"))
@@ -140,9 +140,9 @@ function _validate_reaction_metadata!(network::BiologicalNetwork, reaction::Reac
         has_eval = meta isa CustomKineticMetadata && meta.evaluator !== nothing
         has_preset = meta isa CustomKineticMetadata && meta.preset != :none
         dict_eval = meta isa AbstractDict{Symbol} &&
-            haskey(meta, :evaluator) && meta[:evaluator] isa Function
+                    haskey(meta, :evaluator) && meta[:evaluator] isa Function
         dict_preset = meta isa AbstractDict{Symbol} &&
-            _meta_symbol(meta, :preset, :none) !== :none
+                      _meta_symbol(meta, :preset, :none) !== :none
         (has_eval || has_preset || dict_eval || dict_preset) ||
             throw(ArgumentError(
                 "reaction $(reaction.name): CUSTOM_KINETIC requires evaluator or preset"))
@@ -225,45 +225,44 @@ end
 1-based node indices that are dynamic (`STATE` or `LATENT`). Input nodes are
 excluded from the compiled ODE state.
 """
-state_nodes(network::BiologicalNetwork) =
-    findall(node -> node.kind != INPUT, network.nodes)
+state_nodes(network::BiologicalNetwork) = findall(node -> node.kind != INPUT, network.nodes)
 
 """Graph in-neighbors of `target` (the local discovery prior)."""
-candidate_parents(network::BiologicalNetwork, target::Integer) =
-    collect(inneighbors(network.graph, target))
+candidate_parents(network::BiologicalNetwork, target::Integer) = collect(inneighbors(
+    network.graph, target))
 
 function build_network()::BiologicalNetwork
     nodes = [
         NodeSpec(name = :DNA_Damage, kind = INPUT, observed = true),
         NodeSpec(name = :p53),
-        NodeSpec(name = :Mdm2),
+        NodeSpec(name = :Mdm2)
     ]
     edges = [
         EdgeSpec(source = 1, target = 2, kind = ACTIVATION,
-                 family = MASS_ACTION),
+            family = MASS_ACTION),
         EdgeSpec(source = 2, target = 3, kind = ACTIVATION,
-                 family = MASS_ACTION),
+            family = MASS_ACTION),
         EdgeSpec(source = 3, target = 2, kind = UNKNOWN_NN, known = false,
-                 family = HILL, max_order = 4),
+            family = HILL, max_order = 4)
     ]
     reactions = [
         ReactionSpec(name = :input_drives_p53,
-                     stoichiometry = Dict(2 => 1.0),
-                     regulators = Int[],
-                     metadata = InputDriveMetadata(
-                         input_node = 1,
-                         rate_param = :α_p53,
-                         input_param = :signal)),
+            stoichiometry = Dict(2 => 1.0),
+            regulators = Int[],
+            metadata = InputDriveMetadata(
+                input_node = 1,
+                rate_param = :α_p53,
+                input_param = :signal)),
         ReactionSpec(name = :p53_to_Mdm2,
-                     stoichiometry = Dict(3 => 1.0), regulators = [2],
-                     metadata = MassActionMetadata(rate_param = :β_mdm2)),
+            stoichiometry = Dict(3 => 1.0), regulators = [2],
+            metadata = MassActionMetadata(rate_param = :β_mdm2)),
         ReactionSpec(name = :Mdm2_degrades_p53,
-                     stoichiometry = Dict(2 => -1.0), regulators = [3],
-                     known = false, family = HILL,
-                     metadata = HillMetadata()),
+            stoichiometry = Dict(2 => -1.0), regulators = [3],
+            known = false, family = HILL,
+            metadata = HillMetadata()),
         ReactionSpec(name = :Mdm2_linear_decay,
-                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :γ_mdm2)),
+            stoichiometry = Dict(3 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :γ_mdm2))
     ]
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
@@ -275,32 +274,32 @@ const DEFAULT_EXAMPLE_NETWORK = build_network()
 function build_linear_test_network()::BiologicalNetwork
     nodes = [
         NodeSpec(name = :A),
-        NodeSpec(name = :B),
+        NodeSpec(name = :B)
     ]
     reactions = [
         ReactionSpec(name = :b_drives_a,
-                     stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     metadata = MassActionMetadata(rate_param = :k_ba)),
+            stoichiometry = Dict(1 => 1.0), regulators = [2],
+            metadata = MassActionMetadata(rate_param = :k_ba)),
         ReactionSpec(name = :a_linear_decay,
-                     stoichiometry = Dict(1 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_a)),
+            stoichiometry = Dict(1 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_a)),
         ReactionSpec(name = :b_linear_decay,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_b)),
+            stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_b))
     ]
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
 function describe_network(network::BiologicalNetwork)
     println("BiologicalNetwork: ", nv(network.graph), " nodes, ",
-            ne(network.graph), " edges, ", length(network.reactions),
-            " reactions")
+        ne(network.graph), " edges, ", length(network.reactions),
+        " reactions")
     for edge in values(network.interactions)
         source = network.nodes[edge.source].name
         target = network.nodes[edge.target].name
         status = edge.known ? "known" : "unknown"
         println("    ", source, " → ", target, " (", edge.kind, ", ",
-                edge.family, ", ", status, ")")
+            edge.family, ", ", status, ")")
     end
     return nothing
 end

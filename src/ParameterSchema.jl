@@ -52,7 +52,7 @@ function parameter_schema(model::UDEModel)
         sym ∈ seen || (push!(names, sym); push!(seen, sym))
     end
     nn_heads = count(term -> term isa NeuralDestructionTerm,
-                     model.compiled.destruction_terms)
+        model.compiled.destruction_terms)
     return ParameterSchema(names, nn_heads)
 end
 
@@ -69,7 +69,7 @@ end
 
 """Default positive physical parameters for a compiled model."""
 function default_phys_parameters(schema::ParameterSchema)
-    defaults = Dict{Symbol,Float64}(
+    defaults = Dict{Symbol, Float64}(
         :α_p53 => 0.9, :β_mdm2 => 1.1, :γ_mdm2 => 1.5, :signal => 1.0,
         :vmax => 1.0, :km => 0.5, :ki => 0.5, :n => 4.0, :K => 0.5,
         :γ => 1.0, :k => 0.5, :unit => 1.0, :k_custom => 0.8)
@@ -80,7 +80,7 @@ end
 function _nn_parameters_matching(rng::AbstractRNG, model::UDEModel)
     nn = model.nn
     if nn isa MultiHeadNetwork
-        ps_pairs = Pair{Symbol,Any}[]
+        ps_pairs = Pair{Symbol, Any}[]
         for (i, head) in enumerate(nn.heads)
             ps_i, _ = Lux.setup(rng, head)
             push!(ps_pairs, Symbol("head_$i") => _float64_param_tree(ps_i))
@@ -92,7 +92,7 @@ function _nn_parameters_matching(rng::AbstractRNG, model::UDEModel)
 end
 
 function default_parameters(network::BiologicalNetwork, model::UDEModel;
-                            rng::AbstractRNG = Random.default_rng())
+        rng::AbstractRNG = Random.default_rng())
     schema = parameter_schema(model)
     validate_phys_parameters(default_phys_parameters(schema), schema)
     return pack_parameters(

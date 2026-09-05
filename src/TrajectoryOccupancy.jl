@@ -24,7 +24,7 @@ struct TrajectoryOccupancy
     sample_index_in_exp::Vector{Int}
     times::Vector{Float64}
     provenance::Symbol
-    split_indices
+    split_indices::Any
     n_points::Int
     construction::Symbol
     function TrajectoryOccupancy(
@@ -104,8 +104,9 @@ function _validated_occupancy_indices(
         "occupancy does not concatenate a full reference-protocol experiment collection; collect split.train and split.holdout separately"))
     has_train = any(in(train_ids), stored)
     has_hold = any(in(hold_ids), stored)
-    has_train && has_hold && throw(ArgumentError(
-        "occupancy does not concatenate train and holdout; collect split.train and split.holdout separately"))
+    has_train && has_hold &&
+        throw(ArgumentError(
+            "occupancy does not concatenate train and holdout; collect split.train and split.holdout separately"))
     if provenance === :train_observed_states
         all(in(train_ids), stored) || throw(ArgumentError(
             ":train_observed_states requires train split_indices"))
@@ -144,8 +145,8 @@ function collect_observed_occupancy(
     stored_indices = _validated_occupancy_indices(
         length(experiments), provenance, split_indices)
     X = reduce(hcat, (Float64.(exp.observations) for exp in experiments))
-    experiment_index, sample_index_in_exp, times =
-        _occupancy_column_index(experiments, stored_indices)
+    experiment_index, sample_index_in_exp, times = _occupancy_column_index(
+        experiments, stored_indices)
     return TrajectoryOccupancy(
         X, experiment_index, sample_index_in_exp, times,
         provenance, stored_indices, size(X, 2), provenance)

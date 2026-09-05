@@ -39,16 +39,19 @@ function _a2_probe_models()
 end
 
 function _a2_independent_z(split, regulator)
-    r_train = reduce(vcat, (Float64.(exp.observations[regulator, :])
-                            for exp in split.train.experiments))
-    r_hold = reduce(vcat, (Float64.(exp.observations[regulator, :])
-                           for exp in split.holdout.experiments))
+    r_train = reduce(
+        vcat, (Float64.(exp.observations[regulator, :])
+        for exp in split.train.experiments))
+    r_hold = reduce(vcat,
+        (Float64.(exp.observations[regulator, :])
+        for exp in split.holdout.experiments))
     return vcat(r_train, r_hold)
 end
 
 function _a2_independent_holdout_r(split, term)
-    return reduce(vcat, (Float64.(exp.observations[term.regulator, :])
-                         for exp in split.holdout.experiments))
+    return reduce(vcat,
+        (Float64.(exp.observations[term.regulator, :])
+        for exp in split.holdout.experiments))
 end
 
 function _a2_hill_truth()
@@ -134,34 +137,35 @@ end
 
 function _a2_with_live_observers(f, logs)
     return with_evaluate_unknown_rate_recovery_range_observer(r_range -> begin
-            push!(logs.range, r_range)
+        push!(logs.range, r_range)
+        nothing
+    end) do
+        with_sample_unknown_destruction_grid_observer(r_range -> begin
+            push!(logs.grid, r_range)
             nothing
         end) do
-        with_sample_unknown_destruction_grid_observer(r_range -> begin
-                push!(logs.grid, r_range)
+            with_sample_unknown_destruction_observer(obs -> begin
+                push!(logs.sample, obs)
                 nothing
             end) do
-            with_sample_unknown_destruction_observer(obs -> begin
-                    push!(logs.sample, obs)
+                with_sample_unknown_destruction_result_observer(obs -> begin
+                    push!(logs.result, obs)
                     nothing
                 end) do
-                with_sample_unknown_destruction_result_observer(obs -> begin
-                        push!(logs.result, obs)
-                        nothing
-                    end) do
                     with_discover_unknown_rate_observer(
                         (R, times, D, config) -> begin
-                            push!(logs.discover, (;
+                        push!(logs.discover,
+                            (;
                                 R = copy(R),
                                 times = copy(times),
                                 D = copy(D),
                                 config = config))
-                            return _a2_dummy_discovery()
-                        end) do
+                        return _a2_dummy_discovery()
+                    end) do
                         with_evaluate_holdout_observer((args...) -> begin
-                                push!(logs.holdout, args)
-                                nothing
-                            end) do
+                            push!(logs.holdout, args)
+                            nothing
+                        end) do
                             f()
                         end
                     end
@@ -187,11 +191,10 @@ function _a2_live_q4(split, ude_net, domain; seed = _A2_Q4_SEED)
     captured_p0 = Ref{Any}()
     restart = _a2_with_live_observers(logs) do
         with_fit_unknown_destruction_entry_observer(obs -> begin
-                captured_p0[] = obs.p0
-                nothing
-            end) do
-            with_fit_unknown_destruction_observer(_ ->
-                _a2_fake_fit(captured_p0[])) do
+            captured_p0[] = obs.p0
+            nothing
+        end) do
+            with_fit_unknown_destruction_observer(_ -> _a2_fake_fit(captured_p0[])) do
                 fit_functional_identifiability_restart(
                     split, ude_net, seed, domain)
             end
@@ -237,7 +240,7 @@ const _A2_SPLIT = unique_claim_experiment_split(_A2_SET)
           (1, 2, 3, 4, 5, 6, 7)
     @test _A2_SPLIT.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
     @test all(size(exp.observations, 2) == _A2_N_POINTS
-              for exp in _A2_SET.experiments)
+    for exp in _A2_SET.experiments)
     model, params, term, _ = _a2_probe_models()
     expected_r = collect(_regulator_grid(_A2_SPLIT.train, term))
     domain = functional_identifiability_domain(_A2_SPLIT, term.regulator)
@@ -439,13 +442,13 @@ end
     replay_grid = Any[]
     replay_sample = Any[]
     with_sample_unknown_destruction_grid_observer(r -> begin
-            push!(replay_grid, r)
+        push!(replay_grid, r)
+        nothing
+    end) do
+        with_sample_unknown_destruction_observer(obs -> begin
+            push!(replay_sample, obs)
             nothing
         end) do
-        with_sample_unknown_destruction_observer(obs -> begin
-                push!(replay_sample, obs)
-                nothing
-            end) do
             (replay_hold_R, replay_hold_D, _) = sample_unknown_destruction_grid(
                 model, params, term;
                 r_range = r_holdout_expected, fill_value = 0.3)

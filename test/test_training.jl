@@ -54,7 +54,7 @@ end
         previous = Inf
         residuals = Float64[]
         ρ_history = Float64[ρ]
-        for _ in 1:strategy.outer_iterations
+        for _ in 1:(strategy.outer_iterations)
             residual, ρ = _apply_al_outer_step!(
                 constraints, dual, ρ, strategy, previous)
             push!(residuals, residual)
@@ -160,8 +160,8 @@ end
         @test length(resumed.history) == total_iterations - split_iteration
 
         @test partial.history ≈ continuous.history[1:split_iteration]
-        @test continuous.params ≈ resumed.params atol = 0 rtol = 0
-        @test continuous.final_loss ≈ resumed.final_loss atol = 0 rtol = 0
+        @test continuous.params≈resumed.params atol=0 rtol=0
+        @test continuous.final_loss≈resumed.final_loss atol=0 rtol=0
         @test continuous.history ≈ vcat(partial.history, resumed.history)
     finally
         rm(checkpoint_path; force = true)
@@ -211,15 +211,16 @@ end
             fixture.tspan, fixture.nn, fixture.nn_state;
             config = config, verbose = false, seed = _TRAINING_SEED)
 
-        @test continuous.params ≈ resumed.params atol = 0 rtol = 0
-        @test continuous.final_loss ≈ resumed.final_loss atol = 0 rtol = 0
+        @test continuous.params≈resumed.params atol=0 rtol=0
+        @test continuous.final_loss≈resumed.final_loss atol=0 rtol=0
         @test continuous.history ≈ vcat(partial.history, resumed.history)
-        @test getfield(continuous.diagnostics, :dual) ≈
-              getfield(resumed.diagnostics, :dual) atol = 0 rtol = 0
-        @test getfield(continuous.diagnostics, :ρ) ≈
-              getfield(resumed.diagnostics, :ρ) atol = 0 rtol = 0
-        @test getfield(continuous.diagnostics, :primal_residual) ≈
-              getfield(resumed.diagnostics, :primal_residual) atol = 0 rtol = 0
+        @test getfield(continuous.diagnostics, :dual)≈
+        getfield(resumed.diagnostics, :dual) atol=0 rtol=0
+        @test getfield(continuous.diagnostics, :ρ)≈
+        getfield(resumed.diagnostics, :ρ) atol=0 rtol=0
+        @test getfield(continuous.diagnostics,
+            :primal_residual)≈
+        getfield(resumed.diagnostics, :primal_residual) atol=0 rtol=0
     finally
         rm(checkpoint_path; force = true)
     end

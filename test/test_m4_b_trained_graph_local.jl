@@ -161,7 +161,8 @@ end
     @test _b4_discovery_bound(bundle.evidence.wrong_graph_discovery, bundle.replays.wrong)
     hand = _b4_hand_candidate()
     replay_cand = _b4_first_candidate(bundle.replays.graph)
-    @test replay_cand === nothing || hand.specification.variables !=
+    @test replay_cand === nothing ||
+          hand.specification.variables !=
           replay_cand.specification.variables ||
           hand.numerator_coefficients != replay_cand.numerator_coefficients
     @test bundle.replays.cfg_graph.basis_scope === :graph

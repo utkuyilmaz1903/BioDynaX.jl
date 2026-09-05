@@ -50,7 +50,7 @@ const BASELINE_TESTSETS = (
     "discovery retcode messages",
     "ude_rhs! vs ude_system parity",
     "analytical Hill discovery breaks at σ = 0.05",
-    "golden-path example smoke",
+    "golden-path example smoke"
 )
 
 @testset "baseline gate" begin
