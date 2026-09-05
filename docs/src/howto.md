@@ -4,6 +4,28 @@ Short recipes for common tasks. Blocks marked `@example` run in the
 documentation build; the others are illustrative and assume the `model`,
 `trained`, `set`, and `term` objects from the [Tutorial](tutorial.md).
 
+## Run the whole workflow in one call
+
+`discover_unknown_term(network, experiments)` builds the hybrid model,
+trains it (a warm-up on the first experiment, then Adam 100 and BFGS 50 on
+the training experiments), samples the learned rate on the regulator grid,
+discovers a rational rate, computes the identifiability diagnostic and the
+residuals, and prints the four-section report. The last `holdout`
+experiments (default 2) are held out of training and reported separately.
+
+```julia
+result = discover_unknown_term(ude_net, set; rng = MersenneTwister(0), holdout = 2)
+result.params            # trained parameters
+result.discovery         # DiscoveryResult
+result.residuals         # (data_residual, data_residual_train, data_residual_holdout)
+report(result)           # the report as a string
+```
+
+`training = TrainingConfig(...)`, `discovery = DiscoveryConfig(...)`,
+`stability_selection = StabilitySelection()`, `warmup = false`, and
+`phys_init` change the individual steps; the [Tutorial](tutorial.md) shows
+the call on the reference protocol and then the steps one by one.
+
 ## Load an experiment from CSV
 
 `experiment_from_csv` reads a table whose first column is time and whose

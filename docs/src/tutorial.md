@@ -17,7 +17,77 @@ in the environment it uses one initial condition with 8 points and two Adam
 steps, which checks the installation in about two minutes but does not
 produce a meaningful fit.
 
-## The network
+## One call
+
+`discover_unknown_term` runs the whole workflow: it builds the hybrid model,
+trains it, samples the learned destruction rate, discovers a rational
+expression for it, computes the identifiability diagnostic and the
+residuals, and prints the report. The block below is the reference protocol
+in four statements (the network builder is defined in the next section):
+
+```julia
+using BioDynaX, Random
+
+rng = MersenneTwister(103)
+truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
+set = BioDynaX.unique_claim_experiment_set(rng, unknown_inhibition_network(known = true);
+    truth_params = truth)                      # nine experiments, 50 points each
+result = discover_unknown_term(unknown_inhibition_network(known = false), set;
+    rng = rng, known_support = BioDynaX.hill_rate_support(2), seed = 103)
+```
+
+By default the last two experiments are held out (`holdout = 2`), training
+uses Adam 100 then BFGS 50, and discovery uses the reference configuration
+(bootstrap 8, discovery seed 3). `known_support` tells the report which
+recovered monomials are extra relative to the true Hill support; it is only
+available for synthetic data. The call took 7.5 minutes on a busy 4-core
+machine and printed:
+
+```text
+IDENTIFIABILITY
+  unknown_holes: 1
+  unidentifiable_edge: true
+  coefficients_are_biological_constants: false
+  production_param: k_prod
+  the production rate (k_prod) and the scale of the unknown term are not separately identifiable from these data
+  local diagnostic (Fisher condition number and scale collinearity); not a structural identifiability proof
+  collinearity: 0.9972
+FIT
+  hybrid_data_residual: 0.001778
+  hybrid_data_residual_train: 0.001264
+  hybrid_data_residual_holdout: 0.002513
+  support_recall: not scored (needs the synthetic ground truth)
+DISCOVERY
+  equations:
+dx[1]/dt = (0.23265*1 + -1.2838*x[1] + 7.5747*x[1]^2) / (1 + -0.39858*x[1] + 4.0869*x[1]^2)
+  support_f1: not scored (needs the synthetic ground truth)
+  extras: 1, r
+  canonical_hill_from_nn: false
+  acceptance_criteria: scale warning raised, hybrid residual at most 0.3, support recall at least 0.99
+REPRODUCTION
+  seed: 103
+  n_ics: 9
+  n_points: 50
+  adam_iters: 100
+  bfgs_iters: 50
+  bootstrap: 8
+  discovery_seed: 3
+  protocol_kind: protocol
+  smoke: false
+```
+
+`result` is an `UnknownTermResult`: `result.params` are the trained
+parameters, `result.discovery` the `DiscoveryResult`, `result.identifiability`
+the trade-off report, `result.residuals` the three residuals above, and
+`report(result)` the text. The held-out residual (experiments 8 and 9, never
+used for training) is about twice the training residual; both are far below
+the acceptance threshold of 0.3. The rest of this page is what the one call
+does, step by step, with the reference example
+`examples/unknown_inhibition.jl`, which trains on all nine experiments.
+
+## What the one call does
+
+### The network
 
 Two species. `S` is produced in proportion to `R` (mass action, rate
 `k_prod`) and degraded by a Hill-type mechanism driven by `R`; `R` is
@@ -65,7 +135,7 @@ The recovery workflow requires exactly one unknown destruction term. The
 example checks this with `BioDynaX.assert_single_unknown_destruction(model)`
 and stops with an error otherwise.
 
-## Synthetic data
+### Synthetic data
 
 The example generates nine experiments from the known network with the
 truth parameters `k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6`
@@ -85,7 +155,7 @@ The example also writes the first experiment to a CSV file in a temporary
 directory and reads it back with `experiment_from_csv`, to show that
 measured data enter through the same path.
 
-## Training
+### Training
 
 Training has two stages. A warm-up fit on the first experiment uses Adam
 with a horizon curriculum (35%, 70%, then 100% of the time span), and the
@@ -104,7 +174,7 @@ trained = train_experiments(warm.params, set, model;
 
 (Illustrative; the docs build does not train.)
 
-## Identifiability
+### Identifiability
 
 Before discovery, the example computes the production/destruction trade-off
 for the first experiment:
@@ -124,7 +194,7 @@ the scale of the destruction term, so the recovered coefficients are not
 biological constants. The reference protocol treats a raised warning as
 required output, not as a failure.
 
-## Discovery
+### Discovery
 
 The learned destruction rate is sampled on a grid of regulator values
 derived from the training data, and a rational function of the regulator is
@@ -158,7 +228,7 @@ clean = discover_unknown_rate(reshape(r, 1, :), times, reshape(D, 1, :);
 clean.equations
 ```
 
-## Resimulation and the report
+### Resimulation and the report
 
 The discovered rate replaces the neural term inside the compiled ODE and the
 hybrid model is integrated again from the first initial condition:
@@ -181,7 +251,7 @@ IDENTIFIABILITY
   production_param: k_prod
   the production rate (k_prod) and the scale of the unknown term are not separately identifiable from these data
   local diagnostic (Fisher condition number and scale collinearity); not a structural identifiability proof
-  collinearity: 0.997
+  collinearity: 0.9972
 FIT
   hybrid_data_residual: 0.001777
   support_recall: not scored (needs the synthetic ground truth)
@@ -204,7 +274,9 @@ REPRODUCTION
   smoke: false
 ```
 
-The values above come from a run in September 2026. Read it as follows:
+The values above come from a run in September 2026 (reproduced for 0.11 by
+`discover_unknown_term(...; holdout = 0)`, which gives the same report line
+for line). Read it as follows:
 
 - The scale warning was raised, so the coefficients of the discovered rate
   are not biological constants.
@@ -218,13 +290,13 @@ The values above come from a run in September 2026. Read it as follows:
 - The reproduction section records every setting needed to rerun the
   protocol.
 
-## Held-out validation
+### Held-out validation
 
-The example trains on all nine experiments. The recovery suite
-(`BioDynaX.run_recovery_suite` with `sections = (:ude_discovery,)`) runs the
-same protocol but trains on experiments 1 to 7, derives the discovery grid
-from those seven, and then reports the residual and the destruction-rate
-error on experiments 8 and 9. Those held-out numbers are reported as
+The example trains on all nine experiments. `discover_unknown_term` with its
+default `holdout = 2`, and the recovery suite (`BioDynaX.run_recovery_suite`
+with `sections = (:ude_discovery,)`), train on experiments 1 to 7, derive the
+discovery grid from those seven, and then report the residual on experiments
+8 and 9 (the suite also reports the destruction-rate error there). Those held-out numbers are reported as
 evidence; they are not part of the acceptance criteria. See
 [Concepts](concepts.md) for the definitions.
 
