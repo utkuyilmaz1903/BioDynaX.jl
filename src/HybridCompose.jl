@@ -25,10 +25,6 @@ const HYBRID_COMPOSE_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function hybrid_compose_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "HybridCompose.jl")
-end
-
 # -- Neural identity rate -----------------------------------------------------
 
 """

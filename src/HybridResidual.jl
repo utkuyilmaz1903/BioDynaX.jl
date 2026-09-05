@@ -31,10 +31,6 @@ function hybrid_residual_source_path()
     joinpath(pkgdir(BioDynaX), "src", "HybridResidual.jl")
 end
 
-function hybrid_residual_test_path()
-    joinpath(pkgdir(BioDynaX), "test", "test_hybrid_residual.jl")
-end
-
 # -- Residual solvers ---------------------------------------------------------
 
 """
@@ -1119,11 +1115,4 @@ function hybrid_residual_index_holds()
 end
 
 # -- Source checks ----------------------------------------------------------
-
-function hybrid_residual_module_include_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
-    tests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
-    return occursin("include(\"HybridResidual.jl\")", src) &&
-           occursin("test_hybrid_residual.jl", tests)
-end
 

@@ -26,14 +26,6 @@ const IDENTIFIABILITY_PRODUCT_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function identifiability_product_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "IdentifiabilityProduct.jl")
-end
-
-function identifiability_product_test_path()
-    joinpath(pkgdir(BioDynaX), "test", "test_identifiability_product.jl")
-end
-
 function identifiability_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Identifiability.jl")
 end
@@ -1081,13 +1073,6 @@ function identifiability_product_index_holds()
 end
 
 # -- Source checks ----------------------------------------------------------
-
-function identifiability_product_module_include_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
-    tests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
-    return occursin("include(\"IdentifiabilityProduct.jl\")", src) &&
-           occursin("test_identifiability_product.jl", tests)
-end
 
 function unique_claim_product_blocks_hold_on_join()
     trade = (;

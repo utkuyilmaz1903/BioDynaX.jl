@@ -24,14 +24,6 @@ const GRAPH_LOCAL_LIBRARY_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function graph_local_library_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "GraphLocalLibrary.jl")
-end
-
-function graph_local_library_test_path()
-    joinpath(pkgdir(BioDynaX), "test", "test_graph_local_library.jl")
-end
-
 # -- Library membership -------------------------------------------------------
 
 """
@@ -832,13 +824,6 @@ function graph_local_library_index_holds()
 end
 
 # -- Source checks ----------------------------------------------------------
-
-function graph_local_library_module_include_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
-    tests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
-    return occursin("include(\"GraphLocalLibrary.jl\")", src) &&
-           occursin("test_graph_local_library.jl", tests)
-end
 
 function format_suite_library_index()
     io = IOBuffer()

@@ -23,10 +23,6 @@ function recovery_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
 end
 
-function recovery_suite_skip_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "RecoverySuiteSkip.jl")
-end
-
 # -- Train counter ------------------------------------------------------------
 
 const TRAIN_UNKNOWN_EDGE_COUNTER = Ref{Union{Nothing, Base.RefValue{Int}}}(nothing)
@@ -526,18 +522,6 @@ function unique_claim_skip_source_holds()
            train_unknown_edge_only_in_unique_claim_source() &&
            recovery_suite_all_sections_gated() &&
            recovery_suite_default_sections_source()
-end
-
-function recovery_suite_skip_fixture_paths()
-    specs = recovery_suite_spec_matrix()
-    source = recovery_suite_section_source_matrix()
-    empty = skip_empty_unique_claim_plan()
-    default = default_suite_plan_includes_trainers()
-    linear = skip_linear_only_report()
-    return (;
-        specs, source, empty, default, linear,
-        holds = specs.holds && source.holds && empty.holds &&
-                default.holds && linear.holds)
 end
 
 # -- Source checks ----------------------------------------------------------

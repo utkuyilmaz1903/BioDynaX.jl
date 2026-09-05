@@ -25,14 +25,6 @@ const PARAMETER_SCHEMA_PACK_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function parameter_schema_pack_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "ParameterSchemaPack.jl")
-end
-
-function parameter_schema_pack_test_path()
-    joinpath(pkgdir(BioDynaX), "test", "test_parameter_schema_pack.jl")
-end
-
 function parameter_schema_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "ParameterSchema.jl")
 end
@@ -556,51 +548,6 @@ function smoke_vs_protocol_schema_row()
                 proto.n_points == 50 && proto.seed == 103 && !proto.smoke)
 end
 
-function parameter_schema_pack_fixture_matrix()
-    roundtrip = positive_parameter_roundtrip_row()
-    linear = pack_unpack_linear_row()
-    remap = remapped_pack_unpack_row()
-    two = two_regulator_pack_unpack_row()
-    kinetic = kinetic_custom_in_schema_row()
-    missing = missing_custom_validate_throws_row()
-    defaults = default_parameters_include_custom_row()
-    tree = schema_vs_compiled_nn_tree_row()
-    dummy = dummy_head_on_zero_hole_row()
-    remap_h = remapped_schema_matches_heads_row()
-    dual = dual_schema_matches_heads_row()
-    middle = skipped_middle_schema_heads_row()
-    frozen_z = frozen_phys_zero_gradient_row()
-    frozen_r = frozen_phys_restore_row()
-    frozen_c = frozen_phys_config_copy_row()
-    remap_f = remapped_frozen_phys_row()
-    hill = hill_unknown_schema_row()
-    hill_k = hill_known_schema_row()
-    mm = mm_unknown_schema_row()
-    mm_k = mm_known_schema_row()
-    default = default_example_schema_row()
-    three = three_state_schema_row()
-    six = six_state_schema_row()
-    comp = competitive_schema_row()
-    repress = repressilator_schema_row()
-    skipped = skipped_duplicate_schema_row()
-    wrong = wrong_graph_schema_row()
-    smoke = smoke_vs_protocol_schema_row()
-    return (;
-        roundtrip, linear, remap, two, kinetic, missing, defaults, tree,
-        dummy, remap_h, dual, middle, frozen_z, frozen_r, frozen_c,
-        remap_f, hill, hill_k, mm, mm_k, default, three, six, comp,
-        repress, skipped, wrong, smoke,
-        holds = roundtrip.holds && linear.holds && remap.holds &&
-                two.holds && kinetic.holds && missing.holds &&
-                defaults.holds && tree.holds && dummy.holds &&
-                remap_h.holds && dual.holds && middle.holds &&
-                frozen_z.holds && frozen_r.holds && frozen_c.holds &&
-                remap_f.holds && hill.holds && hill_k.holds && mm.holds &&
-                mm_k.holds && default.holds && three.holds && six.holds &&
-                comp.holds && repress.holds && skipped.holds &&
-                wrong.holds && smoke.holds)
-end
-
 function parameter_schema_pack_typed_matrix()
     net = build_kinetic_generalization_network()
     rng = MersenneTwister(431)
@@ -663,140 +610,12 @@ end
 
 # -- Source checks ----------------------------------------------------------
 
-function parameter_schema_pack_module_include_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
-    tests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
-    return occursin("include(\"ParameterSchemaPack.jl\")", src) &&
-           occursin("test_parameter_schema_pack.jl", tests)
-end
-
-function recovery_thresholds_untouched_schema_row()
-    lock = recovery_thresholds_lock()
-    return (;
-        holds = RECOVERY_THRESHOLDS == lock &&
-                lock.support_f1_ude == 0.50 &&
-                lock.support_f1_clean == 0.99)
-end
-
-function public_export_list_untouched_schema_row()
-    return (;
-        pack_exported = :pack_parameters in LOCKED_PUBLIC_EXPORTS,
-        schema_exported = :parameter_schema in LOCKED_PUBLIC_EXPORTS,
-        unpack_unexported = !(:unpack_parameters in names(BioDynaX)),
-        holds = :pack_parameters in LOCKED_PUBLIC_EXPORTS &&
-                :parameter_schema in LOCKED_PUBLIC_EXPORTS &&
-                :positive_parameter in LOCKED_PUBLIC_EXPORTS &&
-                !(:unpack_parameters in names(BioDynaX)) &&
-                !(:ParameterSchemaPackRow in names(BioDynaX)) &&
-                public_export_list_holds())
-end
-
 function unique_claim_not_faster_by_dropping_ics_schema_row()
     fp = unique_claim_fingerprint()
     return (;
         n_ics = fp.n_ics,
         holds = fp.n_ics == 9 && fp.n_points == 50 &&
                 fp.seed == 103 && !fp.smoke)
-end
-
-function unpack_missing_phys_throws_row()
-    threw = try
-        unpack_parameters((; nn = (a = 1,)))
-        false
-    catch err
-        err isa ArgumentError
-    end
-    return (; threw, holds = threw)
-end
-
-function combined_f1_not_schema_kpi_row()
-    return (;
-        holds = :support_f1 ∉ UNIQUE_CLAIM_KPI_FIELDS &&
-                RECOVERY_THRESHOLDS.support_f1_ude == 0.50)
-end
-
-function nn_tree_is_float64_row()
-    net = build_remapped_two_regulator_network()
-    rng = MersenneTwister(435)
-    model, packed = build_ude_model(rng, net)
-    leaves = Float64[]
-    function walk(x)
-        if x isa AbstractArray
-            eltype(x) <: AbstractFloat && append!(leaves, Float64.(vec(x)))
-        elseif x isa NamedTuple || x isa Tuple
-            foreach(walk, x)
-        end
-        return nothing
-    end
-    walk(packed.nn)
-    return (;
-        n = length(leaves),
-        holds = !isempty(leaves) && all(isfinite, leaves) &&
-                model.nn isa MultiHeadNetwork)
-end
-
-function schema_phys_are_positive_row()
-    net = DEFAULT_EXAMPLE_NETWORK
-    rng = MersenneTwister(437)
-    model, packed = build_ude_model(rng, net)
-    unpacked = unpack_parameters(packed)
-    vals = [Float64(getproperty(unpacked.phys, n)) for n in keys(unpacked.phys)]
-    return (;
-        n = length(vals),
-        holds = !isempty(vals) && all(>(0), vals))
-end
-
-function six_state_schema_heads_row()
-    net = build_six_state_unknown_network()
-    rng = MersenneTwister(439)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        schema_heads = schema.nn_heads,
-        compiled = compiled_neural_head_count(model),
-        lux = lux_head_count(model),
-        holds = schema.nn_heads == compiled_neural_head_count(model) &&
-                (schema.nn_heads ≤ 1 || packed.nn isa ComponentVector))
-end
-
-function default_example_pack_predict_row()
-    net = DEFAULT_EXAMPLE_NETWORK
-    rng = MersenneTwister(441)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    u0 = [0.20, 0.15]
-    times = collect(range(0.0, 0.5; length = 6))
-    data = predict_ude(packed, u0, (0.0, 0.5), times, model)
-    return (;
-        names = copy(schema.phys_names),
-        finite = all(isfinite, data),
-        has_alpha = :α_p53 in schema.phys_names,
-        holds = all(isfinite, data) && :α_p53 in schema.phys_names &&
-                schema.nn_heads == 1)
-end
-
-function hill_known_has_vmax_row()
-    net = build_hill_recovery_network(; known = true, hill_order = 2)
-    rng = MersenneTwister(443)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        names = copy(schema.phys_names),
-        has_vmax = :vmax in schema.phys_names,
-        nn_heads = schema.nn_heads,
-        holds = :vmax in schema.phys_names && schema.nn_heads == 0 &&
-                hasproperty(packed.phys, :vmax))
-end
-
-function competitive_has_ki_row()
-    net = build_competitive_test_network(; known = false)
-    rng = MersenneTwister(445)
-    model, _ = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        names = copy(schema.phys_names),
-        nn_heads = schema.nn_heads,
-        holds = schema.nn_heads == 1 && validate_network(net) === net)
 end
 
 function unpack_then_repack_row()
@@ -871,22 +690,6 @@ function kinetic_known_tradeoff_now_predicts_row()
         holds = row.holds && row.has_custom && row.finite)
 end
 
-function validate_network_open_on_schema_fixtures_row()
-    nets = (
-        build_kinetic_generalization_network(),
-        build_remapped_two_regulator_network(),
-        build_dual_unknown_network(),
-        build_linear_test_network())
-    return (;
-        holds = all(net -> validate_network(net) === net, nets))
-end
-
-function hill_from_nn_closed_schema_row()
-    return (;
-        holds = :canonical_hill_from_nn in PROTOCOL_RESULT_FIELDS &&
-                RECOVERY_THRESHOLDS.support_f1_ude == 0.50)
-end
-
 function bounded_parameter_row()
     mid = bounded_parameter(0.0, 0.2, 0.8)
     lo = bounded_parameter(-20.0, 0.2, 0.8)
@@ -944,79 +747,8 @@ function schema_name_catalog_row()
                 :k_custom ∉ linear.phys_names)
 end
 
-function default_parameters_validate_row()
-    net = build_mm_recovery_network(; known = true)
-    rng = MersenneTwister(453)
-    model, _ = build_ude_model(rng, net)
-    packed = default_parameters(model; rng = MersenneTwister(454))
-    schema = parameter_schema(model)
-    unpacked = unpack_parameters(packed)
-    validate_phys_parameters(unpacked.phys, schema)
-    return (;
-        n = length(schema.phys_names),
-        holds = hasproperty(packed, :phys) &&
-                schema.nn_heads == 0)
-end
-
-function mm_known_has_km_row()
-    net = build_mm_recovery_network(; known = true)
-    rng = MersenneTwister(455)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        names = copy(schema.phys_names),
-        holds = (:km in schema.phys_names || :vmax in schema.phys_names) &&
-                schema.nn_heads == 0 &&
-                hasproperty(packed, :phys))
-end
-
-function three_state_schema_heads_row()
-    net = build_three_state_unknown_network()
-    rng = MersenneTwister(457)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        nn_heads = schema.nn_heads,
-        compiled = compiled_neural_head_count(model),
-        holds = schema.nn_heads == 1 &&
-                compiled_neural_head_count(model) == 1 &&
-                hasproperty(packed, :nn))
-end
-
-function wrong_graph_schema_heads_row()
-    net = build_wrong_graph_unknown_network()
-    rng = MersenneTwister(459)
-    model, _ = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        nn_heads = schema.nn_heads,
-        holds = schema.nn_heads == compiled_neural_head_count(model) &&
-                validate_network(net) === net)
-end
-
-function skipped_duplicate_dense_schema_row()
-    net = build_skipped_duplicate_unknown_network()
-    rng = MersenneTwister(461)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        nn_heads = schema.nn_heads,
-        dense = neural_index_is_dense(model),
-        holds = schema.nn_heads == compiled_neural_head_count(model) &&
-                neural_index_is_dense(model) &&
-                hasproperty(packed, :nn))
-end
-
 function format_schema_names(schema::ParameterSchema)
     return join(string.(schema.phys_names), ", ")
-end
-
-function format_schema_names_holds()
-    net = build_kinetic_generalization_network()
-    schema = parameter_schema(build_ude_model(MersenneTwister(5), net)[1])
-    text = format_schema_names(schema)
-    return occursin("k_custom", text) &&
-           !occursin("support_f1_ude = 0.99", text)
 end
 
 function pack_rejects_nonpositive_phys_row()
@@ -1043,14 +775,6 @@ function validate_rejects_nonpositive_row()
     return (; threw, holds = threw)
 end
 
-function extras_not_invented_by_schema_row()
-    label = extras_print_label(("1", "r"))
-    return (;
-        label,
-        holds = extras_print_is_hardcoded_attempt(label) == false &&
-                label == "1, r")
-end
-
 function format_pack_markdown(schema::ParameterSchema, unpacked)
     io = IOBuffer()
     println(io, "| name | positive |")
@@ -1072,36 +796,6 @@ function format_pack_markdown_holds()
     return occursin("k_custom", text) &&
            occursin("nn_heads", text) &&
            !occursin("support_f1_ude = 0.99", text)
-end
-
-function six_state_wrong_schema_row()
-    net = build_six_state_wrong_graph_network()
-    rng = MersenneTwister(465)
-    model, packed = build_ude_model(rng, net)
-    schema = parameter_schema(model)
-    return (;
-        nn_heads = schema.nn_heads,
-        holds = schema.nn_heads == compiled_neural_head_count(model) &&
-                hasproperty(packed, :phys) &&
-                validate_network(net) === net)
-end
-
-function ablation_schema_or_skip_row()
-    net = build_rate_ablation_network()
-    compiles = try
-        compile_mechanism(net)
-        true
-    catch
-        false
-    end
-    compiles || return (; compiles = false, holds = true)
-    model, packed = build_ude_model(MersenneTwister(467), net)
-    schema = parameter_schema(model)
-    return (;
-        compiles = true,
-        nn_heads = schema.nn_heads,
-        holds = schema.nn_heads == compiled_neural_head_count(model) &&
-                hasproperty(packed, :phys))
 end
 
 function linear_schema_names_are_mass_action_row()
