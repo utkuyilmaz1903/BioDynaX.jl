@@ -2,21 +2,24 @@ module BioDynaXModelingToolkitExt
 
 using BioDynaX
 using ModelingToolkit
-using Symbolics
+using BioDynaX: UDEModel, InputProductionTerm, MassActionProductionTerm,
+                LinearDestructionTerm, HillDestructionTerm,
+                SaturationDestructionTerm, SaturationProductionTerm,
+                CompetitiveDestructionTerm, NeuralDestructionTerm
 
 """
     export_mtk_system(model::UDEModel; name=:BioDynaXNetwork)
 
 Build a symbolic `ModelingToolkit.ODESystem` preview from a compiled UDE.
 """
-function BioDynaX.export_mtk_system(model::UDEModel; name::Symbol = :BioDynaXNetwork)
+function export_mtk_system(model::UDEModel; name::Symbol = :BioDynaXNetwork)
     cm = model.compiled
     n = cm.nstates
-    @parameters t
+    t = ModelingToolkit.t_nounits
+    D = ModelingToolkit.D_nounits
     state_syms = [Symbol("x$i") for i in 1:n]
-    D = Differential(t)
-    @variables (state_syms...)(t)
-    state_map = Dict(i => state_syms[i] for i in 1:n)
+    sts = [first(@variables($sym(t))) for sym in state_syms]
+    state_map = Dict(i => sts[i] for i in 1:n)
 
     param_syms = Symbol[]
     for term in (cm.production_terms..., cm.destruction_terms...)
@@ -33,16 +36,15 @@ function BioDynaX.export_mtk_system(model::UDEModel; name::Symbol = :BioDynaXNet
             (push!(param_syms, term.vmax_param, term.km_param, term.ki_param))
     end
     unique!(param_syms)
-    @parameters (param_syms...)
-    pmap = Dict{Symbol, Num}(s => s for s in param_syms)
+    params = [first(@parameters($sym)) for sym in param_syms]
+    pmap = Dict{Symbol, Num}(sym => p for (sym, p) in zip(param_syms, params))
 
     nn_map = Dict{Int, Num}()
     for term in cm.destruction_terms
         term isa NeuralDestructionTerm || continue
-        sym = Symbol("nn_", term.nn_index)
         haskey(nn_map, term.nn_index) && continue
-        @variables $sym(t)
-        nn_map[term.nn_index] = sym
+        sym = Symbol("nn_", term.nn_index)
+        nn_map[term.nn_index] = first(@variables($sym(t)))
     end
 
     eqs = Equation[]
@@ -60,8 +62,9 @@ function BioDynaX.export_mtk_system(model::UDEModel; name::Symbol = :BioDynaXNet
         end
         push!(eqs, D(sym) ~ prod - dest * sym)
     end
-    sts = [state_map[i] for i in 1:n]
-    return ODESystem(eqs, t, sts, param_syms; name = name)
+    constructor = isdefined(ModelingToolkit, :System) ? ModelingToolkit.System :
+                  ModelingToolkit.ODESystem
+    return constructor(eqs, t, sts, params; name = name)
 end
 
 function _mtk_prod(term::InputProductionTerm, smap, pmap)
