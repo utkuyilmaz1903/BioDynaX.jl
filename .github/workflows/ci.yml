@@ -187,6 +187,8 @@ jobs:
         run: julia --project=. --color=yes test/run_recovery_hard.jl
       - name: Trained-model library comparison
         run: julia --project=. --color=yes test/run_m4_b_protocol.jl
+      - name: Library comparison study
+        run: julia --project=. --color=yes benchmark/library_comparison_study.jl
       - name: JET and SciML standards
         run: |
           julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["JET", "ForwardDiff"]); include("test/run_standards.jl")'
