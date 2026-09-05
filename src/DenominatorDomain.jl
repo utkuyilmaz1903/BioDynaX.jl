@@ -24,14 +24,6 @@ const DENOMINATOR_DOMAIN_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function denominator_domain_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "DenominatorDomain.jl")
-end
-
-function denominator_domain_test_path()
-    joinpath(pkgdir(BioDynaX), "test", "test_denominator_domain.jl")
-end
-
 function recovery_jl_source_path_for_denominator()
     joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
 end
@@ -694,64 +686,6 @@ function denominator_domain_fixture_names()
         :ablation, :three_nodist, :smoke_protocol)
 end
 
-function denominator_domain_fixture_matrix()
-    explicit = explicit_candidate_zero_violations_row()
-    missing = missing_candidate_typemax_row()
-    safe = safe_split_row()
-    unsafe = unsafe_split_row()
-    near = near_zero_split_row()
-    two_u = two_state_unsafe_split_row()
-    extras = extras_denominator_live_row()
-    empty = extras_empty_still_splits_row()
-    na = extras_nothing_is_na_row()
-    hard = extras_hardcoded_attempt_rejected_row()
-    grid = domain_grid_nonneg_row()
-    disabled = domain_grid_disabled_row()
-    clip = domain_grid_clips_negative_pad_row()
-    span = domain_grid_spans_observed_row()
-    seed = domain_grid_seed_reproducible_row()
-    reject = implicit_safety_rejects_unsafe_row()
-    accept = implicit_safety_accepts_safe_row()
-    hill = hill_unknown_denominator_row()
-    hill_k = hill_known_denominator_row()
-    mm = mm_unknown_denominator_row()
-    mm_k = mm_known_denominator_row()
-    two = two_regulator_denominator_row()
-    three = three_state_denominator_row()
-    wrong = wrong_graph_denominator_row()
-    six = six_state_denominator_row()
-    six_w = six_state_wrong_denominator_row()
-    default = default_example_denominator_row()
-    remap = remapped_denominator_row()
-    dual = dual_denominator_row()
-    linear = linear_zero_denominator_row()
-    comp = competitive_denominator_row()
-    skipped = skipped_duplicate_denominator_row()
-    middle = skipped_middle_denominator_row()
-    repress = repressilator_denominator_row()
-    kinetic = kinetic_denominator_row()
-    ablation = ablation_denominator_row()
-    nodist = three_state_no_distractor_denominator_row()
-    smoke = smoke_vs_protocol_denominator_row()
-    return (;
-        explicit, missing, safe, unsafe, near, two_u, extras, empty, na,
-        hard, grid, disabled, clip, span, seed, reject, accept, hill,
-        hill_k, mm, mm_k, two, three, wrong, six, six_w, default, remap,
-        dual, linear, comp, skipped, middle, repress, kinetic, ablation,
-        nodist, smoke,
-        holds = explicit.holds && missing.holds && safe.holds &&
-                unsafe.holds && near.holds && two_u.holds && extras.holds &&
-                empty.holds && na.holds && hard.holds && grid.holds &&
-                disabled.holds && clip.holds && span.holds && seed.holds &&
-                reject.holds && accept.holds && hill.holds && hill_k.holds &&
-                mm.holds && mm_k.holds && two.holds && three.holds &&
-                wrong.holds && six.holds && six_w.holds && default.holds &&
-                remap.holds && dual.holds && linear.holds && comp.holds &&
-                skipped.holds && middle.holds && repress.holds &&
-                kinetic.holds && ablation.holds && nodist.holds &&
-                smoke.holds)
-end
-
 function denominator_domain_typed_matrix()
     safe = denominator_domain_row(
         :safe, synthetic_safe_implicit_candidate(), regulator_grid(24))
@@ -871,36 +805,6 @@ end
 
 # -- Source checks ----------------------------------------------------------
 
-function denominator_domain_module_include_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
-    tests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
-    return occursin("include(\"DenominatorDomain.jl\")", src) &&
-           occursin("test_denominator_domain.jl", tests)
-end
-
-function recovery_thresholds_untouched_denominator_row()
-    lock = recovery_thresholds_lock()
-    return (;
-        holds = RECOVERY_THRESHOLDS == lock &&
-                lock.support_f1_ude == 0.50 &&
-                lock.support_f1_clean == 0.99 &&
-                lock.data_residual == 0.30 &&
-                lock.support_recall == 0.99)
-end
-
-function public_export_list_untouched_denominator_row()
-    return (;
-        count_exported = :denominator_violation_count in names(BioDynaX),
-        split_unexported = !(:denominator_split_counts in names(BioDynaX)),
-        extras_unexported = !(:ude_extras_denominator_row in names(BioDynaX)),
-        row_unexported = !(:DenominatorDomainRow in names(BioDynaX)),
-        holds = !(:denominator_split_counts in names(BioDynaX)) &&
-                !(:ude_extras_denominator_row in names(BioDynaX)) &&
-                !(:DenominatorDomainRow in names(BioDynaX)) &&
-                !(:synthetic_safe_implicit_candidate in names(BioDynaX)) &&
-                public_export_list_holds())
-end
-
 function unique_claim_not_faster_by_dropping_ics_denominator_row()
     fp = unique_claim_fingerprint()
     ics = unique_claim_protocol_ics()
@@ -909,17 +813,6 @@ function unique_claim_not_faster_by_dropping_ics_denominator_row()
         n_table = length(ics),
         holds = fp.n_ics == 9 && length(ics) == 9 &&
                 fp.n_points == 50 && fp.seed == 103 && !fp.smoke)
-end
-
-function floor_does_not_paint_f1_row()
-    cand = synthetic_unsafe_implicit_candidate()
-    X = regulator_grid(20)
-    n = denominator_violation_count(cand, X)
-    return (;
-        n,
-        floor = RECOVERY_THRESHOLDS.support_f1_ude,
-        holds = n > 0 && RECOVERY_THRESHOLDS.support_f1_ude == 0.50 &&
-                RECOVERY_THRESHOLDS.support_f1_clean == 0.99)
 end
 
 function empty_domain_split_is_train_val_only_row()
@@ -932,17 +825,6 @@ function empty_domain_split_is_train_val_only_row()
         domain = split.domain,
         train = split.train,
         holds = split.domain == 0 && split.train > 0)
-end
-
-function validate_network_open_on_denominator_fixtures_row()
-    nets = (
-        build_hill_recovery_network(; known = false),
-        build_dual_unknown_network(),
-        build_linear_test_network(),
-        DEFAULT_EXAMPLE_NETWORK)
-    return (;
-        holds = all(net -> validate_network(net) === net, nets) &&
-                validate_network_stays_open_source())
 end
 
 function discovery_config_domain_samples_row()
@@ -1081,18 +963,6 @@ function combined_f1_not_a_denominator_kpi_row()
                 RECOVERY_THRESHOLDS.support_f1_clean == 0.99)
 end
 
-function ude_path_field_source_holds()
-    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
-    src = read(path, String)
-    start = findfirst("function evaluate_recovery", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("extras_denominator,", body) &&
-           occursin("extras_denominator = ude_extras_denominator_row(", body)
-end
-
 function single_sample_split_row()
     cand = synthetic_safe_implicit_candidate()
     X = reshape(Float64[0.4], 1, :)
@@ -1115,12 +985,5 @@ function all_zero_state_grid_row()
         raw,
         domain_nonneg = all(≥(0), domain),
         holds = raw == 0 && all(≥(0), domain))
-end
-
-function hill_from_nn_stays_closed_denominator_row()
-    return (;
-        holds = UNIQUE_CLAIM_PROTOCOL.n_ics == 9 &&
-                :canonical_hill_from_nn in PROTOCOL_RESULT_FIELDS &&
-                RECOVERY_THRESHOLDS.support_f1_ude == 0.50)
 end
 

@@ -27,10 +27,6 @@ const TRAINING_REUSE_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function training_reuse_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "TrainingReuse.jl")
-end
-
 function training_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Training.jl")
 end

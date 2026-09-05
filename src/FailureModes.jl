@@ -32,10 +32,6 @@ const DISCOVERY_RETCODE_SYMBOLS = (
     :SingularLibrary,
     :DiscoveryFailed)
 
-function failure_mode_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "FailureModes.jl")
-end
-
 # -- Retcode catalog ----------------------------------------------------------
 
 """
@@ -576,10 +572,6 @@ function discovery_on_dual_hole_row()
         holds = count_unknown_destructions(net) == 2 &&
                 validate_network(net) === net &&
                 unique_claim_recovery_admits(net) == false)
-end
-
-function validate_network_body_has_no_hole_gate()
-    return validate_network_stays_open_source()
 end
 
 # -- KPI failure grid ---------------------------------------------------------

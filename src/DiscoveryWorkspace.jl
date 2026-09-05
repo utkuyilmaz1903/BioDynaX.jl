@@ -29,10 +29,6 @@ const DISCOVERY_STREAMING_DATAGEN_MUST_NOT_CONTAIN = (
     "dummy_nn",
     "Lux.Dense(1 => 1")
 
-function discovery_workspace_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "DiscoveryWorkspace.jl")
-end
-
 function discovery_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Discovery.jl")
 end
