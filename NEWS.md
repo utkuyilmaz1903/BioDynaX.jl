@@ -6,7 +6,9 @@
   not a structural identifiability certificate, and not an input to
   `unique_claim_kpis_hold`. The hold remains Q3 + Q1 + Q5. The
   five-restart research script is not a PR gate. This is not a v1.0
-  release. M4 remains pending future work.
+  release. M4-B trained-UDE graph-local validation is implemented.
+  PR smoke is not trained-UDE scientific acceptance. M4-C remains
+  pending future work.
 - Milestone 2 held-out validation is documented as implemented: true
   7/2 split, train-only fitting and discovery domain, actual neural
   \(D\) holdout metrics, and Q7 reporting. Q7 is reported held-out

@@ -97,7 +97,12 @@ M4 must not alter `RECOVERY_THRESHOLDS`,
 - M4 — Robustness / Trajectory-Context Validation
 
 M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests.
-M4-B remains pending. M4-C remains pending.
+M4-B trained-UDE graph-local validation is implemented. PR smoke is not trained-UDE scientific acceptance.
+M4-C remains pending.
+
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
 
 occupancy != Q4 domain.z
 occupancy != M1 discovery grid

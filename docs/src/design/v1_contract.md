@@ -274,7 +274,11 @@ Q3.
 
 M4 occupancy is an additional sampling/evaluation context, not a replacement for Q4 or the M1/M2 composer.
 
-M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests, not production wiring. M4-B remains pending. M4-C remains pending. The lock exists so later slices cannot silently change M2 or M3 semantics.
+M4-A1 occupancy runtime exists. M4-A2 is live separation/contract tests, not production wiring. M4-B trained-UDE graph-local validation is implemented. PR smoke is not trained-UDE scientific acceptance. M4-C remains pending. The lock exists so later slices cannot silently change M2 or M3 semantics.
+
+analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.
+trained-UDE graph-local evidence samples D from the captured fit_unknown_destruction return params via sample_unknown_destruction.
+PR smoke is not trained-UDE scientific acceptance.
 
 occupancy != Q4 domain.z
 occupancy != M1 discovery grid
