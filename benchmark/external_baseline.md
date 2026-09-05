@@ -1,31 +1,25 @@
 # External DataDrivenSparse baseline
 
-This is **not** a skip-as-win. BioDynaX's locked graph-prior evidence is the
-internal ablation (`basis_scope=:graph` vs `:global` on the same `y`). An
-external DataDrivenSparse row is optional context.
+The evidence for the graph-local library is the internal comparison in
+`benchmark/sindy_baseline.jl`: the same samples are fitted with
+`basis_scope = :graph` and `basis_scope = :global`, and the difference is
+library membership of the distractor, not an F1 gap after subset selection.
+A row from DataDrivenSparse is optional context, not part of that evidence.
 
-## Why the in-tree row is `unavailable`
+## Why the DataDrivenSparse row is unavailable
 
-BioDynaX weakdeps pin `ModelingToolkit = "9, 10"` and `SciMLBase = "3"`.
-`DataDrivenDiffEq` (pulled by `DataDrivenSparse`) historically required
-ModelingToolkit versions that do not resolve against that set. The conflict
-is an install error in the **package** environment, not a scientific skip.
+The package allows `ModelingToolkit = "9, 10"` and `SciMLBase = "3"`.
+`DataDrivenDiffEq`, which `DataDrivenSparse` depends on, has required
+ModelingToolkit versions that do not resolve against that set. The row is
+therefore missing because of a dependency conflict, not because of a
+benchmark result.
 
-## Reproduce (isolated temp env, no BioDynaX)
-
-```bash
-julia --project=. benchmark/probe_datadriven.jl
-```
-
-The probe never loads BioDynaX. A resolve failure prints `UNAVAILABLE` and
-the error. A resolve success prints `RESOLVED` and does not claim that
-BioDynaX beat DataDrivenSparse.
-
-## Internal ablation (the actual control)
+## Reproduce
 
 ```bash
-julia --project=. benchmark/sindy_baseline.jl
+julia --project=. benchmark/probe_datadriven.jl   # isolated resolve check, no BioDynaX
+julia --project=. benchmark/sindy_baseline.jl     # the internal comparison
 ```
 
-Same `(r, D)` plus distractor `z`. After Occam, graph and global F1 can both
-be 1.00. The locked prior is **library membership** of `z`.
+The probe prints `RESOLVED` or `UNAVAILABLE` with the resolver error. When
+DataDrivenSparse is loaded in the session, `sindy_baseline.jl` adds its row.

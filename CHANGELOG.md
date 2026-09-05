@@ -64,6 +64,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   marked illustrative.
 - Source comments and docstrings no longer use internal milestone and
   question labels.
+- The two multi-minute training-loop testsets in
+  `test/test_experiment_checkpoint.jl` run only with
+  `BIODYNAX_TEST_HEAVY=1`; the default `Pkg.test()` is correspondingly
+  shorter. No test was removed.
+- Continuous integration: the default workflow runs the test suite on Julia
+  1.10 and the latest 1.x with coverage, a JuliaFormatter check over the whole
+  tree, Aqua and JET, the allocation check, the compat check, and the docs
+  build (deployed from `main` and version tags). The trained-model recovery
+  protocol, the trained-model library comparison, the heavy test tier, and
+  the JET standards run in a weekly scheduled job that can also be started by
+  hand.
+- The whole tree is formatted with JuliaFormatter (SciML style).
+- Every benchmark script starts with a header stating its purpose, runtime,
+  output, and how to run it.
 - Mechanistic models switch from `BacksolveAdjoint` to `InterpolatingAdjoint`
   when the number of observations exceeds 64. Neural terms always use
   `InterpolatingAdjoint`.
@@ -78,6 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   API-freeze checklists rather than package behaviour.
 - Internal helpers whose only purpose was to read documentation files and
   assert their wording, and the tests that called them.
+- Fifty unreferenced leftover helpers from the same layer (source-path,
+  test-path, fixture-matrix and lock-row functions that nothing called).
 
 ## [0.9.2] - 2026-08-14
 

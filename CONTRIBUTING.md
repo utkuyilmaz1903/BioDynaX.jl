@@ -23,15 +23,17 @@ GitHub for git-based package downloads.
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'                      # default test suite
+BIODYNAX_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()' # plus the multi-minute training-loop tests
 BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
 julia --project=. test/run_recovery_hard.jl                       # trained-model recovery (about 40 minutes)
 julia --project=docs docs/instantiate.jl && julia --project=docs docs/make.jl
 julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
 ```
 
-The default test suite must stay fast. Do not add multi-minute training runs
-to `test/runtests.jl`; put them in `test/run_recovery_hard.jl` or a
-`benchmark/` script instead.
+The default test suite must stay fast. Put multi-minute training runs behind
+`BIODYNAX_TEST_HEAVY=1` (see `test/test_experiment_checkpoint.jl`), in
+`test/run_recovery_hard.jl`, or in a `benchmark/` script. CI runs the default
+suite on every push and pull request and the heavy tier weekly and on demand.
 
 ## Ground rules for scientific changes
 
@@ -60,6 +62,8 @@ with the SciML style (`.JuliaFormatter.toml`). Format the files you touch:
 ```bash
 julia -e 'using JuliaFormatter; format(["src", "ext", "test", "examples", "benchmark", "docs"])'
 ```
+
+The whole tree is formatted; CI checks this on every pull request.
 
 ## Pull requests
 

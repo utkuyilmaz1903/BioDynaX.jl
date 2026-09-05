@@ -72,9 +72,12 @@ rate.
 
 ## Representative results
 
-The numbers below were recorded with the 0.9.2 protocol and are reproduced
-by the scripts and test entry points named above. They are single runs at
-fixed seeds, not success rates.
+The numbers below were recorded with the 0.9.2 protocol. They are single
+runs at fixed seeds, not success rates. A rerun of `test/run_recovery_hard.jl`
+for the 0.10.0 release, with freshly resolved dependency versions, passed
+every threshold but did not reproduce the recorded values exactly; the rerun
+values are listed under each table. Exact values depend on the dependency
+versions in the environment; the thresholds are what the package promises.
 
 Trained-model recovery (`test/run_recovery_hard.jl`, training on experiments
 1 to 7, held-out 8 and 9):
@@ -85,15 +88,22 @@ Trained-model recovery (`test/run_recovery_hard.jl`, training on experiments
 | Hill, seed 113, 2% noise | 0.037 | 1.0 | 0.571 | 0.022 | 0.021 | 0.021 | 0.018 |
 | Michaelis-Menten, seed 123 | 0.036 | not applied | 0.667 | 0.0054 | 0.0015 | 0.0032 | 0.0053 |
 
+Rerun for 0.10.0 (September 2026): Hill seed 103 gave `nn_rate_rmse` 0.037,
+recall 1.0, F1 0.571, `data_residual` 0.0020, train 0.0010, held-out 0.0015,
+`d_rmse_holdout` 0.0046; Hill seed 113 with 2% noise gave 0.098, 1.0, 0.571,
+0.022, 0.020, 0.020, 0.072; Michaelis-Menten seed 123 gave 0.028, recall not
+applied, F1 0.571, 0.0033, 0.0008, 0.0010, 0.0099.
+
 A support F1 of 0.571 means the true Hill monomials were all recovered
 (recall 1.0) together with two nuisance terms, a constant and a linear term.
 `benchmark/ude_f1_attempt.jl` shows that subset selection and scale
 normalization on the same library do not remove them.
 
 Analytical recovery across seeds (`benchmark/recovery_seeds.jl`, 0.5% noise):
-all five seeds reach F1 1.00 and recall 1.00.
+all five seeds reach F1 1.00 and recall 1.00 (reproduced for 0.10.0).
 
-Noise grid (`benchmark/noise_grid.jl`, seed 104):
+Noise grid (`benchmark/noise_grid.jl`, seed 104; reproduced for 0.10.0, where
+the 10% row gave F1 0.50 instead of the recorded 0.40):
 
 | rate noise | F1 | recall | passes 0.99 |
 |---|---|---|---|
@@ -108,8 +118,9 @@ raw trajectories with finite-difference derivatives is therefore only
 claimed up to 2% noise.
 
 Graph-local versus global library (`benchmark/sindy_baseline.jl`, seed 104,
-two-state fixture with an `r^2`-like distractor): both libraries reach F1
-1.00 with no false parent after subset selection. The prior shows up as
+two-state fixture with an `r^2`-like distractor; reproduced for 0.10.0):
+both libraries reach F1 1.00 with no false parent after subset selection. The
+prior shows up as
 library membership of the distractor, not as an F1 gap. The DataDrivenSparse
 row is unavailable because that package does not resolve against the
 ModelingToolkit versions this package allows; `benchmark/probe_datadriven.jl`

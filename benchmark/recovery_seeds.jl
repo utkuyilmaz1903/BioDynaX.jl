@@ -1,7 +1,12 @@
 #!/usr/bin/env julia
-# Multi-seed recovery report. CI stays on seeds 103/104.
-# Default: cheap analytical Occam on five seeds.
-# Optional: `--ude` runs the Hill UDE hard protocol (not a CI job).
+# Analytical Hill rate recovery on five seeds (103, 107, 111, 113, 127) with
+# 0.5% rate noise. Prints F1 and recall per seed and the median, minimum and
+# maximum. With `--ude` it instead runs the trained-model reference protocol
+# on each seed and prints the recovery metrics per seed. Not run in CI, which
+# uses seeds 103 and 104 only.
+# Runtime: about a minute (analytical); several hours with `--ude`.
+# Run:  julia --project=. benchmark/recovery_seeds.jl [--ude]
+
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
@@ -69,7 +74,7 @@ function _summarize(name, rows, fields)
     for field in fields
         @printf " %14s" field
     end
-    println("     gate")
+    println("   passes")
     for row in rows
         @printf "  %-6d" row.seed
         for field in fields
@@ -88,7 +93,7 @@ function _summarize(name, rows, fields)
         @printf "  %-6s %14.4f %14.4f %14.4f\n" field median(vals) minimum(vals) maximum(vals)
     end
     println("  passed ", count(row -> row.gate, rows), "/", length(rows),
-        "  (CI remains a single-seed red gate)")
+        "  (CI checks seeds 103 and 104 only)")
 end
 
 function main(args = ARGS)

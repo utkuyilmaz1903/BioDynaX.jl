@@ -1,3 +1,10 @@
+#!/usr/bin/env julia
+# Allocation check for the in-place right-hand side `ude_rhs!` on a two-state
+# linear network. Warms up, then prints the bytes allocated by one call.
+# Runs in CI on every push (job "allocation-gate"); the result must stay at
+# zero bytes. Runtime: under a minute after precompilation.
+# Run:  julia --project=. benchmark/allocation_gate.jl
+
 using BioDynaX
 using Random
 
@@ -13,7 +20,7 @@ function allocation_gate()
     end
     bytes = @allocated ude_rhs!(cache.du, u, parameters, 0.0, model, cache)
     println((kernel = :ude_rhs!, network = :linear_test, allocated_bytes = bytes))
-    bytes == 0 || bytes ≤ 512 || error("allocation gate failed with $bytes bytes")
+    bytes == 0 || bytes ≤ 512 || error("allocation check failed with $bytes bytes")
 end
 
 allocation_gate()

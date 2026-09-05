@@ -210,6 +210,7 @@ How-to recipes, Benchmarks, API reference, and Scope and limitations.
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'                                         # default tests
+BIODYNAX_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()'                    # plus the slow training-loop tests
 BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl  # 1-IC smoke run
 julia --project=. examples/unknown_inhibition.jl                                     # full example
 julia --project=. test/run_recovery_hard.jl                                          # trained-model recovery checks
