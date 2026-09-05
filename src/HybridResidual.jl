@@ -1115,4 +1115,3 @@ function hybrid_residual_index_holds()
 end
 
 # -- Source checks ----------------------------------------------------------
-

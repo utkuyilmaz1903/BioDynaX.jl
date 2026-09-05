@@ -7,8 +7,8 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BioDynaX
 using BioDynaX:
-    run_recovery_suite, hill_rate_truth, hill_rate_support, support_f1,
-    rate_discovery_config, discover_unknown_rate, RECOVERY_THRESHOLDS
+                run_recovery_suite, hill_rate_truth, hill_rate_support, support_f1,
+                rate_discovery_config, discover_unknown_rate, RECOVERY_THRESHOLDS
 using Printf
 using Random
 using Statistics
@@ -28,20 +28,20 @@ function analytical_occam(seed::Int)
         verbose = false, strict = false)
     truth = hill_rate_support(2)
     metrics = result.success ?
-        support_f1(result.candidates[1], truth.numerator, truth.denominator) :
-        nothing
+              support_f1(result.candidates[1], truth.numerator, truth.denominator) :
+              nothing
     return (;
         seed,
         success = result.success,
         f1 = metrics === nothing ? 0.0 : metrics.combined.f1,
         recall = metrics === nothing ? 0.0 : metrics.combined.recall,
         gate = metrics !== nothing &&
-            metrics.combined.f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean)
+               metrics.combined.f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean)
 end
 
 function ude_hill(seed::Int)
     report = run_recovery_suite(MersenneTwister(seed);
-                                sections = (:ude_discovery,))
+        sections = (:ude_discovery,))
     u = report[:ude_discovery]
     extras = hasproperty(u, :protocol_result) ? u.protocol_result.extras :
              (hasproperty(u, :extras) ? u.extras : nothing)
@@ -57,10 +57,10 @@ function ude_hill(seed::Int)
         n_ics = BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics,
         is_protocol = seed == BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         gate = u.nn_rate_rmse ≤ RECOVERY_THRESHOLDS.nn_rate_rmse &&
-            u.support_recall ≥ RECOVERY_THRESHOLDS.support_recall &&
-            u.support_f1 ≥ RECOVERY_THRESHOLDS.support_f1_ude &&
-            u.data_residual ≤ RECOVERY_THRESHOLDS.data_residual &&
-            u.identifiability.unidentifiable_edge)
+               u.support_recall ≥ RECOVERY_THRESHOLDS.support_recall &&
+               u.support_f1 ≥ RECOVERY_THRESHOLDS.support_f1_ude &&
+               u.data_residual ≤ RECOVERY_THRESHOLDS.data_residual &&
+               u.identifiability.unidentifiable_edge)
 end
 
 function _summarize(name, rows, fields)
@@ -88,18 +88,19 @@ function _summarize(name, rows, fields)
         @printf "  %-6s %14.4f %14.4f %14.4f\n" field median(vals) minimum(vals) maximum(vals)
     end
     println("  passed ", count(row -> row.gate, rows), "/", length(rows),
-            "  (CI remains a single-seed red gate)")
+        "  (CI remains a single-seed red gate)")
 end
 
 function main(args = ARGS)
     rows = [analytical_occam(seed) for seed in SEEDS]
     _summarize("Analytical Occam (0.5% Hill, same library)", rows,
-               (:f1, :recall))
+        (:f1, :recall))
     if "--ude" in args
         ude_rows = [ude_hill(seed) for seed in SEEDS]
-        _summarize("UDE Hill ($(BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics) ICs; not a CI job)", ude_rows,
-                   (:nn_rate_rmse, :support_recall, :support_f1,
-                    :data_residual))
+        _summarize("UDE Hill ($(BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics) ICs; not a CI job)",
+            ude_rows,
+            (:nn_rate_rmse, :support_recall, :support_f1,
+                :data_residual))
     end
     return rows
 end

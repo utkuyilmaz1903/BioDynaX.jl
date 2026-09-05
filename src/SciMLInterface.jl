@@ -22,18 +22,18 @@ Build an `SciMLBase.ODEFunction` for a compiled `UDEModel`.
 - `inplace=true`: allocation-free `ude_rhs!` with a model cache.
 """
 function build_ude_function(model::UDEModel, inplace::Bool,
-                            cache::Union{Nothing,UDEModelCache})
+        cache::Union{Nothing, UDEModelCache})
     if inplace
         local_cache = cache === nothing ?
-            allocate_cache(model, Float64) : cache
+                      allocate_cache(model, Float64) : cache
         return build_ude_rhs(model, local_cache)
     end
     return SciMLBase.ODEFunction{false}(CompiledOOPRhs(model))
 end
 
 function build_ude_function(model::UDEModel;
-                            inplace::Bool = false,
-                            cache::Union{Nothing,UDEModelCache} = nothing)
+        inplace::Bool = false,
+        cache::Union{Nothing, UDEModelCache} = nothing)
     return build_ude_function(model, inplace, cache)
 end
 
@@ -47,9 +47,9 @@ allocation-free forward integration. Use the default out-of-place path for
 Zygote-based adjoint training.
 """
 function SciMLBase.ODEProblem(model::UDEModel, u0, tspan, p;
-                              inplace::Bool = false,
-                              cache::Union{Nothing,UDEModelCache} = nothing,
-                              kwargs...)
+        inplace::Bool = false,
+        cache::Union{Nothing, UDEModelCache} = nothing,
+        kwargs...)
     _require_matching_state_length(u0, model.nstates)
     f = build_ude_function(model, inplace, cache)
     return SciMLBase.ODEProblem(f, u0, tspan, p; kwargs...)
@@ -71,8 +71,8 @@ Mechanistic-only small models prefer `BacksolveAdjoint`; neural unknowns fall
 back to checkpointed `InterpolatingAdjoint` with `ZygoteVJP`.
 """
 function recommend_sensealg(model::UDEModel;
-                            policy::AbstractADPolicy = ZygoteAD(),
-                            n_observations::Int = 100)
+        policy::AbstractADPolicy = ZygoteAD(),
+        n_observations::Int = 100)
     n_observations isa Integer && n_observations ≥ 1 || throw(ArgumentError(
         "n_observations must be an Integer ≥ 1"))
     nn_terms = model.n_neural
@@ -103,7 +103,7 @@ end
 
 """Positional `recommend_sensealg` so training locks avoid a keyword sorter."""
 function recommend_sensealg(model::UDEModel, policy::AbstractADPolicy,
-                            n_observations::Integer)
+        n_observations::Integer)
     return recommend_sensealg(
         model; policy = policy, n_observations = Int(n_observations))
 end
@@ -135,8 +135,8 @@ end
 Return the recommended SciMLSensitivity adjoint (see `recommend_sensealg`).
 """
 function auto_sensealg(model::UDEModel;
-                       policy::AbstractADPolicy = ZygoteAD(),
-                       n_observations::Int = 100)
+        policy::AbstractADPolicy = ZygoteAD(),
+        n_observations::Int = 100)
     return recommend_sensealg(
         model; policy = policy, n_observations = n_observations).sensealg
 end
@@ -147,8 +147,8 @@ end
 Build a solver configuration with a model-aware adjoint recommendation.
 """
 function default_solver_config(model::UDEModel;
-                               ad_policy::AbstractADPolicy = ZygoteAD(),
-                               n_observations::Int = 100)
+        ad_policy::AbstractADPolicy = ZygoteAD(),
+        n_observations::Int = 100)
     return SolverConfig(
         ad_policy = ad_policy,
         sensealg = auto_sensealg(
@@ -161,11 +161,11 @@ end
 Integrate a compiled UDE with SciML defaults.
 """
 function SciMLBase.solve(model::UDEModel, u0, tspan, p;
-                         saveat = nothing,
-                         solver_config::SolverConfig =
-                             default_solver_config(model),
-                         cache::Union{Nothing,UDEModelCache} = nothing,
-                         kwargs...)
+        saveat = nothing,
+        solver_config::SolverConfig =
+        default_solver_config(model),
+        cache::Union{Nothing, UDEModelCache} = nothing,
+        kwargs...)
     inplace = solver_config.ad_policy isa ProductionAD &&
               solver_config.sensealg === nothing
     prob = SciMLBase.ODEProblem(

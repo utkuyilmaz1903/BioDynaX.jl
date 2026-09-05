@@ -13,7 +13,7 @@
     D = hill_rate_truth(r; vmax = 1.5, K = 0.5, n = 2)
     @test rate_rel_rmse(D, D) == 0
     spec = local_basis(build_rate_discovery_network(), 1;
-                       degree = 2, include_interactions = false)
+        degree = 2, include_interactions = false)
     @test term_key(spec.numerator[1]) == ((), ())
     @test term_key(spec.denominator[2]) == ((1,), (2,))
 end
@@ -24,9 +24,9 @@ end
     @test_throws ArgumentError DiscoveryConfig(basis_scope = :parents)
     net = build_rate_ablation_network()
     local_spec = local_basis(net, 1; degree = 2, include_interactions = false,
-                             scope = :graph)
+        scope = :graph)
     global_spec = local_basis(net, 1; degree = 2, include_interactions = false,
-                              scope = :global)
+        scope = :global)
     @test 1 ∈ local_spec.variables
     @test 2 ∉ local_spec.variables
     @test 2 ∈ global_spec.variables
@@ -38,9 +38,9 @@ end
 @testset "known-term IR matches export contract" begin
     linear = compile_mechanism(build_linear_test_network())
     @test any(t -> t isa BioDynaX.MassActionProductionTerm && t.param === :k_ba,
-              linear.production_terms)
+        linear.production_terms)
     @test any(t -> t isa BioDynaX.LinearDestructionTerm && t.param === :k_a,
-              linear.destruction_terms)
+        linear.destruction_terms)
     rng = MersenneTwister(0)
     model, p0 = build_ude_model(rng, build_linear_test_network())
     p = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), p0.nn)
@@ -53,12 +53,12 @@ end
     @test dx[2] ≈ -k_b * x[2]
     hill = compile_mechanism(build_hill_recovery_network(; known = true, hill_order = 2))
     @test any(t -> t isa BioDynaX.HillDestructionTerm && t.hill_order == 2,
-              hill.destruction_terms)
+        hill.destruction_terms)
     unknown = compile_mechanism(build_hill_recovery_network(; known = false))
     @test any(t -> t isa BioDynaX.NeuralDestructionTerm, unknown.destruction_terms)
     competitive = compile_mechanism(build_competitive_test_network())
     @test any(t -> t isa BioDynaX.CompetitiveDestructionTerm,
-              competitive.destruction_terms)
+        competitive.destruction_terms)
 end
 
 @testset "sample_unknown_destruction matches compiled neural D" begin
@@ -239,7 +239,7 @@ end
 
 @testset "6-state wrong-graph negative control misses the true parent" begin
     report = run_recovery_suite(MersenneTwister(234);
-                               sections = (:six_state_wrong_graph,))
+        sections = (:six_state_wrong_graph,))
     wrong = report[:six_state_wrong_graph]
     @test wrong.nstates == 6
     @test 3 ∈ wrong.graph_parents

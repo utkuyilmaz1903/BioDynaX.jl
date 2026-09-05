@@ -165,5 +165,5 @@ end
         D_replay = bundle.D_replay,
         sample_fp = bundle.sample_fp,
         replays = bundle.replays))
-    @info "M4-B protocol trained-UDE runtime" elapsed_s = _B4_PROTO_ELAPSED_S
+    @info "M4-B protocol trained-UDE runtime" elapsed_s=_B4_PROTO_ELAPSED_S
 end

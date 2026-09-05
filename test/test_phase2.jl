@@ -5,7 +5,7 @@
     @test any(t -> t isa BioDynaX.SaturationProductionTerm, compiled.production_terms)
     @test any(t -> t isa BioDynaX.CustomDestructionTerm, compiled.destruction_terms)
     custom = only(filter(t -> t isa BioDynaX.CustomDestructionTerm,
-                         compiled.destruction_terms))
+        compiled.destruction_terms))
     @test custom.scale ≈ 2.0
 
     nn, nn_ps, st = build_ude_nn(rng)
@@ -27,7 +27,7 @@ end
     network = build_dual_unknown_network()
     compiled = compile_mechanism(network)
     nn_terms = filter(t -> t isa BioDynaX.NeuralDestructionTerm,
-                      compiled.destruction_terms)
+        compiled.destruction_terms)
     @test length(nn_terms) == 2
     @test nn_terms[1].nn_index == 1
     @test nn_terms[2].nn_index == 2
@@ -48,27 +48,28 @@ end
     nodes = [NodeSpec(name = :A), NodeSpec(name = :B), NodeSpec(name = :C)]
     reactions = [
         ReactionSpec(name = :drive_a,
-                     stoichiometry = Dict(1 => 1.0), regulators = [3],
-                     metadata = MassActionMetadata(rate_param = :k_ca)),
+            stoichiometry = Dict(1 => 1.0), regulators = [3],
+            metadata = MassActionMetadata(rate_param = :k_ca)),
         ReactionSpec(name = :unknown_ab,
-                     stoichiometry = Dict(1 => -1.0), regulators = [2],
-                     known = false, family = HILL, metadata = HillMetadata()),
+            stoichiometry = Dict(1 => -1.0), regulators = [2],
+            known = false, family = HILL, metadata = HillMetadata()),
         ReactionSpec(name = :b_decay,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_b)),
+            stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_b)),
         ReactionSpec(name = :c_decay,
-                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_c)),
+            stoichiometry = Dict(3 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_c))
     ]
     edges = [
         EdgeSpec(source = 2, target = 1, kind = UNKNOWN_NN, known = false,
-                 family = HILL),
+            family = HILL),
         EdgeSpec(source = 3, target = 1, kind = UNKNOWN_NN, known = false,
-                 family = HILL),
+            family = HILL)
     ]
     network = BiologicalNetwork(nodes, edges; reactions = reactions)
     compiled = compile_mechanism(network)
-    nn_terms = [t for t in compiled.destruction_terms
+    nn_terms = [t
+                for t in compiled.destruction_terms
                 if t isa BioDynaX.NeuralDestructionTerm]
     @test length(nn_terms) == 2
     @test sort(getfield.(nn_terms, :nn_index)) == [1, 2]
@@ -152,25 +153,25 @@ end
     @test_throws ArgumentError BiologicalNetwork(
         [NodeSpec(name = :a), NodeSpec(name = :b)], EdgeSpec[];
         reactions = [ReactionSpec(name = :bad_sat,
-                                  stoichiometry = Dict(1 => -1.0),
-                                  regulators = Int[], known = true,
-                                  family = SATURATION,
-                                  metadata = EmptyMetadata())])
+            stoichiometry = Dict(1 => -1.0),
+            regulators = Int[], known = true,
+            family = SATURATION,
+            metadata = EmptyMetadata())])
 
     @test_throws ArgumentError BiologicalNetwork(
         [NodeSpec(name = :a)], EdgeSpec[];
         reactions = [ReactionSpec(name = :bad_custom,
-                                  stoichiometry = Dict(1 => -1.0),
-                                  regulators = [1], known = true,
-                                  family = CUSTOM_KINETIC,
-                                  metadata = EmptyMetadata())])
+            stoichiometry = Dict(1 => -1.0),
+            regulators = [1], known = true,
+            family = CUSTOM_KINETIC,
+            metadata = EmptyMetadata())])
 
     @test_throws ArgumentError BiologicalNetwork(
         [NodeSpec(name = :a)], EdgeSpec[];
         reactions = [ReactionSpec(name = :zero_stoich,
-                                  stoichiometry = Dict(1 => 0.0),
-                                  regulators = Int[],
-                                  metadata = LinearDecayMetadata(rate_param = :k))])
+            stoichiometry = Dict(1 => 0.0),
+            regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k))])
 end
 
 @testset "phase 2 optional MTK export" begin

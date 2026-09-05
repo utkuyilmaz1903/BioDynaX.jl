@@ -50,8 +50,8 @@ function discover_equations(p_trained, model::UDEModel; kwargs...)
 end
 
 function sample_learned_function(p_trained, nn, st;
-                                 regulator_index::Int = 2,
-                                 input_range = range(1e-3, 2.5; length = 400))
+        regulator_index::Int = 2,
+        input_range = range(1e-3, 2.5; length = 400))
     xs = collect(input_range)
     ys = map(xs) do value
         output, _ = nn([value], p_trained.nn, st)
@@ -66,21 +66,21 @@ function sample_learned_function(p_trained, model::UDEModel; kwargs...)
 end
 
 function _collect_trajectory_data(p_trained, nn, st, u0, tspan, n_samples;
-                                  model::Union{Nothing,UDEModel} = nothing,
-                                  solver = SolverConfig())
+        model::Union{Nothing, UDEModel} = nothing,
+        solver = SolverConfig())
     times = collect(range(tspan[1], tspan[2]; length = n_samples))
     if model === nothing
         X = predict_ude(p_trained, u0, tspan, times, nn, st;
-                        solver_config = solver)
+            solver_config = solver)
         derivatives = reduce(hcat,
             (ude_system(@view(X[:, i]), p_trained, times[i], nn, st)
-             for i in 1:size(X, 2)))
+            for i in 1:size(X, 2)))
     else
         X = predict_ude(p_trained, u0, tspan, times, model;
-                        solver_config = solver)
+            solver_config = solver)
         derivatives = reduce(hcat,
             (ude_system(@view(X[:, i]), p_trained, times[i], model)
-             for i in 1:size(X, 2)))
+            for i in 1:size(X, 2)))
     end
     keep = vec(all(isfinite, X; dims = 1) .&
                all(isfinite, derivatives; dims = 1))
@@ -88,15 +88,15 @@ function _collect_trajectory_data(p_trained, nn, st, u0, tspan, n_samples;
 end
 
 function _collect_trajectory_data(p_trained, model::UDEModel, u0, tspan, n_samples;
-                                  solver = SolverConfig())
+        solver = SolverConfig())
     return _collect_trajectory_data(
         p_trained, model.nn, model.st, u0, tspan, n_samples;
         model = model, solver = solver)
 end
 
 function _collect_multi_trajectory_data(p_trained, model::UDEModel,
-                                          experiments::AbstractVector{<:Experiment},
-                                          n_samples; solver = SolverConfig())
+        experiments::AbstractVector{<:Experiment},
+        n_samples; solver = SolverConfig())
     blocks = map(experiments) do experiment
         span = (first(experiment.times), last(experiment.times))
         X, derivatives, _ = _collect_trajectory_data(
@@ -122,8 +122,8 @@ function _stlsq(A, y, threshold; max_iterations = 20, ridge = 1e-10)
         # QR on an augmented system avoids squaring the condition number as
         # normal equations do.
         augmented_A = vcat(local_A,
-                           sqrt(ridge) * Matrix{eltype(A)}(
-                               I, length(indices), length(indices)))
+            sqrt(ridge) * Matrix{eltype(A)}(
+                I, length(indices), length(indices)))
         augmented_y = vcat(y, zeros(eltype(y), length(indices)))
         local_coefficients = augmented_A \ augmented_y
         coefficients .= zero(eltype(coefficients))
@@ -143,13 +143,13 @@ design matrices need not be factored in one shot. Matches dense `_stlsq`
 thresholding semantics.
 """
 function _stlsq_blocked(A, y, threshold; max_iterations = 20, ridge = 1e-10,
-                        chunk_size::Int = 256,
-                        workspace::Union{Nothing,STLSQWorkspace} = nothing)
+        chunk_size::Int = 256,
+        workspace::Union{Nothing, STLSQWorkspace} = nothing)
     n, p = size(A)
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
     ws = workspace === nothing ?
-        allocate_stlsq_workspace(eltype(A), n, p, chunk_size) :
-        ensure_stlsq_workspace!(workspace, n, p, chunk_size)
+         allocate_stlsq_workspace(eltype(A), n, p, chunk_size) :
+         ensure_stlsq_workspace!(workspace, n, p, chunk_size)
     return collect(_stlsq_blocked!(
         ws, A, y, threshold; max_iterations = max_iterations, ridge = ridge))
 end
@@ -177,8 +177,8 @@ function _implicit_design!(design, num_buf, den_buf, spec, local_X, y)
 end
 
 function _fit_implicit(spec::LocalBasisSpec, X, derivative, indices,
-                       threshold; chunk_size::Int = 256,
-                       workspace::Union{Nothing,StreamingImplicitWorkspace} = nothing)
+        threshold; chunk_size::Int = 256,
+        workspace::Union{Nothing, StreamingImplicitWorkspace} = nothing)
     num, den = _fit_implicit_stream(
         spec, X, derivative, indices, threshold;
         chunk_size = chunk_size, workspace = workspace)
@@ -192,17 +192,18 @@ function _implicit_rss(spec, numerator, denominator, X, y)
     return mean(abs2, pred .- y), pred, denvals
 end
 
-_unsafe_denominator(dvals, floor) =
+function _unsafe_denominator(dvals, floor)
     isempty(dvals) || any(!isfinite, dvals) || minimum(dvals) < floor
+end
 
 function _refit_masked_implicit(spec, X, y, num_keep, den_keep, threshold;
-                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
+        workspace::Union{Nothing, ImplicitLibraryWorkspace} = nothing)
     n = size(X, 2)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
     ws = workspace === nothing ?
-        allocate_implicit_workspace(eltype(X), n, n_num, n_den, 256) :
-        ensure_implicit_workspace!(workspace, n, n_num, n_den, 256)
+         allocate_implicit_workspace(eltype(X), n, n_num, n_den, 256) :
+         ensure_implicit_workspace!(workspace, n, n_num, n_den, 256)
     return _refit_masked_implicit!(
         ws, spec, X, y, num_keep, den_keep, threshold)
 end
@@ -241,13 +242,13 @@ end
 
 function _active_term_indices(numerator, denominator)
     return (findall(c -> abs(c) > 1e-8, numerator),
-            findall(c -> abs(c) > 1e-8, denominator))
+        findall(c -> abs(c) > 1e-8, denominator))
 end
 
 """Drop nested monomials on the same library when held-out RSS / BIC do not suffer."""
 function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
-                               floor::Real = 1e-8, rtol::Real = 0.02,
-                               workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
+        floor::Real = 1e-8, rtol::Real = 0.02,
+        workspace::Union{Nothing, ImplicitLibraryWorkspace} = nothing)
     numerator = copy(numerator)
     denominator = copy(denominator)
     # Bootstrap index views are not dense. Workspace mul! / design fills
@@ -263,10 +264,10 @@ function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
     n = length(y)
     n_val = n ≥ 40 ? max(8, round(Int, 0.2 * n)) : 0
     ws = workspace === nothing ?
-        allocate_implicit_workspace(
-            eltype(X), n, length(spec.numerator), length(spec.denominator), 256) :
-        ensure_implicit_workspace!(
-            workspace, n, length(spec.numerator), length(spec.denominator), 256)
+         allocate_implicit_workspace(
+        eltype(X), n, length(spec.numerator), length(spec.denominator), 256) :
+         ensure_implicit_workspace!(
+        workspace, n, length(spec.numerator), length(spec.denominator), 256)
     if n_act ≤ 12
         return _subset_implicit_prune(
             spec, X, y, threshold, floor, rtol, rss0,
@@ -278,8 +279,8 @@ function prune_nested_implicit(spec, numerator, denominator, X, y, threshold;
 end
 
 function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
-                                num_idx, den_idx, n_val;
-                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
+        num_idx, den_idx, n_val;
+        workspace::Union{Nothing, ImplicitLibraryWorkspace} = nothing)
     n = length(y)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
@@ -316,7 +317,7 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
         # complexity penalty and keeps extra monomials on 0.5% noise.
         # Negative BIC * (1 + rtol) previously emptied the admissible set.
         score = information_criterion(length(ytr), rss_fit * length(ytr), k;
-                                      criterion = :bic)
+            criterion = :bic)
         push!(candidates, ImplicitPruneCandidate{T}(
             n2, d2, Float64(score), k, T(rss_val)))
     end
@@ -364,8 +365,8 @@ function _subset_implicit_prune(spec, X, y, threshold, floor, rtol, _rss0,
 end
 
 function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
-                                floor, rtol, rss0;
-                                workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
+        floor, rtol, rss0;
+        workspace::Union{Nothing, ImplicitLibraryWorkspace} = nothing)
     n = length(y)
     k0 = count(c -> abs(c) > 1e-8, vcat(numerator, denominator))
     bic0 = information_criterion(n, rss0 * n, k0; criterion = :bic)
@@ -416,8 +417,8 @@ function _greedy_implicit_prune(spec, numerator, denominator, X, y, threshold,
 end
 
 function _evaluate_candidate(spec, numerator_coefficients::AbstractVector{T},
-                             denominator_coefficients::AbstractVector{T},
-                             X::AbstractMatrix) where {T}
+        denominator_coefficients::AbstractVector{T},
+        X::AbstractMatrix) where {T}
     numerator = evaluate_library(spec.numerator, X) * numerator_coefficients
     denominator = one(T) .+
                   evaluate_library(spec.denominator, X) *
@@ -426,40 +427,39 @@ function _evaluate_candidate(spec, numerator_coefficients::AbstractVector{T},
 end
 
 function _bootstrap_frequency(rng, spec, X, derivative, train_indices,
-                              threshold, bootstrap_samples;
-                              chunk_size::Int = 256,
-                              workspace::Union{Nothing,StreamingImplicitWorkspace} = nothing)
+        threshold, bootstrap_samples;
+        chunk_size::Int = 256,
+        workspace::Union{Nothing, StreamingImplicitWorkspace} = nothing)
     term_count = length(spec.numerator) + length(spec.denominator)
     selected = zeros(Float64, term_count)
     bootstrap_samples == 0 && return selected
     block_length = max(2, round(Int, sqrt(length(train_indices))))
     n = length(train_indices)
     ws = workspace === nothing ?
-        allocate_streaming_implicit_workspace(
-            eltype(X), n, length(spec.numerator), length(spec.denominator),
-            chunk_size) : workspace
+         allocate_streaming_implicit_workspace(
+        eltype(X), n, length(spec.numerator), length(spec.denominator),
+        chunk_size) : workspace
     for _ in 1:bootstrap_samples
         indices = _block_bootstrap_indices(
             rng, train_indices, block_length)
-        numerator, denominator =
-            _fit_implicit(spec, X, derivative, indices, threshold;
-                          chunk_size = chunk_size, workspace = ws)
+        numerator, denominator = _fit_implicit(spec, X, derivative, indices, threshold;
+            chunk_size = chunk_size, workspace = ws)
         selected .+= .!iszero.(vcat(numerator, denominator))
     end
     return selected ./ bootstrap_samples
 end
 
 function _consensus_refit(spec, X, derivative, indices, threshold,
-                          frequencies; minimum_frequency = 0.8,
-                          chunk_size::Int = 256,
-                          workspace::Union{Nothing,ImplicitLibraryWorkspace} = nothing)
+        frequencies; minimum_frequency = 0.8,
+        chunk_size::Int = 256,
+        workspace::Union{Nothing, ImplicitLibraryWorkspace} = nothing)
     local_X = @view X[:, indices]
     n = length(indices)
     n_num = length(spec.numerator)
     n_den = length(spec.denominator)
     ws = workspace === nothing ?
-        allocate_implicit_workspace(eltype(X), n, n_num, n_den, chunk_size) :
-        ensure_implicit_workspace!(workspace, n, n_num, n_den, chunk_size)
+         allocate_implicit_workspace(eltype(X), n, n_num, n_den, chunk_size) :
+         ensure_implicit_workspace!(workspace, n, n_num, n_den, chunk_size)
     y = @view ws.y[1:n]
     @inbounds for i in 1:n
         y[i] = derivative[indices[i]]
@@ -479,7 +479,8 @@ function _consensus_refit(spec, X, derivative, indices, threshold,
         denominator_coefficients, spec.denominator, threshold)
     return prune_nested_implicit(
         spec, numerator_coefficients, denominator_coefficients,
-        local_X, Vector(y), threshold; workspace = ws)::Tuple{Vector{eltype(X)}, Vector{eltype(X)}}
+        local_X, Vector(y), threshold; workspace = ws)::Tuple{
+        Vector{eltype(X)}, Vector{eltype(X)}}
 end
 
 """Deterministic orthant stress grid spanning observed data bounds."""
@@ -504,7 +505,7 @@ function _denominator_domain_grid(X; n::Int = 256, seed::Integer = 42)
 end
 
 function _denominator_minimum_over(spec, numerator_coefficients,
-                                   denominator_coefficients, matrices...)
+        denominator_coefficients, matrices...)
     minimum_value = typemax(eltype(first(matrices)))
     for matrix in matrices
         size(matrix, 2) == 0 && continue
@@ -516,8 +517,8 @@ function _denominator_minimum_over(spec, numerator_coefficients,
 end
 
 function _check_denominator_safety(spec, numerator_coefficients,
-                                   denominator_coefficients, train_X, val_X,
-                                   domain_X, floor)
+        denominator_coefficients, train_X, val_X,
+        domain_X, floor)
     minimum_value = _denominator_minimum_over(
         spec, numerator_coefficients, denominator_coefficients,
         train_X, val_X, domain_X)
@@ -533,7 +534,7 @@ function _format_side(coefficients, terms)
     for (coefficient, term) in zip(coefficients, terms)
         abs(coefficient) ≤ 1e-10 && continue
         push!(pieces, string(round(coefficient; sigdigits = 5), "*",
-                             term.label))
+            term.label))
     end
     return isempty(pieces) ? "0" : join(pieces, " + ")
 end
@@ -550,8 +551,8 @@ function _format_side_latex(coefficients, terms)
         coeff = round(coefficient; sigdigits = 5)
         label = _latex_term_label(term.label)
         label == "1" ?
-            push!(pieces, string(coeff)) :
-            push!(pieces, string(coeff, " ", label))
+        push!(pieces, string(coeff)) :
+        push!(pieces, string(coeff, " ", label))
     end
     return isempty(pieces) ? "0" : join(pieces, " + ")
 end
@@ -563,9 +564,9 @@ end
 
 function format_equation(candidate::ImplicitCandidate)
     numerator = _format_side(candidate.numerator_coefficients,
-                             candidate.specification.numerator)
+        candidate.specification.numerator)
     denominator = _format_side(candidate.denominator_coefficients,
-                               candidate.specification.denominator)
+        candidate.specification.denominator)
     denominator = denominator == "0" ? "1" : "1 + " * denominator
     return "dx[$(candidate.target)]/dt = ($numerator) / ($denominator)"
 end
@@ -577,15 +578,15 @@ LaTeX form of a discovered candidate equation.
 """
 function equation_to_latex(candidate::ExplicitCandidate)
     side = _format_side_latex(candidate.coefficients,
-                              candidate.specification.numerator)
+        candidate.specification.numerator)
     return "\\dot{x}_{$(candidate.target)} = $side"
 end
 
 function equation_to_latex(candidate::ImplicitCandidate)
     numerator = _format_side_latex(candidate.numerator_coefficients,
-                                   candidate.specification.numerator)
+        candidate.specification.numerator)
     denominator = _format_side_latex(candidate.denominator_coefficients,
-                                     candidate.specification.denominator)
+        candidate.specification.denominator)
     denominator = denominator == "0" ? "1" : "1 + " * denominator
     return "\\dot{x}_{$(candidate.target)} = \\frac{$numerator}{$denominator}"
 end
@@ -620,12 +621,12 @@ function equation_to_function(candidate::ImplicitCandidate)
     return function (x::AbstractVector)
         numerator = zero(eltype(x))
         @inbounds for (coefficient, term) in zip(numerator_coefficients,
-                                                 numerator_terms)
+            numerator_terms)
             numerator += coefficient * _eval_monomial(term, x)
         end
         denominator = one(eltype(x))
         @inbounds for (coefficient, term) in zip(denominator_coefficients,
-                                                 denominator_terms)
+            denominator_terms)
             denominator += coefficient * _eval_monomial(term, x)
         end
         return numerator / denominator
@@ -672,7 +673,7 @@ Central finite differences on trajectory samples (one-sided at endpoints).
 No external derivative package required.
 """
 function estimate_derivatives(X::AbstractMatrix, times::AbstractVector;
-                              method::Symbol = :central)
+        method::Symbol = :central)
     method == :central ||
         throw(ArgumentError("unsupported derivative method $method"))
     nstates, n = size(X)
@@ -705,7 +706,7 @@ function information_criterion(n::Integer, rss, k::Integer; criterion::Symbol = 
 end
 
 function score_candidate(candidate::ExplicitCandidate, X, derivative;
-                         criterion::Symbol = :aic)
+        criterion::Symbol = :aic)
     prediction = evaluate_library(candidate.specification.numerator, X) *
                  candidate.coefficients
     rss = sum(abs2, prediction .- derivative)
@@ -714,13 +715,14 @@ function score_candidate(candidate::ExplicitCandidate, X, derivative;
 end
 
 function score_candidate(candidate::ImplicitCandidate, X, derivative;
-                         criterion::Symbol = :aic)
+        criterion::Symbol = :aic)
     prediction, _ = _evaluate_candidate(
         candidate.specification, candidate.numerator_coefficients,
         candidate.denominator_coefficients, X)
     rss = sum(abs2, prediction .- derivative)
-    k = count(!iszero, vcat(candidate.numerator_coefficients,
-                            candidate.denominator_coefficients))
+    k = count(
+        !iszero, vcat(candidate.numerator_coefficients,
+            candidate.denominator_coefficients))
     return information_criterion(length(derivative), rss, k; criterion)
 end
 
@@ -854,13 +856,12 @@ function _target_indices(X, targets)
 end
 
 function _discover_explicit(X, derivatives, network, backend,
-                            config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing)
     sample_count = size(X, 2)
     validation_count = clamp(
         round(Int, 0.2 * sample_count), 1, sample_count - 2)
     training_indices = collect(1:(sample_count - validation_count))
-    validation_indices =
-        collect((sample_count - validation_count + 1):sample_count)
+    validation_indices = collect((sample_count - validation_count + 1):sample_count)
     # Public interface: `result.candidates isa Vector{ExplicitCandidate}`
     # (the UnionAll). `Vector{ExplicitCandidate{T}}` is not a subtype.
     candidates = ExplicitCandidate[]
@@ -894,7 +895,7 @@ function _discover_explicit(X, derivatives, network, backend,
 end
 
 function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
-                            config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing)
     rng = MersenneTwister(config.seed)
     sample_count = size(X, 2)
     validation_count = clamp(
@@ -903,8 +904,7 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     # A contiguous held-out block prevents temporal leakage from adjacent
     # points of the same trajectory.
     training_indices = collect(1:(sample_count - validation_count))
-    validation_indices =
-        collect((sample_count - validation_count + 1):sample_count)
+    validation_indices = collect((sample_count - validation_count + 1):sample_count)
     train_X = @view X[:, training_indices]
     val_X = @view X[:, validation_indices]
     domain_X = _denominator_domain_grid(
@@ -936,10 +936,11 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
                 spec, numerator, denominator, train_X, val_X, domain_X,
                 backend.denominator_floor)
             error = mean(abs2,
-                         prediction .- derivative[validation_indices])
-            push!(candidates, ImplicitCandidate(
-                target, spec, numerator, denominator, frequencies, error,
-                denominator_minimum))
+                prediction .- derivative[validation_indices])
+            push!(candidates,
+                ImplicitCandidate(
+                    target, spec, numerator, denominator, frequencies, error,
+                    denominator_minimum))
         catch error
             error isa DomainError || rethrow()
             push!(denominator_errors, error)
@@ -969,7 +970,7 @@ function _candidate_basis(candidates::Vector{ImplicitCandidate{T}}) where {T}
 end
 
 function _run_discovery(X, derivatives, network, backend::ImplicitSINDyPI,
-                        config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing)
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
     candidates = _discover_implicit(
@@ -984,14 +985,14 @@ function _run_discovery(X, derivatives, network, backend::ImplicitSINDyPI,
         data_hash = data_fingerprint(X, derivatives),
         config = (; backend = string(typeof(backend)), samples = size(X, 2)))
     return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
-                           typeof(candidates), RunMetadata, DiscoveryRetcode}(
+        typeof(candidates), RunMetadata, DiscoveryRetcode}(
         true, "ok", equation_text, basis, nothing,
         candidates, metadata, DiscoverySuccess)
 end
 
 function _run_discovery(X, derivatives, network,
-                        backend::Union{ExplicitSTLSQ, DataDrivenSparseSTLSQ},
-                        config::DiscoveryConfig; targets = nothing)
+        backend::Union{ExplicitSTLSQ, DataDrivenSparseSTLSQ},
+        config::DiscoveryConfig; targets = nothing)
     size(X, 2) ≥ 20 ||
         throw(ArgumentError("insufficient finite trajectory samples"))
     candidates = _discover_explicit(
@@ -1006,24 +1007,24 @@ function _run_discovery(X, derivatives, network,
         data_hash = data_fingerprint(X, derivatives),
         config = (; backend = string(typeof(backend)), samples = size(X, 2)))
     return DiscoveryResult{String, Vector{LocalBasisSpec}, Nothing,
-                           Vector{ExplicitCandidate}, RunMetadata,
-                           DiscoveryRetcode}(
+        Vector{ExplicitCandidate}, RunMetadata,
+        DiscoveryRetcode}(
         true, "ok", equation_text, basis, nothing,
         candidates, metadata, DiscoverySuccess)
 end
 
 function _run_discovery(X, derivatives, network, backend,
-                        config::DiscoveryConfig; targets = nothing)
+        config::DiscoveryConfig; targets = nothing)
     throw(ArgumentError("unsupported discovery backend $(typeof(backend))"))
 end
 
 function discover_equations(p_trained, model::UDEModel, set::ExperimentSet;
-                            n_samples::Int = 300,
-                            config::DiscoveryConfig = DiscoveryConfig(),
-                            solver::SolverConfig = SolverConfig(),
-                            verbose::Bool = true,
-                            strict::Bool = false,
-                            kwargs...)
+        n_samples::Int = 300,
+        config::DiscoveryConfig = DiscoveryConfig(),
+        solver::SolverConfig = SolverConfig(),
+        verbose::Bool = true,
+        strict::Bool = false,
+        kwargs...)
     isempty(set) &&
         throw(ArgumentError("ExperimentSet cannot be empty"))
     n_samples ≥ 20 ||
@@ -1051,18 +1052,18 @@ central finite differences unless `derivatives` is supplied. Pass `targets`
 to recover a subset of state rows (used for rate-only unknown-edge discovery).
 """
 function discover_equations(X::AbstractMatrix, times::AbstractVector,
-                            network::BiologicalNetwork;
-                            derivatives = nothing,
-                            targets = nothing,
-                            config::DiscoveryConfig = DiscoveryConfig(),
-                            verbose::Bool = true,
-                            strict::Bool = false)
+        network::BiologicalNetwork;
+        derivatives = nothing,
+        targets = nothing,
+        config::DiscoveryConfig = DiscoveryConfig(),
+        verbose::Bool = true,
+        strict::Bool = false)
     observed = _note_equation_discovery_entry(X, times, derivatives)
     observed !== nothing && return observed
     size(X, 2) == length(times) ||
         throw(DimensionMismatch("X columns must match times"))
     dX = derivatives === nothing ?
-        estimate_derivatives(X, times) : derivatives
+         estimate_derivatives(X, times) : derivatives
     size(dX) == size(X) ||
         throw(DimensionMismatch("derivatives must match X"))
     keep = vec(all(isfinite, X; dims = 1) .& all(isfinite, dX; dims = 1))
@@ -1087,14 +1088,14 @@ Sweep sparsity thresholds, score recovered candidates with AIC/BIC, and return
 the best `DiscoveryResult` (selection summary in `metadata.config`).
 """
 function select_discovery_config(p_trained, model::UDEModel;
-                                 thresholds = (1e-1, 1e-2, 1e-3),
-                                 criterion::Symbol = :aic,
-                                 n_samples::Int = 300,
-                                 u0::Vector{Float64} = [0.2, 0.1],
-                                 tspan::Tuple{Float64,Float64} = (0.0, 20.0),
-                                 config::DiscoveryConfig = DiscoveryConfig(),
-                                 solver::SolverConfig = SolverConfig(),
-                                 verbose::Bool = false)
+        thresholds = (1e-1, 1e-2, 1e-3),
+        criterion::Symbol = :aic,
+        n_samples::Int = 300,
+        u0::Vector{Float64} = [0.2, 0.1],
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        config::DiscoveryConfig = DiscoveryConfig(),
+        solver::SolverConfig = SolverConfig(),
+        verbose::Bool = false)
     X, derivatives, _ = _collect_trajectory_data(
         p_trained, model, u0, tspan, n_samples; solver = solver)
     best_result = nothing
@@ -1109,9 +1110,10 @@ function select_discovery_config(p_trained, model::UDEModel;
         result = try
             _run_discovery(X, derivatives, model.network, backend, local_config)
         catch error
-            push!(score_table, (
-                threshold = float(threshold), score = Inf,
-                success = false, message = sprint(showerror, error)))
+            push!(score_table,
+                (
+                    threshold = float(threshold), score = Inf,
+                    success = false, message = sprint(showerror, error)))
             continue
         end
         total = sum(
@@ -1119,9 +1121,10 @@ function select_discovery_config(p_trained, model::UDEModel;
                 candidate, X, vec(@view derivatives[candidate.target, :]);
                 criterion = criterion)
             for candidate in result.candidates; init = 0.0)
-        push!(score_table, (
-            threshold = float(threshold), score = total,
-            success = true, message = "ok"))
+        push!(score_table,
+            (
+                threshold = float(threshold), score = total,
+                success = true, message = "ok"))
         if total < best_score
             best_score = total
             best_result = result
@@ -1133,8 +1136,8 @@ function select_discovery_config(p_trained, model::UDEModel;
             false, "no discovery configuration succeeded", nothing, nothing,
             nothing, _empty_candidates(config.backend),
             RunMetadata(seed = config.seed, package_version = PACKAGE_VERSION,
-                        config = Dict(:selection => score_table,
-                                      :criterion => criterion)),
+                config = Dict(:selection => score_table,
+                    :criterion => criterion)),
             DiscoveryFailed)
     end
     metadata = RunMetadata(
@@ -1165,21 +1168,21 @@ Discover graph-local rational dynamics with SINDy-PI's implicit identity
 jointly; no fixed-denominator rational atoms or Taylor approximations are used.
 """
 function discover_equations(p_trained, nn, st;
-                            model::Union{Nothing,UDEModel} = nothing,
-                            network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
-                            u0::Vector{Float64} = [0.2, 0.1],
-                            tspan::Tuple{Float64,Float64} = (0.0, 20.0),
-                            n_samples::Int = 300,
-                            config::DiscoveryConfig = DiscoveryConfig(),
-                            polynomial_degree::Int =
-                                config.backend isa ImplicitSINDyPI ?
-                                config.backend.max_degree : 3,
-                            sparsity_threshold =
-                                config.backend isa ImplicitSINDyPI ?
-                                config.backend.threshold : 1e-2,
-                            verbose::Bool = true,
-                            strict::Bool = false,
-                            kwargs...)
+        model::Union{Nothing, UDEModel} = nothing,
+        network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,
+        u0::Vector{Float64} = [0.2, 0.1],
+        tspan::Tuple{Float64, Float64} = (0.0, 20.0),
+        n_samples::Int = 300,
+        config::DiscoveryConfig = DiscoveryConfig(),
+        polynomial_degree::Int =
+        config.backend isa ImplicitSINDyPI ?
+        config.backend.max_degree : 3,
+        sparsity_threshold =
+        config.backend isa ImplicitSINDyPI ?
+        config.backend.threshold : 1e-2,
+        verbose::Bool = true,
+        strict::Bool = false,
+        kwargs...)
     n_samples ≥ 20 ||
         throw(ArgumentError("n_samples must be at least 20"))
     backend = config.backend

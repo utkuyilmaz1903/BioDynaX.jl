@@ -34,29 +34,29 @@ function _cuda_extension()
     return extension
 end
 
-gpu_available() = try
-    _cuda_extension().functional()
-catch
-    false
-end
+gpu_available() =
+    try
+        _cuda_extension().functional()
+    catch
+        false
+    end
 
 to_device(value, ::Val{:gpu}) = _cuda_extension().to_device(value)
-gpu_execute(f, experiments, config) =
-    _cuda_extension().gpu_execute(f, experiments, config)
+gpu_execute(f, experiments, config) = _cuda_extension().gpu_execute(f, experiments, config)
 
 function execute_experiments(f, experiments::ExperimentSet;
-                             config::ExecutionConfig = ExecutionConfig())
+        config::ExecutionConfig = ExecutionConfig())
     backend = _resolve_backend(config.backend)
     return execute_experiments(f, experiments, backend; config = config)
 end
 
 function execute_experiments(f, experiments::ExperimentSet,
-                             backend::SerialBackend; config = ExecutionConfig())
+        backend::SerialBackend; config = ExecutionConfig())
     return map(f, experiments.experiments)
 end
 
 function execute_experiments(f, experiments::ExperimentSet,
-                             backend::ThreadsBackend; config = ExecutionConfig())
+        backend::ThreadsBackend; config = ExecutionConfig())
     outputs = Vector{Any}(undef, length(experiments))
     Threads.@threads for index in eachindex(experiments.experiments)
         outputs[index] = f(experiments[index])
@@ -65,15 +65,15 @@ function execute_experiments(f, experiments::ExperimentSet,
 end
 
 function execute_experiments(f, experiments::ExperimentSet,
-                             backend::DistributedBackend;
-                             config::ExecutionConfig = ExecutionConfig())
+        backend::DistributedBackend;
+        config::ExecutionConfig = ExecutionConfig())
     nworkers() > 1 ||
         throw(ArgumentError("distributed backend requires worker processes"))
     return pmap(f, experiments.experiments; batch_size = config.batch_size)
 end
 
 function execute_experiments(f, experiments::ExperimentSet,
-                             backend::GPUBackend;
-                             config::ExecutionConfig = ExecutionConfig())
+        backend::GPUBackend;
+        config::ExecutionConfig = ExecutionConfig())
     return gpu_execute(f, experiments, config)
 end

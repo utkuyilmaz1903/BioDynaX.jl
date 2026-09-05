@@ -998,4 +998,3 @@ function recovery_thresholds_untouched_library_row()
                 lock.support_f1_ude == 0.50 &&
                 lock.support_f1_clean == 0.99)
 end
-

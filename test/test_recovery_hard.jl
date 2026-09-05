@@ -45,7 +45,8 @@ function _m2_g2_assert_live_result(result, truth_rate; label::String)
     @test ev.d_rmse_holdout_domain === ev2.d_rmse_holdout_domain
     @test isfinite(result.data_residual)
     case = result.discovery.success ? "C" : "B"
-    @info "M2-G2 $label Case $case" nn_correlation=result.nn_correlation nn_rate_rmse=result.nn_rate_rmse support_recall=result.support_recall support_f1=result.support_f1 data_residual=result.data_residual data_residual_train=ev.data_residual_train data_residual_holdout=ev.data_residual_holdout d_rmse_holdout=ev.d_rmse_holdout d_rmse_holdout_domain=ev.d_rmse_holdout_domain holdout_residual_gt_030=(ev.data_residual_holdout > 0.30)
+    @info "M2-G2 $label Case $case" nn_correlation=result.nn_correlation nn_rate_rmse=result.nn_rate_rmse support_recall=result.support_recall support_f1=result.support_f1 data_residual=result.data_residual data_residual_train=ev.data_residual_train data_residual_holdout=ev.data_residual_holdout d_rmse_holdout=ev.d_rmse_holdout d_rmse_holdout_domain=ev.d_rmse_holdout_domain holdout_residual_gt_030=(ev.data_residual_holdout >
+                                                                                                                                                                                                                                                                                                                                                                                                                  0.30)
     return ev
 end
 

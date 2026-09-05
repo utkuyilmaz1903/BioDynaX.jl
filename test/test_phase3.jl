@@ -64,9 +64,9 @@ end
         rng; network = network, u0 = [0.3, 0.15], tspan = (0.0, 1.0),
         n_points = 6, noise_σ = 0.05)
     exp1 = Experiment(:a, times1, noisy1, [0.2, 0.1];
-                      metadata = Dict(:weight => 2.0, :noise_σ => 0.01))
+        metadata = Dict(:weight => 2.0, :noise_σ => 0.01))
     exp2 = Experiment(:b, times2, noisy2, [0.3, 0.15];
-                      metadata = Dict(:weight => 1.0, :noise_σ => 0.05))
+        metadata = Dict(:weight => 1.0, :noise_σ => 0.05))
     set = ExperimentSet([exp1, exp2], [:A, :B])
     @test experiment_weight(exp1) == 2.0
     @test experiment_noise_scale(exp2) == 0.05

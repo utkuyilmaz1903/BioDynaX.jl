@@ -29,8 +29,8 @@ Finite-difference Jacobian of the predicted trajectory with respect to
 physical kinetic parameters.
 """
 function trajectory_jacobian(model::UDEModel, p, u0, tspan, times;
-                             rel_step::Real = 1e-4,
-                             solver_config::SolverConfig = SolverConfig())
+        rel_step::Real = 1e-4,
+        solver_config::SolverConfig = SolverConfig())
     schema = parameter_schema(model)
     names = schema.phys_names
     base = predict_ude(
@@ -57,16 +57,17 @@ end
 Gauss–Newton Fisher information matrix `J'J / σ²` for physical parameters.
 """
 function fisher_information_matrix(model::UDEModel, p, data, t_data, u0, tspan;
-                                   mask = trues(size(data)),
-                                   residual_variance = nothing,
-                                   kwargs...)
+        mask = trues(size(data)),
+        residual_variance = nothing,
+        kwargs...)
     jacobian, names = trajectory_jacobian(
         model, p, u0, tspan, t_data; kwargs...)
     residual = ifelse.(mask, data .- predict_ude(
-        p, u0, tspan, t_data, model; kwargs...), zero(eltype(data)))
+            p, u0, tspan, t_data, model; kwargs...),
+        zero(eltype(data)))
     σ² = residual_variance === nothing ?
-        max(eps(), sum(abs2, residual) / max(1, count(mask))) :
-        float(residual_variance)
+         max(eps(), sum(abs2, residual) / max(1, count(mask))) :
+         float(residual_variance)
     information = (jacobian' * jacobian) ./ σ²
     return information, names, σ²
 end
@@ -78,13 +79,13 @@ Rank-based **practical** identifiability from the Fisher information at this
 fit. Neural parameters are excluded. Not a substitute for structural analysis.
 """
 function assess_identifiability(model::UDEModel, p, data, t_data, u0, tspan;
-                                threshold::Real = 1e-8, kwargs...)
+        threshold::Real = 1e-8, kwargs...)
     information, names, σ² = fisher_information_matrix(
         model, p, data, t_data, u0, tspan; kwargs...)
     eigenvalues = eigvals(Symmetric(information))
     positive = eigenvalues[eigenvalues .> threshold * maximum(eigenvalues)]
     condition = isempty(positive) ? Inf :
-        maximum(positive) / max(minimum(positive), threshold)
+                maximum(positive) / max(minimum(positive), threshold)
     identifiable = begin
         covariance = pinv(information)
         variances = diag(covariance)
@@ -123,12 +124,12 @@ Asymptotic Fisher intervals from the inverse Fisher information at the
 requested nominal coverage.
 """
 function parameter_credible_intervals(report::IdentifiabilityReport,
-                                      estimate;
-                                      level::Real = 0.95)
+        estimate;
+        level::Real = 0.95)
     z = _z_score(level)
     information = report.fisher_information
     variances = diag(pinv(information))
-    intervals = Dict{Symbol,Tuple{Float64,Float64}}()
+    intervals = Dict{Symbol, Tuple{Float64, Float64}}()
     for (name, variance) in zip(report.parameter_names, variances)
         center = positive_parameter(getproperty(estimate.phys, name))
         half = z * sqrt(max(variance, zero(variance)))
@@ -143,7 +144,7 @@ end
 Asymptotic uncertainty for physical parameters from the Fisher information matrix.
 """
 function estimate_parameter_uncertainty(model::UDEModel, params, data, t_data,
-                                        u0, tspan; level::Real = 0.95, kwargs...)
+        u0, tspan; level::Real = 0.95, kwargs...)
     report = assess_identifiability(
         model, params, data, t_data, u0, tspan; kwargs...)
     intervals = parameter_credible_intervals(report, params; level = level)
@@ -189,7 +190,7 @@ function production_destruction_tradeoff(
     end
     nn_terms = neural_destruction_terms(model)
     chosen = term === nothing ?
-        (isempty(nn_terms) ? nothing : first(nn_terms)) : term
+             (isempty(nn_terms) ? nothing : first(nn_terms)) : term
     collinearity = NaN
     if chosen isa NeuralDestructionTerm
         δ = rel_step
@@ -205,7 +206,7 @@ function production_destruction_tradeoff(
         plus = _simulate_trajectory(scaled_rhs(1.0), u0, tspan, t_data)
         minus = _simulate_trajectory(scaled_rhs(-1.0), u0, tspan, t_data)
         j_d = plus === nothing || minus === nothing ?
-            nothing : vec((plus .- minus) ./ (2δ))
+              nothing : vec((plus .- minus) ./ (2δ))
         j_p = nothing
         if prod_idx !== nothing && j_d !== nothing
             jacobian, _ = trajectory_jacobian(

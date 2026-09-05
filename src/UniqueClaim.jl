@@ -829,7 +829,8 @@ function assert_format_matches_protocol_result(result, text::AbstractString)
         "coefficients_are_biological_constants: $(result.coefficients_are_biological_constants)",
         text) || throw(ErrorException(
         "printed coefficients_are_biological_constants does not match protocol_result"))
-    occursin("hybrid_data_residual: $(_format_protocol_value(result.data_residual))", text) ||
+    occursin(
+        "hybrid_data_residual: $(_format_protocol_value(result.data_residual))", text) ||
         throw(ErrorException("printed hybrid_data_residual does not match data_residual"))
     occursin("support_recall: $(result.support_recall)", text) ||
         throw(ErrorException("printed support_recall does not match protocol_result"))

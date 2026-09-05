@@ -4,53 +4,53 @@
 
     hill_nodes = [
         NodeSpec(name = :S),
-        NodeSpec(name = :T),
+        NodeSpec(name = :T)
     ]
     hill_reactions = [
         ReactionSpec(name = :drive,
-                     stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     metadata = Dict(:rate_param => :k_prod)),
+            stoichiometry = Dict(1 => 1.0), regulators = [2],
+            metadata = Dict(:rate_param => :k_prod)),
         ReactionSpec(name = :hill_decay,
-                     stoichiometry = Dict(1 => -1.0), regulators = [2],
-                     known = true, family = HILL,
-                     metadata = Dict(:vmax_param => :vmax, :k_param => :K,
-                                      :hill_order => 4)),
+            stoichiometry = Dict(1 => -1.0), regulators = [2],
+            known = true, family = HILL,
+            metadata = Dict(:vmax_param => :vmax, :k_param => :K,
+                :hill_order => 4)),
         ReactionSpec(name = :linear,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = Dict(:rate_param => :gamma)),
+            stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = Dict(:rate_param => :gamma))
     ]
     hill_network = BiologicalNetwork(hill_nodes, EdgeSpec[];
-                                     reactions = hill_reactions)
+        reactions = hill_reactions)
     hill_model = compile_network(hill_network, nn, st)
     @test any(t -> t isa BioDynaX.HillDestructionTerm,
-              hill_model.compiled.destruction_terms)
+        hill_model.compiled.destruction_terms)
 
     comp_nodes = [
         NodeSpec(name = :E),
         NodeSpec(name = :S),
-        NodeSpec(name = :I),
+        NodeSpec(name = :I)
     ]
     comp_reactions = [
         ReactionSpec(name = :source,
-                     stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     metadata = Dict(:rate_param => :k_in)),
+            stoichiometry = Dict(1 => 1.0), regulators = [2],
+            metadata = Dict(:rate_param => :k_in)),
         ReactionSpec(name = :competitive,
-                     stoichiometry = Dict(1 => -1.0),
-                     regulators = [2, 3], known = true, family = COMPETITIVE,
-                     metadata = Dict(:vmax_param => :vmax, :km_param => :km,
-                                      :ki_param => :ki)),
+            stoichiometry = Dict(1 => -1.0),
+            regulators = [2, 3], known = true, family = COMPETITIVE,
+            metadata = Dict(:vmax_param => :vmax, :km_param => :km,
+                :ki_param => :ki)),
         ReactionSpec(name = :substrate_decay,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = Dict(:rate_param => :k_s)),
+            stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = Dict(:rate_param => :k_s)),
         ReactionSpec(name = :inhibitor_decay,
-                     stoichiometry = Dict(3 => -1.0), regulators = Int[],
-                     metadata = Dict(:rate_param => :k_i)),
+            stoichiometry = Dict(3 => -1.0), regulators = Int[],
+            metadata = Dict(:rate_param => :k_i))
     ]
     comp_network = BiologicalNetwork(comp_nodes, EdgeSpec[];
-                                     reactions = comp_reactions)
+        reactions = comp_reactions)
     comp_model = compile_network(comp_network, nn, st)
     @test any(t -> t isa BioDynaX.CompetitiveDestructionTerm,
-              comp_model.compiled.destruction_terms)
+        comp_model.compiled.destruction_terms)
 
     hill_params = pack_parameters(
         (k_prod = 1.0, vmax = 2.0, K = 0.5, gamma = 0.7), nn_ps)
@@ -68,9 +68,9 @@
     @test_throws ArgumentError compile_mechanism(BiologicalNetwork(
         [NodeSpec(name = :only)], EdgeSpec[];
         reactions = [ReactionSpec(name = :bad,
-                                  stoichiometry = Dict(1 => -1.0),
-                                  regulators = [1], known = true,
-                                  family = HILL)]))
+            stoichiometry = Dict(1 => -1.0),
+            regulators = [1], known = true,
+            family = HILL)]))
 end
 
 @testset "general pipeline second topology" begin

@@ -806,4 +806,3 @@ function linear_schema_names_are_mass_action_row()
         holds = issetequal(schema.phys_names, [:k_ba, :k_a, :k_b]) &&
                 schema.nn_heads == 0)
 end
-

@@ -81,7 +81,7 @@ function designed_trained_graph_local_coordinates(n_sample_points::Integer;
     s = fill(0.4, n)
     q = r .^ 2 .+ 0.08 .* maximum(r .^ 2) .* randn(MersenneTwister(x_seed), n)
     z = r .+ 0.10 .* (maximum(r) - minimum(r)) .*
-        randn(MersenneTwister(x_seed), n)
+             randn(MersenneTwister(x_seed), n)
     return permutedims(hcat(s, r, q, z))
 end
 
@@ -120,8 +120,9 @@ struct TrainedGraphLocalEvidence
             graph_discovery::DiscoveryResult,
             global_discovery::DiscoveryResult,
             wrong_graph_discovery::DiscoveryResult)
-        kind === :smoke || kind === :protocol || throw(ArgumentError(
-            "TrainedGraphLocalEvidence.kind must be :smoke or :protocol"))
+        kind === :smoke || kind === :protocol ||
+            throw(ArgumentError(
+                "TrainedGraphLocalEvidence.kind must be :smoke or :protocol"))
         size(D, 1) == 1 || throw(DimensionMismatch("learned D must be 1×N"))
         size(X, 2) == size(D, 2) == length(times) || throw(DimensionMismatch(
             "X columns, D columns, and times must match"))
@@ -188,12 +189,13 @@ function evaluate_trained_graph_local(;
     discoveries = DiscoveryResult[]
     for scope in M4B_SCOPE_PLAN
         network = _m4b_scope_network(scope.network, ude_net, wrong_net)
-        push!(discoveries, discover_equations(
-            X, times, network;
-            derivatives = dX,
-            targets = 1,
-            config = _m4b_discovery_config(budget, scope.basis_scope),
-            verbose = false))
+        push!(discoveries,
+            discover_equations(
+                X, times, network;
+                derivatives = dX,
+                targets = 1,
+                config = _m4b_discovery_config(budget, scope.basis_scope),
+                verbose = false))
     end
     return TrainedGraphLocalEvidence(
         kind,

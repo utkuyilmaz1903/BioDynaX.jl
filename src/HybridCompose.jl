@@ -1043,4 +1043,3 @@ function hybrid_compose_index_holds()
 end
 
 # -- Source checks ----------------------------------------------------------
-

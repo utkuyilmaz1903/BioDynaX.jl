@@ -903,4 +903,3 @@ function unique_claim_trainer_keeps_protocol_source()
            !occursin("n_ics = 1", ude) &&
            !occursin("n_points = 8", ude)
 end
-

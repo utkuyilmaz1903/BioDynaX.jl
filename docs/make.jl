@@ -31,17 +31,17 @@ makedocs(
         "API reference" => "api.md",
         "Extensions" => "extensions.md",
         "Scope and limitations" => "limitations.md",
-        "Changelog" => "changelog.md",
+        "Changelog" => "changelog.md"
     ],
     checkdocs = :exports,
-    doctest = true,
+    doctest = true
 )
 
 if get(ENV, "CI", "false") == "true" &&
-        get(ENV, "GITHUB_REF", "") == "refs/heads/main"
+   get(ENV, "GITHUB_REF", "") == "refs/heads/main"
     deploydocs(
         repo = "github.com/utkuyilmaz1903/BioDynaX.jl.git",
         devbranch = "main",
-        push_preview = false,
+        push_preview = false
     )
 end

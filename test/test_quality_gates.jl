@@ -12,7 +12,7 @@ using Test: @inferred
 
     @test @inferred(ude_rhs!(
         linear_cache.du, u, linear_parameters, 0.0, linear_model, linear_cache)) ===
-        linear_cache.du
+          linear_cache.du
     @test all(isfinite, linear_cache.du)
 
     for _ in 1:50
@@ -40,4 +40,3 @@ using Test: @inferred
     @test out isa Vector{Float64}
     @test out ≈ Vector(p53_cache.du)
 end
-

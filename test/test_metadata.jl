@@ -37,14 +37,14 @@ end
         EdgeSpec[];
         reactions = [
             ReactionSpec(name = :drive,
-                         stoichiometry = Dict(1 => 1.0), regulators = [2],
-                         metadata = Dict(:rate_param => :k_xy)),
+                stoichiometry = Dict(1 => 1.0), regulators = [2],
+                metadata = Dict(:rate_param => :k_xy)),
             ReactionSpec(name = :decay_x,
-                         stoichiometry = Dict(1 => -1.0), regulators = Int[],
-                         metadata = Dict(:rate_param => :k_x)),
+                stoichiometry = Dict(1 => -1.0), regulators = Int[],
+                metadata = Dict(:rate_param => :k_x)),
             ReactionSpec(name = :decay_y,
-                         stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                         metadata = Dict(:rate_param => :k_y)),
+                stoichiometry = Dict(2 => -1.0), regulators = Int[],
+                metadata = Dict(:rate_param => :k_y))
         ])
     model = compile_network(network, nn, st)
     params = pack_parameters((k_xy = 1.0, k_x = 0.5, k_y = 0.4), nn_ps)

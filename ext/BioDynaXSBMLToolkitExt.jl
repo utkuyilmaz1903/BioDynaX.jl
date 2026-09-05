@@ -18,7 +18,7 @@ function BioDynaX.import_sbmltoolkit_network(path::AbstractString)
     sps = Catalyst.species(rs)
     isempty(sps) && throw(ArgumentError("SBMLToolkit model contains no species"))
     nodes = NodeSpec[]
-    name_to_idx = Dict{String,Int}()
+    name_to_idx = Dict{String, Int}()
     for (i, sp) in enumerate(sps)
         sid = _species_id(sp)
         push!(nodes, NodeSpec(name = Symbol(replace(sid, "-" => "_"))))
@@ -27,7 +27,7 @@ function BioDynaX.import_sbmltoolkit_network(path::AbstractString)
     end
     reactions = ReactionSpec[]
     for (k, rxn) in enumerate(Catalyst.reactions(rs))
-        stoich = Dict{Int,Float64}()
+        stoich = Dict{Int, Float64}()
         for (sp, coeff) in _reaction_stoich(rxn)
             idx = _lookup_species(name_to_idx, sp)
             stoich[idx] = get(stoich, idx, 0.0) + Float64(coeff)
@@ -38,15 +38,16 @@ function BioDynaX.import_sbmltoolkit_network(path::AbstractString)
         known = _is_massaction(rxn)
         family = known ? MASS_ACTION : HILL
         meta = known ?
-            MassActionMetadata(rate_param = Symbol("k_", rid)) :
-            HillMetadata()
-        push!(reactions, ReactionSpec(
-            name = rid,
-            stoichiometry = stoich,
-            regulators = isempty(regulators) ? collect(keys(stoich)) : regulators,
-            known = known,
-            family = family,
-            metadata = meta))
+               MassActionMetadata(rate_param = Symbol("k_", rid)) :
+               HillMetadata()
+        push!(reactions,
+            ReactionSpec(
+                name = rid,
+                stoichiometry = stoich,
+                regulators = isempty(regulators) ? collect(keys(stoich)) : regulators,
+                known = known,
+                family = family,
+                metadata = meta))
     end
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end

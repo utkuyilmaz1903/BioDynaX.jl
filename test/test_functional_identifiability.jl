@@ -24,10 +24,12 @@ function _m3a_sentinel_split()
 end
 
 function _m3a_independent_z(split::ExperimentSplit, regulator::Integer)
-    r_train = reduce(vcat, (Float64.(exp.observations[regulator, :])
-                            for exp in split.train.experiments))
-    r_holdout = reduce(vcat, (Float64.(exp.observations[regulator, :])
-                              for exp in split.holdout.experiments))
+    r_train = reduce(
+        vcat, (Float64.(exp.observations[regulator, :])
+        for exp in split.train.experiments))
+    r_holdout = reduce(vcat,
+        (Float64.(exp.observations[regulator, :])
+        for exp in split.holdout.experiments))
     return vcat(r_train, r_holdout), r_train, r_holdout
 end
 
@@ -89,7 +91,7 @@ end
     domain_b = functional_identifiability_domain(split, 2)
     @test domain_a.z == domain_b.z == [0.1, 0.5, 0.1, 0.8]
     @test !hasmethod(functional_identifiability_domain,
-        Tuple{ExperimentSplit,Integer,AbstractVector})
+        Tuple{ExperimentSplit, Integer, AbstractVector})
     @test first(methods(functional_identifiability_domain)).nargs == 3
 end
 
@@ -103,9 +105,9 @@ end
     @test domain_two.z == domain_five.z
     @test domain_two.z == [0.1, 0.5, 0.1, 0.8]
     @test !hasmethod(functional_identifiability_domain,
-        Tuple{ExperimentSplit,Integer,AbstractVector})
+        Tuple{ExperimentSplit, Integer, AbstractVector})
     @test !hasmethod(functional_identifiability_domain,
-        Tuple{ExperimentSplit,Integer,Vector})
+        Tuple{ExperimentSplit, Integer, Vector})
 end
 
 @testset "LS_DIRECTION" begin
@@ -170,9 +172,9 @@ end
     @test_throws DimensionMismatch pairwise_destruction_metrics(D_i, D_j[1:3])
     @test_throws DimensionMismatch scale_align_destruction(D_i, D_j[1:2])
     @test !hasmethod(pairwise_destruction_metrics,
-        Tuple{ExperimentSplit,AbstractVector,AbstractVector})
+        Tuple{ExperimentSplit, AbstractVector, AbstractVector})
     @test !hasmethod(pairwise_destruction_metrics,
-        Tuple{FunctionalIdentifiabilityDomain,AbstractVector,AbstractVector})
+        Tuple{FunctionalIdentifiabilityDomain, AbstractVector, AbstractVector})
 end
 
 @testset "SCALE_ONLY_CHANGE" begin
@@ -185,7 +187,7 @@ end
     metrics = pairwise_destruction_metrics(D1, D2)
     @test metrics.scale_alpha == expected.alpha
     @test metrics.d_rmse_scale_normalized == expected.d_rmse_scale_normalized
-    @test metrics.d_rmse_scale_normalized ≈ 0 atol = 1e-15
+    @test metrics.d_rmse_scale_normalized≈0 atol=1e-15
     @test metrics.d_rmse_raw == expected.d_rmse_raw
     @test metrics.d_rmse_raw > 0
 end
@@ -255,7 +257,7 @@ end
 function _m3b_protocol_split(; holdout_obs_scale = 1.0)
     ics = [
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
-        [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20],
+        [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]
     ]
     experiments = map(enumerate(ics)) do (i, u0)
         times = [0.0, 0.4]
@@ -308,47 +310,47 @@ function _m3b_run_restarts(split, ude_net;
     holdout_events = Any[]
     order = Symbol[]
     fit_calls = Ref(0)
-    seed_attempts = Dict{Int,Int}()
+    seed_attempts = Dict{Int, Int}()
     predict_throw_fp = predict_throw_seed === nothing ? nothing :
-        nn_parameter_fingerprint(_m3b_shift_params(
-            last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
-            predict_throw_seed).nn)
+                       nn_parameter_fingerprint(_m3b_shift_params(
+        last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
+        predict_throw_seed).nn)
     result = with_fit_unknown_destruction_entry_observer(obs -> begin
-            push!(order, :fit_entry)
-            push!(entries, obs)
-        end) do
+        push!(order, :fit_entry)
+        push!(entries, obs)
+    end) do
         with_fit_unknown_destruction_observer(set -> begin
-                fit_calls[] += 1
-                k = fit_calls[]
-                seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
-                    FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
-                seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
-                if throw_seed === seed
-                    error("injected fit failure for seed $seed")
-                end
-                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
-                push!(fit_results, fit)
-                return fit
-            end) do
+            fit_calls[] += 1
+            k = fit_calls[]
+            seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
+                   FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
+            seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
+            if throw_seed === seed
+                error("injected fit failure for seed $seed")
+            end
+            _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+            fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
+            push!(fit_results, fit)
+            return fit
+        end) do
             with_sample_unknown_destruction_result_observer(obs -> begin
-                    push!(order, :sample)
-                    push!(samples, obs)
-                end) do
+                push!(order, :sample)
+                push!(samples, obs)
+            end) do
                 with_predict_ude_observer(obs -> begin
-                        push!(order, :predict)
-                        if predict_throw_fp !== nothing &&
-                                nn_parameter_fingerprint(obs.params.nn) ==
-                                predict_throw_fp
-                            error("injected predict failure for seed $(predict_throw_seed)")
-                        end
-                        push!(predicts, obs)
-                    end) do
+                    push!(order, :predict)
+                    if predict_throw_fp !== nothing &&
+                       nn_parameter_fingerprint(obs.params.nn) ==
+                       predict_throw_fp
+                        error("injected predict failure for seed $(predict_throw_seed)")
+                    end
+                    push!(predicts, obs)
+                end) do
                     with_evaluate_holdout_observer((args...) -> begin
-                            push!(order, :holdout)
-                            push!(holdout_events, args)
-                            return nothing
-                        end) do
+                        push!(order, :holdout)
+                        push!(holdout_events, args)
+                        return nothing
+                    end) do
                         train_functional_identifiability_restarts(split, ude_net)
                     end
                 end
@@ -362,18 +364,18 @@ end
 
 @testset "M3-B helpers stay unexported" begin
     for name in (
-            :FUNCTIONAL_ID_RESTART_SEEDS,
-            :FUNCTIONAL_ID_TRAINING_CONFIG,
-            :FunctionalIdentifiabilityRestart,
-            :nn_parameter_fingerprint,
-            :train_functional_identifiability_restarts,
-            :fit_functional_identifiability_restart,
-            :with_fit_unknown_destruction_entry_observer,
-            :with_sample_unknown_destruction_result_observer,
-            :with_predict_ude_observer,
-            :FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER,
-            :SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER,
-            :PREDICT_UDE_OBSERVER)
+        :FUNCTIONAL_ID_RESTART_SEEDS,
+        :FUNCTIONAL_ID_TRAINING_CONFIG,
+        :FunctionalIdentifiabilityRestart,
+        :nn_parameter_fingerprint,
+        :train_functional_identifiability_restarts,
+        :fit_functional_identifiability_restart,
+        :with_fit_unknown_destruction_entry_observer,
+        :with_sample_unknown_destruction_result_observer,
+        :with_predict_ude_observer,
+        :FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER,
+        :SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER,
+        :PREDICT_UDE_OBSERVER)
         @test isdefined(BioDynaX, name)
         @test name ∉ names(BioDynaX)
     end
@@ -405,7 +407,7 @@ end
     @test length(live.entries) == 5
     @test live.result.n_attempted == 5
     @test live.result.restart_seeds === (201, 202, 203, 204, 205)
-    expected_p0 = Dict{Int,UInt64}()
+    expected_p0 = Dict{Int, UInt64}()
     for seed in FUNCTIONAL_ID_RESTART_SEEDS
         expected_p0[seed] = first(_m3b_independent_p0_fingerprint(seed, ude_net))
     end
@@ -667,8 +669,9 @@ end
 
 function _m3c_restarts(included_mask)
     return FunctionalIdentifiabilityRestart[
-        _m3c_restart(seed, included)
-        for (seed, included) in zip(FUNCTIONAL_ID_RESTART_SEEDS, included_mask)]
+                                            _m3c_restart(seed, included)
+                                            for (seed, included) in zip(
+        FUNCTIONAL_ID_RESTART_SEEDS, included_mask)]
 end
 
 function _m3c_constant_pairs(included_seeds, d_scale, traj; d_raw = d_scale)
@@ -676,8 +679,9 @@ function _m3c_constant_pairs(included_seeds, d_scale, traj; d_raw = d_scale)
     pairs = FunctionalIdentifiabilityPair[]
     for i in 1:(length(seeds) - 1)
         for j in (i + 1):length(seeds)
-            push!(pairs, FunctionalIdentifiabilityPair(
-                seeds[i], seeds[j], d_raw, d_scale, 1.0, 1.0, traj, traj))
+            push!(pairs,
+                FunctionalIdentifiabilityPair(
+                    seeds[i], seeds[j], d_raw, d_scale, 1.0, 1.0, traj, traj))
         end
     end
     return pairs
@@ -696,44 +700,44 @@ function _m3c_run_assess(split, ude_net;
     predicts = Any[]
     order = Symbol[]
     fit_calls = Ref(0)
-    seed_attempts = Dict{Int,Int}()
-    fp_to_seed = Dict{UInt64,Int}()
+    seed_attempts = Dict{Int, Int}()
+    fp_to_seed = Dict{UInt64, Int}()
     result = with_fit_unknown_destruction_entry_observer(obs -> begin
-            push!(order, :fit_entry)
-            push!(entries, obs)
-        end) do
+        push!(order, :fit_entry)
+        push!(entries, obs)
+    end) do
         with_fit_unknown_destruction_observer(set -> begin
-                fit_calls[] += 1
-                k = fit_calls[]
-                seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
-                    FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
-                seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
-                if seed in throw_seeds
-                    error("injected fit failure for seed $seed")
-                end
-                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
-                fp_to_seed[nn_parameter_fingerprint(fit.params.nn)] = seed
-                push!(fit_results, fit)
-                return fit
-            end) do
+            fit_calls[] += 1
+            k = fit_calls[]
+            seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
+                   FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
+            seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
+            if seed in throw_seeds
+                error("injected fit failure for seed $seed")
+            end
+            _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+            fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
+            fp_to_seed[nn_parameter_fingerprint(fit.params.nn)] = seed
+            push!(fit_results, fit)
+            return fit
+        end) do
             with_sample_unknown_destruction_result_observer(obs -> begin
-                    push!(order, :sample)
-                    if D_by_seed !== nothing
-                        seed = fp_to_seed[obs.params_nn_fingerprint]
-                        injected = D_by_seed[seed]
-                        vec(obs.D) .= Float64.(injected)
-                    end
-                    push!(samples, obs)
-                end) do
+                push!(order, :sample)
+                if D_by_seed !== nothing
+                    seed = fp_to_seed[obs.params_nn_fingerprint]
+                    injected = D_by_seed[seed]
+                    vec(obs.D) .= Float64.(injected)
+                end
+                push!(samples, obs)
+            end) do
                 with_predict_ude_observer(obs -> begin
-                        push!(order, :predict)
-                        if X_value_by_seed !== nothing
-                            seed = fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
-                            fill!(obs.X, Float64(X_value_by_seed[seed]))
-                        end
-                        push!(predicts, obs)
-                    end) do
+                    push!(order, :predict)
+                    if X_value_by_seed !== nothing
+                        seed = fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+                        fill!(obs.X, Float64(X_value_by_seed[seed]))
+                    end
+                    push!(predicts, obs)
+                end) do
                     assess_functional_identifiability(
                         split, ude_net;
                         restart_seeds = restart_seeds,
@@ -749,8 +753,8 @@ end
 
 function _m3c_group_live_predictions(live, split)
     n_train = length(split.train.experiments)
-    pred_train = Dict{Int,Vector}()
-    pred_holdout = Dict{Int,Vector}()
+    pred_train = Dict{Int, Vector}()
+    pred_holdout = Dict{Int, Vector}()
     for obs in live.predicts
         seed = live.fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
         train_list = get!(Vector{Any}, pred_train, seed)
@@ -807,7 +811,7 @@ end
         :trajectory_agree_function_disagree, :status,
         :practical_not_structural)
     for name in (:success, :passed, :holdout, :payload, :misc, :extra,
-                 :uncertainty, :hypothesis, :occupancy, :q4, :q7)
+        :uncertainty, :hypothesis, :occupancy, :q4, :q7)
         @test name ∉ fieldnames(FunctionalIdentifiabilityRestart)
         @test name ∉ fieldnames(FunctionalIdentifiabilityPair)
         @test name ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
@@ -877,7 +881,7 @@ end
         @test diag.complete === (diag.n_attempted == 5 && diag.n_successful >= 3)
         @test length(diag.pairs) == binomial(n_successful, 2)
         included = [restart.seed for restart in diag.restarts if restart.included]
-        expected_keys = Set{Tuple{Int,Int}}()
+        expected_keys = Set{Tuple{Int, Int}}()
         for i in 1:(length(included) - 1)
             for j in (i + 1):length(included)
                 seed_i, seed_j = included[i], included[j]
@@ -907,10 +911,10 @@ end
     diag = live.result
     @test diag.n_successful == 5
     @test length(diag.pairs) == 10
-    D_by_seed = Dict{Int,Vector{Float64}}()
-    independent_D = Dict{Int,Vector{Float64}}()
+    D_by_seed = Dict{Int, Vector{Float64}}()
+    independent_D = Dict{Int, Vector{Float64}}()
     z_expected = live.result.domain.z
-    model_by_seed = Dict{Int,Any}()
+    model_by_seed = Dict{Int, Any}()
     for obs in live.predicts
         seed = live.fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
         model_by_seed[seed] = obs.model
@@ -1122,8 +1126,10 @@ end
     @test_throws ArgumentError FunctionalIdentifiabilityDiagnostic(
         :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included2, pairs_inc;
         complete = true)
-    @test_throws ArgumentError FunctionalIdentifiabilityPair(201, 201, 0.1, 0.1, 1.0, 1.0, 0.1, 0.1)
-    @test_throws ArgumentError FunctionalIdentifiabilityPair(202, 201, 0.1, 0.1, 1.0, 1.0, 0.1, 0.1)
+    @test_throws ArgumentError FunctionalIdentifiabilityPair(
+        201, 201, 0.1, 0.1, 1.0, 1.0, 0.1, 0.1)
+    @test_throws ArgumentError FunctionalIdentifiabilityPair(
+        202, 201, 0.1, 0.1, 1.0, 1.0, 0.1, 0.1)
     consistent = FunctionalIdentifiabilityDiagnostic(
         :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5, pairs_b;
         function_disagree = true)
@@ -1228,10 +1234,11 @@ function _m3d_distinctive_pairs()
     for i in 1:(length(seeds) - 1)
         for j in (i + 1):length(seeds)
             k += 1
-            push!(pairs, FunctionalIdentifiabilityPair(
-                seeds[i], seeds[j],
-                0.02 * k, 0.01 * k + 0.001 * i, 0.5 + 0.01 * k,
-                1.0 + 0.1 * k, 0.003 * k, 0.004 * k))
+            push!(pairs,
+                FunctionalIdentifiabilityPair(
+                    seeds[i], seeds[j],
+                    0.02 * k, 0.01 * k + 0.001 * i, 0.5 + 0.01 * k,
+                    1.0 + 0.1 * k, 0.003 * k, 0.004 * k))
         end
     end
     return pairs
@@ -1245,8 +1252,9 @@ function _m3d_outlier_pairs()
         for j in (i + 1):length(seeds)
             k += 1
             d_scale = k == 1 ? 0.91 : 0.21
-            push!(pairs, FunctionalIdentifiabilityPair(
-                seeds[i], seeds[j], 0.21, d_scale, 1.0, 1.0, 0.01, 0.01))
+            push!(pairs,
+                FunctionalIdentifiabilityPair(
+                    seeds[i], seeds[j], 0.21, d_scale, 1.0, 1.0, 0.01, 0.01))
         end
     end
     return pairs
@@ -1383,8 +1391,9 @@ end
         :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
         _m3d_outlier_pairs())
     @test length(distinctive.pairs) == 10
-    @test any(pair -> pair.d_rmse_scale_normalized !=
-                      distinctive.median_d_rmse_scale_normalized,
+    @test any(
+        pair -> pair.d_rmse_scale_normalized !=
+                distinctive.median_d_rmse_scale_normalized,
         distinctive.pairs)
     text = format_functional_identifiability_diagnostic(distinctive)
     _m3d_assert_diag_rows(text, distinctive)
@@ -1579,62 +1588,62 @@ function _m3e_run_assess(split, ude_net;
     holdout_events = Any[]
     order = Symbol[]
     fit_calls = Ref(0)
-    seed_attempts = Dict{Int,Int}()
-    fp_to_seed = Dict{UInt64,Int}()
+    seed_attempts = Dict{Int, Int}()
+    fp_to_seed = Dict{UInt64, Int}()
     predict_throw_fp = predict_throw_seed === nothing ? nothing :
-        nn_parameter_fingerprint(_m3b_shift_params(
-            last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
-            predict_throw_seed).nn)
+                       nn_parameter_fingerprint(_m3b_shift_params(
+        last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
+        predict_throw_seed).nn)
     result = with_assess_functional_identifiability_observer(obs -> begin
-            push!(order, :assess)
-            push!(assess_entries, obs)
-        end) do
+        push!(order, :assess)
+        push!(assess_entries, obs)
+    end) do
         with_fit_unknown_destruction_entry_observer(obs -> begin
-                push!(order, :fit_entry)
-                push!(entries, obs)
-            end) do
+            push!(order, :fit_entry)
+            push!(entries, obs)
+        end) do
             with_fit_unknown_destruction_observer(set -> begin
-                    fit_calls[] += 1
-                    k = fit_calls[]
-                    seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
-                        FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
-                    seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
-                    if seed in throw_seeds
-                        error("injected fit failure for seed $seed")
-                    end
-                    _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                    fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
-                    fp_to_seed[nn_parameter_fingerprint(fit.params.nn)] = seed
-                    push!(fit_results, fit)
-                    return fit
-                end) do
+                fit_calls[] += 1
+                k = fit_calls[]
+                seed = k <= length(FUNCTIONAL_ID_RESTART_SEEDS) ?
+                       FUNCTIONAL_ID_RESTART_SEEDS[k] : 1000 + k
+                seed_attempts[seed] = get(seed_attempts, seed, 0) + 1
+                if seed in throw_seeds
+                    error("injected fit failure for seed $seed")
+                end
+                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                fit = _m3b_fake_fit(_m3b_shift_params(p0, seed), retcode)
+                fp_to_seed[nn_parameter_fingerprint(fit.params.nn)] = seed
+                push!(fit_results, fit)
+                return fit
+            end) do
                 with_sample_unknown_destruction_result_observer(obs -> begin
-                        push!(order, :sample)
-                        if D_by_seed !== nothing
-                            seed = fp_to_seed[obs.params_nn_fingerprint]
-                            injected = D_by_seed[seed]
-                            vec(obs.D) .= Float64.(injected)
-                        end
-                        push!(samples, obs)
-                    end) do
+                    push!(order, :sample)
+                    if D_by_seed !== nothing
+                        seed = fp_to_seed[obs.params_nn_fingerprint]
+                        injected = D_by_seed[seed]
+                        vec(obs.D) .= Float64.(injected)
+                    end
+                    push!(samples, obs)
+                end) do
                     with_predict_ude_observer(obs -> begin
-                            push!(order, :predict)
-                            if predict_throw_fp !== nothing &&
-                                    nn_parameter_fingerprint(obs.params.nn) ==
-                                    predict_throw_fp
-                                error("injected predict failure for seed $(predict_throw_seed)")
-                            end
-                            if X_value_by_seed !== nothing
-                                seed = fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
-                                fill!(obs.X, Float64(X_value_by_seed[seed]))
-                            end
-                            push!(predicts, obs)
-                        end) do
+                        push!(order, :predict)
+                        if predict_throw_fp !== nothing &&
+                           nn_parameter_fingerprint(obs.params.nn) ==
+                           predict_throw_fp
+                            error("injected predict failure for seed $(predict_throw_seed)")
+                        end
+                        if X_value_by_seed !== nothing
+                            seed = fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
+                            fill!(obs.X, Float64(X_value_by_seed[seed]))
+                        end
+                        push!(predicts, obs)
+                    end) do
                         with_evaluate_holdout_observer((args...) -> begin
-                                push!(order, :holdout)
-                                push!(holdout_events, args)
-                                return nothing
-                            end) do
+                            push!(order, :holdout)
+                            push!(holdout_events, args)
+                            return nothing
+                        end) do
                             assess_functional_identifiability(
                                 split, ude_net;
                                 restart_seeds = restart_seeds,
@@ -1683,7 +1692,7 @@ end
 
 function _m3e_index_functions(src)
     src = _m3e_normalize(src)
-    index = Dict{String,String}()
+    index = Dict{String, String}()
     for m in eachmatch(r"^function ([A-Za-z_][A-Za-z0-9_!]*)\("m, src)
         name = String(m.captures[1])
         body = _m3e_function_body_from_src(src, name)
@@ -1700,7 +1709,7 @@ end
 function _m3e_reachable(entry, index; stop = Set{String}())
     queue = String[entry]
     seen = Set{String}()
-    bodies = Dict{String,String}()
+    bodies = Dict{String, String}()
     while !isempty(queue)
         name = popfirst!(queue)
         name in seen && continue
@@ -1775,8 +1784,8 @@ function _m3e_ast_has_call(src, name::Symbol)
                 if callee === name
                     found[] = true
                 elseif callee isa Expr && callee.head === :. &&
-                        length(callee.args) >= 2 &&
-                        callee.args[2] === QuoteNode(name)
+                       length(callee.args) >= 2 &&
+                       callee.args[2] === QuoteNode(name)
                     found[] = true
                 end
             end
@@ -1820,14 +1829,13 @@ function _m3e_execute_benchmark_script(path)
     payload = nothing
     if isfile(path)
         payload = redirect_stdout(devnull) do
-            with_assess_functional_identifiability_observer(_ ->
-                    assess_n[] += 1) do
+            with_assess_functional_identifiability_observer(_ -> assess_n[] += 1) do
                 with_fit_unknown_destruction_observer(_ -> begin
-                        fit_n[] += 1
-                        seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
-                        _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                        return _m3b_fake_fit(_m3b_shift_params(p0, seed))
-                    end) do
+                    fit_n[] += 1
+                    seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
+                    _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                    return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+                end) do
                     Base.include(Module(gensym("M3EBenchmarkExec")), path)
                 end
             end
@@ -1836,7 +1844,7 @@ function _m3e_execute_benchmark_script(path)
     result = nothing
     consumed = nothing
     if payload isa NamedTuple && haskey(payload, :diagnostic) &&
-            haskey(payload, :report)
+       haskey(payload, :report)
         result = payload.diagnostic
         consumed = payload.report
     elseif payload isa FunctionalIdentifiabilityDiagnostic
@@ -1874,10 +1882,10 @@ end
 
 @testset "M3-E seams stay unexported" begin
     for name in (
-            :ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER,
-            :with_assess_functional_identifiability_observer,
-            :assess_functional_identifiability,
-            :FunctionalIdentifiabilityDiagnostic)
+        :ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER,
+        :with_assess_functional_identifiability_observer,
+        :assess_functional_identifiability,
+        :FunctionalIdentifiabilityDiagnostic)
         @test isdefined(BioDynaX, name)
         @test name ∉ names(BioDynaX)
     end
@@ -1926,13 +1934,12 @@ end
     @test isempty(live.holdout_events)
     @test live.result isa FunctionalIdentifiabilityDiagnostic
     assess_from_helper = Ref(0)
-    with_assess_functional_identifiability_observer(_ ->
-            assess_from_helper[] += 1) do
+    with_assess_functional_identifiability_observer(_ -> assess_from_helper[] += 1) do
         with_fit_unknown_destruction_observer(set -> begin
-                seed = 201
-                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                return _m3b_fake_fit(_m3b_shift_params(p0, seed))
-            end) do
+            seed = 201
+            _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+            return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+        end) do
             train_functional_identifiability_restarts(split, ude_net)
         end
     end
@@ -1945,7 +1952,7 @@ end
     live = _m3e_run_assess(split, ude_net)
     @test length(live.entries) == 5
     @test length(live.assess_entries) == 1
-    expected_p0 = Dict{Int,UInt64}()
+    expected_p0 = Dict{Int, UInt64}()
     for seed in FUNCTIONAL_ID_RESTART_SEEDS
         expected_p0[seed] = nn_parameter_fingerprint(
             build_ude_model(MersenneTwister(seed), ude_net)[2].nn)
@@ -1977,7 +1984,7 @@ end
     live_final = UInt64[]
     live_D = Vector{Float64}[]
     independent_D = Vector{Float64}[]
-    model_by_seed = Dict{Int,Any}()
+    model_by_seed = Dict{Int, Any}()
     for obs in live.predicts
         seed = live.fp_to_seed[nn_parameter_fingerprint(obs.params.nn)]
         model_by_seed[seed] = obs.model
@@ -2072,7 +2079,7 @@ end
         D_by_seed = D_by_seed, X_value_by_seed = X_value_by_seed)
     @test length(live.assess_entries) == 1
     @test length(live.samples) == 5
-    live_D = Dict{Int,Vector{Float64}}()
+    live_D = Dict{Int, Vector{Float64}}()
     for sample in live.samples
         seed = live.fp_to_seed[sample.params_nn_fingerprint]
         live_D[seed] = vec(Float64.(sample.D))
@@ -2106,7 +2113,7 @@ end
     @test !isempty(live.predicts)
     @test all(obs -> obs.X isa AbstractArray, live.predicts)
     pred_train, pred_holdout = _m3c_group_live_predictions(live, split)
-    D_by_seed = Dict{Int,Vector{Float64}}()
+    D_by_seed = Dict{Int, Vector{Float64}}()
     for sample in live.samples
         seed = live.fp_to_seed[sample.params_nn_fingerprint]
         D_by_seed[seed] = vec(Float64.(sample.D))
@@ -2127,7 +2134,8 @@ end
         pred_holdout[201], pred_holdout[205])
     pair_12 = only(filter(p -> p.seed_i == 201 && p.seed_j == 202,
         live.result.pairs))
-    @test pair_12.traj_rmse_train == _m3c_independent_pair_metrics(
+    @test pair_12.traj_rmse_train ==
+          _m3c_independent_pair_metrics(
         D_by_seed[201], D_by_seed[202],
         pred_train[201], pred_train[202],
         pred_holdout[201], pred_holdout[202]).traj_rmse_train
@@ -2250,14 +2258,13 @@ end
     split = _m3a_sentinel_split()
     assess_n = Ref(0)
     fit_n = Ref(0)
-    live_diag = with_assess_functional_identifiability_observer(_ ->
-            assess_n[] += 1) do
+    live_diag = with_assess_functional_identifiability_observer(_ -> assess_n[] += 1) do
         with_fit_unknown_destruction_observer(set -> begin
-                fit_n[] += 1
-                seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
-                _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                return _m3b_fake_fit(_m3b_shift_params(p0, seed))
-            end) do
+            fit_n[] += 1
+            seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
+            _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+            return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+        end) do
             _m3e_approved_benchmark_entry(split, ude_net)
         end
     end
@@ -2278,8 +2285,7 @@ end
     approved_src = "assess_functional_identifiability(split, ude_net)\n"
     @test _m3e_ast_has_call(approved_src, :assess_functional_identifiability)
     ctor_n = Ref(0)
-    ctor_diag = with_assess_functional_identifiability_observer(_ ->
-            ctor_n[] += 1) do
+    ctor_diag = with_assess_functional_identifiability_observer(_ -> ctor_n[] += 1) do
         _m3e_constructor_only_benchmark(split, ude_net)
     end
     @test ctor_n[] == 0
@@ -2388,8 +2394,7 @@ end
     @test ctor_live.result isa FunctionalIdentifiabilityDiagnostic
     @test !_m3e_script_live_bind(ctor_path)
     helper_n = Ref(0)
-    helper_diag = with_assess_functional_identifiability_observer(_ ->
-            helper_n[] += 1) do
+    helper_diag = with_assess_functional_identifiability_observer(_ -> helper_n[] += 1) do
         _m3e_constructor_only_benchmark(split, ude_net)
     end
     @test helper_n[] == 0
@@ -2516,11 +2521,11 @@ end
     hard = read(joinpath(@__DIR__, "test_recovery_hard.jl"), String)
     corpus = holdout * "\n" * recovery * "\n" * hard
     for id in (
-            "L-SPLIT-ID", "L-SET-INTACT", "L-FIT-A", "L-FIT-B", "L-RNG",
-            "L-DOM-A", "L-DOM-B", "L-D-OCC", "L-OVERFIT", "L-RES-HOLD",
-            "L-RES-LEGACY", "L-DISC-A", "L-DISC-B-1", "L-DISC-B-2",
-            "L-DISC-B-3", "L-EARLY", "L-GATE", "L-SITE", "L-API", "M2-G1",
-            "M2-G2")
+        "L-SPLIT-ID", "L-SET-INTACT", "L-FIT-A", "L-FIT-B", "L-RNG",
+        "L-DOM-A", "L-DOM-B", "L-D-OCC", "L-OVERFIT", "L-RES-HOLD",
+        "L-RES-LEGACY", "L-DISC-A", "L-DISC-B-1", "L-DISC-B-2",
+        "L-DISC-B-3", "L-EARLY", "L-GATE", "L-SITE", "L-API", "M2-G1",
+        "M2-G2")
         @test occursin(id, corpus)
     end
     @test occursin("no M3 or M4 fields", holdout)
@@ -2557,10 +2562,9 @@ const _M3F_TRADEOFF_KEYS = (
     :unidentifiable_edge,
     :fisher)
 
-const _M3F_PHASE1_FISHER = [
-    1.948946020842544e13 -5.014202383474795e13 -1.1163107161215307e13
-    -5.014202383474795e13 1.3015736872831088e14 2.9873326111898336e13
-    -1.1163107161215307e13 2.9873326111898336e13 2.70365750557671e13]
+const _M3F_PHASE1_FISHER = [1.948946020842544e13 -5.014202383474795e13 -1.1163107161215307e13
+                            -5.014202383474795e13 1.3015736872831088e14 2.9873326111898336e13
+                            -1.1163107161215307e13 2.9873326111898336e13 2.70365750557671e13]
 
 const _M3F_PHASE1_CONDITION = 1086.662678334793
 const _M3F_PHASE1_LOWER = [0.9999952004396508, 0.9999981216038665, 0.9999995560356232]
@@ -2658,8 +2662,8 @@ end
     @test report.residual_variance == report_again.residual_variance
     @test report.parameter_names == [:k_ba, :k_a, :k_b]
     @test size(report.fisher_information) == (3, 3)
-    @test report.fisher_information ≈ _M3F_PHASE1_FISHER rtol=1e-12 atol=0
-    @test report.condition_number ≈ _M3F_PHASE1_CONDITION rtol=1e-12 atol=0
+    @test report.fisher_information≈_M3F_PHASE1_FISHER rtol=1e-12 atol=0
+    @test report.condition_number≈_M3F_PHASE1_CONDITION rtol=1e-12 atol=0
     @test report.residual_variance == eps(Float64)
     @test all(report.identifiable)
 
@@ -2673,8 +2677,8 @@ end
     @test uncertainty.method === :fisher
     @test uncertainty.level == 0.95
     @test uncertainty.parameter_names == report.parameter_names
-    @test uncertainty.lower ≈ _M3F_PHASE1_LOWER rtol=1e-12 atol=0
-    @test uncertainty.upper ≈ _M3F_PHASE1_UPPER rtol=1e-12 atol=0
+    @test uncertainty.lower≈_M3F_PHASE1_LOWER rtol=1e-12 atol=0
+    @test uncertainty.upper≈_M3F_PHASE1_UPPER rtol=1e-12 atol=0
     for (i, name) in enumerate(report.parameter_names)
         center = positive_parameter(getproperty(fixture.params.phys, name))
         expected = _m3f_wald_interval(center, variances[i], z95)
@@ -2710,7 +2714,8 @@ end
           "Practical k_prod↔D collinearity cosine=0.11 (below threshold)."
 
     fid = _m3d_status_diagnostics().function_agree
-    cross = format_q3_q4_side_by_side((;
+    cross = format_q3_q4_side_by_side(
+        (;
             unidentifiable_edge = true,
             production_param = :k_prod,
             collinearity = 0.99,
@@ -2759,8 +2764,8 @@ function _m3g_ast_call_count(src, name::Symbol)
                 if callee === name
                     n[] += 1
                 elseif callee isa Expr && callee.head === :. &&
-                        length(callee.args) >= 2 &&
-                        callee.args[2] === QuoteNode(name)
+                       length(callee.args) >= 2 &&
+                       callee.args[2] === QuoteNode(name)
                     n[] += 1
                 end
             end
@@ -2776,33 +2781,33 @@ end
 
 function _m3g_call_kwargs(src, name::Symbol)
     text = strip(src)
-    isempty(text) && return Dict{Symbol,Any}[]
+    isempty(text) && return Dict{Symbol, Any}[]
     ex = try
         Meta.parse("begin\n" * text * "\nend")
     catch
-        return Dict{Symbol,Any}[]
+        return Dict{Symbol, Any}[]
     end
-    found = Dict{Symbol,Any}[]
+    found = Dict{Symbol, Any}[]
     walk = nothing
     walk = function (node)
         if node isa Expr
             if node.head === :call && !isempty(node.args)
                 callee = node.args[1]
                 is_target = callee === name ||
-                    (callee isa Expr && callee.head === :. &&
-                     length(callee.args) >= 2 &&
-                     callee.args[2] === QuoteNode(name))
+                            (callee isa Expr && callee.head === :. &&
+                             length(callee.args) >= 2 &&
+                             callee.args[2] === QuoteNode(name))
                 if is_target
-                    kwargs = Dict{Symbol,Any}()
+                    kwargs = Dict{Symbol, Any}()
                     for arg in node.args[2:end]
                         if arg isa Expr && arg.head === :kw &&
-                                length(arg.args) >= 2 && arg.args[1] isa Symbol
+                           length(arg.args) >= 2 && arg.args[1] isa Symbol
                             kwargs[arg.args[1]] = arg.args[2]
                         elseif arg isa Expr && arg.head === :parameters
                             for p in arg.args
                                 if p isa Expr && p.head === :kw &&
-                                        length(p.args) >= 2 &&
-                                        p.args[1] isa Symbol
+                                   length(p.args) >= 2 &&
+                                   p.args[1] isa Symbol
                                     kwargs[p.args[1]] = p.args[2]
                                 elseif p isa Symbol
                                     kwargs[p] = p
@@ -2829,30 +2834,30 @@ function _m3g_execute_benchmark_script(path; predict_throw_seed = nothing)
     fit_n = Ref(0)
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     predict_throw_fp = predict_throw_seed === nothing ? nothing :
-        nn_parameter_fingerprint(_m3b_shift_params(
-            last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
-            predict_throw_seed).nn)
+                       nn_parameter_fingerprint(_m3b_shift_params(
+        last(_m3b_independent_p0_fingerprint(predict_throw_seed, ude_net)),
+        predict_throw_seed).nn)
     payload = nothing
     if isfile(path)
         payload = redirect_stdout(devnull) do
             with_assess_functional_identifiability_observer(entry -> begin
-                    assess_n[] += 1
-                    push!(assess_entries, entry)
-                end) do
+                assess_n[] += 1
+                push!(assess_entries, entry)
+            end) do
                 with_fit_unknown_destruction_observer(_ -> begin
-                        fit_n[] += 1
-                        seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
-                        _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
-                        return _m3b_fake_fit(_m3b_shift_params(p0, seed))
-                    end) do
+                    fit_n[] += 1
+                    seed = FUNCTIONAL_ID_RESTART_SEEDS[min(fit_n[], 5)]
+                    _, p0 = build_ude_model(MersenneTwister(seed), ude_net)
+                    return _m3b_fake_fit(_m3b_shift_params(p0, seed))
+                end) do
                     with_predict_ude_observer(obs -> begin
-                            if predict_throw_fp !== nothing &&
-                                    nn_parameter_fingerprint(obs.params.nn) ==
-                                    predict_throw_fp
-                                error("injected predict failure for seed $(predict_throw_seed)")
-                            end
-                            return nothing
-                        end) do
+                        if predict_throw_fp !== nothing &&
+                           nn_parameter_fingerprint(obs.params.nn) ==
+                           predict_throw_fp
+                            error("injected predict failure for seed $(predict_throw_seed)")
+                        end
+                        return nothing
+                    end) do
                         Base.include(Module(gensym("M3GBenchmarkExec")), path)
                     end
                 end
@@ -2862,7 +2867,7 @@ function _m3g_execute_benchmark_script(path; predict_throw_seed = nothing)
     result = nothing
     consumed = nothing
     if payload isa NamedTuple && haskey(payload, :diagnostic) &&
-            haskey(payload, :report)
+       haskey(payload, :report)
         result = payload.diagnostic
         consumed = payload.report
     elseif payload isa FunctionalIdentifiabilityDiagnostic

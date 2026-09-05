@@ -986,4 +986,3 @@ function all_zero_state_grid_row()
         domain_nonneg = all(≥(0), domain),
         holds = raw == 0 && all(≥(0), domain))
 end
-

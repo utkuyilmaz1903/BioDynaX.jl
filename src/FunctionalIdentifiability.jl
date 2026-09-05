@@ -47,7 +47,7 @@ end
 function _observed_regulator_coordinates(set::ExperimentSet, regulator::Integer)
     idx = Int(regulator)
     return reduce(vcat, (Float64.(exp.observations[idx, :])
-                         for exp in set.experiments))
+    for exp in set.experiments))
 end
 
 """
@@ -115,7 +115,7 @@ function _mean_experiment_rate_rel_rmse(pred_i, pred_j)
         isempty(pred_i) && throw(ArgumentError(
             "trajectory collections must be nonempty"))
         return mean(rate_rel_rmse(vec(left), vec(right))
-                    for (left, right) in zip(pred_i, pred_j))
+        for (left, right) in zip(pred_i, pred_j))
     end
     return rate_rel_rmse(vec(pred_i), vec(pred_j))
 end
@@ -176,7 +176,7 @@ holdout score and not a best-of-N choice.
 struct FunctionalIdentifiabilityRestart
     seed::Int
     included::Bool
-    training_retcode::Union{TrainingRetcode,Nothing}
+    training_retcode::Union{TrainingRetcode, Nothing}
     failure_reason::Symbol
     message::String
     nn_init_fingerprint::UInt64
@@ -184,7 +184,7 @@ struct FunctionalIdentifiabilityRestart
     function FunctionalIdentifiabilityRestart(
             seed::Integer,
             included::Bool,
-            training_retcode::Union{TrainingRetcode,Nothing},
+            training_retcode::Union{TrainingRetcode, Nothing},
             failure_reason::Symbol,
             message::AbstractString,
             nn_init_fingerprint::UInt64,
@@ -576,7 +576,7 @@ function _validate_functional_id_pairs(
     expected = binomial(length(included_seeds), 2)
     length(pairs) == expected || throw(ArgumentError(
         "pair count must be binomial(n_successful, 2) = $expected; got $(length(pairs))"))
-    seen = Set{Tuple{Int,Int}}()
+    seen = Set{Tuple{Int, Int}}()
     for pair in pairs
         pair.seed_i < pair.seed_j || throw(ArgumentError(
             "functional-identifiability pairs require seed_i < seed_j"))
@@ -676,7 +676,7 @@ Practical functional-identifiability diagnostic assembled from five locked resta
 """
 struct FunctionalIdentifiabilityDiagnostic
     family::Symbol
-    restart_seeds::NTuple{5,Int}
+    restart_seeds::NTuple{5, Int}
     n_attempted::Int
     n_successful::Int
     n_failed::Int
@@ -764,11 +764,12 @@ function _functional_identifiability_pairs(
             tmet = pairwise_trajectory_metrics(
                 raw[left].pred_train, raw[right].pred_train,
                 raw[left].pred_holdout, raw[right].pred_holdout)
-            push!(pairs, FunctionalIdentifiabilityPair(
-                restarts[left].seed, restarts[right].seed,
-                dmet.d_rmse_raw, dmet.d_rmse_scale_normalized,
-                dmet.d_correlation, dmet.scale_alpha,
-                tmet.traj_rmse_train, tmet.traj_rmse_holdout))
+            push!(pairs,
+                FunctionalIdentifiabilityPair(
+                    restarts[left].seed, restarts[right].seed,
+                    dmet.d_rmse_raw, dmet.d_rmse_scale_normalized,
+                    dmet.d_correlation, dmet.scale_alpha,
+                    tmet.traj_rmse_train, tmet.traj_rmse_holdout))
         end
     end
     return pairs
@@ -890,7 +891,8 @@ function format_functional_identifiability_diagnostic(
         diag::FunctionalIdentifiabilityDiagnostic)
     io = IOBuffer()
     println(io, "FUNCTIONAL DIAGNOSTIC")
-    println(io, "functional identifiability diagnostic across independent training restarts")
+    println(
+        io, "functional identifiability diagnostic across independent training restarts")
     println(io, "local diagnostic; not a structural identifiability proof")
     println(io, "not an acceptance criterion of the recovery protocol")
     println(io, "status: ", diag.status)
@@ -937,7 +939,8 @@ function _format_q3_scale_warning(ident)
     if hasproperty(ident, :condition_number)
         println(io, "  condition_number: ", ident.condition_number)
     end
-    println(io, "  local Fisher and trajectory-Jacobian diagnostic of production-rate versus destruction-scale collinearity")
+    println(io,
+        "  local Fisher and trajectory-Jacobian diagnostic of production-rate versus destruction-scale collinearity")
     println(io, "  practical scale warning; not a mechanism-success claim")
     println(io, "  this is not an asymptotic Fisher interval for the unknown term")
     if hasproperty(ident, :production_param) &&

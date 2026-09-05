@@ -1,51 +1,51 @@
 using BioDynaX: ExperimentSplit,
-    unique_claim_experiment_split,
-    UNIQUE_CLAIM_TRAIN_INDICES,
-    UNIQUE_CLAIM_HOLDOUT_INDICES,
-    generate_recovery_experiments,
-    MechanismRecoveryResult,
-    recovery_suite_section_body,
-    LOCKED_PUBLIC_EXPORTS,
-    UNIQUE_CLAIM_PROTOCOL,
-    RECOVERY_THRESHOLDS,
-    experiment_fingerprint,
-    public_export_list_holds,
-    build_hill_recovery_network,
-    with_generate_recovery_experiments_observer,
-    with_unique_claim_experiment_split_observer,
-    with_fit_unknown_destruction_observer,
-    with_evaluate_unknown_rate_recovery_range_observer,
-    with_sample_unknown_destruction_grid_observer,
-    with_discover_unknown_rate_observer,
-    with_discover_equations_observer,
-    with_evaluate_holdout_observer,
-    run_recovery_suite,
-    HoldoutEvidence,
-    evaluate_holdout,
-    _holdout_observed_regulators,
-    _unique_claim_external_regulator_band,
-    _finite_rate_rel_rmse,
-    _mean_hybrid_residual,
-    _train_unknown_edge,
-    _regulator_grid,
-    _unique_claim_rate_recovery,
-    _evaluate_unknown_rate_recovery,
-    only_unknown_destruction,
-    DiscoveryFailed,
-    DiscoverySuccess,
-    DiscoveryResult,
-    UDEModel,
-    report_recovery,
-    sample_unknown_destruction_grid,
-    neural_identity_rate,
-    hybrid_data_residual,
-    unique_claim_discovery_config,
-    hill_rate_truth,
-    unique_claim_kpis_hold,
-    PROTOCOL_RESULT_FIELDS,
-    Experiment,
-    ExperimentSet,
-    recovery_thresholds_lock
+                unique_claim_experiment_split,
+                UNIQUE_CLAIM_TRAIN_INDICES,
+                UNIQUE_CLAIM_HOLDOUT_INDICES,
+                generate_recovery_experiments,
+                MechanismRecoveryResult,
+                recovery_suite_section_body,
+                LOCKED_PUBLIC_EXPORTS,
+                UNIQUE_CLAIM_PROTOCOL,
+                RECOVERY_THRESHOLDS,
+                experiment_fingerprint,
+                public_export_list_holds,
+                build_hill_recovery_network,
+                with_generate_recovery_experiments_observer,
+                with_unique_claim_experiment_split_observer,
+                with_fit_unknown_destruction_observer,
+                with_evaluate_unknown_rate_recovery_range_observer,
+                with_sample_unknown_destruction_grid_observer,
+                with_discover_unknown_rate_observer,
+                with_discover_equations_observer,
+                with_evaluate_holdout_observer,
+                run_recovery_suite,
+                HoldoutEvidence,
+                evaluate_holdout,
+                _holdout_observed_regulators,
+                _unique_claim_external_regulator_band,
+                _finite_rate_rel_rmse,
+                _mean_hybrid_residual,
+                _train_unknown_edge,
+                _regulator_grid,
+                _unique_claim_rate_recovery,
+                _evaluate_unknown_rate_recovery,
+                only_unknown_destruction,
+                DiscoveryFailed,
+                DiscoverySuccess,
+                DiscoveryResult,
+                UDEModel,
+                report_recovery,
+                sample_unknown_destruction_grid,
+                neural_identity_rate,
+                hybrid_data_residual,
+                unique_claim_discovery_config,
+                hill_rate_truth,
+                unique_claim_kpis_hold,
+                PROTOCOL_RESULT_FIELDS,
+                Experiment,
+                ExperimentSet,
+                recovery_thresholds_lock
 
 const _M2A_FORBIDDEN_MUTATORS = (
     "splice!", "deleteat!", "pop!", "push!", "insert!",
@@ -129,7 +129,7 @@ end
 function _m2a_reachable_split_bodies(entry::String)
     queue = [entry]
     seen = Set{String}()
-    bodies = Dict{String,String}()
+    bodies = Dict{String, String}()
     while !isempty(queue)
         name = popfirst!(queue)
         name in seen && continue
@@ -172,7 +172,7 @@ end
 function _m2b_reachable_unknown_edge_helpers()
     queue = ["_train_unknown_edge"]
     seen = Set{String}()
-    bodies = Dict{String,String}()
+    bodies = Dict{String, String}()
     approved = Set(_M2B_APPROVED_EDGE_HELPERS)
     while !isempty(queue)
         name = popfirst!(queue)
@@ -218,15 +218,15 @@ function _m2b_probe_train_unknown_edge(; seed = 17, mark_holdout::Bool = false)
     rng = MersenneTwister(seed)
     ude_model, ude_p0 = build_ude_model(rng, ude_net)
     result = with_generate_recovery_experiments_observer(set -> begin
-            push!(generated, set)
-            mark_holdout && _m2b_mark_holdout!(set)
-            nothing
-        end) do
+        push!(generated, set)
+        mark_holdout && _m2b_mark_holdout!(set)
+        nothing
+    end) do
         with_unique_claim_experiment_split_observer(split -> push!(splits, split)) do
             with_fit_unknown_destruction_observer(set -> begin
-                    push!(fit_sets, set)
-                    _m2b_dummy_training_result(set)
-                end) do
+                push!(fit_sets, set)
+                _m2b_dummy_training_result(set)
+            end) do
                 _train_unknown_edge(
                     rng, ude_model, ude_p0, truth_net, truth;
                     adam = 0, bfgs = 0, noise_σ = 0.0,
@@ -302,9 +302,9 @@ end
 function _m2c_consumed_discovery_range(set, term, model, params)
     captured = Ref{Any}()
     with_evaluate_unknown_rate_recovery_range_observer(r_range -> begin
-            captured[] = collect(r_range)
-            _m2c_dummy_evaled(term)
-        end) do
+        captured[] = collect(r_range)
+        _m2c_dummy_evaled(term)
+    end) do
         _unique_claim_rate_recovery(
             model, params, term, _ -> 0.0, set;
             order = 2, family = :hill, noise_σ = 0.0,
@@ -422,10 +422,10 @@ function _m2d_synthetic_set(;
     r_lo, r_hi = train_r_extrema
     train_r = range(r_lo, r_hi; length = 7)
     train = [_m2d_experiment(Symbol(:train, i),
-        fill(Float64(train_r[i]), n_points),
-        fill(0.20 + 0.05 * i, n_points)) for i in 1:7]
+                 fill(Float64(train_r[i]), n_points),
+                 fill(0.20 + 0.05 * i, n_points)) for i in 1:7]
     hold = [_m2d_experiment(Symbol(:hold, j),
-        fill(Float64(rj), n_points), fill(Float64(sj), n_points))
+                fill(Float64(rj), n_points), fill(Float64(sj), n_points))
             for (j, (rj, sj)) in enumerate(zip(holdout_r, holdout_s))]
     return ExperimentSet(vcat(train, hold), [:S, :R])
 end
@@ -494,8 +494,8 @@ end
 
 function _m2d_capture_grid_ranges(f)
     consumed = Any[]
-    result = with_sample_unknown_destruction_grid_observer(r_range ->
-            push!(consumed, r_range)) do
+    result = with_sample_unknown_destruction_grid_observer(r_range -> push!(
+        consumed, r_range)) do
         f()
     end
     return result, consumed
@@ -770,8 +770,8 @@ end
         @test train_at !== nothing
         after = section_body[last(train_at):end]
         for token in ("train_ude(", "train_experiments(",
-                      "train_experiments_with_warmup",
-                      "fit_unknown_destruction(", "_polish_full(")
+            "train_experiments_with_warmup",
+            "fit_unknown_destruction(", "_polish_full(")
             @test !occursin(token, section_body)
             @test !occursin(token, after)
         end
@@ -952,7 +952,8 @@ end
 
 @testset "L-DISC-B-1 composer call site has no split/holdout argument" begin
     composer = _m2c_composer_body()
-    @test occursin("function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate;",
+    @test occursin(
+        "function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate;",
         composer)
     @test occursin("r_range = range(0.05, 2.0; length = 80)", composer)
     @test !occursin("split=", composer)
@@ -1007,9 +1008,9 @@ end
     @test r_full != r0
     @test all(set.experiments[i] === ids[i] for i in 1:9)
     @test all(set.experiments[i].observations === obs[i] for i in 1:9)
-    @test !any(==( _M2C_HOLDOUT_SENTINEL),
+    @test !any(==(_M2C_HOLDOUT_SENTINEL),
         reduce(vcat, (exp.observations[term.regulator, :] for exp in split1.train)))
-    @test all(==( _M2C_HOLDOUT_SENTINEL),
+    @test all(==(_M2C_HOLDOUT_SENTINEL),
         reduce(vcat, (exp.observations[term.regulator, :] for exp in split1.holdout)))
 end
 
@@ -1413,13 +1414,13 @@ end
     set = _m2d_synthetic_set()
     split = unique_claim_experiment_split(set)
     ev = with_discover_unknown_rate_observer(
-            (_...) -> error("discover_unknown_rate entered")) do
+        (_...) -> error("discover_unknown_rate entered")) do
         with_discover_equations_observer(
-                (_...) -> error("discover_equations entered")) do
+            (_...) -> error("discover_equations entered")) do
             with_fit_unknown_destruction_observer(
-                    _ -> error("fit_unknown_destruction entered")) do
+                _ -> error("fit_unknown_destruction entered")) do
                 with_generate_recovery_experiments_observer(
-                        _ -> error("generate_recovery_experiments entered")) do
+                    _ -> error("generate_recovery_experiments entered")) do
                     evaluate_holdout(
                         split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
                 end
@@ -1438,10 +1439,10 @@ end
     function capture_discovery(current)
         captured = Any[]
         with_discover_unknown_rate_observer((R, times, D, config) -> begin
-                push!(captured, (;
-                    R = copy(R), times = copy(times), D = copy(D), config))
-                return _m2d_dummy_discovery()
-            end) do
+            push!(captured, (;
+                R = copy(R), times = copy(times), D = copy(D), config))
+            return _m2d_dummy_discovery()
+        end) do
             _unique_claim_rate_recovery(
                 model, params, term, truth_rate, current;
                 order = 2, family = :hill, noise_σ = 0.0,
@@ -1872,9 +1873,9 @@ end
     @test !occursin("_ensure_holdout", rec)
     @test !occursin("_ensure_holdout", pipe)
     for (name, bodies) in (
-            ("report_recovery", _m2f_reachable_bodies("report_recovery")),
-            ("_evaluate_unknown_rate_recovery",
-             _m2f_reachable_bodies("_evaluate_unknown_rate_recovery")))
+        ("report_recovery", _m2f_reachable_bodies("report_recovery")),
+        ("_evaluate_unknown_rate_recovery",
+            _m2f_reachable_bodies("_evaluate_unknown_rate_recovery")))
         @test haskey(bodies, name)
         for (callee, body) in bodies
             @test !occursin("evaluate_holdout(", body)
@@ -1909,7 +1910,7 @@ end
     @test evaled.data_residual === Inf
     calls = Any[]
     result, holdout = with_evaluate_holdout_observer(
-            (args...) -> (push!(calls, args); error("Case A called evaluate_holdout"))) do
+        (args...) -> (push!(calls, args); error("Case A called evaluate_holdout"))) do
         _m2f_production_report(
             evaled, ident, split, model, params, term, _m2d_unit_truth)
     end
@@ -1929,7 +1930,7 @@ end
 @testset "M2-F Case A live ude_adam=0 does not evaluate holdout" begin
     calls = Ref(0)
     report = with_evaluate_holdout_observer(
-            (_...) -> (calls[] += 1; error("live Case A called evaluate_holdout"))) do
+        (_...) -> (calls[] += 1; error("live Case A called evaluate_holdout"))) do
         run_recovery_suite(MersenneTwister(1);
             ude_adam = 0, ude_bfgs = 0,
             sections = (:ude_discovery, :mm_unknown))
@@ -1960,9 +1961,9 @@ end
     @test evaled_b.success == false
     calls = Any[]
     result, holdout = with_evaluate_holdout_observer((args...) -> begin
-            push!(calls, args)
-            return nothing
-        end) do
+        push!(calls, args)
+        return nothing
+    end) do
         _m2f_production_report(
             evaled_b, ident, split, model, params, term, _m2d_unit_truth)
     end
@@ -2059,9 +2060,9 @@ end
     sentinel = HoldoutEvidence(1.11, 2.22, 3.33, 4.44)
     calls = Ref(0)
     result, holdout = with_evaluate_holdout_observer((_...) -> begin
-            calls[] += 1
-            return sentinel
-        end) do
+        calls[] += 1
+        return sentinel
+    end) do
         _m2f_production_report(
             evaled, ident, split, model, params, term, _m2d_unit_truth)
     end
@@ -2091,9 +2092,9 @@ end
     calls = Any[]
     report = with_evaluate_unknown_rate_recovery_range_observer(_ -> evaled_b) do
         with_evaluate_holdout_observer((args...) -> begin
-                push!(calls, args)
-                return sentinel
-            end) do
+            push!(calls, args)
+            return sentinel
+        end) do
             run_recovery_suite(MersenneTwister(1);
                 ude_adam = 0, ude_bfgs = 0,
                 sections = (:ude_discovery, :mm_unknown))
@@ -2111,9 +2112,9 @@ end
     ude_only = Any[]
     with_evaluate_unknown_rate_recovery_range_observer(_ -> evaled_b) do
         with_evaluate_holdout_observer((args...) -> begin
-                push!(ude_only, args)
-                return sentinel
-            end) do
+            push!(ude_only, args)
+            return sentinel
+        end) do
             run_recovery_suite(MersenneTwister(2);
                 ude_adam = 0, ude_bfgs = 0,
                 sections = (:ude_discovery,))
@@ -2123,9 +2124,9 @@ end
     mm_only = Any[]
     with_evaluate_unknown_rate_recovery_range_observer(_ -> evaled_b) do
         with_evaluate_holdout_observer((args...) -> begin
-                push!(mm_only, args)
-                return sentinel
-            end) do
+            push!(mm_only, args)
+            return sentinel
+        end) do
             run_recovery_suite(MersenneTwister(3);
                 ude_adam = 0, ude_bfgs = 0,
                 sections = (:mm_unknown,))
@@ -2379,7 +2380,7 @@ end
 
 function _m2g_index_functions(src)
     src = _m2g_normalize(src)
-    index = Dict{String,String}()
+    index = Dict{String, String}()
     for m in eachmatch(r"^function ([A-Za-z_][A-Za-z0-9_!]*)\("m, src)
         name = String(m.captures[1])
         body = _m2g_function_body_from_src(src, name)
@@ -2413,7 +2414,7 @@ end
 function _m2g_reachable(entry, index; stop = Set{String}(), allow = nothing)
     queue = String[entry]
     seen = Set{String}()
-    bodies = Dict{String,String}()
+    bodies = Dict{String, String}()
     while !isempty(queue)
         name = popfirst!(queue)
         name in seen && continue
@@ -2450,7 +2451,7 @@ end
 
 function _m2g_section_local_helpers(section, index)
     after = _m2g_section_after_train(section)
-    bodies = Dict{String,String}()
+    bodies = Dict{String, String}()
     for callee in unique(_m2g_callees(after))
         callee in _M2G1_SECTION_STOP && continue
         haskey(index, callee) || continue
@@ -2596,9 +2597,9 @@ end
     for section in (:ude_discovery, :mm_unknown)
         after = _m2g_section_after_train(section)
         for token in ("train_ude(", "train_experiments(",
-                      "train_experiments_with_warmup(",
-                      "warmup_first_experiment(",
-                      "fit_unknown_destruction(", "_polish_full(")
+            "train_experiments_with_warmup(",
+            "warmup_first_experiment(",
+            "fit_unknown_destruction(", "_polish_full(")
             @test !occursin(token, after)
         end
         helpers = _m2g_section_local_helpers(section, index)
@@ -2619,7 +2620,8 @@ end
 
 @testset "M2-G1 ATTACK 2 warmup is training and receives only split.train" begin
     fit_body = _m2g_function_body_from_src(
-        _m2g_normalize(read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
+        _m2g_normalize(read(
+            joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
         "fit_unknown_destruction")
     @test fit_body !== nothing
     @test count("train_experiments_with_warmup(", fit_body) == 1
@@ -2705,7 +2707,7 @@ end
     model, params, term = _m2c_probe_models()
     regenerated = Any[]
     ev = with_generate_recovery_experiments_observer(
-            s -> (push!(regenerated, s); error("second generate"))) do
+        s -> (push!(regenerated, s); error("second generate"))) do
         split = unique_claim_experiment_split(probe.result[2])
         evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
     end
@@ -2722,14 +2724,14 @@ end
     evaled_b = _m2d_evaled(:term; success = false, discovery = :failed)
     report = with_generate_recovery_experiments_observer(s -> push!(generated, s)) do
         with_fit_unknown_destruction_observer(set -> begin
-                push!(fit_sets, set)
-                return nothing
-            end) do
+            push!(fit_sets, set)
+            return nothing
+        end) do
             with_evaluate_unknown_rate_recovery_range_observer(_ -> evaled_b) do
                 with_evaluate_holdout_observer((split, args...) -> begin
-                        push!(holdout_splits, split)
-                        return HoldoutEvidence(0.11, 0.22, 0.33, 0.44)
-                    end) do
+                    push!(holdout_splits, split)
+                    return HoldoutEvidence(0.11, 0.22, 0.33, 0.44)
+                end) do
                     run_recovery_suite(MersenneTwister(19);
                         ude_adam = 0, ude_bfgs = 0,
                         sections = (:ude_discovery,))
@@ -2755,8 +2757,8 @@ end
     pipeline = _m2g_pipeline_names()
     allow = name -> _m2g_allow_m2_helper(name, pipeline)
     for (entry, stop) in (
-            ("unique_claim_experiment_split", _M2G1_SPLIT_STOP),
-            ("evaluate_holdout", _M2G1_HOLDOUT_STOP))
+        ("unique_claim_experiment_split", _M2G1_SPLIT_STOP),
+        ("evaluate_holdout", _M2G1_HOLDOUT_STOP))
         bodies = _m2g_reachable(entry, index; stop = stop, allow = allow)
         @test haskey(bodies, entry)
         for (_, body) in bodies
@@ -2932,7 +2934,8 @@ end
         stop = _M2G1_HOLDOUT_STOP,
         allow = name -> _m2g_allow_m2_helper(name, pipeline))
     report_body = _m2g_function_body_from_src(
-        _m2g_normalize(read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
+        _m2g_normalize(read(
+            joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
         "report_recovery")
     for body in (values(bodies)..., report_body)
         @test !occursin("RECOVERY_THRESHOLDS", body)
@@ -3001,9 +3004,9 @@ end
     set = _m2d_synthetic_set()
     split = unique_claim_experiment_split(set)
     ev = with_discover_unknown_rate_observer(
-            (_...) -> error("discover_unknown_rate entered")) do
+        (_...) -> error("discover_unknown_rate entered")) do
         with_discover_equations_observer(
-                (_...) -> error("discover_equations entered")) do
+            (_...) -> error("discover_equations entered")) do
             evaluate_holdout(
                 split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
         end
@@ -3028,10 +3031,12 @@ end
     @test count("evaluate_holdout(", pipe) == 1
     index = _m2g_production_index()
     for (entry, stop) in (
-            ("_evaluate_unknown_rate_recovery", Set(["evaluate_recovery",
+        ("_evaluate_unknown_rate_recovery",
+            Set(["evaluate_recovery",
                 "discover_unknown_rate", "sample_unknown_destruction_grid",
                 "normalize_destruction_samples", "evaluate_holdout"])),
-            ("report_recovery", Set(["locked_ude_kpis", "build_protocol_result",
+        ("report_recovery",
+            Set(["locked_ude_kpis", "build_protocol_result",
                 "evaluate_holdout", "MechanismRecoveryResult"])))
         bodies = _m2g_reachable(entry, index; stop = stop)
         @test haskey(bodies, entry)
@@ -3081,8 +3086,8 @@ end
     @test !haskey(RECOVERY_THRESHOLDS, :data_residual_holdout)
     @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
     for name in (_M2A_INTERNAL_NAMES..., _M2F_INTERNAL_NAMES...,
-                 :_train_unknown_edge, :_regulator_grid,
-                 :_unique_claim_rate_recovery)
+        :_train_unknown_edge, :_regulator_grid,
+        :_unique_claim_rate_recovery)
         @test !(name in names(BioDynaX))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end

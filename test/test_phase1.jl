@@ -81,7 +81,7 @@ end
 
 @testset "scientific benchmark suite" begin
     outcomes = run_benchmark_suite(MersenneTwister(54);
-                                 adam_iters = 10, discovery = true)
+        adam_iters = 10, discovery = true)
     @test length(outcomes) == 3
     @test all(outcome -> isfinite(outcome.final_loss), outcomes)
     @test all(outcome -> outcome.retcode isa BioDynaX.TrainingRetcode, outcomes)

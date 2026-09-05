@@ -4,7 +4,7 @@
     y = A * [1.0, 0.0, 0.5, 0.0, -0.25, 0.0] .+ 1e-3 .* randn(rng, 120)
     dense = BioDynaX._stlsq(A, y, 1e-2)
     blocked = BioDynaX._stlsq_blocked(A, y, 1e-2; chunk_size = 32)
-    @test dense ≈ blocked atol = 5e-3
+    @test dense≈blocked atol=5e-3
     X = rand(rng, 2, 80)
     terms = local_basis(build_linear_test_network(), 1).numerator
     full = evaluate_library(terms, X)
@@ -80,8 +80,8 @@ end
         X, times, network; derivatives = dX, config = config, verbose = false)
     @test result.success
     cand = only(result.candidates)
-    @test cand.numerator_coefficients[2] ≈ vmax / km atol = 5e-2
-    @test cand.denominator_coefficients[1] ≈ inv(km) atol = 5e-2
+    @test cand.numerator_coefficients[2]≈vmax / km atol=5e-2
+    @test cand.denominator_coefficients[1]≈inv(km) atol=5e-2
     dX_est = estimate_derivatives(X, times)
     @test size(dX_est) == size(X)
     @test all(isfinite, dX_est)
@@ -110,10 +110,10 @@ end
         cand.specification, cand.numerator_coefficients,
         cand.denominator_coefficients, X[:, 1:5])
     for j in 1:5
-        @test f(X[:, j]) ≈ pred[j] atol = 1e-8
+        @test f(X[:, j])≈pred[j] atol=1e-8
     end
     rhs = export_rhs(result)
-    @test rhs([x[1]])[1] ≈ f([x[1]]) atol = 1e-10
+    @test rhs([x[1]])[1]≈f([x[1]]) atol=1e-10
     @test information_criterion(100, 1.0, 3; criterion = :aic) <
           information_criterion(100, 1.0, 3; criterion = :bic)
     @test isfinite(score_candidate(cand, X, vec(dX); criterion = :aic))

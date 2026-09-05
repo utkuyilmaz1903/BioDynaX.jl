@@ -1,13 +1,13 @@
 using BioDynaX: MechanismRecoveryResult,
-    ExperimentSplit,
-    generate_recovery_experiments,
-    consume_shared_suite_rng!,
-    sample_destruction,
-    evaluate_recovery,
-    report_recovery,
-    _evaluate_unknown_rate_recovery,
-    run_recovery_suite,
-    recovery_suite_section_body
+                ExperimentSplit,
+                generate_recovery_experiments,
+                consume_shared_suite_rng!,
+                sample_destruction,
+                evaluate_recovery,
+                report_recovery,
+                _evaluate_unknown_rate_recovery,
+                run_recovery_suite,
+                recovery_suite_section_body
 
 function _mechanism_recovery_result(;
         extras = ["1", "r"],
@@ -665,7 +665,7 @@ end
     report = run_recovery_suite(MersenneTwister(1);
         ude_adam = 0, ude_bfgs = 0,
         sections = (:ude_discovery, :mm_unknown))
-    @test report isa Dict{Symbol,Any}
+    @test report isa Dict{Symbol, Any}
     @test issetequal(keys(report), Set((:ude_discovery, :mm_unknown)))
     for section in (:ude_discovery, :mm_unknown)
         row = report[section]
@@ -771,4 +771,3 @@ end
         @test !occursin("fit_unknown_destruction(", body)
     end
 end
-

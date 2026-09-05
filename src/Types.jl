@@ -9,15 +9,15 @@ struct RunMetadata
     julia_version::VersionNumber
     package_version::VersionNumber
     data_hash::String
-    config
+    config::Any
 end
 
 function RunMetadata(; seed::Integer = 0,
-                     package_version::VersionNumber = PACKAGE_VERSION,
-                     data_hash::AbstractString = "",
-                     config = (;))
+        package_version::VersionNumber = PACKAGE_VERSION,
+        data_hash::AbstractString = "",
+        config = (;))
     return RunMetadata(UInt64(seed), now(UTC), VERSION, package_version,
-                       String(data_hash), config)
+        String(data_hash), config)
 end
 
 """
@@ -25,7 +25,7 @@ end
 
 Stable, typed output for optimization runs.
 """
-struct TrainingResult{P,T,H,M,D,R}
+struct TrainingResult{P, T, H, M, D, R}
     params::P
     history::H
     initial_loss::T
@@ -64,7 +64,7 @@ end
 Stable output type shared by explicit and implicit discovery backends.
 `retcode` is a `DiscoveryRetcode`; `success` is `retcode === DiscoverySuccess`.
 """
-struct DiscoveryResult{E,B,S,C,M,R}
+struct DiscoveryResult{E, B, S, C, M, R}
     success::Bool
     message::String
     equations::E
@@ -76,24 +76,25 @@ struct DiscoveryResult{E,B,S,C,M,R}
 end
 
 function DiscoveryResult(success::Bool, message, equations, basis, solution,
-                         candidates, metadata)
+        candidates, metadata)
     retcode = success ? DiscoverySuccess : DiscoveryFailed
     return DiscoveryResult{typeof(equations), typeof(basis), typeof(solution),
-                           typeof(candidates), typeof(metadata),
-                           DiscoveryRetcode}(
+        typeof(candidates), typeof(metadata),
+        DiscoveryRetcode}(
         success, String(message), equations, basis, solution, candidates,
         metadata, retcode)
 end
 
-Base.getproperty(r::DiscoveryResult, name::Symbol) =
+function Base.getproperty(r::DiscoveryResult, name::Symbol)
     name === :equation ? getfield(r, :equations) : getfield(r, name)
+end
 
 """
     Checkpoint
 
 Versioned, backend-neutral training checkpoint.
 """
-struct Checkpoint{P,O,M}
+struct Checkpoint{P, O, M}
     schema_version::VersionNumber
     params::P
     optimizer_state::O

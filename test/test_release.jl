@@ -11,25 +11,26 @@
     @test isfinite(trained.initial_loss)
     @test isfinite(trained.final_loss)
     @test trained.final_loss ≤ max(2 * trained.initial_loss,
-                                   trained.initial_loss + 1e-3)
+        trained.initial_loss + 1e-3)
 
     checkpoint_path = joinpath(tempdir(), "biodynax_release_ckpt.bin")
     metadata = (
         run = RunMetadata(seed = 2026,
-                          data_hash = data_fingerprint(noisy, times, [0.2, 0.1]),
-                          config = Dict(:phase => :release)),
+            data_hash = data_fingerprint(noisy, times, [0.2, 0.1]),
+            config = Dict(:phase => :release)),
         dual = zeros(2), rho = 1.0, outer = 1, stage = 1,
         stage_iteration = 0, previous_residual = Inf)
     save_checkpoint(
         checkpoint_path,
-        Checkpoint(BioDynaX.CHECKPOINT_SCHEMA_VERSION, trained.params, nothing, 1, metadata))
+        Checkpoint(
+            BioDynaX.CHECKPOINT_SCHEMA_VERSION, trained.params, nothing, 1, metadata))
     resumed = resume_training(
         load_checkpoint(checkpoint_path),
         noisy, times, [0.2, 0.1], tspan, model;
         adam_iters = 2, bfgs_iters = 0, log_every = 100, verbose = false)
     @test isfinite(resumed.final_loss)
     @test resumed.final_loss ≤ max(2 * trained.final_loss,
-                                   trained.final_loss + 1e-3)
+        trained.final_loss + 1e-3)
 
     discovery = discover_equations(
         trained.params, model; tspan = tspan, n_samples = 40, verbose = false)
@@ -53,5 +54,5 @@ end
     # Four Adam steps are a smoke run, not a convergence proof. Reject only
     # exploding losses; tiny non-monotone steps are numerically expected.
     @test result.final_loss ≤ max(2 * result.initial_loss,
-                                  result.initial_loss + 1e-3)
+        result.initial_loss + 1e-3)
 end

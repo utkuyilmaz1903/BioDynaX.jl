@@ -45,13 +45,13 @@ Monomial library for one target. `scope=:graph` uses graph parents (the
 product prior); `scope=:global` uses every other dynamic node (ablation).
 """
 function local_basis(network::BiologicalNetwork, target::Int;
-                     degree::Int = 3,
-                     max_variables::Int = 8,
-                     include_interactions::Bool = true,
-                     X = nothing,
-                     derivative = nothing,
-                     extra_candidates::Int = 0,
-                     scope::Symbol = :graph)
+        degree::Int = 3,
+        max_variables::Int = 8,
+        include_interactions::Bool = true,
+        X = nothing,
+        derivative = nothing,
+        extra_candidates::Int = 0,
+        scope::Symbol = :graph)
     dynamic_nodes = state_nodes(network)
     1 ≤ target ≤ length(dynamic_nodes) ||
         throw(ArgumentError("target must index a dynamic state"))
@@ -72,7 +72,7 @@ function local_basis(network::BiologicalNetwork, target::Int;
         if extra_candidates > 0
             outside = setdiff(collect(axes(X, 1)), graph_candidates)
             extras = screen_variables(X, derivative, outside,
-                                      min(extra_candidates, length(outside)))
+                min(extra_candidates, length(outside)))
             append!(graph_candidates, extras)
         end
     elseif length(graph_candidates) > max_variables
@@ -90,7 +90,7 @@ function local_basis(network::BiologicalNetwork, target::Int;
         for i in eachindex(graph_candidates)
             for j in (i + 1):length(graph_candidates)
                 push!(numerator,
-                      _interaction(graph_candidates[i], graph_candidates[j]))
+                    _interaction(graph_candidates[i], graph_candidates[j]))
             end
         end
     end
@@ -112,7 +112,7 @@ end
 Write one monomial column into `output` (length `size(X, 2)`).
 """
 function evaluate_term!(output::AbstractVector, term::MonomialTerm,
-                        X::AbstractMatrix)
+        X::AbstractMatrix)
     length(output) == size(X, 2) ||
         throw(DimensionMismatch("output length must match sample count"))
     if isempty(term.variables)
@@ -138,7 +138,7 @@ function evaluate_term!(output::AbstractVector, term::MonomialTerm,
 end
 
 function evaluate_term_range!(output::AbstractVector, term::MonomialTerm,
-                              X::AbstractMatrix, sample_range)
+        X::AbstractMatrix, sample_range)
     length(output) == length(sample_range) ||
         throw(DimensionMismatch("output length must match sample_range"))
     if isempty(term.variables)
@@ -155,7 +155,7 @@ function evaluate_term_range!(output::AbstractVector, term::MonomialTerm,
 end
 
 function evaluate_library!(output::AbstractMatrix, terms::Vector{MonomialTerm},
-                           X::AbstractMatrix)
+        X::AbstractMatrix)
     size(output, 1) == size(X, 2) ||
         throw(DimensionMismatch("library rows must match sample count"))
     size(output, 2) == length(terms) ||
@@ -173,7 +173,7 @@ Fill `output` (`length(sample_range) × n_terms`) for a contiguous or arbitrary
 sample index range without allocating per-term vectors.
 """
 function evaluate_library_range!(output::AbstractMatrix, terms::Vector{MonomialTerm},
-                                 X::AbstractMatrix, sample_range)
+        X::AbstractMatrix, sample_range)
     size(output, 1) == length(sample_range) ||
         throw(DimensionMismatch("output rows must match sample_range"))
     size(output, 2) == length(terms) ||
@@ -190,7 +190,7 @@ function evaluate_library(terms::Vector{MonomialTerm}, X::AbstractMatrix)
 end
 
 """Chunked view over a monomial library for streaming evaluation."""
-struct LibraryChunks{T<:AbstractFloat,M<:AbstractMatrix{T}}
+struct LibraryChunks{T <: AbstractFloat, M <: AbstractMatrix{T}}
     terms::Vector{MonomialTerm}
     X::M
     chunk_size::Int
@@ -203,13 +203,12 @@ Iterate `(chunk_matrix, sample_range)` pairs without materializing the full
 `n_samples × n_terms` library at once.
 """
 function each_library_chunk(terms::Vector{MonomialTerm}, X::AbstractMatrix;
-                            chunk_size::Int = 256)
+        chunk_size::Int = 256)
     chunk_size > 0 || throw(ArgumentError("chunk_size must be positive"))
-    return LibraryChunks{eltype(X),typeof(X)}(terms, X, chunk_size)
+    return LibraryChunks{eltype(X), typeof(X)}(terms, X, chunk_size)
 end
 
-Base.eltype(::Type{<:LibraryChunks{T}}) where {T} =
-    Tuple{Matrix{T},UnitRange{Int}}
+Base.eltype(::Type{<:LibraryChunks{T}}) where {T} = Tuple{Matrix{T}, UnitRange{Int}}
 Base.IteratorSize(::Type{<:LibraryChunks}) = Base.SizeUnknown()
 
 function Base.iterate(chunks::LibraryChunks, start::Int = 1)
@@ -218,16 +217,15 @@ function Base.iterate(chunks::LibraryChunks, start::Int = 1)
     stop = min(start + chunks.chunk_size - 1, n)
     sample_range = start:stop
     buffer = Matrix{eltype(chunks.X)}(undef, length(sample_range),
-                                      length(chunks.terms))
+        length(chunks.terms))
     evaluate_library_range!(buffer, chunks.terms, chunks.X, sample_range)
     return (buffer, sample_range), stop + 1
 end
 
-candidate_count(spec::LocalBasisSpec) =
-    length(spec.numerator) + length(spec.denominator)
+candidate_count(spec::LocalBasisSpec) = length(spec.numerator) + length(spec.denominator)
 
 function enforce_hierarchy!(coefficients, terms, threshold)
-    main_effects = Dict{Int,Int}()
+    main_effects = Dict{Int, Int}()
     for (index, term) in pairs(terms)
         length(term.variables) == 1 && term.powers == [1] &&
             (main_effects[only(term.variables)] = index)
@@ -238,7 +236,7 @@ function enforce_hierarchy!(coefficients, terms, threshold)
                           for variable in term.variables]
         supported = all(parent_index > 0 &&
                         abs(coefficients[parent_index]) ≥ threshold
-                        for parent_index in parent_indices)
+        for parent_index in parent_indices)
         supported || (coefficients[index] = zero(eltype(coefficients)))
     end
     return coefficients

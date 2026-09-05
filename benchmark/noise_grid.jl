@@ -6,8 +6,8 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using BioDynaX
 using BioDynaX:
-    hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
-    discover_unknown_rate, denominator_violation_count, RECOVERY_THRESHOLDS
+                hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
+                discover_unknown_rate, denominator_violation_count, RECOVERY_THRESHOLDS
 using Printf
 using Random
 
@@ -27,17 +27,17 @@ function run_sigma(σ::Float64)
         verbose = false, strict = false)
     truth = hill_rate_support(2)
     metrics = result.success ?
-        support_f1(result.candidates[1], truth.numerator, truth.denominator) :
-        nothing
+              support_f1(result.candidates[1], truth.numerator, truth.denominator) :
+              nothing
     den = result.success ?
-        denominator_violation_count(result.candidates[1], reshape(r, 1, :)) :
-        typemax(Int)
+          denominator_violation_count(result.candidates[1], reshape(r, 1, :)) :
+          typemax(Int)
     f1 = metrics === nothing ? 0.0 : metrics.combined.f1
     recall = metrics === nothing ? 0.0 : metrics.combined.recall
     holds = result.success &&
-        f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean &&
-        recall ≥ RECOVERY_THRESHOLDS.support_recall &&
-        den == 0
+            f1 ≥ RECOVERY_THRESHOLDS.support_f1_clean &&
+            recall ≥ RECOVERY_THRESHOLDS.support_recall &&
+            den == 0
     return (; σ, success = result.success, f1, recall, den, holds)
 end
 
@@ -53,10 +53,10 @@ function main()
         println("  holds on the whole grid")
     else
         println("  first break at σ = ", rows[first_break].σ,
-                " (Occam 0.99 / recall 0.99 / den=0)")
+            " (Occam 0.99 / recall 0.99 / den=0)")
     end
     println("  UDE protocol is measured at σ = 0.00 and σ = 0.02 in the hard job;",
-            " it is not claimed at σ ≥ 0.05.")
+        " it is not claimed at σ ≥ 0.05.")
     return rows
 end
 

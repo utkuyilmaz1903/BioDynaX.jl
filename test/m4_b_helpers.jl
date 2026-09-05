@@ -145,68 +145,69 @@ end
 
 function _b4_with_observers(f, logs; inject = nothing)
     return with_fit_unknown_destruction_entry_observer(obs -> begin
-            push!(logs.entry, obs)
-            logs.p0[] = obs.p0
-            logs.p0_fp[] = nn_parameter_fingerprint(obs.p0.nn)
-            nothing
-        end) do
+        push!(logs.entry, obs)
+        logs.p0[] = obs.p0
+        logs.p0_fp[] = nn_parameter_fingerprint(obs.p0.nn)
+        nothing
+    end) do
         with_fit_unknown_destruction_observer(set -> begin
-                push!(logs.fit_set, set)
-                injected = inject === nothing ? nothing :
-                           inject(set, logs.p0[])
-                logs.set_return[] = injected
-                return injected
-            end) do
+            push!(logs.fit_set, set)
+            injected = inject === nothing ? nothing :
+                       inject(set, logs.p0[])
+            logs.set_return[] = injected
+            return injected
+        end) do
             with_sample_unknown_destruction_observer(obs -> begin
-                    push!(logs.sample, obs)
-                    nothing
-                end) do
+                push!(logs.sample, obs)
+                nothing
+            end) do
                 with_discover_equations_observer((X, times, derivatives) -> begin
-                        push!(logs.discover, (;
+                    push!(logs.discover,
+                        (;
                             X = copy(X),
                             times = copy(times),
                             derivatives = derivatives === nothing ?
-                                nothing : copy(derivatives)))
-                        return nothing
-                    end) do
+                                          nothing : copy(derivatives)))
+                    return nothing
+                end) do
                     with_evaluate_holdout_observer((args...) -> begin
-                            push!(logs.holdout, args)
+                        push!(logs.holdout, args)
+                        nothing
+                    end) do
+                        with_sample_unknown_destruction_grid_observer(r_range -> begin
+                            push!(logs.grid, r_range)
                             nothing
                         end) do
-                        with_sample_unknown_destruction_grid_observer(r_range -> begin
-                                push!(logs.grid, r_range)
+                            with_sample_unknown_destruction_result_observer(obs -> begin
+                                push!(logs.grid_result, obs)
                                 nothing
                             end) do
-                            with_sample_unknown_destruction_result_observer(obs -> begin
-                                    push!(logs.grid_result, obs)
-                                    nothing
-                                end) do
                                 with_discover_unknown_rate_observer(
                                     (R, times, D, config) -> begin
-                                        push!(logs.rate_discover,
-                                            (; R, times, D, config))
-                                        return nothing
-                                    end) do
+                                    push!(logs.rate_discover,
+                                        (; R, times, D, config))
+                                    return nothing
+                                end) do
                                     with_evaluate_unknown_rate_recovery_range_observer(
                                         r_range -> begin
-                                            push!(logs.range, r_range)
-                                            nothing
-                                        end) do
+                                        push!(logs.range, r_range)
+                                        nothing
+                                    end) do
                                         with_unique_claim_experiment_split_observer(
                                             split -> begin
-                                                push!(logs.split, split)
-                                                nothing
-                                            end) do
+                                            push!(logs.split, split)
+                                            nothing
+                                        end) do
                                             with_generate_recovery_experiments_observer(
                                                 set -> begin
-                                                    push!(logs.generate_recovery, set)
-                                                    nothing
-                                                end) do
+                                                push!(logs.generate_recovery, set)
+                                                nothing
+                                            end) do
                                                 with_assess_functional_identifiability_observer(
                                                     args -> begin
-                                                        push!(logs.assess_q4, args)
-                                                        nothing
-                                                    end) do
+                                                    push!(logs.assess_q4, args)
+                                                    nothing
+                                                end) do
                                                     with_train_unknown_edge_counter() do counter
                                                         result = f()
                                                         logs.train_unknown_edge[] = counter[]
@@ -247,9 +248,9 @@ function _b4_discovery_bound(production, replay)
         rc = replay.candidates[1]
         pc.specification.variables == rc.specification.variables || return false
         local_has_true_parent_gate(pc; variable = 2) ==
-            local_has_true_parent_gate(rc; variable = 2) || return false
+        local_has_true_parent_gate(rc; variable = 2) || return false
         support_uses_variable(pc; variable = 2) ==
-            support_uses_variable(rc; variable = 2) || return false
+        support_uses_variable(rc; variable = 2) || return false
         pc.numerator_coefficients ≈ rc.numerator_coefficients || return false
         pc.denominator_coefficients ≈ rc.denominator_coefficients || return false
     end

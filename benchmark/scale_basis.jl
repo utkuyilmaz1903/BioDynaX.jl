@@ -7,22 +7,21 @@ function sparse_network(node_count; indegree = 3)
     for target in 2:node_count
         for source in max(1, target - indegree):(target - 1)
             push!(interactions,
-                  EdgeSpec(source = source, target = target, kind = ACTIVATION,
-                           known = true, family = MASS_ACTION, max_order = 2))
+                EdgeSpec(source = source, target = target, kind = ACTIVATION,
+                    known = true, family = MASS_ACTION, max_order = 2))
         end
     end
     return BiologicalNetwork(nodes, interactions)
 end
 
 function benchmark_basis(sizes = [10, 50, 100, 250]; n_samples = 400,
-                         chunk_size = 64)
+        chunk_size = 64)
     rng = MersenneTwister(0)
     for node_count in sizes
         network = sparse_network(node_count)
-        elapsed_spec = @elapsed specifications = [
-            local_basis(network, target; degree = 3, max_variables = 8)
-            for target in 1:node_count
-        ]
+        elapsed_spec = @elapsed specifications = [local_basis(network, target; degree = 3,
+                                                      max_variables = 8)
+                                                  for target in 1:node_count]
         columns = sum(candidate_count, specifications)
         X = rand(rng, node_count, n_samples)
         y = randn(rng, n_samples)

@@ -39,18 +39,18 @@ struct MechanismRecoveryResult
     denominator_violations::Int
     normalized_support_f1::Float64
     normalized_support_recall::Float64
-    extras
-    extras_denominator
-    discovery
-    term
-    identifiability
-    locked_kpis
-    protocol_result
-    model
-    params
-    experiments
-    split
-    holdout
+    extras::Any
+    extras_denominator::Any
+    discovery::Any
+    term::Any
+    identifiability::Any
+    locked_kpis::Any
+    protocol_result::Any
+    model::Any
+    params::Any
+    experiments::Any
+    split::Any
+    holdout::Any
 end
 
 function MechanismRecoveryResult(;
@@ -370,8 +370,8 @@ The wrapped `Experiment` objects are the original generated objects.
 Not a second generated set. Not exported.
 """
 struct ExperimentSplit
-    train_indices::NTuple{7,Int}
-    holdout_indices::NTuple{2,Int}
+    train_indices::NTuple{7, Int}
+    holdout_indices::NTuple{2, Int}
     train::ExperimentSet
     holdout::ExperimentSet
 end
@@ -472,7 +472,7 @@ own success / retcode / message. Not exported. Not a held-out or
 functional-identifiability diagnostic.
 """
 function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
-                           truth_support, data_residual_fn)
+        truth_support, data_residual_fn)
     r = vec(R_grid)
     D_true = truth_rate(r)
     f1 = 0.0
@@ -485,7 +485,7 @@ function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
     if discovery.success
         candidate = discovery.candidates[1]
         metrics = support_f1(candidate, truth_support.numerator,
-                             truth_support.denominator)
+            truth_support.denominator)
         f1 = metrics.combined.f1
         recall = metrics.combined.recall
         extras = discovered_support_extras(
@@ -502,7 +502,7 @@ function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
     norm_recall = 0.0
     if discovery_norm.success
         metrics_n = support_f1(discovery_norm.candidates[1],
-                               truth_support.numerator, truth_support.denominator)
+            truth_support.numerator, truth_support.denominator)
         norm_f1 = metrics_n.combined.f1
         norm_recall = metrics_n.combined.recall
     end
@@ -515,7 +515,7 @@ function evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
         normalized_support_f1 = norm_f1,
         normalized_support_recall = norm_recall,
         extras,
-        extras_denominator,
+        extras_denominator
     )
 end
 
@@ -583,13 +583,15 @@ struct HoldoutEvidence
 end
 
 function _holdout_observed_regulators(holdout::ExperimentSet, term)
-    return reduce(vcat, (exp.observations[term.regulator, :]
-                         for exp in holdout.experiments))
+    return reduce(
+        vcat, (exp.observations[term.regulator, :]
+        for exp in holdout.experiments))
 end
 
 function _unique_claim_external_regulator_band(train::ExperimentSet, term)
-    r_train = reduce(vcat, (exp.observations[term.regulator, :]
-                            for exp in train.experiments))
+    r_train = reduce(
+        vcat, (exp.observations[term.regulator, :]
+        for exp in train.experiments))
     r_lo_train, r_hi_train = extrema(r_train)
     span_train = max(r_hi_train - r_lo_train, 0.1)
     r_lo_external = r_hi_train + 0.15 * span_train

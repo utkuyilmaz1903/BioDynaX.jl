@@ -1104,4 +1104,3 @@ function failure_mode_formatter_lock_holds()
 end
 
 # -- Source / docs contracts --------------------------------------------------
-
