@@ -142,7 +142,7 @@ end
 
 # Load-time concrete types for the SciML allocation fixture
 # (`build_ude_nn(MersenneTwister(...))` + linear A/B pack). Lux.setup is
-# not inferred; the typeassert is the honest compile-time contract for
+# not inferred; the typeassert is the compile-time interface for
 # this one architecture.
 const _DEFAULT_NN_TYPE = typeof(_medium_single_head())
 const _DEFAULT_PS_TYPE, _DEFAULT_ST_TYPE = let

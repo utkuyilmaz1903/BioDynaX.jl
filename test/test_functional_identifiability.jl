@@ -1145,9 +1145,9 @@ end
 end
 
 const _M3D_REQUIRED_PHRASES = (
-    "practical functional diagnostic",
-    "not a structural identifiability certificate",
-    "not a unique-claim gate")
+    "functional identifiability diagnostic",
+    "not a structural identifiability proof",
+    "not an acceptance criterion")
 
 const _M3D_FORBIDDEN_PHRASES = (
     "functionally identifiable",
@@ -1170,7 +1170,7 @@ function _m3d_function_body(src, signature)
 end
 
 function _m3d_q3_q4_sections(text)
-    marker = "Q4 PRACTICAL FUNCTIONAL DIAGNOSTIC"
+    marker = "FUNCTIONAL DIAGNOSTIC"
     idx = findfirst(marker, text)
     idx === nothing && return text, ""
     return text[1:(first(idx) - 1)], text[first(idx):end]
@@ -1546,10 +1546,10 @@ end
         :extras,
         :canonical_hill_from_nn,
         :claim)
-    @test !occursin("practical functional diagnostic", proto)
+    @test !occursin("functional identifiability diagnostic", proto)
     @test !occursin("seed_i=", proto)
     @test !occursin("function_disagree", proto)
-    @test !occursin("Q4 PRACTICAL FUNCTIONAL DIAGNOSTIC", proto)
+    @test !occursin("FUNCTIONAL DIAGNOSTIC", proto)
     diags = _m3d_status_diagnostics()
     q4 = format_functional_identifiability_diagnostic(diags.function_agree)
     side = format_q3_q4_side_by_side(ident, diags.function_agree)
@@ -2316,7 +2316,7 @@ end
     @test live.payload.diagnostic === live.result
     formatted = format_functional_identifiability_diagnostic(live.result)
     @test live.consumed == formatted
-    @test occursin("PRACTICAL FUNCTIONAL DIAGNOSTIC", live.consumed)
+    @test occursin("FUNCTIONAL DIAGNOSTIC", live.consumed)
     @test occursin("status: $(live.result.status)", live.consumed)
 end
 
@@ -2344,7 +2344,7 @@ end
     @test !_m3e_script_live_bind(comment_only)
     string_only = _m3e_write_temp_benchmark(
         "println(\"assess_functional_identifiability(split, ude_net)\")\n" *
-        "println(\"PRACTICAL FUNCTIONAL DIAGNOSTIC\")\n")
+        "println(\"FUNCTIONAL DIAGNOSTIC\")\n")
     string_src = read(string_only, String)
     @test occursin("assess_functional_identifiability", string_src)
     @test !_m3e_ast_has_call(string_src, :assess_functional_identifiability)
@@ -2942,7 +2942,7 @@ end
         _m3a_sentinel_split(),
         build_hill_recovery_network(; known = false, hill_order = 2))
     @test live.consumed != format_functional_identifiability_diagnostic(fake)
-    @test occursin("PRACTICAL FUNCTIONAL DIAGNOSTIC", live.consumed)
+    @test occursin("FUNCTIONAL DIAGNOSTIC", live.consumed)
     @test occursin("status: $(live.result.status)", live.consumed)
     @test occursin("complete: $(live.result.complete)", live.consumed)
     @test occursin("n_attempted: $(live.result.n_attempted)", live.consumed)
@@ -3059,9 +3059,6 @@ end
     src = read(official, String)
     @test occursin("not a PR gate", src)
     @test occursin("deferred to M7", src)
-    contributing = read(joinpath(@__DIR__, "..", "CONTRIBUTING.md"), String)
-    @test occursin("benchmark/functional_identifiability.jl", contributing)
-    @test occursin("not a PR gate", contributing)
 end
 
 @testset "T-G-API M2 locks and public exports stay" begin

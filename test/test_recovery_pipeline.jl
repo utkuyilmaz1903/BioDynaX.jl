@@ -772,31 +772,3 @@ end
     end
 end
 
-@testset "landing docs describe the current M1 unique-claim path" begin
-    architecture = read(joinpath(@__DIR__, "..", "docs", "src", "architecture.md"),
-        String)
-    @test occursin("gated `Dict{Symbol,Any}` dispatcher", architecture)
-    @test occursin("_train_unknown_edge", architecture)
-    @test occursin("_evaluate_unknown_rate_recovery", architecture)
-    @test occursin("report_recovery", architecture)
-    @test occursin("MechanismRecoveryResult", architecture)
-    @test occursin("consume_shared_suite_rng!", architecture)
-    @test occursin("training IC[1]", architecture)
-    @test occursin("first(experiments)", architecture)
-    @test occursin("metric-only `evaluate_recovery`", architecture)
-    @test occursin("A skipped recovery-suite section does not call _train_unknown_edge.",
-        architecture)
-    reuse = read(joinpath(@__DIR__, "..", "docs", "src", "training-reuse.md"),
-        String)
-    @test occursin("fit_unknown_destruction", reuse)
-    @test occursin("generate_recovery_experiments", reuse)
-    @test occursin("train_experiments_with_warmup", reuse)
-    @test occursin("lock_training_config", reuse)
-    @test occursin("_train_unknown_edge` is a Recovery.jl compatibility wrapper",
-        reuse)
-    @test !occursin("_train_unknown_edge` now calls `train_experiments_with_warmup`",
-        reuse)
-    @test occursin(
-        "First-IC warmup hands its Optimisers state to train_experiments; Adam momentum is not discarded.",
-        reuse)
-end

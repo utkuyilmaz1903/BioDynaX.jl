@@ -861,7 +861,7 @@ function _discover_explicit(X, derivatives, network, backend,
     training_indices = collect(1:(sample_count - validation_count))
     validation_indices =
         collect((sample_count - validation_count + 1):sample_count)
-    # Public contract: `result.candidates isa Vector{ExplicitCandidate}`
+    # Public interface: `result.candidates isa Vector{ExplicitCandidate}`
     # (the UnionAll). `Vector{ExplicitCandidate{T}}` is not a subtype.
     candidates = ExplicitCandidate[]
     chunk_size = _backend_chunk_size(backend)
@@ -900,7 +900,7 @@ function _discover_implicit(X, derivatives, network, backend::ImplicitSINDyPI,
     validation_count = clamp(
         round(Int, backend.validation_fraction * sample_count), 1,
         sample_count - 2)
-    # A contiguous hold-out block prevents temporal leakage from adjacent
+    # A contiguous held-out block prevents temporal leakage from adjacent
     # points of the same trajectory.
     training_indices = collect(1:(sample_count - validation_count))
     validation_indices =

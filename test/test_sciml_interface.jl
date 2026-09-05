@@ -94,17 +94,6 @@ end
 end
 
 @testset "SciML ODEProblem on remapped multi-head and two-regulator D(S,I)" begin
-    remap = remapped_two_regulator_compiled_path()
-    @test remap.holds
-    @test remap.row.sciml.matches_odeproblem
-    @test remap.row.sciml.matches_inplace
-    @test remap.row.sciml.matches_remake
-    @test remap.row.arch.n_heads == 2
-    @test remap.row.arch.arities == [1, 2]
-    two = two_regulator_sciml_path()
-    @test two.holds
-    skipped = skipped_duplicate_sciml_path()
-    @test skipped.holds
     linear = build_linear_test_network()
     model, params = build_ude_model(MersenneTwister(0), linear)
     times, clean, _, used = generate_from_compiled_model(

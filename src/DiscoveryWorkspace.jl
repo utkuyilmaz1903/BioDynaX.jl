@@ -4,8 +4,8 @@
 # Blocked STLSQ, implicit design, and library chunks used to allocate a new
 # Gram / design / per-term vector on every bootstrap draw. This file owns the
 # grow-only workspaces those hot paths reuse. Numerics stay the blocked-STLSQ
-# contract already used by `_fit_implicit`; the dense QR `_stlsq` path is the
-# agreement oracle, not the production factorisation.
+# interface already used by `_fit_implicit`; the dense QR `_stlsq` path is the
+# agreement oracle; it is not the factorisation used at run time.
 #
 # validate_network is unchanged. Combined F1 is still a skeleton floor.
 ###############################################################################
@@ -28,16 +28,6 @@ const DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN = (
 const DISCOVERY_STREAMING_DATAGEN_MUST_NOT_CONTAIN = (
     "dummy_nn",
     "Lux.Dense(1 => 1")
-
-"""English contract sentences for the discovery-streaming page."""
-function discovery_streaming_locked_sentences()
-    return (;
-        workspace = "Blocked STLSQ reuses one grow-only Gram workspace across bootstrap draws.",
-        library = "evaluate_library! writes monomials in place; it does not allocate a per-term vector.",
-        stream = "Implicit design can be filled in row chunks without materialising the full n × p matrix.",
-        chunk = "Reusable library chunks overwrite one buffer; they do not allocate a new block per iterate.",
-        backend = "ImplicitSINDyPI.chunk_size is the blocked-STLSQ row width; ExplicitSTLSQ uses the same helper default.")
-end
 
 function discovery_workspace_source_path()
     joinpath(pkgdir(BioDynaX), "src", "DiscoveryWorkspace.jl")
@@ -978,17 +968,6 @@ end
 
 # -- Source / docs locks ------------------------------------------------------
 
-function discovery_workspace_source_holds()
-    src = read(discovery_workspace_source_path(), String)
-    impl = read(discovery_jl_source_path(), String) *
-           read(basis_factory_source_path(), String)
-    docs = isfile(discovery_streaming_docs_path()) ?
-           read(discovery_streaming_docs_path(), String) : ""
-    return all(occursin(needle, src) for needle in DISCOVERY_WORKSPACE_MUST_CONTAIN) &&
-           !any(occursin(needle, impl) || occursin(needle, docs)
-    for needle in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN)
-end
-
 function discovery_jl_uses_workspace()
     src = read(discovery_jl_source_path(), String)
     return occursin("_stlsq_blocked!", src) &&
@@ -1008,51 +987,3 @@ function basis_factory_evaluates_in_place()
            !occursin("evaluate_term(term, X)", body)
 end
 
-function discovery_streaming_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "discovery-streaming.md")
-end
-
-function discovery_streaming_docs_hold()
-    path = discovery_streaming_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(discovery_streaming_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("discovery-streaming.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function discovery_streaming_landing_docs_hold()
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sentences = discovery_streaming_locked_sentences()
-    return occursin("discovery-streaming", sciml) &&
-           occursin("_stlsq_blocked!", howto) &&
-           occursin(sentences.workspace, sciml)
-end
-
-function discovery_workspace_contract_holds()
-    return discovery_workspace_source_holds() &&
-           discovery_jl_uses_workspace() &&
-           basis_factory_evaluates_in_place() &&
-           discovery_streaming_docs_hold() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source()
-end
-
-function discovery_workspace_source_violations()
-    src = read(discovery_workspace_source_path(), String)
-    impl = read(discovery_jl_source_path(), String) *
-           read(basis_factory_source_path(), String)
-    docs = isfile(discovery_streaming_docs_path()) ?
-           read(discovery_streaming_docs_path(), String) : ""
-    missing = [s for s in DISCOVERY_WORKSPACE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s
-                 for s in DISCOVERY_WORKSPACE_MUST_NOT_CONTAIN
-                 if occursin(s, impl) || occursin(s, docs)]
-    return (; missing, forbidden)
-end

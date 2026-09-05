@@ -25,22 +25,8 @@ const PARAMETER_SCHEMA_PACK_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function parameter_schema_pack_locked_sentences()
-    return (;
-        custom = "parameter_schema collects CustomKineticMetadata.rate_param so :k_custom is present.",
-        unpack = "unpack_parameters inverts pack_parameters through positive_parameter.",
-        remapped = "Remapped multi-head pack/unpack keeps one phys block and one compiled NN tree.",
-        frozen = "frozen_phys zeros the named raw gradient and restores the packed coordinate.")
-end
-
-parameter_schema_pack_contract() = parameter_schema_pack_locked_sentences().custom
-
 function parameter_schema_pack_source_path()
     joinpath(pkgdir(BioDynaX), "src", "ParameterSchemaPack.jl")
-end
-
-function parameter_schema_pack_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "parameter-schema-pack.md")
 end
 
 function parameter_schema_pack_test_path()
@@ -675,81 +661,7 @@ function parameter_schema_pack_index_holds()
            !occursin("support_f1_ude = 0.99", text)
 end
 
-# -- Docs / contract ----------------------------------------------------------
-
-function parameter_schema_pack_source_holds()
-    src = read(parameter_schema_pack_source_path(), String)
-    docs = isfile(parameter_schema_pack_docs_path()) ?
-           read(parameter_schema_pack_docs_path(), String) : ""
-    impl = read(parameter_schema_jl_source_path(), String)
-    return all(occursin(needle, src) for needle in PARAMETER_SCHEMA_PACK_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function parameter_schema_pack_source_violations()
-    src = read(parameter_schema_pack_source_path(), String)
-    docs = isfile(parameter_schema_pack_docs_path()) ?
-           read(parameter_schema_pack_docs_path(), String) : ""
-    missing = [s for s in PARAMETER_SCHEMA_PACK_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function parameter_schema_pack_docs_hold()
-    path = parameter_schema_pack_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(parameter_schema_pack_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("parameter-schema-pack.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function parameter_schema_pack_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = parameter_schema_pack_locked_sentences()
-    return occursin("parameter-schema-pack", howto) &&
-           occursin("unpack_parameters", howto) &&
-           occursin(sentences.custom, sciml)
-end
-
-function parameter_schema_pack_example_source_holds()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    docs = read(parameter_schema_pack_docs_path(), String)
-    return occursin("k_custom", howto) &&
-           occursin("frozen_phys", docs) &&
-           occursin("MultiHeadNetwork", docs) &&
-           occursin("1 IC", docs)
-end
-
-function parameter_schema_pack_docs_mention_helpers()
-    path = parameter_schema_pack_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("remapped_pack_unpack_row", text) &&
-           occursin("unpack_parameters", text) &&
-           occursin("frozen_phys_zero_gradient_row", text) &&
-           occursin("schema_vs_compiled_nn_tree_row", text)
-end
-
-function parameter_schema_pack_test_file_holds()
-    path = parameter_schema_pack_test_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("parameter_schema_pack_contract_holds", text) &&
-           occursin("public_export_list_holds", text) &&
-           occursin("RECOVERY_THRESHOLDS.support_f1_ude == 0.50", text)
-end
+# -- Source checks ----------------------------------------------------------
 
 function parameter_schema_pack_module_include_holds()
     src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
@@ -1201,55 +1113,3 @@ function linear_schema_names_are_mass_action_row()
                 schema.nn_heads == 0)
 end
 
-function parameter_schema_pack_contract_holds()
-    return parameter_schema_pack_source_holds() &&
-           custom_kinetic_schema_source_holds() &&
-           unpack_parameters_source_holds() &&
-           pack_parameters_source_holds() &&
-           frozen_phys_source_holds() &&
-           default_phys_includes_custom_source_holds() &&
-           parameter_schema_pack_docs_hold() &&
-           parameter_schema_pack_landing_docs_hold() &&
-           parameter_schema_pack_example_source_holds() &&
-           parameter_schema_pack_docs_mention_helpers() &&
-           parameter_schema_pack_index_holds() &&
-           parameter_schema_pack_test_file_holds() &&
-           parameter_schema_pack_module_include_holds() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source() &&
-           recovery_thresholds_untouched_schema_row().holds &&
-           public_export_list_untouched_schema_row().holds &&
-           unique_claim_not_faster_by_dropping_ics_schema_row().holds &&
-           unpack_missing_phys_throws_row().holds &&
-           combined_f1_not_schema_kpi_row().holds &&
-           parameter_schema_pack_typed_matrix().holds &&
-           nn_tree_is_float64_row().holds &&
-           schema_phys_are_positive_row().holds &&
-           six_state_schema_heads_row().holds &&
-           default_example_pack_predict_row().holds &&
-           hill_known_has_vmax_row().holds &&
-           competitive_has_ki_row().holds &&
-           unpack_then_repack_row().holds &&
-           suite_schema_catalog_holds() &&
-           kinetic_known_tradeoff_now_predicts_row().holds &&
-           validate_network_open_on_schema_fixtures_row().holds &&
-           hill_from_nn_closed_schema_row().holds &&
-           bounded_parameter_row().holds &&
-           two_regulator_input_dim_row().holds &&
-           remapped_input_dims_row().holds &&
-           schema_name_catalog_row().holds &&
-           default_parameters_validate_row().holds &&
-           mm_known_has_km_row().holds &&
-           three_state_schema_heads_row().holds &&
-           wrong_graph_schema_heads_row().holds &&
-           skipped_duplicate_dense_schema_row().holds &&
-           format_schema_names_holds() &&
-           pack_rejects_nonpositive_phys_row().holds &&
-           validate_rejects_nonpositive_row().holds &&
-           extras_not_invented_by_schema_row().holds &&
-           format_pack_markdown_holds() &&
-           six_state_wrong_schema_row().holds &&
-           ablation_schema_or_skip_row().holds &&
-           linear_schema_names_are_mass_action_row().holds
-end

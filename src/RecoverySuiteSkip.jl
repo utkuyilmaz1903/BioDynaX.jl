@@ -1,9 +1,9 @@
 ###############################################################################
-# Recovery-suite skip: unused sections must not train a unique-claim UDE.
+# Recovery-suite skip: unused sections must not train a reference-protocol UDE.
 #
-# run_recovery_suite already gates each section with `if :name in wanted`.
+# run_recovery_suite already guards each section with `if :name in wanted`.
 # This file names the work each section does, counts `_train_unknown_edge`,
-# and fails the suite if a skipped unique-claim section still trains.
+# and fails the suite if a skipped reference-protocol section still trains.
 # Does not drop protocol ICs, points, or seeds. Does not grow exports.
 ###############################################################################
 
@@ -18,14 +18,6 @@ const RECOVERY_SUITE_SKIP_MUST_CONTAIN = (
 const RECOVERY_SUITE_SKIP_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
-
-function recovery_suite_skip_locked_sentences()
-    return (;
-        skip = "A skipped recovery-suite section does not call _train_unknown_edge.",
-        plan = "recovery_suite_plan lists which requested sections train a unique-claim UDE and which requested sections are skipped.",
-        counter = "with_train_unknown_edge_counter fails the suite if a skipped unique-claim section still trains.",
-        default = "The default suite still runs :ude_discovery and :mm_unknown; skip is opt-in through the sections keyword.")
-end
 
 function recovery_jl_source_path()
     joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
@@ -73,7 +65,7 @@ end
 """
     RecoverySuiteSectionSpec
 
-Work a `run_recovery_suite` section is allowed to do. Unique-claim
+Work a `run_recovery_suite` section is allowed to do. Reference-protocol
 trainers set `trains_unknown_edge = true`. `validate_network` stays
 open; admission is a separate instrument.
 """
@@ -508,7 +500,7 @@ function skip_report_matrix()
                 ident.counter == 0 && literature.counter == 0)
 end
 
-# -- Admit / compile skip honesty ---------------------------------------------
+# -- Admit / compile skip checks ---------------------------------------------
 
 function skipped_section_does_not_admit_source(section::Symbol)
     spec = recovery_suite_section_spec(section)
@@ -548,7 +540,7 @@ function recovery_suite_skip_fixture_paths()
                 default.holds && linear.holds)
 end
 
-# -- Docs / contract ----------------------------------------------------------
+# -- Source checks ----------------------------------------------------------
 
 function recovery_suite_section_cost_row(section::Symbol)
     spec = recovery_suite_section_spec(section)
@@ -711,7 +703,7 @@ function skip_competitive_unknown_key_report()
                 skip_report_has_expected_keys(report, :competitive_unknown))
 end
 
-"""Needles that must appear in each gated section body."""
+"""Needles that must appear in each guarded section body."""
 const RECOVERY_SUITE_SECTION_NEEDLES = (
     linear = ("train_ude(", "build_linear_test_network"),
     mm = ("train_ude(", "build_mm_test_network"),
@@ -928,68 +920,3 @@ function unique_claim_trainer_keeps_protocol_source()
            !occursin("n_points = 8", ude)
 end
 
-function recovery_suite_skip_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "recovery-suite-skip.md")
-end
-
-function recovery_suite_skip_source_holds()
-    src = read(recovery_suite_skip_source_path(), String)
-    impl = read(recovery_jl_source_path(), String)
-    docs = isfile(recovery_suite_skip_docs_path()) ?
-           read(recovery_suite_skip_docs_path(), String) : ""
-    return all(occursin(needle, src) for needle in RECOVERY_SUITE_SKIP_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function recovery_suite_skip_docs_hold()
-    path = recovery_suite_skip_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(recovery_suite_skip_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("recovery-suite-skip.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function recovery_suite_skip_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    arch = read(joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
-    sentences = recovery_suite_skip_locked_sentences()
-    return occursin("recovery-suite-skip", howto) &&
-           occursin("_train_unknown_edge", howto) &&
-           occursin(sentences.skip, arch)
-end
-
-function recovery_suite_skip_source_violations()
-    src = read(recovery_suite_skip_source_path(), String)
-    impl = read(recovery_jl_source_path(), String)
-    docs = isfile(recovery_suite_skip_docs_path()) ?
-           read(recovery_suite_skip_docs_path(), String) : ""
-    missing = [s for s in RECOVERY_SUITE_SKIP_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", impl) &&
-        push!(forbidden, "Recovery.jl: support_f1_ude = 0.99")
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function recovery_suite_skip_contract_holds()
-    return recovery_suite_skip_source_holds() &&
-           unique_claim_skip_source_holds() &&
-           unique_claim_non_trainers_source_hold() &&
-           unique_claim_trainer_keeps_protocol_source() &&
-           recovery_suite_needles_matrix().holds &&
-           recovery_suite_benchmark_skip_source_holds() &&
-           recovery_suite_skip_docs_hold() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source()
-end

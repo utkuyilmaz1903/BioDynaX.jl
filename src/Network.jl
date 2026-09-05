@@ -271,7 +271,7 @@ end
 """Frozen p53/Mdm2 fixture used by legacy five-argument `ude_system` calls."""
 const DEFAULT_EXAMPLE_NETWORK = build_network()
 
-"""Small fully-known network for allocation and compiler parity gates."""
+"""Small fully-known network for allocation and compiler parity checks."""
 function build_linear_test_network()::BiologicalNetwork
     nodes = [
         NodeSpec(name = :A),

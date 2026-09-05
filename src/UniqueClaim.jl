@@ -1,9 +1,9 @@
 ###############################################################################
-# Unique-claim product contract (not exported).
+# Reference-protocol report helpers (not exported).
 #
-# Print and gate order is IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION.
+# Print and check order is IDENTIFIABILITY → FIT → DISCOVERY → REPRODUCTION.
 # This file does not change RECOVERY_THRESHOLDS, the public export list, or
-# validate_network. Canonical Hill from a trained NN stays closed.
+# validate_network. Canonical Hill from a trained NN is not supported.
 ###############################################################################
 
 """Product-block labels in the locked stdout order."""
@@ -117,13 +117,7 @@ const LOCKED_PUBLIC_EXPORTS = (
     :validate_network,
     :write_experiment_csv)
 
-"""Phrases that must not appear on user-facing landing docs."""
-const UNIQUE_CLAIM_DOCS_FORBIDDEN_PHRASES = (
-    "HTTP 200",
-    "TagBot ran",
-    "]add BioDynaX")
-
-"""Golden-path source strings the protocol fingerprint requires."""
+"""Reference-example source strings the protocol fingerprint requires."""
 const UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN = (
     "UNIQUE_CLAIM_PROTOCOL.seed",
     "UNIQUE_CLAIM_PROTOCOL.adam_iterations",
@@ -143,7 +137,7 @@ const UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN = (
     "ReactionSpec",
     "HillMetadata")
 
-"""Golden-path source strings that would reopen a closed claim or fixture."""
+"""Reference-example source strings that would reopen an unsupported claim or fixture."""
 const UNIQUE_CLAIM_EXAMPLE_MUST_NOT_CONTAIN = (
     "build_hill_recovery_network",
     "Note:",
@@ -157,7 +151,7 @@ const UNIQUE_CLAIM_EXAMPLE_MUST_NOT_CONTAIN = (
 """
 locked_public_names() = (:BioDynaX, LOCKED_PUBLIC_EXPORTS...)
 
-"""True when the public export list is exactly the freeze-plus-golden-path set."""
+"""True when the public export list is exactly the freeze-plus-reference-example set."""
 public_export_list_holds() = issetequal(names(BioDynaX), collect(locked_public_names()))
 
 """Numeric copy of `RECOVERY_THRESHOLDS` used to detect a silent loosen."""
@@ -197,51 +191,6 @@ function unique_claim_example_path()
     joinpath(pkgdir(BioDynaX), "examples", "unknown_inhibition.jl")
 end
 
-function unique_claim_user_doc_paths()
-    root = pkgdir(BioDynaX)
-    return (
-        joinpath(root, "README.md"),
-        joinpath(root, "docs", "src", "index.md"),
-        joinpath(root, "docs", "src", "tutorial.md"),
-        joinpath(root, "docs", "src", "howto.md"),
-        joinpath(root, "docs", "src", "unique-claim.md"),
-        joinpath(root, "docs", "src", "architecture.md"),
-        joinpath(root, "docs", "src", "benchmarks.md"),
-        joinpath(root, "docs", "src", "experimental.md"),
-        joinpath(root, "docs", "src", "compiled-path.md"),
-        joinpath(root, "docs", "src", "discovery-streaming.md"),
-        joinpath(root, "docs", "src", "training-reuse.md"),
-        joinpath(root, "docs", "src", "sciml-solve-surface.md"),
-        joinpath(root, "docs", "src", "recovery-suite-skip.md"),
-        joinpath(root, "docs", "src", "experiment-checkpoint.md"),
-        joinpath(root, "docs", "src", "failure-modes.md"),
-        joinpath(root, "docs", "src", "hybrid-compose.md"),
-        joinpath(root, "docs", "src", "hybrid-residual.md"),
-        joinpath(root, "docs", "src", "identifiability-product.md"),
-        joinpath(root, "docs", "src", "graph-local-library.md"),
-        joinpath(root, "docs", "src", "denominator-domain.md"),
-        joinpath(root, "docs", "src", "parameter-schema-pack.md"),
-        joinpath(root, "docs", "src", "docs-executable.md"),
-        joinpath(root, "docs", "src", "allocation-gates.md"),
-        joinpath(root, "docs", "src", "claim-metric-honesty.md"),
-        joinpath(root, "docs", "src", "out-of-scope.md"),
-        joinpath(root, "docs", "src", "internal-workspaces.md"))
-end
-
-"""Hits of ops-lab phrases on landing docs. Empty is the honest state."""
-function unique_claim_docs_forbidden_hits()
-    hits = String[]
-    for path in unique_claim_user_doc_paths()
-        isfile(path) || continue
-        text = read(path, String)
-        for phrase in UNIQUE_CLAIM_DOCS_FORBIDDEN_PHRASES
-            occursin(phrase, text) &&
-                push!(hits, string(basename(path), ": ", phrase))
-        end
-    end
-    return hits
-end
-
 function unique_claim_example_source_violations()
     src = read(unique_claim_example_path(), String)
     missing = [s for s in UNIQUE_CLAIM_EXAMPLE_MUST_CONTAIN if !occursin(s, src)]
@@ -252,8 +201,8 @@ end
 """
     validate_network_stays_open_source() -> Bool
 
-`validate_network` must stay a topology/metadata checker. The unique-claim
-single-hole instrument lives in `assert_single_unknown_destruction`.
+`validate_network` must stay a topology/metadata checker. The reference-protocol
+single-unknown-term workflow lives in `assert_single_unknown_destruction`.
 """
 function validate_network_stays_open_source()
     path = joinpath(pkgdir(BioDynaX), "src", "Network.jl")
@@ -263,30 +212,10 @@ function validate_network_stays_open_source()
     rest = src[first(start):end]
     nxt = findnext(r"\nfunction ", rest, 2)
     body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    forbidden = ("unique-claim", "unique_claim", "unknown_holes", "single-hole",
+    forbidden = ("reference-protocol", "unique_claim", "unknown_holes", "single-hole",
         "assert_single_unknown_destruction", "NeuralDestructionTerm")
     return !any(occursin(needle, body) for needle in forbidden)
 end
-
-"""Locked English sentences the product page must keep honest."""
-unique_claim_locked_sentences() = (;
-    claim = "Unique claim: recall, hybrid residual versus data, unidentifiable_edge.",
-    f1 = "Combined support F1 is a skeleton floor (0.50), not the UDE claim.",
-    hill = "Canonical Hill from a trained neural rate is closed.",
-    coefficients = "Coefficients are not biological constants when the edge is unidentifiable.",
-    smoke = "BIODYNAX_SMOKE=1 (1 IC / 8 points) is not the seed-103 / 9-IC protocol.",
-    preview = "Research preview. Not v1.0. Not in General.",
-    remap = "compile_mechanism reindexes kept NeuralDestructionTerm heads to 1:n.",
-    extras = "Unscored extras print NA; empty extras print (none); live extras are not hardcoded.",
-    recovery = "validate_network stays open; unique-claim recovery admits exactly one unknown D(z).",
-    f1_attempt = "benchmark/ude_f1_attempt.jl is a same-library probe, not the 9-IC protocol.",
-    datagen = "generate_data uses the compiled NN tree; remapped multi-head and two-regulator D(S,I) are generated together.",
-    admission = "run_recovery_suite admits unique-claim sections through admit_recovery_suite_network; 0/2 holes fail closed without training.",
-    protocol_row = "UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result, extras_print_label, and named KPI failures.",
-    compiled_once = "generate_experiment_set compiles the ground-truth model once and generates every IC from that stored model.",
-    sciml_generate = "generate_from_compiled_model integrates SciMLBase.ODEProblem(model, u0, tspan, p).",
-    admission_matrix = "Every recovery-suite section has a hole policy; only unique-claim sections reject 0/2 holes before training.",
-    joint = "The joint compiled path is generate_from_compiled_model + remapped heads + admit_recovery_suite_network + UniqueClaimProtocolRow.")
 
 # -- Protocol fingerprint -----------------------------------------------------
 
@@ -304,14 +233,14 @@ end
 """
     unique_claim_protocol_ics(; smoke=false)
 
-Initial conditions for the unique-claim path. Smoke returns the first
+Initial conditions for the reference-protocol path. Smoke returns the first
 `smoke_n_ics` row(s). The full table is the recovery protocol.
 """
 function unique_claim_protocol_ics(; smoke::Bool = false)
     ics = _unknown_edge_ics()
     n = unique_claim_protocol_n_ics(; smoke)
     n ≤ length(ics) || throw(ArgumentError(
-        "unique-claim IC request $n exceeds table $(length(ics))"))
+        "reference-protocol IC request $n exceeds table $(length(ics))"))
     return smoke ? ics[1:n] : ics
 end
 
@@ -374,7 +303,7 @@ end
 """
     unique_claim_training_budget(; smoke=false)
 
-Adam/BFGS/IC/point budget the golden-path example and recovery job share.
+Adam/BFGS/IC/point budget the reference-example example and recovery job share.
 Smoke keeps the protocol Adam count only when the caller passes it; the
 default smoke budget used by CI is still 1 IC / 8 points / BFGS 0.
 """
@@ -419,7 +348,7 @@ end
 
 function assert_unique_claim_identifiability(ident)
     unique_claim_identifiability_holds(ident) || throw(ErrorException(
-        "unique-claim protocol requires unidentifiable_edge == true"))
+        "reference protocol requires unidentifiable_edge == true"))
     return ident
 end
 
@@ -445,7 +374,7 @@ function identifiability_product(ident; unknown_holes::Integer = 1)
         practical_not_structural = true)
 end
 
-# -- Fit gates ----------------------------------------------------------------
+# -- Fit checks ----------------------------------------------------------------
 
 unique_claim_residual_holds(residual) = residual ≤ RECOVERY_THRESHOLDS.data_residual
 
@@ -464,7 +393,7 @@ unique_claim_f1_reaches_analytical_gate(f1) = f1 ≥ RECOVERY_THRESHOLDS.support
 """
     unique_claim_kpi_failures(kpis) -> Vector{Symbol}
 
-Failed claim gates, in product order. Combined F1 is never appended.
+Failed acceptance checks, in product order. Combined F1 is never appended.
 """
 function unique_claim_kpi_failures(kpis)
     failures = Symbol[]
@@ -480,7 +409,7 @@ end
 function assert_unique_claim_kpis(kpis)
     failures = unique_claim_kpi_failures(kpis)
     isempty(failures) || throw(ErrorException(
-        "unique-claim KPIs failed: $(join(failures, ", "))"))
+        "reference-protocol KPIs failed: $(join(failures, ", "))"))
     return kpis
 end
 
@@ -496,7 +425,7 @@ function unique_claim_truth_support(; family::Symbol = :hill, order::Int = 2)
     family === :hill && return hill_rate_support(order)
     family === :mm && return mm_rate_support()
     throw(ArgumentError(
-        "unique-claim extras support family must be :hill or :mm; got $family"))
+        "reference-protocol extras support family must be :hill or :mm; got $family"))
 end
 
 function unique_claim_discovery_extras(candidate;
@@ -514,8 +443,8 @@ end
 """
     unique_claim_f1_attempt_verdict(; extras, reaches_clean) -> Symbol
 
-Honesty verdict for `benchmark/ude_f1_attempt.jl`. Reaching the analytical
-clean gate on a surrogate does not reopen Hill-from-NN by itself.
+Verdict for `benchmark/ude_f1_attempt.jl`. Reaching the analytical
+clean threshold on a surrogate does not reopen Hill-from-NN by itself.
 """
 function unique_claim_f1_attempt_verdict(; extras, reaches_clean::Bool)
     reaches_clean && return :reopen_only_after_protocol_holds_clean
@@ -577,7 +506,7 @@ end
 """
     format_protocol_sections(ident; kwargs...)
 
-Split `format_protocol_result` into the four product blocks so tests can
+Split `format_protocol_result` into the four report sections so tests can
 fail a single section without matching the whole string.
 """
 function format_protocol_sections(ident; kwargs...)
@@ -599,8 +528,8 @@ end
 """
     format_recovery_protocol(ude; kwargs...)
 
-Print a recovery-suite row with the same product block order as the
-golden-path example. Uses live extras from `protocol_result` when present.
+Print a recovery-suite row with the same report section order as the
+reference-example example. Uses live extras from `protocol_result` when present.
 """
 function format_recovery_protocol(ude;
         seed = UNIQUE_CLAIM_PROTOCOL.seed,
@@ -807,7 +736,7 @@ end
 
 # -- protocol_result fields vs stdout print order -----------------------------
 
-"""Printed labels inside each product block, in stdout order."""
+"""Printed labels inside each report section, in stdout order."""
 const PROTOCOL_PRINT_FIELDS = (
     IDENTIFIABILITY = (
         :unknown_holes, :unidentifiable_edge, :coefficients_are_biological_constants),
@@ -829,7 +758,7 @@ const PROTOCOL_RESULT_PRINT_LABELS = (
     support_f1 = "support_f1",
     extras = "extras",
     canonical_hill_from_nn = "canonical_hill_from_nn",
-    claim = "claim")
+    claim = "acceptance_criteria")
 
 function protocol_print_fields()
     return PROTOCOL_PRINT_FIELDS
@@ -857,7 +786,7 @@ end
 """
     extras_print_label(extras) -> String
 
-Honesty for the DISCOVERY extras line. `nothing` is unscored (`NA`).
+Formatting of the DISCOVERY extras line. `nothing` is unscored (`NA`).
 An empty collection is `(none)`. Live leftovers are joined. The F1
 attempt leftover pair is never invented here.
 """
@@ -882,7 +811,9 @@ end
 
 function format_protocol_print_labels_hold(text::AbstractString)
     for label in protocol_result_print_order()
-        occursin(string(label, ":"), text) || return false
+        printed = hasproperty(PROTOCOL_RESULT_PRINT_LABELS, label) ?
+                  getproperty(PROTOCOL_RESULT_PRINT_LABELS, label) : string(label)
+        occursin(string(printed, ":"), text) || return false
     end
     return extras_print_is_hardcoded_attempt(text) == false
 end
@@ -898,7 +829,7 @@ function assert_format_matches_protocol_result(result, text::AbstractString)
         "coefficients_are_biological_constants: $(result.coefficients_are_biological_constants)",
         text) || throw(ErrorException(
         "printed coefficients_are_biological_constants does not match protocol_result"))
-    occursin("hybrid_data_residual: $(result.data_residual)", text) ||
+    occursin("hybrid_data_residual: $(_format_protocol_value(result.data_residual))", text) ||
         throw(ErrorException("printed hybrid_data_residual does not match data_residual"))
     occursin("support_recall: $(result.support_recall)", text) ||
         throw(ErrorException("printed support_recall does not match protocol_result"))
@@ -909,8 +840,8 @@ function assert_format_matches_protocol_result(result, text::AbstractString)
         "printed extras do not match protocol_result"))
     occursin("canonical_hill_from_nn: false", text) || throw(ErrorException(
         "printed canonical_hill_from_nn must stay false"))
-    occursin("claim: recall_plus_data_residual", text) || throw(ErrorException(
-        "printed claim must be recall_plus_data_residual"))
+    occursin("acceptance_criteria: $(_acceptance_criteria_label())", text) ||
+        throw(ErrorException("printed acceptance criteria do not match the thresholds"))
     extras_print_is_hardcoded_attempt(text) && throw(ErrorException(
         "format_protocol_result must not invent UDE F1-attempt extras"))
     return text
@@ -933,14 +864,14 @@ end
 """
     assert_unique_claim_recovery_network(network) -> network
 
-`validate_network` is called and stays a topology checker. The unique-claim
+`validate_network` is called and stays a topology checker. The reference-protocol
 recovery instrument then requires exactly one unknown `D(z)`.
 """
 function assert_unique_claim_recovery_network(network::BiologicalNetwork)
     validate_network(network)
     n = count_unknown_destructions(network)
     n == 1 || throw(ErrorException(
-        "unique-claim recovery requires exactly one unknown destruction D(z); got $n"))
+        "reference-protocol recovery requires exactly one unknown destruction D(z); got $n"))
     return network
 end
 
@@ -963,7 +894,7 @@ end
 
 # -- F1 attempt probe (not the protocol) --------------------------------------
 
-"""Contract for `benchmark/ude_f1_attempt.jl`. Not a reproduction fingerprint."""
+"""Description of `benchmark/ude_f1_attempt.jl`. Not a reproduction fingerprint."""
 const UNIQUE_CLAIM_F1_ATTEMPT = (
     is_protocol = false,
     trains_ude = false,
@@ -992,15 +923,6 @@ const UNIQUE_CLAIM_F1_ATTEMPT_MUST_NOT_CONTAIN = (
     "train_ude",
     "train_experiments")
 
-function unique_claim_f1_attempt_contract()
-    lock = recovery_thresholds_lock()
-    return (;
-        UNIQUE_CLAIM_F1_ATTEMPT...,
-        support_f1_ude = lock.support_f1_ude,
-        support_f1_clean = lock.support_f1_clean,
-        is_protocol = false)
-end
-
 function unique_claim_f1_attempt_path()
     joinpath(pkgdir(BioDynaX), UNIQUE_CLAIM_F1_ATTEMPT.script)
 end
@@ -1010,6 +932,27 @@ function unique_claim_f1_attempt_source_violations()
     missing = [s for s in UNIQUE_CLAIM_F1_ATTEMPT_MUST_CONTAIN if !occursin(s, src)]
     forbidden = [s for s in UNIQUE_CLAIM_F1_ATTEMPT_MUST_NOT_CONTAIN if occursin(s, src)]
     return (; missing, forbidden)
+end
+
+function unique_claim_f1_attempt_row(; extras, f1)
+    reaches_clean = unique_claim_f1_reaches_analytical_gate(f1)
+    meets_skeleton = unique_claim_f1_meets_skeleton_floor(f1)
+    return (;
+        extras,
+        f1,
+        reaches_clean,
+        meets_skeleton,
+        is_protocol = false,
+        verdict = unique_claim_f1_attempt_verdict(; extras, reaches_clean))
+end
+
+function unique_claim_f1_attempt_contract()
+    lock = recovery_thresholds_lock()
+    return (;
+        UNIQUE_CLAIM_F1_ATTEMPT...,
+        support_f1_ude = lock.support_f1_ude,
+        support_f1_clean = lock.support_f1_clean,
+        is_protocol = false)
 end
 
 function unique_claim_f1_attempt_holds()
@@ -1024,16 +967,4 @@ function unique_claim_f1_attempt_holds()
            contract.support_f1_clean == RECOVERY_THRESHOLDS.support_f1_clean &&
            isempty(violations.missing) &&
            isempty(violations.forbidden)
-end
-
-function unique_claim_f1_attempt_row(; extras, f1)
-    reaches_clean = unique_claim_f1_reaches_analytical_gate(f1)
-    meets_skeleton = unique_claim_f1_meets_skeleton_floor(f1)
-    return (;
-        extras,
-        f1,
-        reaches_clean,
-        meets_skeleton,
-        is_protocol = false,
-        verdict = unique_claim_f1_attempt_verdict(; extras, reaches_clean))
 end

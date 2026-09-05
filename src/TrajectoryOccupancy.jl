@@ -1,12 +1,12 @@
 ###############################################################################
 # Observed-trajectory occupancy (not exported).
 #
-# M4-A1: concatenate Experiment.observations in the original experiment
+# Occupancy: concatenate Experiment.observations in the original experiment
 # and sample order. Duplicates are kept. This is an additional sampling
-# context, not a Q4 domain and not a composer replacement.
+# context, not a functional-identifiability domain and not a composer replacement.
 ###############################################################################
 
-"""Allowed occupancy provenances. Mixed train∪holdout construction is closed."""
+"""Allowed occupancy provenances. Mixed train∪holdout construction is not supported."""
 const TRAJECTORY_OCCUPANCY_PROVENANCES = (
     :train_observed_states,
     :holdout_observed_states)
@@ -101,7 +101,7 @@ function _validated_occupancy_indices(
     hold_ids = UNIQUE_CLAIM_HOLDOUT_INDICES
     protocol_n = length(train_ids) + length(hold_ids)
     n_experiments == protocol_n && throw(ArgumentError(
-        "occupancy does not concatenate a full unique-claim experiment collection; collect split.train and split.holdout separately"))
+        "occupancy does not concatenate a full reference-protocol experiment collection; collect split.train and split.holdout separately"))
     has_train = any(in(train_ids), stored)
     has_hold = any(in(hold_ids), stored)
     has_train && has_hold && throw(ArgumentError(
@@ -132,7 +132,7 @@ end
 
 Build occupancy from observed state columns of the selected experiments.
 `X = hcat(experiment.observations ...)`. Original experiment order, sample
-order, and duplicate columns are kept. A full unique-claim collection is
+order, and duplicate columns are kept. A full reference-protocol collection is
 rejected unless it arrives through `ExperimentSplit` as train or holdout.
 """
 function collect_observed_occupancy(
@@ -169,7 +169,7 @@ end
 """
     collect_observed_occupancy(split, provenance)
 
-Unique-claim occupancy. `:train_observed_states` uses `split.train` only.
+Reference-protocol occupancy. `:train_observed_states` uses `split.train` only.
 `:holdout_observed_states` uses `split.holdout` only. The two are never
 concatenated.
 """
@@ -192,7 +192,7 @@ end
 """
     sample_destruction_occupancy(model, params, term, occupancy)
 
-Primary M4-A sample path:
+Primary occupancy sample path:
 
     sample_unknown_destruction(model, params, occupancy.X; term)
 

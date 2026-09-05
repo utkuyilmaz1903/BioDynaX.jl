@@ -1,7 +1,7 @@
 ###############################################################################
 # Recovery-suite admission and protocol row (not exported).
 #
-# Unique-claim suite sections admit a network only when exactly one unknown
+# Reference-protocol suite sections admit a network only when exactly one unknown
 # D(z) is present. validate_network stays a topology/metadata checker.
 # UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result,
 # extras_print_label, and named KPI failures.
@@ -148,7 +148,7 @@ end
 """
     admit_recovery_suite_network(section, network = recovery_suite_section_network(section))
 
-`validate_network` always runs. Unique-claim sections then require exactly
+`validate_network` always runs. Reference-protocol sections then require exactly
 one unknown `D(z)` via `assert_unique_claim_recovery_network`. Does not
 train a UDE.
 """
@@ -256,7 +256,7 @@ end
 """
     recovery_suite_zero_dual_matrix()
 
-0-hole and 2-hole probes on every section. Unique-claim sections reject
+0-hole and 2-hole probes on every section. Reference-protocol sections reject
 both without training. Open sections still admit. `validate_network`
 stays open on both probes. Ablation is a library fixture and is not
 probed with a compiled dual unknown.
@@ -369,8 +369,8 @@ function format_unique_claim_kpi_failures(failures)
 end
 
 function unique_claim_kpi_failure_message(failures)
-    isempty(failures) && return "unique-claim KPIs hold"
-    return "unique-claim KPIs failed: $(format_unique_claim_kpi_failures(failures))"
+    isempty(failures) && return "reference-protocol KPIs pass"
+    return "reference-protocol KPIs failed: $(format_unique_claim_kpi_failures(failures))"
 end
 
 function named_kpi_failure_row(;

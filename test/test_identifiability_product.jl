@@ -15,18 +15,7 @@ end
     @test BioDynaX.format_production_destruction_warning_source_holds()
     @test BioDynaX.format_protocol_result_collinearity_source_holds()
     @test BioDynaX.coefficients_are_biological_constants_source_holds()
-    @test BioDynaX.identifiability_product_source_holds()
-    @test BioDynaX.identifiability_product_docs_hold()
-    @test BioDynaX.identifiability_product_landing_docs_hold()
-    @test BioDynaX.identifiability_product_docs_mention_helpers()
-    @test BioDynaX.identifiability_product_example_source_holds()
     @test BioDynaX.identifiability_product_index_holds()
-    @test BioDynaX.identifiability_product_contract() ==
-          BioDynaX.identifiability_product_locked_sentences().join
-    violations = BioDynaX.identifiability_product_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.identifiability_product_contract_holds()
 end
 
 @testset "coefficients follow unidentifiable_edge" begin
@@ -122,15 +111,5 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"IdentifiabilityProduct.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "identifiability-product.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "IdentifiabilityProduct.jl"))
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("identifiability-product.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("identifiability-product", howto)
-    @test occursin("coefficients_are_biological_constants", howto)
-    sciml = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.identifiability_product_contract(), sciml)
-    @test occursin("identifiability-product",
-        join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

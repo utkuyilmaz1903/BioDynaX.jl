@@ -315,13 +315,7 @@ function _b4_library_oracles()
 end
 
 function _b4_docs_texts()
-    root = pkgdir(BioDynaX)
-    return (
-        contract = read(joinpath(root, "docs", "src", "design", "v1_contract.md"), String),
-        scope = read(joinpath(root, "docs", "src", "out-of-scope.md"), String),
-        plan = read(joinpath(root, "docs", "research", "V1-IMPLEMENTATION-PLAN.md"), String),
-        graph = read(joinpath(root, "docs", "src", "graph-local-library.md"), String),
-        source = _b4_source())
+    return (source = _b4_source(),)
 end
 
 function _b4_analytic_is_trained_ude(result)

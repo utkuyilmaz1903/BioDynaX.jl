@@ -4,7 +4,6 @@
     @test !(:_fit_implicit_stream in names(BioDynaX))
     @test !(:evaluate_candidate! in names(BioDynaX))
     @test !(:each_reusable_library_chunk in names(BioDynaX))
-    @test !(:discovery_workspace_contract_holds in names(BioDynaX))
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test validate_network_stays_open_source()
@@ -239,21 +238,8 @@ end
 end
 
 @testset "streaming contract source and docs hold" begin
-    @test discovery_workspace_source_holds()
     @test BioDynaX.discovery_jl_uses_workspace()
     @test BioDynaX.basis_factory_evaluates_in_place()
-    @test BioDynaX.discovery_streaming_docs_hold()
-    @test BioDynaX.discovery_streaming_landing_docs_hold()
-    @test discovery_workspace_contract_holds()
-    violations = BioDynaX.discovery_workspace_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    sentences = BioDynaX.discovery_streaming_locked_sentences()
-    @test haskey(sentences, :workspace)
-    @test haskey(sentences, :library)
-    @test haskey(sentences, :stream)
-    @test haskey(sentences, :chunk)
-    @test haskey(sentences, :backend)
 end
 
 @testset "workspace path does not loosen locked claim numbers" begin

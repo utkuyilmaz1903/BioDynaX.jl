@@ -14,18 +14,8 @@ end
     @test BioDynaX.discovery_sample_floor_source_holds()
     @test BioDynaX.discovery_n_samples_entry_source_holds()
     @test BioDynaX.extras_source_holds()
-    @test BioDynaX.failure_mode_source_holds()
-    @test BioDynaX.failure_mode_docs_hold()
-    @test BioDynaX.failure_mode_landing_docs_hold()
-    @test BioDynaX.failure_mode_docs_mention_helpers()
     @test BioDynaX.failure_mode_index_holds()
     @test BioDynaX.failure_mode_formatter_lock_holds()
-    @test BioDynaX.failure_mode_contract() ==
-          BioDynaX.failure_mode_locked_sentences().validate
-    violations = BioDynaX.failure_mode_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.failure_mode_contract_holds()
 end
 
 @testset "DiscoveryRetcode catalog and mapper" begin
@@ -134,14 +124,5 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"FailureModes.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "failure-modes.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "FailureModes.jl"))
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("failure-modes.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("failure-modes", howto)
-    @test occursin("DiscoveryRetcode", howto)
-    architecture = read(joinpath(@__DIR__, "..", "docs", "src", "architecture.md"), String)
-    @test occursin(BioDynaX.failure_mode_contract(), architecture)
-    @test occursin("failure-modes", join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

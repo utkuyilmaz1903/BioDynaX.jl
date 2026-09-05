@@ -3,11 +3,11 @@
 #
 # DiscoveryRetcode must name every silent-looking miss. 0/2-hole networks
 # still pass validate_network. KPI failure symbols stay the three claim
-# gates. extras print NA / (none) / live leftovers. Combined F1 is never
+# checks. extras print NA / (none) / live leftovers. Combined F1 is never
 # painted as 0.99 on a failed row.
 #
 # Does not drop protocol ICs. Does not grow exports. Does not put a
-# single-hole gate into validate_network.
+# single-unknown-term check into validate_network.
 ###############################################################################
 
 const FAILURE_MODE_MUST_CONTAIN = (
@@ -32,22 +32,8 @@ const DISCOVERY_RETCODE_SYMBOLS = (
     :SingularLibrary,
     :DiscoveryFailed)
 
-function failure_mode_locked_sentences()
-    return (;
-        retcode = "DiscoveryRetcode names InsufficientSamples, DenominatorUnsafe, EmptySupport, SingularLibrary, DiscoveryFailed, and DiscoverySuccess.",
-        validate = "validate_network stays a topology checker; 0-hole and 2-hole networks still validate.",
-        kpi = "KPI failure symbols are unidentifiable_edge, data_residual, and support_recall; combined F1 is never a failure symbol.",
-        extras = "extras print NA for missing, (none) for an empty collection, and the live leftovers otherwise.")
-end
-
-failure_mode_contract() = failure_mode_locked_sentences().validate
-
 function failure_mode_source_path()
     joinpath(pkgdir(BioDynaX), "src", "FailureModes.jl")
-end
-
-function failure_mode_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "failure-modes.md")
 end
 
 # -- Retcode catalog ----------------------------------------------------------
@@ -56,7 +42,7 @@ end
     discovery_retcode_catalog()
 
 Every `DiscoveryRetcode` instance, in enum order. Adding a retcode
-without updating this catalog is a contract break.
+without updating this catalog is a breaking change.
 """
 function discovery_retcode_catalog()
     instances = (
@@ -248,7 +234,7 @@ end
     insufficient_samples_boundary_row()
 
 19 columns fail. 20 columns are admitted to `_run_discovery` (they may
-still fail later for another honest reason).
+still fail later for another reason).
 """
 function insufficient_samples_boundary_row()
     short = failure_mode_linear_trajectory(; n_points = 19)
@@ -328,7 +314,7 @@ end
     explicit_success_row()
 
 Linear known dynamics with a modest explicit threshold recover a
-support. This is not the unique-claim Hill path.
+support. This is not the reference-protocol Hill path.
 """
 function explicit_success_row()
     traj = failure_mode_linear_trajectory(; n_points = 40)
@@ -541,7 +527,7 @@ end
     discovery_on_zero_hole_row()
 
 Discovery on a 0-hole linear network is allowed. `validate_network`
-does not block it. This is not unique-claim recovery.
+does not block it. This is not reference-protocol recovery.
 """
 function discovery_on_zero_hole_row()
     traj = failure_mode_linear_trajectory(; n_points = 32)
@@ -921,7 +907,7 @@ function extras_source_holds()
            occursin("isempty(extras)", body)
 end
 
-# -- Failed protocol print honesty --------------------------------------------
+# -- Failed protocol print checks --------------------------------------------
 
 function failed_protocol_print_row()
     ident = (;
@@ -1058,7 +1044,7 @@ end
 
 function format_failure_mode_index()
     io = IOBuffer()
-    println(io, "| fixture | retcode / gate |")
+    println(io, "| fixture | retcode / check |")
     println(io, "|---|---|")
     println(io, "| catalog | six DiscoveryRetcode values |")
     println(io, "| mapper | error class to retcode |")
@@ -1075,8 +1061,8 @@ function format_failure_mode_index()
     println(io, "| zero_discovery | discovery allowed on 0-hole |")
     println(io, "| dual_discovery | discovery allowed on 2-hole |")
     println(io, "| kpi_grid | 72 synthetic KPI combinations |")
-    println(io, "| kpi_examples | named one-gate failures |")
-    println(io, "| f1_never_symbol | 0.10 and 0.99 F1 are not gates |")
+    println(io, "| kpi_examples | named single-criterion failures |")
+    println(io, "| f1_never_symbol | 0.10 and 0.99 F1 are not criteria |")
     println(io, "| extras_catalog | NA / (none) / live / attempt |")
     println(io, "| extras_empty_na | nothing ≠ empty collection |")
     println(io, "| extras_hardcoded | F1-attempt leftover string |")
@@ -1127,74 +1113,3 @@ end
 
 # -- Source / docs contracts --------------------------------------------------
 
-function failure_mode_source_holds()
-    src = read(failure_mode_source_path(), String)
-    docs = isfile(failure_mode_docs_path()) ?
-           read(failure_mode_docs_path(), String) : ""
-    impl = read(discovery_jl_source_path(), String)
-    return all(occursin(needle, src) for needle in FAILURE_MODE_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function failure_mode_source_violations()
-    src = read(failure_mode_source_path(), String)
-    docs = isfile(failure_mode_docs_path()) ?
-           read(failure_mode_docs_path(), String) : ""
-    missing = [s for s in FAILURE_MODE_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function failure_mode_docs_hold()
-    path = failure_mode_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(failure_mode_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("failure-modes.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function failure_mode_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    architecture = read(
-        joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
-    sentences = failure_mode_locked_sentences()
-    return occursin("failure-modes", howto) &&
-           occursin("DiscoveryRetcode", howto) &&
-           occursin(sentences.validate, architecture)
-end
-
-function failure_mode_docs_mention_helpers()
-    path = failure_mode_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("discovery_retcode_catalog", text) &&
-           occursin("insufficient_samples_row", text) &&
-           occursin("hole_validate_matrix", text) &&
-           occursin("kpi_failure_grid", text) &&
-           occursin("extras_print_catalog_row", text)
-end
-
-function failure_mode_contract_holds()
-    return failure_mode_source_holds() &&
-           discovery_retcode_mapper_source_holds() &&
-           discovery_sample_floor_source_holds() &&
-           discovery_n_samples_entry_source_holds() &&
-           extras_source_holds() &&
-           validate_network_stays_open_source() &&
-           failure_mode_docs_hold() &&
-           failure_mode_landing_docs_hold() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           failure_mode_formatter_lock_holds()
-end

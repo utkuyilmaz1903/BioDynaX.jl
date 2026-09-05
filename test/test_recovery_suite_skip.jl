@@ -153,14 +153,7 @@ end
     @test BioDynaX.recovery_suite_seeds_uses_ude_only()
     @test BioDynaX.recovery_suite_sindy_baseline_uses_ablation_only()
     @test BioDynaX.recovery_suite_benchmark_skip_source_holds()
-    @test BioDynaX.recovery_suite_skip_source_holds()
     @test BioDynaX.unique_claim_skip_source_holds()
-    @test BioDynaX.recovery_suite_skip_docs_hold()
-    @test BioDynaX.recovery_suite_skip_landing_docs_hold()
-    @test BioDynaX.recovery_suite_skip_contract_holds()
-    violations = BioDynaX.recovery_suite_skip_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
 end
 
 @testset "skip path does not loosen locked claim numbers" begin

@@ -1,12 +1,12 @@
 ###############################################################################
-# Internal unique-claim recovery result (not exported).
+# Internal reference-protocol recovery result (not exported).
 #
 # This file does not change RECOVERY_THRESHOLDS, public exports, or
 # run_recovery_suite control flow beyond named generate / dummy-RNG /
 # fit / sample / evaluate / report helpers. ExperimentSplit is the
 # locked 7/2 view of an already-generated set. `_train_unknown_edge`
 # fits on `split.train` and still returns the original 9-IC set.
-# Held-out evaluation is defined here. Unique-claim sections call it
+# Held-out evaluation is defined here. Reference-protocol sections call it
 # once after ident and pass the result to report_recovery.
 # Functional identifiability and DestructionSamples are out of scope.
 ###############################################################################
@@ -14,15 +14,15 @@
 """
     MechanismRecoveryResult
 
-Internal unique-claim recovery surface. Field access matches the current
+Internal reference-protocol recovery surface. Field access matches the current
 suite row: `result.nn_correlation`, `result[:locked_kpis]`,
 `haskey(result, :identifiability)`, and `keys(result)`.
 
 `getindex` / `haskey` / `keys` follow `hasproperty`. `protocol_result`
 keeps `PROTOCOL_RESULT_FIELDS` order when present.
 
-Optional `split` and `holdout` are the approved M2 fields. `haskey`
-is field presence; Q7 evidence is `holdout !== nothing`. Not exported.
+Optional `split` and `holdout` are the held-out fields. `haskey`
+is field presence; held-out evidence is `holdout !== nothing`. Not exported.
 Not a functional-identifiability, hypothesis, uncertainty, occupancy,
 or destruction-sample object.
 """
@@ -118,7 +118,7 @@ function Base.keys(result::MechanismRecoveryResult)
     return propertynames(result)
 end
 
-# Test seams for the unique-claim generate → split → fit → domain path.
+# Test seams for the reference-protocol generate → split → fit → domain path.
 # Production training and discovery are unchanged unless a test observer
 # is installed.
 const GENERATE_RECOVERY_EXPERIMENTS_OBSERVER = Ref{Any}(nothing)
@@ -341,7 +341,7 @@ end
     generate_recovery_experiments(rng, truth_net, truth_params; tspan, n_points,
                                  noise_σ, initial_conditions)
 
-Nine-IC synthetic set used by unique-claim training. This is not
+Nine-IC synthetic set used by reference-protocol training. This is not
 `unique_claim_experiment_set` and does not attach fingerprint metadata.
 """
 function generate_recovery_experiments(rng, truth_net, truth_params;
@@ -355,16 +355,16 @@ function generate_recovery_experiments(rng, truth_net, truth_params;
     return set
 end
 
-"""Locked unique-claim train indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
+"""Locked reference-protocol train indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
 const UNIQUE_CLAIM_TRAIN_INDICES = (1, 2, 3, 4, 5, 6, 7)
 
-"""Locked unique-claim holdout indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
+"""Locked reference-protocol holdout indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
 const UNIQUE_CLAIM_HOLDOUT_INDICES = (8, 9)
 
 """
     ExperimentSplit
 
-Locked unique-claim 7/2 view of an already-generated 9-IC `ExperimentSet`.
+Locked reference-protocol 7/2 view of an already-generated 9-IC `ExperimentSet`.
 Train indices are `(1, 2, 3, 4, 5, 6, 7)`; holdout indices are `(8, 9)`.
 The wrapped `Experiment` objects are the original generated objects.
 Not a second generated set. Not exported.
@@ -379,7 +379,7 @@ end
 """
     unique_claim_experiment_split(set::ExperimentSet) -> ExperimentSplit
 
-Partition a 9-IC unique-claim `ExperimentSet` into the locked 7/2 view.
+Partition a 9-IC reference-protocol `ExperimentSet` into the locked 7/2 view.
 Requires `length(set) == 9`. Consumes the already-generated set: it does
 not generate experiments and does not mutate `set`.
 """
@@ -420,7 +420,7 @@ end
     fit_unknown_destruction(ude_model, ude_p0, set; adam, bfgs, frozen_phys,
                            phys_init)
 
-Unique-claim UDE fit: physics init, locked training config, and
+Reference-protocol UDE fit: physics init, locked training config, and
 `train_experiments_with_warmup`. Numerical training configuration is
 unchanged from `_train_unknown_edge`.
 """
@@ -465,7 +465,7 @@ end
     evaluate_recovery(R_grid, D_nn, discovery, discovery_norm, truth_rate,
                       truth_support, data_residual_fn)
 
-Metric-only unique-claim evaluation. Computes the current Q1 / Q2 / Q5
+Metric-only reference-protocol evaluation. Computes the current fit, mechanism-function, and support
 fields from already-run raw and normalized `DiscoveryResult`s. Does not
 discover, normalize samples, decide `training_ok`, construct times, or
 own success / retcode / message. Not exported. Not a held-out or
@@ -522,7 +522,7 @@ end
 """
     report_recovery(evaled, ident; model, params, experiments, split, holdout)
 
-Typed unique-claim report. Builds an internal `MechanismRecoveryResult`
+Typed reference-protocol report. Builds an internal `MechanismRecoveryResult`
 from composer output and the existing identifiability object. Always
 fills `locked_kpis` and `protocol_result`. Writes the given `split` and
 `holdout` as-is. Does not evaluate holdout. Not exported. Not a
@@ -572,7 +572,7 @@ end
 """
     HoldoutEvidence
 
-Four-scalar unique-claim held-out evidence. Not a gate, not a discovery
+Four-scalar reference-protocol held-out evidence. Not an acceptance criterion, not a discovery
 result, and not a functional-identifiability object. Not exported.
 """
 struct HoldoutEvidence
@@ -625,7 +625,7 @@ end
 """
     evaluate_holdout
 
-Evaluate an already-fitted unique-claim model on the locked 7/2 split.
+Evaluate an already-fitted reference-protocol model on the locked 7/2 split.
 Always returns HoldoutEvidence. Does not train, discover, or generate.
 Not exported.
 """

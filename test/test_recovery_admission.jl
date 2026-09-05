@@ -78,7 +78,7 @@ end
     @test hold.hold
     @test isempty(hold.failures)
     @test hold.label == "(none)"
-    @test hold.message == "unique-claim KPIs hold"
+    @test hold.message == "reference-protocol KPIs pass"
     miss_edge = named_kpi_failure_row(; unidentifiable_edge = false)
     @test miss_edge.failures == [:unidentifiable_edge]
     @test occursin("unidentifiable_edge", miss_edge.message)
@@ -128,26 +128,6 @@ end
     src = read(unique_claim_example_path(), String)
     @test occursin("unique_claim_experiment_set", src)
     @test occursin("unique_claim_fingerprint", src)
-    page = read(joinpath(pkgdir(BioDynaX), "docs", "src", "unique-claim.md"), String)
-    sentences = unique_claim_locked_sentences()
-    @test occursin(sentences.datagen, page)
-    @test occursin(sentences.admission, page)
-    @test occursin(sentences.protocol_row, page)
-    @test occursin(sentences.compiled_once, page)
-    @test occursin(sentences.sciml_generate, page)
-    @test occursin(sentences.admission_matrix, page)
-    @test occursin(sentences.joint, page)
-    architecture = read(
-        joinpath(pkgdir(BioDynaX), "docs", "src", "architecture.md"), String)
-    @test occursin("generate_from_compiled_model", architecture) ||
-          occursin("compiled NN tree", architecture)
-    @test occursin("admit_recovery_suite_network", architecture)
-    news = read(joinpath(pkgdir(BioDynaX), "NEWS.md"), String)
-    @test occursin("admit_recovery_suite_network", news)
-    @test occursin("UniqueClaimProtocolRow", news)
-    @test occursin("generate_from_compiled_model", news)
-    @test occursin("compile_ground_truth_model", news)
-    @test occursin("recovery_suite_admission_matrix", news)
 end
 
 @testset "admission matrix covers every suite section" begin

@@ -2,7 +2,7 @@
 # DataGen.jl — synthetic-data generation from ground-truth mechanisms.
 ###############################################################################
 
-"""Explicit ground-truth contract for synthetic experiment generation."""
+"""Explicit ground-truth specification for synthetic experiment generation."""
 struct GroundTruthModel
     network::BiologicalNetwork
     model::UDEModel
@@ -121,7 +121,7 @@ end
     generate_experiment_set(rng; network, initial_conditions, tspan, n_points, ...)
 
 Build one compiled ground-truth model, then an `ExperimentSet` from that
-stored model. This is the multi-IC entry used by the golden path.
+stored model. This is the multi-IC entry used by the reference example.
 """
 function generate_experiment_set(rng::AbstractRNG;
         network::BiologicalNetwork = DEFAULT_EXAMPLE_NETWORK,

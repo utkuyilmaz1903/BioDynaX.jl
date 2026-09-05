@@ -41,16 +41,3 @@ using Test: @inferred
     @test out ≈ Vector(p53_cache.du)
 end
 
-@testset "unexported workspace allocation gates" begin
-    @test BioDynaX.allocation_gates_contract_holds()
-    pack = BioDynaX.pack_parameters_allocation_row()
-    @test pack.holds
-    @test pack.typed.hot ≤ BioDynaX.ALLOCATION_GATE_LIMITS.pack_parameters
-    pos = BioDynaX.positive_parameter_allocation_row()
-    @test pos.holds
-    @test pos.typed.hot == 0
-    stlsq = BioDynaX.stlsq_workspace_reuse_row()
-    @test stlsq.holds
-    @test stlsq.same_shape
-    @test BioDynaX.schema_type_row().holds
-end

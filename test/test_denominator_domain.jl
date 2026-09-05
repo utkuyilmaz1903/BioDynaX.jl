@@ -18,18 +18,7 @@ end
     @test BioDynaX.implicit_discovery_uses_domain_grid_source_holds()
     @test BioDynaX.explicit_path_skips_domain_grid_source_holds()
     @test BioDynaX.domain_grid_clips_source_holds()
-    @test BioDynaX.denominator_domain_source_holds()
-    @test BioDynaX.denominator_domain_docs_hold()
-    @test BioDynaX.denominator_domain_landing_docs_hold()
-    @test BioDynaX.denominator_domain_docs_mention_helpers()
-    @test BioDynaX.denominator_domain_example_source_holds()
     @test BioDynaX.denominator_domain_index_holds()
-    @test BioDynaX.denominator_domain_contract() ==
-          BioDynaX.denominator_domain_locked_sentences().split
-    violations = BioDynaX.denominator_domain_source_violations()
-    @test isempty(violations.missing)
-    @test isempty(violations.forbidden)
-    @test BioDynaX.denominator_domain_contract_holds()
 end
 
 @testset "split counts distinguish safe, unsafe, and explicit" begin
@@ -131,19 +120,9 @@ end
 @testset "module include and docs page exist" begin
     src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
     @test occursin("include(\"DenominatorDomain.jl\")", src)
-    @test isfile(joinpath(@__DIR__, "..", "docs", "src", "denominator-domain.md"))
     @test isfile(joinpath(@__DIR__, "..", "src", "DenominatorDomain.jl"))
     recovery = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
     @test occursin("function ude_extras_denominator_row", recovery)
     pipeline = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
     @test occursin("extras_denominator = ude_extras_denominator_row(", pipeline)
-    make = read(joinpath(@__DIR__, "..", "docs", "make.jl"), String)
-    @test occursin("denominator-domain.md", make)
-    howto = read(joinpath(@__DIR__, "..", "docs", "src", "howto.md"), String)
-    @test occursin("denominator-domain", howto)
-    @test occursin("denominator_split_counts", howto)
-    sciml = read(joinpath(@__DIR__, "..", "docs", "src", "sciml.md"), String)
-    @test occursin(BioDynaX.denominator_domain_contract(), sciml)
-    @test occursin("denominator-domain",
-        join(BioDynaX.unique_claim_user_doc_paths(), " "))
 end

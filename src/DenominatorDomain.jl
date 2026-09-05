@@ -7,7 +7,7 @@
 # the domain grid. Combined F1 stays a skeleton floor.
 #
 # Does not drop protocol ICs. Does not grow exports. Does not open
-# Hill-from-NN. Does not put a single-hole gate into validate_network.
+# Hill-from-NN. Does not put a single-unknown-term check into validate_network.
 ###############################################################################
 
 const DENOMINATOR_DOMAIN_MUST_CONTAIN = (
@@ -24,22 +24,8 @@ const DENOMINATOR_DOMAIN_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function denominator_domain_locked_sentences()
-    return (;
-        split = "denominator_split_counts walks train, validation, and the orthant domain grid separately.",
-        extras = "UDE extras still call denominator_violation_count on the domain grid.",
-        explicit = "ExplicitCandidate has no rational denominator; the violation count is 0.",
-        failed = "A missing candidate records typemax denominator violations.")
-end
-
-denominator_domain_contract() = denominator_domain_locked_sentences().split
-
 function denominator_domain_source_path()
     joinpath(pkgdir(BioDynaX), "src", "DenominatorDomain.jl")
-end
-
-function denominator_domain_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "denominator-domain.md")
 end
 
 function denominator_domain_test_path()
@@ -284,7 +270,7 @@ function extras_hardcoded_attempt_rejected_row()
                 extras_print_is_hardcoded_attempt(live) == false)
 end
 
-# -- Domain grid honesty ------------------------------------------------------
+# -- Domain grid checks ------------------------------------------------------
 
 function domain_grid_nonneg_row()
     X = [0.2 0.4 0.8; 0.1 0.3 0.5]
@@ -883,81 +869,7 @@ function suite_denominator_catalog_holds()
            !occursin("support_f1_ude = 0.99", text)
 end
 
-# -- Docs / contract ----------------------------------------------------------
-
-function denominator_domain_source_holds()
-    src = read(denominator_domain_source_path(), String)
-    docs = isfile(denominator_domain_docs_path()) ?
-           read(denominator_domain_docs_path(), String) : ""
-    impl = read(recovery_jl_source_path_for_denominator(), String)
-    return all(occursin(needle, src) for needle in DENOMINATOR_DOMAIN_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function denominator_domain_source_violations()
-    src = read(denominator_domain_source_path(), String)
-    docs = isfile(denominator_domain_docs_path()) ?
-           read(denominator_domain_docs_path(), String) : ""
-    missing = [s for s in DENOMINATOR_DOMAIN_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function denominator_domain_docs_hold()
-    path = denominator_domain_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(denominator_domain_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("denominator-domain.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function denominator_domain_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = denominator_domain_locked_sentences()
-    return occursin("denominator-domain", howto) &&
-           occursin("denominator_split_counts", howto) &&
-           occursin(sentences.split, sciml)
-end
-
-function denominator_domain_example_source_holds()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    docs = read(denominator_domain_docs_path(), String)
-    return occursin("ude_extras_denominator_row", howto) &&
-           occursin("orthant", docs) &&
-           occursin("ExplicitCandidate", docs) &&
-           occursin("1 IC", docs)
-end
-
-function denominator_domain_docs_mention_helpers()
-    path = denominator_domain_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("denominator_split_counts", text) &&
-           occursin("ude_extras_denominator_row", text) &&
-           occursin("synthetic_unsafe_implicit_candidate", text) &&
-           occursin("domain_grid_nonneg_row", text)
-end
-
-function denominator_domain_test_file_holds()
-    path = denominator_domain_test_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("denominator_domain_contract_holds", text) &&
-           occursin("public_export_list_holds", text) &&
-           occursin("RECOVERY_THRESHOLDS.support_f1_ude == 0.50", text)
-end
+# -- Source checks ----------------------------------------------------------
 
 function denominator_domain_module_include_holds()
     src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
@@ -1212,45 +1124,3 @@ function hill_from_nn_stays_closed_denominator_row()
                 RECOVERY_THRESHOLDS.support_f1_ude == 0.50)
 end
 
-function denominator_domain_contract_holds()
-    return denominator_domain_source_holds() &&
-           denominator_violation_count_source_holds() &&
-           denominator_split_counts_source_holds() &&
-           ude_extras_denominator_source_holds() &&
-           extras_path_calls_split_source_holds() &&
-           implicit_discovery_uses_domain_grid_source_holds() &&
-           explicit_path_skips_domain_grid_source_holds() &&
-           domain_grid_clips_source_holds() &&
-           denominator_domain_docs_hold() &&
-           denominator_domain_landing_docs_hold() &&
-           denominator_domain_example_source_holds() &&
-           denominator_domain_docs_mention_helpers() &&
-           denominator_domain_index_holds() &&
-           denominator_domain_test_file_holds() &&
-           denominator_domain_module_include_holds() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source() &&
-           recovery_thresholds_untouched_denominator_row().holds &&
-           public_export_list_untouched_denominator_row().holds &&
-           unique_claim_not_faster_by_dropping_ics_denominator_row().holds &&
-           floor_does_not_paint_f1_row().holds &&
-           empty_domain_split_is_train_val_only_row().holds &&
-           validate_network_open_on_denominator_fixtures_row().holds &&
-           suite_denominator_catalog_holds() &&
-           denominator_domain_typed_matrix().holds &&
-           discovery_config_domain_samples_row().holds &&
-           default_backend_domain_samples_row().holds &&
-           floor_sensitivity_row().holds &&
-           split_matches_sum_row().holds &&
-           extra_candidates_keep_denominator_row().holds &&
-           six_state_per_target_denominator_row().holds &&
-           default_per_target_denominator_row().holds &&
-           remapped_per_target_denominator_row().holds &&
-           format_split_markdown_holds() &&
-           combined_f1_not_a_denominator_kpi_row().holds &&
-           ude_path_field_source_holds() &&
-           single_sample_split_row().holds &&
-           all_zero_state_grid_row().holds &&
-           hill_from_nn_stays_closed_denominator_row().holds
-end

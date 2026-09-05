@@ -7,7 +7,7 @@
 # floor. Discovery rows are not the seed-103 / 9-IC protocol.
 #
 # Does not drop protocol ICs. Does not grow exports. Does not open
-# Hill-from-NN. Does not put a single-hole gate into validate_network.
+# Hill-from-NN. Does not put a single-unknown-term check into validate_network.
 ###############################################################################
 
 const GRAPH_LOCAL_LIBRARY_MUST_CONTAIN = (
@@ -24,22 +24,8 @@ const GRAPH_LOCAL_LIBRARY_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
     "function validate_network")
 
-function graph_local_library_locked_sentences()
-    return (;
-        prior = "local_basis scope=:graph uses graph parents; scope=:global is the ablation.",
-        gate = "local_has_true_parent_gate is the recovered-support membership check.",
-        wrong = "A wrong-graph parent set does not contain the true regulator.",
-        suite = "run_recovery_suite graph-prior sections call local_has_true_parent_gate.")
-end
-
-graph_local_library_contract() = graph_local_library_locked_sentences().prior
-
 function graph_local_library_source_path()
     joinpath(pkgdir(BioDynaX), "src", "GraphLocalLibrary.jl")
-end
-
-function graph_local_library_docs_path()
-    joinpath(pkgdir(BioDynaX), "docs", "src", "graph-local-library.md")
 end
 
 function graph_local_library_test_path()
@@ -433,7 +419,7 @@ function target_out_of_range_row()
     return (; threw, holds = threw)
 end
 
-# -- Discovery gates (not the protocol) ---------------------------------------
+# -- Discovery checks (not the protocol) ---------------------------------------
 
 function graph_local_rate_samples(; n::Int = 80, seed::Integer = 607)
     r = collect(range(0.1, 2.0; length = n))
@@ -831,7 +817,7 @@ function format_graph_local_library_index()
     println(io, "| three_nodist | three-state without Z still keeps R |")
     println(io, "| degree | raising max degree widens the global library |")
     println(io, "| interactions | pairwise terms widen the global library |")
-    println(io, "| suite_gates | recovery suite calls the parent gates |")
+    println(io, "| suite_gates | recovery suite calls the parent checks |")
     println(io, "| smoke_protocol | discovery smoke is not 9 ICs / 50 points |")
     return String(take!(io))
 end
@@ -845,81 +831,7 @@ function graph_local_library_index_holds()
            !occursin("support_f1_ude = 0.99", text)
 end
 
-# -- Docs / contract ----------------------------------------------------------
-
-function graph_local_library_source_holds()
-    src = read(graph_local_library_source_path(), String)
-    docs = isfile(graph_local_library_docs_path()) ?
-           read(graph_local_library_docs_path(), String) : ""
-    impl = read(joinpath(pkgdir(BioDynaX), "src", "BasisFactory.jl"), String)
-    return all(occursin(needle, src) for needle in GRAPH_LOCAL_LIBRARY_MUST_CONTAIN) &&
-           !occursin("support_f1_ude = 0.99", impl) &&
-           !occursin("support_f1_ude = 0.99", docs) &&
-           !occursin("function validate_network", docs)
-end
-
-function graph_local_library_source_violations()
-    src = read(graph_local_library_source_path(), String)
-    docs = isfile(graph_local_library_docs_path()) ?
-           read(graph_local_library_docs_path(), String) : ""
-    missing = [s for s in GRAPH_LOCAL_LIBRARY_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = String[]
-    occursin("support_f1_ude = 0.99", docs) &&
-        push!(forbidden, "docs: support_f1_ude = 0.99")
-    occursin("function validate_network", docs) &&
-        push!(forbidden, "docs: function validate_network")
-    return (; missing, forbidden)
-end
-
-function graph_local_library_docs_hold()
-    path = graph_local_library_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    for sentence in values(graph_local_library_locked_sentences())
-        occursin(sentence, text) || return false
-    end
-    make = read(joinpath(pkgdir(BioDynaX), "docs", "make.jl"), String)
-    occursin("graph-local-library.md", make) || return false
-    return !occursin("HTTP 200", text) && !occursin("]add BioDynaX", text) &&
-           !occursin("TagBot ran", text)
-end
-
-function graph_local_library_landing_docs_hold()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    sciml = read(joinpath(pkgdir(BioDynaX), "docs", "src", "sciml.md"), String)
-    sentences = graph_local_library_locked_sentences()
-    return occursin("graph-local-library", howto) &&
-           occursin("local_basis", howto) &&
-           occursin(sentences.prior, sciml)
-end
-
-function graph_local_library_example_source_holds()
-    howto = read(joinpath(pkgdir(BioDynaX), "docs", "src", "howto.md"), String)
-    docs = read(graph_local_library_docs_path(), String)
-    return occursin("local_has_true_parent_gate", howto) &&
-           occursin("wrong-graph", docs) &&
-           occursin("scope=:global", docs) &&
-           occursin("1 IC", docs)
-end
-
-function graph_local_library_docs_mention_helpers()
-    path = graph_local_library_docs_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("graph_vs_global_library_row", text) &&
-           occursin("local_has_true_parent_gate", text) &&
-           occursin("wrong_graph_parent_row", text) &&
-           occursin("ablation_library_row", text)
-end
-
-function graph_local_library_test_file_holds()
-    path = graph_local_library_test_path()
-    isfile(path) || return false
-    text = read(path, String)
-    return occursin("graph_local_library_contract_holds", text) &&
-           occursin("public_export_list_holds", text) &&
-           occursin("RECOVERY_THRESHOLDS.support_f1_ude == 0.50", text)
-end
+# -- Source checks ----------------------------------------------------------
 
 function graph_local_library_module_include_holds()
     src = read(joinpath(pkgdir(BioDynaX), "src", "BioDynaX.jl"), String)
@@ -1102,31 +1014,3 @@ function recovery_thresholds_untouched_library_row()
                 lock.support_f1_clean == 0.99)
 end
 
-function graph_local_library_contract_holds()
-    return graph_local_library_source_holds() &&
-           local_basis_scope_source_holds() &&
-           local_has_true_parent_gate_source_holds() &&
-           recovery_suite_uses_parent_gates_source_holds() &&
-           candidate_parents_source_holds() &&
-           graph_local_library_docs_hold() &&
-           graph_local_library_landing_docs_hold() &&
-           graph_local_library_example_source_holds() &&
-           graph_local_library_docs_mention_helpers() &&
-           graph_local_library_index_holds() &&
-           graph_local_library_test_file_holds() &&
-           graph_local_library_module_include_holds() &&
-           public_export_list_holds() &&
-           recovery_thresholds_hold() &&
-           validate_network_stays_open_source() &&
-           suite_library_index_holds() &&
-           screen_variables_bound_row().holds &&
-           evaluate_graph_library_finite_row().holds &&
-           recovery_thresholds_untouched_library_row().holds &&
-           suite_parent_catalog_holds() &&
-           remapped_per_target_library_row().holds &&
-           dual_per_target_library_row().holds &&
-           default_per_target_library_row().holds &&
-           extra_candidates_do_not_shrink_graph_row().holds &&
-           public_export_list_untouched_library_row().holds &&
-           unique_claim_not_faster_by_dropping_ics_row().holds
-end

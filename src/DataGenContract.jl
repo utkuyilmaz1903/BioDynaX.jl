@@ -1,10 +1,10 @@
 ###############################################################################
-# Data generation contract (not exported).
+# Data generation rules (not exported).
 #
 # generate_data uses the compiled NN tree (multi-head and multi-regulator).
 # generate_data(::GroundTruthModel) integrates the stored model.
 # Remapped nn_index and two-regulator D(S,I) are generated together.
-# validate_network does not own this contract. Unique-claim recovery still
+# validate_network does not own these rules. Reference-protocol recovery still
 # admits exactly one unknown D(z).
 ###############################################################################
 
@@ -189,7 +189,7 @@ end
 
 Skipped duplicate unknown (reaction + matching `UNKNOWN_NN` edge) together
 with a later two-regulator `D(S, I)`. Remapping must keep heads `1:2` with
-arities `[1, 2]`. This is not the unique-claim path.
+arities `[1, 2]`. This is not the reference-protocol path.
 """
 function build_remapped_two_regulator_network()::BiologicalNetwork
     nodes = [
@@ -336,12 +336,12 @@ function generate_experiment_set_snapshot(rng::AbstractRNG,
         compiled_once = experiment_set_is_compiled_once(set))
 end
 
-# -- Unique-claim experiment helper -------------------------------------------
+# -- Reference-protocol experiment helper -------------------------------------------
 
 """
     unique_claim_experiment_set(rng, network; smoke=false, kwargs...)
 
-`generate_experiment_set` on the unique-claim fingerprint: protocol ICs and
+`generate_experiment_set` on the reference-protocol fingerprint: protocol ICs and
 point count, fingerprint `tspan`, observation noise. Caller must pass
 `initial_conditions` when the network is not 2-state.
 """
@@ -353,10 +353,10 @@ function unique_claim_experiment_set(rng::AbstractRNG, network::BiologicalNetwor
     fp = unique_claim_fingerprint(; smoke)
     ics = initial_conditions === nothing ?
           unique_claim_protocol_ics(; smoke) : initial_conditions
-    isempty(ics) && throw(ArgumentError("unique-claim experiment set needs ICs"))
+    isempty(ics) && throw(ArgumentError("reference-protocol experiment set needs ICs"))
     nstates = length(state_nodes(network))
     length(first(ics)) == nstates || throw(ArgumentError(
-        "unique-claim experiment ICs are $(length(first(ics)))-state; network has $nstates"))
+        "reference-protocol experiment ICs are $(length(first(ics)))-state; network has $nstates"))
     σ = noise_σ === nothing ? fp.observation_noise : noise_σ
     truth = compile_ground_truth_model(rng, network; truth_params = truth_params)
     set = generate_experiment_set_from_compiled_model(
@@ -394,7 +394,7 @@ function unique_claim_example_uses_experiment_set()
            occursin("unique_claim_fingerprint", src)
 end
 
-# -- Joint contract row -------------------------------------------------------
+# -- Joint rules row -------------------------------------------------------
 
 """
     joint_datagen_compiler_row(network; kwargs...)
