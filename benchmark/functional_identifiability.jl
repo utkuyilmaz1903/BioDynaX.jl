@@ -5,7 +5,8 @@
 # every restart including failures, pairwise rate and trajectory agreement,
 # and the derived status. The status is a diagnostic and not an acceptance criterion.
 # The script is not run in CI.
-# Runtime: about 30 to 60 minutes (five trainings).
+# Runtime: not measured for this release; five trainings of the reference
+# protocol, so expect several times the runtime of the example.
 # Run:  julia --project=. benchmark/functional_identifiability.jl
 
 if !isdefined(Main, :BioDynaX)

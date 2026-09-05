@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 # Allocation check for the in-place right-hand side `ude_rhs!` on a two-state
 # linear network. Warms up, then prints the bytes allocated by one call.
-# Runs in CI on every push (job "allocation-gate"); the result must stay at
+# Runs in CI on every push (job "allocation-check"); the result must stay at
 # zero bytes. Runtime: under a minute after precompilation.
 # Run:  julia --project=. benchmark/allocation_gate.jl
 

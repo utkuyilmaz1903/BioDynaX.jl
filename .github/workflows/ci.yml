@@ -80,7 +80,7 @@ jobs:
         run: |
           julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
 
-  allocation-gate:
+  allocation-check:
     name: Allocation check
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest

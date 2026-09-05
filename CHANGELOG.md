@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.10.0] - 2026-09-05
+
+This release turns the repository into a publicly presentable package:
+rewritten README and documentation, plain-language printed reports, a
+formatted tree, a faster default test suite, working extensions, and a
+reorganised continuous-integration workflow. Scientific behaviour (numerics,
+thresholds, seeds, protocol settings, library construction) is unchanged.
+
 ### Added
 
 - Held-out validation for the reference recovery protocol. Nine initial
@@ -82,6 +92,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when the number of observations exceeds 64. Neural terms always use
   `InterpolatingAdjoint`.
 - CompatHelper and TagBot request the write scopes they need.
+
+### Fixed
+
+- The ModelingToolkit extension never loaded (invalid syntax and an
+  undeclared dependency on Symbolics) and the SBML extensions could not be
+  precompiled because they redefined package methods. All extensions now load;
+  `BioDynaX.export_mtk_system` was verified against ModelingToolkit 11.
+- `benchmark/scale_basis.jl` could not run because it used unexported names
+  without importing them.
+- `ModelingToolkit` compat widened to `"9, 10, 11"`; with SciMLBase 3 only
+  ModelingToolkit 11 resolves.
+- The printed-report consistency check compares support recall and F1 with
+  the same rounding that prints them.
 
 ### Removed
 
@@ -252,7 +275,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.8.0...v0.9.0
