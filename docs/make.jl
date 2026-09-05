@@ -9,37 +9,29 @@ DocMeta.setdocmeta!(
     :(using BioDynaX, SciMLBase, OrdinaryDiffEq, Random);
     recursive = true)
 
+# The changelog page is generated from the repository CHANGELOG.md so that
+# there is a single source of truth.
+let changelog = read(joinpath(@__DIR__, "..", "CHANGELOG.md"), String)
+    write(joinpath(@__DIR__, "src", "changelog.md"), changelog)
+end
+
 makedocs(
     modules = [BioDynaX],
     sitename = "BioDynaX.jl",
     format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", "false") == "true"),
+        prettyurls = get(ENV, "CI", "false") == "true",
+        edit_link = "main"),
     pages = [
         "Home" => "index.md",
+        "Getting started" => "getting-started.md",
         "Tutorial" => "tutorial.md",
-        "How-to" => "howto.md",
-        "Unique claim" => "unique-claim.md",
-        "Compiled experiment path" => "compiled-path.md",
-        "Discovery streaming" => "discovery-streaming.md",
-        "Training reuse" => "training-reuse.md",
-        "SciML solve surface" => "sciml-solve-surface.md",
-        "Recovery suite skip" => "recovery-suite-skip.md",
-        "Experiment fingerprint and checkpoint" => "experiment-checkpoint.md",
-        "Failure modes" => "failure-modes.md",
-        "Hybrid compose path" => "hybrid-compose.md",
-        "Hybrid residual versus solver" => "hybrid-residual.md",
-        "Identifiability product rows" => "identifiability-product.md",
-        "Graph-local library and ablation" => "graph-local-library.md",
-        "Denominator and domain safety" => "denominator-domain.md",
-        "Parameter schema and pack" => "parameter-schema-pack.md",
-        "Allocation and type-stability gates" => "allocation-gates.md",
-        "Out of scope" => "out-of-scope.md",
-        "SciML Integration" => "sciml.md",
-        "Metadata" => "metadata.md",
-        "Architecture" => "architecture.md",
-        "Recovery benchmarks" => "benchmarks.md",
-        "API" => "api.md",
-        "Experimental" => "experimental.md",
+        "Concepts" => "concepts.md",
+        "How-to recipes" => "howto.md",
+        "Benchmarks" => "benchmarks.md",
+        "API reference" => "api.md",
+        "Extensions" => "extensions.md",
+        "Scope and limitations" => "limitations.md",
+        "Changelog" => "changelog.md",
     ],
     checkdocs = :exports,
     doctest = true,

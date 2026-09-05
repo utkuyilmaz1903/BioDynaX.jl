@@ -1,195 +1,232 @@
 # How-to recipes
 
-Research-preview recipes around the [tutorial](tutorial.md). GPU, SBML, and
-Fisher identifiability are not on this path; see [Experimental](experimental.md).
+Short recipes for common tasks. Blocks marked `@example` run in the
+documentation build; the others are illustrative and assume the `model`,
+`trained`, `set`, and `term` objects from the [Tutorial](tutorial.md).
 
-The golden-path script is the **standalone / legacy** example in
-`examples/unknown_inhibition.jl` (seed 103, nine ICs generated, same
-horizon, regulator-grid discovery, residual gate, and identifiability as
-the first printed block). That example still trains all nine generated
-ICs. It is **not** the M2 recovery-suite train/holdout protocol. The
-unique-claim recovery suite generates nine ICs once; ICs 1–7 are used
-for training and ICs 8–9 are held out.
-`BIODYNAX_SMOKE=1` is a 1-IC / 8-point fast check and is not that suite
-protocol. A single-IC `train_ude` snippet below is a sketch, not the
-CI protocol.
+## Load an experiment from CSV
 
-## Load a CSV experiment
+`experiment_from_csv` reads a table whose first column is time and whose
+remaining columns are the observed states. It returns the `Experiment` and
+the column names. The file shipped in `examples/data/` is a synthetic
+fixture generated from the tutorial network, not a measured series.
 
-```julia
-experiment, names = experiment_from_csv("examples/data/unknown_inhibition.csv")
-times = experiment.times
-data = experiment.observations
-u0 = experiment.u0
+```@example howto
+using BioDynaX
+path = joinpath(pkgdir(BioDynaX), "examples", "data", "unknown_inhibition.csv")
+experiment, names = experiment_from_csv(path)
+(names, length(experiment.times), size(experiment.observations))
 ```
 
-That committed CSV is a synthetic fixture, not a licensed experimental series.
-It remains a **static demo table**. `examples/unknown_inhibition.jl`
-writes a generated copy to a temp directory and does not overwrite it.
-Write a new file with `write_experiment_csv`. `Experiment.mask` can hide a
-state or time subset; `train_experiments` already uses that mask. Masked
-**training** on missing states is not a claimed UDE path.
+Several experiments become an `ExperimentSet`:
+
+```@example howto
+set = ExperimentSet([experiment], names)
+length(set.experiments)
+```
+
+`write_experiment_csv(path, experiment; state_names)` writes one back.
+`Experiment.mask` can hide a state or time subset from the loss;
+`train_experiments` respects it. Training on states that are never observed
+is not supported.
 
 ## Mark an edge as unknown
 
-Build the network with public constructors (`ReactionSpec`, `HillMetadata`).
-Do not call `BioDynaX.build_hill_recovery_network` from user code; that name
-is an internal fixture.
+Build the network with the public constructors and set `known = false` on the
+one reaction (or edge) whose kinetics you do not trust. It compiles to a
+`NeuralDestructionTerm` whose inputs are that reaction's regulators.
 
-```julia
+```@example howto
+using Random
 network = BiologicalNetwork(
     [NodeSpec(name = :S), NodeSpec(name = :R)],
     EdgeSpec[];
     reactions = [
-        ReactionSpec(name = :produce_s,
-                     stoichiometry = Dict(1 => 1.0), regulators = [2],
-                     metadata = MassActionMetadata(rate_param = :k_prod)),
-        ReactionSpec(name = :hill_deg,
-                     stoichiometry = Dict(1 => -1.0), regulators = [2],
-                     known = false, family = HILL,
-                     metadata = HillMetadata(
-                         vmax_param = :vmax, k_param = :K, hill_order = 2)),
-        ReactionSpec(name = :produce_r,
-                     stoichiometry = Dict(2 => 1.0), regulators = [1],
-                     metadata = MassActionMetadata(rate_param = :k_rs)),
-        ReactionSpec(name = :decay_r,
-                     stoichiometry = Dict(2 => -1.0), regulators = Int[],
-                     metadata = LinearDecayMetadata(rate_param = :k_r)),
-    ])
+        ReactionSpec(name = :produce_s, stoichiometry = Dict(1 => 1.0), regulators = [2],
+            metadata = MassActionMetadata(rate_param = :k_prod)),
+        ReactionSpec(name = :hill_deg, stoichiometry = Dict(1 => -1.0), regulators = [2],
+            known = false, family = HILL,
+            metadata = HillMetadata(vmax_param = :vmax, k_param = :K, hill_order = 2)),
+        ReactionSpec(name = :produce_r, stoichiometry = Dict(2 => 1.0), regulators = [1],
+            metadata = MassActionMetadata(rate_param = :k_rs)),
+        ReactionSpec(name = :decay_r, stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_r))])
+model, params = build_ude_model(MersenneTwister(0), network)
+BioDynaX.count_unknown_destructions(model)
 ```
 
-Known production and linear decay stay mechanistic. The Hill degradation edge
-compiles to a `NeuralDestructionTerm`.
+The recovery workflow requires exactly one unknown destruction term;
+`BioDynaX.assert_single_unknown_destruction(model)` raises an error
+otherwise. `validate_network` itself does not enforce the count.
+
+## Generate synthetic data
+
+`generate_experiment_set` compiles the ground-truth model once and
+integrates every initial condition from it:
+
+```@example howto
+known = BiologicalNetwork(
+    [NodeSpec(name = :A), NodeSpec(name = :B)],
+    EdgeSpec[];
+    reactions = [
+        ReactionSpec(name = :b_drives_a, stoichiometry = Dict(1 => 1.0), regulators = [2],
+            metadata = MassActionMetadata(rate_param = :k_ba)),
+        ReactionSpec(name = :a_decay, stoichiometry = Dict(1 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_a)),
+        ReactionSpec(name = :b_decay, stoichiometry = Dict(2 => -1.0), regulators = Int[],
+            metadata = LinearDecayMetadata(rate_param = :k_b))])
+synthetic = generate_experiment_set(MersenneTwister(2); network = known,
+    truth_params = (k_ba = 0.8, k_a = 1.2, k_b = 0.5),
+    initial_conditions = [[0.2, 0.1], [0.5, 0.4]], tspan = (0.0, 4.0),
+    n_points = 9, noise_σ = 0.02)
+(length(synthetic.experiments), synthetic.metadata[:compiled_once])
+```
 
 ## Train, discover, resimulate
 
-Prefer `BioDynaX.unique_claim_experiment_set` + `train_experiments` as
-in the example (fingerprint ICs and point counts). That path calls
-`compile_ground_truth_model` once. A raw
-`generate_experiment_set` snippet below is a sketch; it now also
-compiles once and then uses `generate_experiment_set_from_compiled_model`.
-Adam may be minibatched; BFGS refines the joint loss over the ICs in
-the set that is passed in. Unique-claim suite training uses ICs 1..7
-and reports holdout residual / neural `D` error on ICs 8 and 9. That
-holdout report is not a 0.30 success gate.
-
 ```julia
-model, params = build_ude_model(rng, network)
 trained = train_experiments(params, set, model;
     config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 50))
-X_traj = predict_ude(trained.params, u0, tspan, times, model)
-R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
-discovery = discover_unknown_rate(R, times, D; strict = true)
-# Protocol path (seed 103 / 9 ICs): sample_unknown_destruction_grid
-# over unique_claim_fingerprint(); this snippet is not that job.
-rhs = compose_hybrid_rhs(
-    model, trained.params, term,
-    equation_to_function(discovery.candidates[1]))
+X = predict_ude(trained.params, u0, tspan, times, model)
+R, D, term = sample_unknown_destruction(model, trained.params, X)
+discovery = discover_unknown_rate(R, times, D; strict = false)
+if discovery.success
+    rate_fn = equation_to_function(discovery.candidates[1])
+    rhs = compose_hybrid_rhs(model, trained.params, term, rate_fn)
+    residual = hybrid_data_residual(model, trained.params, term, rate_fn,
+        u0, tspan, times, data)
+end
 ```
 
-If discovery cannot be trusted, `strict = false` returns
-`DiscoveryResult(success=false, retcode=...)` instead of throwing.
+`TrainingConfig(frozen_phys = [:k_prod])` pins a known production rate during
+training. Use it when the rate is known from a separate assay; it does not
+by itself remove the collinearity between the production rate and the scale
+of the unknown term.
 
-Library evaluation reuses grow-only buffers. `evaluate_library!` writes
-in place. `_fit_implicit` streams implicit design chunks through
-`_stlsq_blocked!` so a bootstrap draw does not rebuild the Gram. See
-[Discovery streaming](discovery-streaming.md).
+With `strict = false`, check `discovery.retcode` instead of catching an error:
 
-After a fit, print the protocol block (identifiability first; not exported).
-`unidentifiable_edge` is the product warning: coefficients are not
-biological constants. `BioDynaX.assert_single_unknown_destruction(model)`
-errors unless there is exactly one unknown `D(z)`. `validate_network`
-does not enforce that single hole; zero- and two-hole networks still
-compile. See [Unique claim](unique-claim.md).
+| `retcode` | Meaning |
+|---|---|
+| `DiscoverySuccess` | a support was recovered; the hybrid right-hand side can be built |
+| `InsufficientSamples` | fewer than 20 sample columns |
+| `DenominatorUnsafe` | the denominator changed sign or approached zero on a validation set |
+| `EmptySupport` | thresholding removed every term |
+| `SingularLibrary` | the design matrix was singular |
+| `DiscoveryFailed` | any other error; see `discovery.message` |
+
+`export_rhs` refuses a failed result.
+
+## Discover from raw trajectories
+
+Trajectory data can enter discovery without a trained model. Derivatives are
+estimated by central differences, so this path is only reliable at low noise
+(the analytical benchmarks succeed up to 2% noise and fail at 5%).
+
+```@example howto
+e = first(synthetic.experiments)
+dX = estimate_derivatives(e.observations, e.times)
+size(dX)
+```
+
+```julia
+result = discover_equations(X, times, network; derivatives = dX)
+rhs = export_rhs(result)
+```
+
+## Print the identifiability warning and the report
 
 ```julia
 ident = BioDynaX.report_production_destruction_tradeoff(
-    model, trained.params, data, times, u0, tspan; term = term, verbose = false)
-println(BioDynaX.format_protocol_result(ident; residual = residual))
+    model, trained.params, data, times, u0, tspan; term = term, verbose = true)
+println(BioDynaX.format_protocol_result(ident; residual = residual,
+    equations = discovery.equations))
 ```
 
-`TrainingConfig(frozen_phys = [:k_prod])` pins a known production rate. It does
-not identify `D(z)` scale in the Jacobian sense.
+`format_protocol_result` accepts the values to print as keyword arguments;
+anything not supplied is printed as `NA` or as "not scored".
 
-## Run the recovery suite
-
-```bash
-julia --project=. benchmark/recovery_suite.jl
-julia --project=. benchmark/sindy_baseline.jl
-julia --project=. benchmark/recovery_seeds.jl
-julia --project=. benchmark/noise_grid.jl
+```@example howto
+ident = (; unidentifiable_edge = true, production_param = :k_prod, collinearity = 0.997)
+print(BioDynaX.format_protocol_result(ident; residual = 0.0017769, seed = 103, n_ics = 9))
 ```
 
-CI thresholds live in `RECOVERY_THRESHOLDS` (`src/Recovery.jl`). Fast checks
-are `test/test_recovery.jl`; the closed-loop UDE job is
-`test/run_recovery_hard.jl`. Loosening a threshold is breaking.
+## Use the SciML solve surface
 
-## Optional SciML backends
+A `UDEModel` behaves as an `ODEProblem` factory. `remake` works on `p`, `u0`,
+and `tspan`, and an in-place problem with a preallocated cache avoids
+allocations in the forward pass:
+
+```@example howto
+using SciMLBase, OrdinaryDiffEq
+p = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5),
+    build_ude_model(MersenneTwister(0), known)[2].nn)
+m = build_ude_model(MersenneTwister(0), known)[1]
+prob = ODEProblem(m, [0.2, 0.1], (0.0, 4.0), p)
+cache = allocate_cache(m, Float64)
+inplace = ODEProblem(m, [0.2, 0.1], (0.0, 4.0), p; inplace = true, cache = cache)
+sol = solve(remake(prob; u0 = [0.5, 0.4]), Tsit5(); saveat = [0.0, 2.0, 4.0])
+round.(sol[end]; digits = 4)
+```
+
+Pair the in-place problem with `ProductionAD()` for training:
 
 ```julia
-using DataDrivenSparse   # BioDynaX.DataDrivenSparseSTLSQ (not exported)
-using ModelingToolkit    # BioDynaX.export_mtk_system  # known terms; NN is nn_i(t)
-using SBMLToolkit        # BioDynaX.import_sbmltoolkit_network
+solver_config = default_solver_config(model; ad_policy = ProductionAD())
+prediction = predict_ude(params, u0, tspan, times, model;
+    solver_config = solver_config, cache = cache)
 ```
 
-These are experimental. DataDrivenSparse is never a CI dependency.
+`auto_sensealg(model)` returns the adjoint that `train_ude` will use. A
+one-shot Optimization.jl path is available as an unexported alternative to
+`train_ude`:
 
-`run_recovery_suite` admits unique-claim sections through
-`admit_recovery_suite_network`. Other sections have an explicit hole
-policy and stay open; see [Compiled experiment path](compiled-path.md).
-A skipped recovery-suite section does not call `_train_unknown_edge`.
-See [Recovery suite skip](recovery-suite-skip.md).
+```julia
+prob, objective = BioDynaX.build_optimization_problem(
+    model, params, data, times, u0, tspan; config = TrainingConfig())
+result = BioDynaX.train_via_optimization(
+    model, params, data, times, u0, tspan; maxiters = 50)
+```
 
-`SolveSurfaceRow` compares `ude_system`, `ODEFunction`, `ODEProblem`,
-`remake`, inplace cache, `SciMLBase.solve`, and `predict_ude` on the
-same fixtures. See [SciML solve surface](sciml-solve-surface.md).
+## Checkpoint and resume
 
-`TrainingSolveSession` remakes one `ODEProblem` across ICs. Unique-claim
-training (`_train_unknown_edge`) calls `train_experiments_with_warmup` so
-the first-IC Adam state is not discarded. See
-[Training reuse](training-reuse.md). The AD constraint `predict_ude`
-call must pass the compiled model.
+`train_ude` writes a checkpoint every `checkpoint_every` Adam iterations when
+`checkpoint_path` is given. A checkpoint stores the parameters, the Optimisers
+state, the iteration counter, and the augmented-Lagrangian state, serialized
+with Julia's `Serialization`. `resume_training` continues from it without
+recompiling the model; BFGS is a terminal stage and restarts after
+resumption.
 
-`experiment_fingerprint` hashes times, observations, mask, and `u0`.
-Metadata is not identity. `experiment_batches` covers every IC.
-`resume_training` reuses the compiled `UDEModel`. Remapped multi-head
-generate and `train_experiments` share one compiled tree. See
-[Experiment fingerprint and checkpoint](experiment-checkpoint.md).
+```julia
+trained = train_ude(p_init, data, times, u0, tspan, model;
+    config = TrainingConfig(adam_iterations = 200),
+    checkpoint_path = "run.jls", checkpoint_every = 50)
+checkpoint = BioDynaX.load_checkpoint("run.jls")
+resumed = BioDynaX.resume_training(checkpoint, data, times, u0, tspan, model;
+    config = TrainingConfig(adam_iterations = 300))
+```
 
-`DiscoveryRetcode` names insufficient samples, unsafe denominators,
-empty support, a singular library, a generic failure, and success.
-See [Failure modes](failure-modes.md).
+`BioDynaX.save_result` and `BioDynaX.load_result` do the same for a finished
+`TrainingResult`.
 
-`compose_hybrid_rhs` with the neural destruction rate recovers
-`ude_system`. See [Hybrid compose path](hybrid-compose.md).
+## Run experiments on several threads or processes
 
-`hybrid_data_residual` agrees with `SciMLBase.solve` of
-`compose_hybrid_rhs`. Smoke residual (1 IC / 8 points) is not the
-seed-103 / 9-IC protocol residual. See
-[Hybrid residual versus solver](hybrid-residual.md).
+`BioDynaX.execute_experiments(f, set; config = BioDynaX.ExecutionConfig(backend = :threads))`
+maps `f` over the experiments with the serial, threaded, or distributed
+backend and returns the results in input order. The `:gpu` backend needs the
+CUDA extension and only transfers arrays (see [Extensions](extensions.md)).
 
-`production_destruction_tradeoff` joins `UniqueClaimProtocolRow`
-through `identifiability_product`.
-`coefficients_are_biological_constants` is false exactly when
-`unidentifiable_edge` is true. See
-[Identifiability product rows](identifiability-product.md).
+## Run part of the recovery suite
 
-`local_basis` `scope=:graph` uses graph parents; `scope=:global` is
-the ablation. `local_has_true_parent_gate` is the recovered-support
-membership check. See
-[Graph-local library and ablation](graph-local-library.md).
+`BioDynaX.run_recovery_suite` takes a `sections` tuple. Sections that are not
+requested are not run, so the known-kinetics checks can be run without the
+trained-model protocol:
 
-`denominator_split_counts` walks train, validation, and the
-orthant domain grid. `ude_extras_denominator_row` still counts
-violations when extras remain. See
-[Denominator and domain safety](denominator-domain.md).
+```julia
+report = BioDynaX.run_recovery_suite(MersenneTwister(1);
+    sections = (:linear, :mm, :hill, :competitive),
+    linear_adam = 1, linear_bfgs = 0, mm_adam = 1, mm_bfgs = 0,
+    hill_adam = 1, hill_bfgs = 0, competitive_adam = 1, competitive_bfgs = 0)
+haskey(report, :ude_discovery)   # false
+```
 
-`parameter_schema` collects `CustomKineticMetadata.rate_param` so
-`:k_custom` is present. `unpack_parameters` inverts
-`pack_parameters`. See
-[Parameter schema and pack](parameter-schema-pack.md).
-
-`allocation_hot` measures a warmed `@allocated` ceiling that can
-fail. `stlsq_workspace_reuse_row` requires `STLSQWorkspace`
-`resize_count` to stay put on a same-shape ensure. See
-[Allocation and type-stability gates](allocation-gates.md).
+See [Benchmarks](benchmarks.md) for the list of sections.

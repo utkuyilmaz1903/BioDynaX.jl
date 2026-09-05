@@ -1,7 +1,13 @@
 #!/usr/bin/env julia
-# Golden path (same protocol as the recovery CI job):
-# multi-IC experiments → unknown-edge UDE → D(z) discovery → hybrid resimulate.
-# The network is built from the public constructors, not a recovery fixture.
+# Reference example: recover an unknown Hill-type inhibition in a two-species
+# network. Same protocol as the recovery benchmark job: nine initial
+# conditions generated once (seed 103), Adam 100 / BFGS 50, symbolic discovery
+# on a regulator grid, then resimulation of the hybrid model against the data.
+# Runtime: about 10 to 15 minutes. Prints a four-section report
+# (identifiability, fit, discovery, reproduction).
+# Run:  julia --project=. examples/unknown_inhibition.jl
+# Fast installation check (1 initial condition, 8 points, 2 Adam steps):
+#   BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
 if abspath(PROGRAM_FILE) == abspath(@__FILE__)
     using Pkg
     Pkg.activate(joinpath(@__DIR__, ".."))
@@ -139,7 +145,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         n_points = n_points,
         adam_iters = adam_iters,
         bfgs_iters = smoke ? fingerprint.bfgs_iterations : bfgs_iters))
-    println("Hybrid RHS constructed: ", typeof(rhs))
+    println("Hybrid right-hand side constructed: ", rhs === nothing ? "no" : "yes")
     println("CSV (first IC): ", csv_path)
     if !smoke
         BioDynaX.assert_unique_claim_residual(residual)

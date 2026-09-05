@@ -52,6 +52,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `validate_network` itself does not count unknown terms.
 - The printed recovery report has four sections (identifiability, fit,
   discovery, reproduction) whose order matches the `protocol_result` fields.
+  Its explanatory lines are now plain English, floating-point values are
+  printed with four significant digits, and the last discovery line reads
+  `acceptance_criteria: ...` instead of an internal label.
+- The functional-identifiability report and the side-by-side scale-warning
+  report use plain section headers.
+- The documentation is restructured into ten pages: home, getting started,
+  tutorial, concepts, how-to recipes, benchmarks, API reference, extensions,
+  scope and limitations, and changelog. Internal design notes and lock lists
+  are gone; every remaining code block either runs in the docs build or is
+  marked illustrative.
+- Source comments and docstrings no longer use internal milestone and
+  question labels.
 - Mechanistic models switch from `BacksolveAdjoint` to `InterpolatingAdjoint`
   when the number of observations exceeds 64. Neural terms always use
   `InterpolatingAdjoint`.
@@ -64,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   result figure, and `NEWS.md` (this file is the single changelog).
 - Documentation pages that described milestone plans, CI lock lists, and
   API-freeze checklists rather than package behaviour.
+- Internal helpers whose only purpose was to read documentation files and
+  assert their wording, and the tests that called them.
 
 ## [0.9.2] - 2026-08-14
 

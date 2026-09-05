@@ -1,299 +1,152 @@
-# Recovery benchmarks
+# Benchmarks
 
-The scientific wedge is measured by `BioDynaX.run_recovery_suite`,
-`benchmark/recovery_suite.jl`, `benchmark/sindy_baseline.jl`,
-`benchmark/recovery_seeds.jl`, `benchmark/noise_grid.jl`, and the dedicated
-CI `recovery` job.
+The recovery benchmarks are the evidence behind the claims in this
+documentation. They are run by `BioDynaX.run_recovery_suite`, the scripts in
+`benchmark/`, and two test entry points, and they are scored against the
+thresholds in `RECOVERY_THRESHOLDS`. Loosening a threshold is treated as a
+breaking change.
 
-Discovery targets the **unknown destruction rate** `D(z)`, not the full `ẋ`.
-Known production and linear decay stay in compiled IR; STLSQ only sees the
-neural edge.
+## What is run
 
-## Practical functional-identifiability research benchmark
+The fast checks run in the default test suite (`Pkg.test()`, file
+`test/test_recovery.jl`). They use exact or analytically generated
+destruction-rate samples and short training runs:
 
-`benchmark/functional_identifiability.jl` is a research / nightly script
-for the practical Q4 diagnostic. It uses five fixed restart seeds
-`(201, 202, 203, 204, 205)` and calls the live assessment entry. It is
-not a PR gate and not a success gate. Q4 is a practical diagnostic, not
-structural identifiability. Nightly scheduling is deferred to M7.
+- **Known kinetics**: linear, Michaelis-Menten, Hill, and competitive
+  networks with all terms known; the relative error of the physical
+  parameters after `train_ude` must stay below the threshold.
+- **Analytical Hill recovery**: support F1 and rate error from exact samples
+  of a Hill rate; with 0.5% noise the nested subset selection must reach a
+  combined support F1 of at least 0.99 on the same library.
+- **Graph-local versus global library**: the same noisy samples plus a
+  correlated distractor `z`. The check is library membership: `z` must be
+  absent from the graph-local library and present in the global one. After
+  subset selection both libraries can reach the same F1; the difference is
+  the prior, not the score.
+- **Three-state and six-state graph priors** with a wrong-graph negative
+  control: the graph-local library must contain the true regulator and no
+  false parent; a library built from a deliberately wrong graph must miss the
+  true regulator.
+- **Partial observation**: recovery from subsampled destruction-rate values
+  and the residual of the resulting hybrid model. Training on missing states
+  is not part of the benchmark.
+- **Identifiability interventions**: freezing `k_prod`, normalizing the
+  sampled rate, and changing the production rate; the production-rate versus
+  destruction-scale collinearity must persist (cosine at least 0.95).
+- **Negative control at 5% noise**: analytical recovery must fail the 0.99
+  criterion, so that the noise limit stays visible.
 
-```bash
-julia --project=. benchmark/functional_identifiability.jl
-```
+The trained-model checks run in `test/run_recovery_hard.jl` (about 40 minutes)
+and follow the [reference protocol](concepts.md#The-reference-protocol):
 
-## What is gated
+- **Hill unknown term, no noise**: nine experiments generated once, training
+  on experiments 1 to 7. The neural rate must match the true rate on the
+  discovery grid (`nn_rate_rmse` at most 0.12) before discovery runs; then
+  support recall must be at least 0.99, combined F1 at least 0.50, the hybrid
+  residual on experiment 1 at most 0.30, and the scale warning must be raised
+  with a cosine of at least 0.95. The residual and the neural-rate error on
+  experiments 8 and 9 are reported.
+- **The same protocol with 2% observation noise.**
+- **Michaelis-Menten unknown term**: neural-rate error and residual only. The
+  Hill recall criterion is not applied, and canonical Michaelis-Menten
+  support from the trained network is not claimed.
 
-Fast job (`test/test_recovery.jl`):
+The trained-model library comparison (`BioDynaX.evaluate_trained_graph_local`,
+full protocol in `test/run_m4_b_protocol.jl`) runs discovery with the
+graph-local, global, and wrong-graph libraries on one trained model's sampled
+rate.
 
-- **Known linear / MM / Hill / competitive** — `phys` RMSE after `train_ude`.
-- **Analytical Hill `D(r)`** — support F1 and rate RMSE from exact samples.
-- **Occam prune** — 0.5% noisy analytical Hill must reach combined F1 ≥ 0.99
-  on the **same** monomial library (no new atoms).
-- **Graph vs global ablation** — same noisy `(r, D)` plus a correlated
-  distractor; local F1, false-parent flag, denominator violations. Raw rate
-  noise is 0.5% of amplitude. After Occam, graph and global F1 can both be
-  1.00; the locked prior is **library membership** of `z`.
-- **3-state graph prior** — true parent `R`, no local false parent.
-- **6-state graph prior** — same protocol on six dynamic states. Combined F1
-  is not the KPI (the target state sits in `local_basis`). The locked
-  booleans are `local_has_true_parent`, `local_false_parent`, and
-  `Z_in_local_library`. This is the main prior evidence beyond the 3-state
-  toy.
-- **Wrong-graph negative controls** — 3-state and 6-state. Graph claims
-  `Q→S` while the sampled rate is still `D(R)`. Local discovery must miss
-  the true parent.
-- **Partial observation** — subsampled analytical `D` recall, masked linear
-  train, and discovery→`compose_hybrid_rhs` residual versus data. UDE
-  training on missing states is **not** claimed (`ude_mask_train_claimed =
-  false`). UDE training on missing states is not claimed.
-- **Identifiability interventions** — freeze `k_prod`, normalize sampled
-  `D`, and a production-rate change. Jacobian collinearity remains;
-  `tradeoff_broken = false` is the locked finding.
-- **Competitive unknown parents**, **Elowitz synthetic literature fixture**,
-  and a practical `k_prod`↔`D` report. Failures are asserted or documented;
-  they are not skipped.
+## Benchmark scripts
 
-Hard job (`test/run_recovery_hard.jl`):
+| Script | What it does | CI |
+|---|---|---|
+| `benchmark/recovery_suite.jl` | fast sections, then the trained-model Hill and Michaelis-Menten sections with the printed report | no |
+| `benchmark/sindy_baseline.jl` | graph-local versus global library on the same samples; a DataDrivenSparse row when that package is loaded | no |
+| `benchmark/recovery_seeds.jl` | analytical recovery on seeds 103, 107, 111, 113, 127; `--ude` runs the trained-model protocol on each seed | no |
+| `benchmark/noise_grid.jl` | analytical Hill recovery at 0, 0.5, 2, 5, and 10% rate noise | no |
+| `benchmark/functional_identifiability.jl` | the five-restart functional-identifiability diagnostic | no |
+| `benchmark/ude_f1_attempt.jl` | replays the trained-model nuisance terms on the same library to document that they persist | no |
+| `benchmark/scale_basis.jl` | library size versus node count | no |
+| `benchmark/allocation_gate.jl` | allocation count of the in-place right-hand side | yes |
+| `benchmark/probe_datadriven.jl` | checks whether DataDrivenSparse resolves in an isolated environment | yes, allowed to fail |
 
-- **UDE → unknown edge (Hill, zero noise)** — nine ICs are generated once;
-  the UDE fits ICs 1..7 only. NN must match true `D(r)` before discovery
-  runs (`nn_rate_rmse ≤ 0.12`). Then true-monomial **recall**
-  0.99, combined F1 at the UDE skeleton gate (`support_f1_ude = 0.50`, not
-  the analytical 0.99), discovered-rate RMSE, hybrid residual **versus data**
-  on IC[1], and `unidentifiable_edge == true` with cosine ≥ 0.95.
-  Holdout residual and neural \(D\) error on ICs 8 and 9 are reported;
-  they are not compared to 0.30.
-- **Same protocol with `σ = 0.02`** (`support_f1_noisy = 0.50`).
-- **UDE → unknown edge (MM)** — same training/residual protocol. Canonical MM
-  support from the trained NN is **honestly below** the Hill recall gate on this
-  budget. Pre-M2 / legacy hard-job honesty record: measured recall ~0.5,
-  F1 ~0.33. M2 validated MM `support_f1` = 0.66667 (table below). Those
-  are different protocol contexts; neither is painted as Hill recall
-  0.99. NN RMSE and data residual remain gated. Hill recall 0.99 is not
-  applied. MM unknown gates NN RMSE and hybrid residual; Hill recall
-  0.99 is not applied.
+## Representative results
 
-Measured zero-noise Hill UDE (seed 103; nine ICs generated once; ICs
-1–7 used for training and ICs 8–9 held out): NN RMSE ≈ 0.046, recall
-1.0, combined F1 ≈ 0.57 (extras `1` and `r` remain), M2 validated
-legacy IC[1] `data_residual` = 0.004195, `k_prod`↔`D` cosine ≈ 0.997.
-The golden-path example residual ≈ 0.003 is a different path: that
-script is a standalone / legacy example that still trains all nine
-generated ICs. It is **not** the M2 recovery-suite train/holdout
-protocol.
-That F1 is **below** `support_f1_clean`.
-`benchmark/ude_f1_attempt.jl` replayed those extras on the same library
-(Occam + scale-normalization). Combined F1 stayed 0.57. That script is an
-F1 **attempt** (`UNIQUE_CLAIM_F1_ATTEMPT`: `is_protocol = false`,
-`trains_ude = false`, `n_ics = 0`, no new atoms), not the seed-103 / 9-IC
-recovery protocol and not a reason to tighten `support_f1_ude`. The
-product does not claim canonical Hill from a trained NN. Live extras on
-the recovery row print through `extras_print_label`; the attempt leftover
-pair is not hardcoded when discovery did not score.
+The numbers below were recorded with the 0.9.2 protocol and are reproduced
+by the scripts and test entry points named above. They are single runs at
+fixed seeds, not success rates.
 
-`run_recovery_suite` admits unique-claim sections
-(`:ude_discovery`, `:mm_unknown`, `:ident_interventions`, `:partial_obs`)
-through `admit_recovery_suite_network` before unique-claim training
-(nine ICs generated; ICs 1–7 trained). Other
-sections have an explicit open hole policy; `:ablation` is a library
-fixture and does not compile. The matrix is
-`recovery_suite_admission_matrix` (not exported).
+Trained-model recovery (`test/run_recovery_hard.jl`, training on experiments
+1 to 7, held-out 8 and 9):
 
-Thresholds are `RECOVERY_THRESHOLDS`. Loosening them is a breaking change.
-v1.0 is not cut until this table stays red when the claim fails.
+| Run | `nn_rate_rmse` | `support_recall` | `support_f1` | `data_residual` | `data_residual_train` | `data_residual_holdout` | `d_rmse_holdout` |
+|---|---|---|---|---|---|---|---|
+| Hill, seed 103, no noise | 0.046 | 1.0 | 0.571 | 0.0042 | 0.0022 | 0.0041 | 0.012 |
+| Hill, seed 113, 2% noise | 0.037 | 1.0 | 0.571 | 0.022 | 0.021 | 0.021 | 0.018 |
+| Michaelis-Menten, seed 123 | 0.036 | not applied | 0.667 | 0.0054 | 0.0015 | 0.0032 | 0.0053 |
 
-`support_f1_ude = 0.50` is the **UDE skeleton** combined-support floor.
-It does **not** mean “print Hill and stop”.
+A support F1 of 0.571 means the true Hill monomials were all recovered
+(recall 1.0) together with two nuisance terms, a constant and a linear term.
+`benchmark/ude_f1_attempt.jl` shows that subset selection and scale
+normalization on the same library do not remove them.
 
-## Representative M2 hard results
+Analytical recovery across seeds (`benchmark/recovery_seeds.jl`, 0.5% noise):
+all five seeds reach F1 1.00 and recall 1.00.
 
-These are the validated unique-claim M2 representative / hard numbers
-already in the research record (train ICs 1..7, holdout ICs 8,9). They
-are not a statistical multi-seed success rate, not global OOD evidence,
-not universal generalization, and not proof of mechanism recovery.
-Holdout residual can be close to but different from the train
-aggregate. The train-derived external \(D\) domain is not global OOD.
-The current holdout is two fixed IC experiments. Do not mix these
-rows with the Pre-M2 / legacy MM honesty record (F1 ~0.33) as if they
-were the same protocol.
+Noise grid (`benchmark/noise_grid.jl`, seed 104):
 
-| run | `nn_correlation` | `nn_rate_rmse` | `support_recall` | `support_f1` | `data_residual` | `data_residual_train` | `data_residual_holdout` | `d_rmse_holdout` | `d_rmse_holdout_domain` |
-|-----|------------------|----------------|------------------|--------------|-----------------|-----------------------|-------------------------|------------------|-------------------------|
-| Seed 103 Hill, \(\sigma=0\) | 0.99757 | 0.04649 | 1.0 | 0.57143 | 0.004195 | 0.002222 | 0.004057 | 0.01241 | 0.00812 |
-| Seed 113 Hill, \(\sigma=0.02\) | 0.99837 | 0.03749 | 1.0 | 0.57143 | 0.02217 | 0.02051 | 0.02068 | 0.01760 | 0.01216 |
-| MM seed 123 | 0.99437 | 0.03590 | — | 0.66667 | 0.005380 | 0.001481 | 0.003205 | 0.005286 | 0.01647 |
+| rate noise | F1 | recall | passes 0.99 |
+|---|---|---|---|
+| 0 | 1.00 | 1.00 | yes |
+| 0.5% | 1.00 | 1.00 | yes |
+| 2% | 1.00 | 1.00 | yes |
+| 5% | 0.40 | 0.50 | no |
+| 10% | 0.40 | 0.50 | no |
 
-`data_residual` is the legacy IC[1] residual. Train and holdout
-residuals are arithmetic means over ICs 1..7 and ICs 8,9. Holdout
-\(D\) metrics evaluate the actual neural \(D\). The MM row does **not**
-apply the Hill `support_recall ≥ 0.99` gate and is not a new MM
-scientific success claim. Hill recall 0.99 is not applied.
+Analytical recovery holds through 2% noise and breaks at 5%. Discovery from
+raw trajectories with finite-difference derivatives is therefore only
+claimed up to 2% noise.
 
-## Frozen multi-seed analytical Occam
+Graph-local versus global library (`benchmark/sindy_baseline.jl`, seed 104,
+two-state fixture with an `r^2`-like distractor): both libraries reach F1
+1.00 with no false parent after subset selection. The prior shows up as
+library membership of the distractor, not as an F1 gap. The DataDrivenSparse
+row is unavailable because that package does not resolve against the
+ModelingToolkit versions this package allows; `benchmark/probe_datadriven.jl`
+reproduces the resolve error.
 
-Producer: `benchmark/recovery_seeds.jl`. CI stays on seed 104 for Occam and
-seed 103 for UDE. This table is the stability report, not a second red gate.
-
-| seed | F1 | recall | gate |
-|------|----|--------|------|
-| 103 | 1.00 | 1.00 | yes |
-| 107 | 1.00 | 1.00 | yes |
-| 111 | 1.00 | 1.00 | yes |
-| 113 | 1.00 | 1.00 | yes |
-| 127 | 1.00 | 1.00 | yes |
-
-Median / min / max F1 = 1.00 / 1.00 / 1.00. Passed 5/5. Multi-seed UDE is
-`julia --project=. benchmark/recovery_seeds.jl --ude` and is **not** a CI job.
-
-## Frozen graph vs global table (2-state toy)
-
-Producer: `benchmark/sindy_baseline.jl`. Same `y`; the only intended difference
-is the prior (`basis_scope=:graph` vs `:global`). DataDrivenSparse is optional
-and is **not** a CI dependency.
-
-Internal ablation (same `y`, only `basis_scope` differs). After Occam, F1
-can match; that is **not** a win. The locked prior is library membership of
-the distractor `z`.
-
-| prior | F1 | false parent | den violations | rate RMSE | time (s) |
-|-------|----|--------------|----------------|-----------|----------|
-| BioDynaX graph | 1.00 | no | 0 | 0.007 | 1.03 |
-| BioDynaX global | 1.00 | no | 0 | 0.007 | 0.56 |
-| DataDrivenSparse global | unavailable | — | — | — | — |
-
-DataDrivenSparse could not be resolved against this preview.
-(`DataDrivenDiffEq` requires ModelingToolkit versions that conflict with
-BioDynaX weakdep compat `ModelingToolkit = "9, 10"` and `SciMLBase = 3`).
-That is an install error, not a skip-as-win and not “we beat them”.
-Reproduce the probe with `julia --project=. benchmark/probe_datadriven.jl`.
-The pin and the conflict live in `benchmark/external_baseline.md`.
-
-Frozen from `benchmark/sindy_baseline.jl` on the 0.5% Hill + `r^2`-alias distractor
-fixture (seed 104). The locked prior difference is library membership of `z`,
-not a F1 gap after Occam.
-
-## Frozen 3-state graph-prior table
-
-Producer: `run_recovery_suite(...; sections = (:three_state, :wrong_graph))`.
-Synthetic Hill `D(R)` with distractors `Q ≈ R²` and `Z ≈ R`. Combined F1 is
-**not** the KPI.
-
-| prior | true parent R | local false parent | notes |
-|-------|---------------|--------------------|-------|
-| graph (R→S) | yes | no | gated in `test/test_recovery.jl` |
-| global | reported | reported | extras on distractors allowed |
-| wrong graph (Q→S) | no | — | negative control; must miss R |
-
-## Frozen 6-state graph-prior table (main prior evidence)
-
-Producer: `run_recovery_suite(...; sections = (:six_state, :six_state_wrong_graph))`.
-Six dynamic states; one unknown Hill edge; known production/decay on the rest.
-Distractor `Z` is absent from the graph-local library and present globally.
-Combined F1 is **not** the KPI (measured local F1 ≈ 0.40 because the target
-state sits in `local_basis`).
-
-| prior | n | `local_has_true_parent` | `local_false_parent` | `Z_in_local_library` | notes |
-|-------|---|-------------------------|----------------------|----------------------|-------|
-| graph (R→S) | 6 | yes | no | no | gated |
-| global | 6 | reported | yes (this run) | yes (`Z_in_global_library`) | library membership is the prior |
-| wrong graph (Q→S) | 6 | no | — | — | negative control; must miss R |
-
-If true parent is missed or a local false parent enters, this table is red.
-Do not drop the state count or grow the dictionary to paint it green.
-
-## Identifiability interventions
-
-Producer: `run_recovery_suite(...; sections = (:ident_interventions,))`.
-
-| intervention | result |
-|--------------|--------|
-| Normalize analytical `D` (`max\|D\|=1`) | Occam F1 still ≥ 0.99 (same library) |
-| Freeze `k_prod` during a short train | `k_prod` unchanged; cosine still ≥ 0.95 |
-| Production rate 0.9 vs 1.8 | cosine still ≥ 0.95 |
-| `tradeoff_broken` | **false** (locked) |
-
-Reporting `unidentifiable_edge` is the required Q3 practical warning in
-the unique-claim hold (condition number **or** scale cosine). It is not
-the whole product. Claiming the scale is identified is not.
-
-## Frozen analytical noise grid
-
-Producer: `benchmark/noise_grid.jl` (seed 104). `σ` is a fraction of rate
-amplitude (same definition as the 0.5% Occam gate). Not a CI job.
-
-| σ | F1 | recall | den | holds 0.99 gate |
-|---|----|--------|-----|-----------------|
-| 0.000 | 1.00 | 1.00 | 0 | yes |
-| 0.005 | 1.00 | 1.00 | 0 | yes |
-| 0.020 | 1.00 | 1.00 | 0 | yes |
-| 0.050 | 0.40 | 0.50 | 0 | **no** |
-| 0.100 | 0.40 | 0.50 | 0 | **no** |
-
-Analytical Occam holds through σ = 0.02 on this grid and **breaks at σ = 0.05**.
-Raw-trajectory discovery via `estimate_derivatives` (central differences) is
-claimed only for σ ≤ 0.02. The fast suite asserts that σ = 0.05 **fails** the
-0.99 Occam gate (negative control). The UDE protocol is measured at σ = 0.00
-and σ = 0.02 in the hard job. It is not claimed at σ ≥ 0.05.
-
-## Published / experimental series
-
-No licensed experimental time series in this repository matches the unique-claim protocol.
-That paragraph still means known graph, at most one unknown destruction
-edge, redistributable license, ≤8 states. That absence is the result. It is not
-a silent skip.
-
-Elowitz & Leibler (Nature 403:335–338, 2000) is a **synthetic ODE** fixture
-using published dimensionless parameters. It is not experimental CSV.
-IRMA / Cantone 2009 is a known 5-gene network with **many** unknown edges;
-it is outside the unique-claim protocol and is not a CI gate.
-
-## Running locally
-
-```bash
-julia --project=. test/runtests.jl
-julia --project=. test/run_recovery_hard.jl
-julia --project=. benchmark/recovery_suite.jl
-julia --project=. benchmark/sindy_baseline.jl
-julia --project=. benchmark/recovery_seeds.jl
-julia --project=. benchmark/noise_grid.jl
-julia --project=. benchmark/ude_f1_attempt.jl
-```
+Six-state graph prior (`BioDynaX.run_recovery_suite` with
+`sections = (:six_state, :six_state_wrong_graph)`): the graph-local library
+contains the true regulator and no false parent and excludes the distractor;
+the global library includes the distractor and admits a false parent; the
+wrong-graph library misses the true regulator. Combined F1 is not scored on
+this fixture because the target state itself sits in the local library.
 
 ## Report fields
 
 | Field | Meaning |
-|-------|---------|
-| `rmse` / `rel` | physical-parameter relative RMSE (known kinetics) |
-| `nn_correlation` / `nn_rate_rmse` | trained `D_nn` vs true Hill/MM rate |
-| `support_f1` | implicit numerator+denominator support F1 |
-| `support_recall` | fraction of true Hill/MM monomials recovered |
-| `discovered_rate_rmse` | `D_hat` vs true rate on a grid |
-| `data_residual` | legacy IC[1] hybrid RHS vs observations (not the train aggregate) |
-| `data_residual_train` | arithmetic mean of hybrid residuals on ICs 1..7 |
-| `data_residual_holdout` | arithmetic mean of hybrid residuals on ICs 8 and 9 |
-| `d_rmse_holdout` | neural \(D\) RMSE at observed holdout regulator coordinates |
-| `d_rmse_holdout_domain` | neural \(D\) RMSE on the train-derived external band |
-| `normalized_support_f1` | same library after `max\|D\|=1` scaling |
-| `local_f1` / `global_f1` | graph vs global discovery on the same `y` (not the prior) |
-| `local_false_parent` | whether a distractor entered the local support |
-| `local_has_true_parent` | whether the true regulator is in the support |
-| `Z_in_local_library` | whether distractor `Z` is in the graph-local monomial library |
-| `local_time` / `global_time` | wall time for the two STLSQ runs |
-| `identifiability` | practical `k_prod` vs `D` scale collinearity (not structural) |
-| `closed_loop_residual` | hybrid RHS vs data after subsampled-`D` discovery |
-| `ude_mask_train_claimed` | whether UDE was trained on missing states (false) |
+|---|---|
+| `rmse`, `rel` | relative error of the physical parameters (known kinetics) |
+| `nn_correlation`, `nn_rate_rmse` | trained neural rate versus the true rate on the discovery grid |
+| `support_recall` | fraction of the true monomials recovered |
+| `support_f1` | F1 of the recovered numerator and denominator support |
+| `discovered_rate_rmse` | discovered rate versus the true rate on the grid |
+| `data_residual` | hybrid-model residual on training experiment 1 |
+| `data_residual_train`, `data_residual_holdout` | mean residuals on experiments 1 to 7 and on 8 and 9 |
+| `d_rmse_holdout`, `d_rmse_holdout_domain` | neural-rate error at held-out regulator values and on the training-derived band |
+| `local_f1`, `global_f1` | discovery F1 with the graph-local and the global library |
+| `local_has_true_parent`, `local_false_parent`, `Z_in_local_library` | library-membership checks |
+| `identifiability` | the production/destruction trade-off report |
+| `closed_loop_residual` | hybrid residual after discovery from subsampled rate values |
 
-## Honest limits
+## Running locally
 
-- Competitive unknown `D(S,I)` is compiled as a 2-input neural head. Parent
-  recovery is gated; a canonical competitive equation is **not** claimed.
-- No licensed experimental CSV matches the unique-claim protocol.
-- UDE combined F1 cannot hold 0.99 on the same library. The public claim is
-  recall + data residual. Analytical Occam still gates F1 ≥ 0.99 on 0.5%
-  Hill samples.
-- Unknown-edge closed loop is **Hill-class**. MM unknown is NN RMSE + data
-  residual on this budget.
-- Partial observation closed-loop **UDE training** on missing states is not
-  claimed. Discovery from subsampled `D` plus hybrid residual versus data
-  is gated.
-- DataDrivenSparse is never a CI dependency. A skip is not a win.
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=. test/run_recovery_hard.jl
+julia --project=. test/run_m4_b_protocol.jl
+julia --project=. benchmark/recovery_suite.jl
+julia --project=. benchmark/sindy_baseline.jl
+julia --project=. benchmark/recovery_seeds.jl
+julia --project=. benchmark/noise_grid.jl
+```
