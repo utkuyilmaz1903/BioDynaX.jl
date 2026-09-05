@@ -37,8 +37,10 @@ makedocs(
     doctest = true
 )
 
-if get(ENV, "CI", "false") == "true" &&
-   get(ENV, "GITHUB_REF", "") == "refs/heads/main"
+# Documenter decides when to deploy: pushes to `main` update `dev/`, pushes
+# of a `v*` tag create the version directory and move `stable`. Pull
+# requests and other refs only build.
+if get(ENV, "CI", "false") == "true"
     deploydocs(
         repo = "github.com/utkuyilmaz1903/BioDynaX.jl.git",
         devbranch = "main",
