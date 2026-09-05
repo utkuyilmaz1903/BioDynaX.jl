@@ -134,3 +134,20 @@ hybrid_data_residual
 ```@docs
 RECOVERY_THRESHOLDS
 ```
+
+## Library comparison study
+
+Unexported. The multi-seed, multi-noise comparison of the graph-local, global,
+and wrong-graph discovery libraries described on the
+[Benchmarks](benchmarks.md#Library-comparison-study) page.
+
+```@docs
+BioDynaX.library_comparison_study
+BioDynaX.library_comparison_run
+BioDynaX.library_comparison_smoke
+BioDynaX.library_study_summary
+BioDynaX.format_library_study_summary
+BioDynaX.append_library_study_row
+BioDynaX.read_library_study_csv
+BioDynaX.library_study_training_set
+```

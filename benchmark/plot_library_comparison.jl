@@ -35,7 +35,7 @@ function main()
         xlabel = "observation noise (standard deviation)",
         ylabel = "support F1 (median, interquartile band)",
         title = "Discovery library comparison, $(seeds) seeds",
-        titlefontsize = 10, legend = :bottomleft, ylims = (-0.02, 1.02),
+        titlefontsize = 10, legend = :topright, ylims = (-0.02, 1.02),
         size = (640, 420), dpi = 150, margin = 5Plots.mm)
     for library in BioDynaX.LIBRARY_STUDY_LIBRARIES
         entries = [entry for entry in summary if entry.library === library]
