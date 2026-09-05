@@ -1,13 +1,9 @@
 ## Summary
 
-## Contract
+What changed and why.
 
-- [ ] `RECOVERY_THRESHOLDS` is unchanged (loosening is breaking)
-- [ ] Public `export` list is unchanged
-- [ ] Experimental GPU / SBML / MTK / Fisher stays unexported
-- [ ] Every new public sentence matches a CI gate or is labeled experimental
+## Checks
 
-## Test plan
-
-- [ ] `julia --project=. test/runtests.jl`
-- [ ] Recovery job still required for unknown-edge changes
+- [ ] `julia --project=. -e 'using Pkg; Pkg.test()'` passes
+- [ ] Recovery thresholds, seeds, and protocol settings are unchanged (or the change is explained above)
+- [ ] `CHANGELOG.md` updated under `[Unreleased]` if a user would notice the change

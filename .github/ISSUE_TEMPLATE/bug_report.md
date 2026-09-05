@@ -1,18 +1,22 @@
 ---
 name: Bug report
-about: A failure that should be able to go red in CI
+about: Something does not work as documented
+labels: bug
 ---
 
-## What broke
+## What happened
 
-## Contract
-
-- [ ] I am not asking to loosen `RECOVERY_THRESHOLDS`
-- [ ] I am not asking to grow the public `export` list
-- [ ] This is not an experimental GPU / SBML / MTK product request
+## What you expected
 
 ## How to reproduce
 
-```bash
-julia --project=. test/runtests.jl
+Include a minimal script or the command you ran, and the full error output.
+
+```julia
 ```
+
+## Environment
+
+- BioDynaX version:
+- Julia version (`julia --version`):
+- Operating system:

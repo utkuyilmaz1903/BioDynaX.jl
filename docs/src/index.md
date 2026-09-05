@@ -10,9 +10,8 @@ mechanistic recovery. Canonical Hill from a trained NN is closed. This is
 not a general CRN or SINDy replacement. There is no licensed experimental
 series on this protocol.
 
-The authoritative scientific contract for what the code implements today is
-the [v1.0 scientific contract](design/v1_contract.md)
-(\(\dot u_i = P_i - D_i u_i\); Q1–Q7 kept conceptually separate; Q4
+The compiled dynamics are
+\(\dot u_i = P_i - D_i u_i\) (Q1–Q7 kept conceptually separate; Q4
 is a practical functional-identifiability diagnostic, not a gate and
 not a formal identifiability certificate; Q7 is reported held-out
 generalization evidence, not an additional success gate). Nine ICs
@@ -22,9 +21,9 @@ pending future work.
 
 ```@contents
 Pages = ["tutorial.md", "howto.md", "unique-claim.md",
-         "design/v1_contract.md", "compiled-path.md",
+         "compiled-path.md",
          "sciml.md", "metadata.md", "architecture.md", "benchmarks.md",
-         "api.md", "experimental.md", "stability.md"]
+         "api.md", "experimental.md"]
 Depth = 2
 ```
 

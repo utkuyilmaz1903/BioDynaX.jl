@@ -1,6 +1,6 @@
 # API
 
-Names on the [stability freeze](stability.md) plus the golden-path verbs a
+The exported names plus the golden-path verbs a
 stranger types in the [tutorial](tutorial.md). Experimental entry points are
 **not exported**; see [Experimental](experimental.md).
 
