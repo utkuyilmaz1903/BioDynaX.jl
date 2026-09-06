@@ -13,8 +13,10 @@
 # Fixtures:
 #   :four_state  the trained-model library check (`evaluate_trained_graph_local`):
 #                states S, R, Q, Z; three initial conditions; designed sample
-#                coordinates. The discovery variant :study is that check's own
-#                configuration, unchanged.
+#                coordinates. With `design = :constant` (the check's own
+#                design, S fixed at 0.4) the discovery variant :study is that
+#                check's configuration, unchanged; `design = :varying` spreads
+#                S over its observed range on the same samples of R, Q, Z.
 #   :two_state   the reference-protocol network (`build_hill_recovery_network`):
 #                nine initial conditions split 7/2; samples on the regulator
 #                grid of the training experiments. That network declares its
@@ -92,15 +94,37 @@ const LIBRARY_STUDY_TWO_STATE_BUDGET = (
         adam_iterations = 2, bfgs_iterations = 0,
         n_sample_points = 24, x_seed = 619))
 
+"""
+Sample coordinate designs of the four-state fixture: `:constant` keeps the
+target state S at 0.4 on every sample (the library check's design);
+`:varying` spreads S over the range observed in the training experiments.
+The two-state fixture always varies S.
+"""
+const LIBRARY_STUDY_DESIGNS = (:constant, :varying)
+
+"""Default sample coordinate design of the four-state fixture."""
+const LIBRARY_STUDY_DEFAULT_DESIGN = :constant
+
+"""Default design of a fixture: `LIBRARY_STUDY_DEFAULT_DESIGN` for the four-state fixture, `:varying` for the two-state fixture."""
+function library_study_default_design(fixture::Symbol)
+    fixture === :four_state && return LIBRARY_STUDY_DEFAULT_DESIGN
+    fixture === :two_state && return :varying
+    throw(ArgumentError(
+        "fixture must be one of $(LIBRARY_STUDY_FIXTURES); got $(fixture)"))
+end
+
 """Column order of a study row and of the CSV file."""
 const LIBRARY_STUDY_COLUMNS = (
     :seed, :noise, :library, :success,
     :support_recall, :support_precision, :support_f1, :extra_terms, :extras,
     :data_residual, :holdout_residual, :nn_rate_rmse,
-    :train_time_s, :run_time_s, :fixture, :variant)
+    :train_time_s, :run_time_s, :fixture, :variant, :design)
 
 """Columns of the CSV files written before fixtures and variants existed."""
 const LIBRARY_STUDY_COLUMNS_V1 = LIBRARY_STUDY_COLUMNS[1:14]
+
+"""Columns of the CSV files written before the design column existed (0.11)."""
+const LIBRARY_STUDY_COLUMNS_V2 = LIBRARY_STUDY_COLUMNS[1:16]
 
 # -- Scores --------------------------------------------------------------------
 
@@ -250,11 +274,13 @@ and the wall times. The `:study` variant of the four-state fixture is the
 `TrainedGraphLocalEvidence` itself, so its rows reproduce the library check.
 """
 function _library_study_train(fixture::Symbol, seed, noise_σ, kind, training_call,
-        holdout_ics, stability_selection)
+        holdout_ics, stability_selection, design)
     if fixture === :four_state
         return _library_study_train_four_state(
-            seed, noise_σ, kind, training_call, holdout_ics, stability_selection)
+            seed, noise_σ, kind, training_call, holdout_ics, stability_selection, design)
     elseif fixture === :two_state
+        design === :varying || throw(ArgumentError(
+            "the two-state fixture always varies S; design must be :varying"))
         return _library_study_train_two_state(seed, noise_σ, kind, training_call)
     end
     throw(ArgumentError(
@@ -262,7 +288,7 @@ function _library_study_train(fixture::Symbol, seed, noise_σ, kind, training_ca
 end
 
 function _library_study_train_four_state(seed, noise_σ, kind, training_call,
-        holdout_ics, stability_selection)
+        holdout_ics, stability_selection, design)
     budget = m4b_budget(kind)
     train_time = Ref(NaN)
     timed_call = function (args...; kwargs...)
@@ -273,7 +299,7 @@ function _library_study_train_four_state(seed, noise_σ, kind, training_call,
     end
     started = time()
     evidence = evaluate_trained_graph_local(;
-        kind, training_call = timed_call, seed, noise_σ, stability_selection)
+        kind, training_call = timed_call, seed, noise_σ, stability_selection, design)
     run_time = time() - started
     train_set = library_study_training_set(kind; seed, noise_σ)
     holdout_set = library_study_training_set(kind;
@@ -379,13 +405,21 @@ end
                            variants=(:study,), libraries=LIBRARY_STUDY_LIBRARIES,
                            holdout_ics=LIBRARY_STUDY_HOLDOUT_ICS,
                            training_call=fit_unknown_destruction,
-                           stability_selection=nothing, on_row=nothing)
+                           stability_selection=nothing, design=nothing,
+                           on_row=nothing)
 
 One study run: one training of `fixture` at `seed` and `noise_σ`, then one
 row per requested variant and library with the columns in
-`LIBRARY_STUDY_COLUMNS`. For the four-state fixture and the `:study` variant
-the discoveries are those of `evaluate_trained_graph_local(; kind, seed,
-noise_σ)`, unchanged.
+`LIBRARY_STUDY_COLUMNS`. For the four-state fixture with `design =
+:constant` and the `:study` variant the discoveries are those of
+`evaluate_trained_graph_local(; kind, seed, noise_σ)`, unchanged.
+
+`design` is the sample coordinate design (`LIBRARY_STUDY_DESIGNS`): for the
+four-state fixture `:constant` keeps S at 0.4 on every sample and
+`:varying` spreads S over its observed range; `nothing` selects the
+fixture's default (`LIBRARY_STUDY_DEFAULT_DESIGN` for the four-state
+fixture). The two-state fixture always varies S and accepts only
+`:varying`. The design is recorded in the `design` column.
 
 `data_residual` is the hybrid residual on the first training experiment,
 `holdout_residual` the mean hybrid residual on the held-out experiments (two
@@ -409,7 +443,11 @@ function library_comparison_run(;
         holdout_ics = LIBRARY_STUDY_HOLDOUT_ICS,
         training_call = fit_unknown_destruction,
         stability_selection::Union{Nothing, StabilitySelection} = nothing,
+        design::Union{Nothing, Symbol} = nothing,
         on_row = nothing)
+    design = design === nothing ? library_study_default_design(fixture) : design
+    design in LIBRARY_STUDY_DESIGNS || throw(ArgumentError(
+        "design must be one of $(LIBRARY_STUDY_DESIGNS); got $(design)"))
     for library in libraries
         library in LIBRARY_STUDY_LIBRARIES || throw(ArgumentError(
             "library must be one of $(LIBRARY_STUDY_LIBRARIES); got $(library)"))
@@ -419,7 +457,8 @@ function library_comparison_run(;
             "variant must be one of $(LIBRARY_STUDY_VARIANTS); got $(variant)"))
     end
     trained = _library_study_train(
-        fixture, seed, noise_σ, kind, training_call, holdout_ics, stability_selection)
+        fixture, seed, noise_σ, kind, training_call, holdout_ics, stability_selection,
+        design)
     r = vec(trained.X[trained.truth.variable, :])
     nn_rate_rmse = rate_rel_rmse(vec(trained.D),
         hill_rate_truth(r; vmax = trained.truth.vmax, K = trained.truth.K,
@@ -461,7 +500,7 @@ function library_comparison_run(;
             extras = join(scores.extras, ";"),
             data_residual, holdout_residual, nn_rate_rmse,
             train_time_s = trained.train_time, run_time_s = trained.run_time,
-            fixture, variant)
+            fixture, variant, design)
         push!(rows, row)
         on_row === nothing || on_row(row)
     end
@@ -575,8 +614,8 @@ function append_library_study_row(path::AbstractString, row)
 end
 
 function _library_study_parse(column::Symbol, text::AbstractString)
-    (column === :library || column === :fixture || column === :variant) &&
-        return Symbol(text)
+    (column === :library || column === :fixture || column === :variant ||
+     column === :design) && return Symbol(text)
     column === :success && return text == "true"
     column === :extras && return String(strip(text, '"'))
     (column === :seed || column === :extra_terms) && return parse(Int, text)
@@ -588,8 +627,10 @@ end
 
 Rows written by `append_library_study_row`, as `NamedTuple`s with the columns
 in `LIBRARY_STUDY_COLUMNS`. Files written before the `fixture` and `variant`
-columns existed are read with `fixture = :four_state` and `variant = :study`.
-An absent or empty file gives an empty vector.
+columns existed are read with `fixture = :four_state` and `variant = :study`;
+files written before the `design` column existed (0.11) are read with the
+design those runs used (`:constant` for the four-state fixture, `:varying`
+for the two-state fixture). An absent or empty file gives an empty vector.
 """
 function read_library_study_csv(path::AbstractString)
     rows = NamedTuple[]
@@ -598,6 +639,7 @@ function read_library_study_csv(path::AbstractString)
     isempty(lines) && return rows
     header = Symbol.(split(lines[1], ","))
     columns = header == collect(LIBRARY_STUDY_COLUMNS) ? LIBRARY_STUDY_COLUMNS :
+              header == collect(LIBRARY_STUDY_COLUMNS_V2) ? LIBRARY_STUDY_COLUMNS_V2 :
               header == collect(LIBRARY_STUDY_COLUMNS_V1) ? LIBRARY_STUDY_COLUMNS_V1 :
               throw(ArgumentError("unexpected header in $(path): $(lines[1])"))
     for line in lines[2:end]
@@ -607,7 +649,9 @@ function read_library_study_csv(path::AbstractString)
         values = Any[_library_study_parse(column, field)
                      for (column, field) in zip(columns, fields)]
         if columns === LIBRARY_STUDY_COLUMNS_V1
-            push!(values, :four_state, :study)
+            push!(values, :four_state, :study, :constant)
+        elseif columns === LIBRARY_STUDY_COLUMNS_V2
+            push!(values, values[15] === :two_state ? :varying : :constant)
         end
         push!(rows, NamedTuple{LIBRARY_STUDY_COLUMNS}(Tuple(values)))
     end
@@ -624,28 +668,32 @@ end
 """
     library_study_summary(rows; metrics=(:support_f1, :extra_terms, :holdout_residual))
 
-Median and interquartile range of each metric per fixture, variant, library,
-and noise level. Returns one `NamedTuple` per group with `fixture`,
-`variant`, `library`, `noise`, `n`, and for each metric `<metric>_median`,
-`<metric>_q25`, `<metric>_q75`, computed over the finite values only.
-Groups follow `LIBRARY_STUDY_FIXTURES`, `LIBRARY_STUDY_VARIANTS`, and
-`LIBRARY_STUDY_LIBRARIES`; noise levels are sorted.
+Median and interquartile range of each metric per fixture, design, variant,
+library, and noise level. Returns one `NamedTuple` per group with `fixture`,
+`design`, `variant`, `library`, `noise`, `n`, and for each metric
+`<metric>_median`, `<metric>_q25`, `<metric>_q75`, computed over the finite
+values only. Groups follow `LIBRARY_STUDY_FIXTURES`, `LIBRARY_STUDY_DESIGNS`,
+`LIBRARY_STUDY_VARIANTS`, and `LIBRARY_STUDY_LIBRARIES`; noise levels are
+sorted.
 """
 function library_study_summary(rows;
         metrics = (:support_f1, :extra_terms, :holdout_residual))
     fixtures = [f for f in LIBRARY_STUDY_FIXTURES if any(r -> r.fixture === f, rows)]
+    designs = [d for d in LIBRARY_STUDY_DESIGNS if any(r -> r.design === d, rows)]
     variants = [v for v in LIBRARY_STUDY_VARIANTS if any(r -> r.variant === v, rows)]
     libraries = [l for l in LIBRARY_STUDY_LIBRARIES if any(r -> r.library === l, rows)]
     noises = sort!(unique(Float64[r.noise for r in rows]))
     summary = NamedTuple[]
-    for fixture in fixtures, variant in variants, library in libraries, noise in noises
+    for fixture in fixtures, design in designs, variant in variants,
+        library in libraries, noise in noises
+
         group = [r
                  for r in rows
-                 if r.fixture === fixture && r.variant === variant &&
-                    r.library === library && r.noise == noise]
+                 if r.fixture === fixture && r.design === design &&
+                    r.variant === variant && r.library === library && r.noise == noise]
         isempty(group) && continue
-        entry = Pair{Symbol, Any}[:fixture => fixture, :variant => variant,
-            :library => library, :noise => noise,
+        entry = Pair{Symbol, Any}[:fixture => fixture, :design => design,
+            :variant => variant, :library => library, :noise => noise,
             :n => length(group)]
         for metric in metrics
             values = Float64[getproperty(r, metric) for r in group]
@@ -676,25 +724,29 @@ end
     format_library_study_summary(summary; metrics=(:support_f1, :extra_terms, :holdout_residual))
 
 Markdown table of a `library_study_summary`: one row per group, cells as
-`median [q25, q75]`. The fixture and variant columns are shown when the
-summary has more than one fixture or variant.
+`median [q25, q75]`. The fixture, design, and variant columns are shown
+when the summary has more than one fixture, design, or variant.
 """
 function format_library_study_summary(summary;
         metrics = (:support_f1, :extra_terms, :holdout_residual))
     show_fixture = length(unique(entry.fixture for entry in summary)) > 1
+    show_design = length(unique(entry.design for entry in summary)) > 1
     show_variant = length(unique(entry.variant for entry in summary)) > 1
     io = IOBuffer()
     print(io, "|")
     show_fixture && print(io, " fixture |")
+    show_design && print(io, " design |")
     show_variant && print(io, " variant |")
     println(io, " library | noise | n | ", join(string.(metrics), " | "), " |")
-    println(io, "|", repeat("---|", 3 + show_fixture + show_variant + length(metrics)))
+    println(io, "|",
+        repeat("---|", 3 + show_fixture + show_design + show_variant + length(metrics)))
     for entry in summary
         cells = [_library_study_iqr_cell(entry, metric;
                      digits = metric === :holdout_residual ? 4 : 2)
                  for metric in metrics]
         print(io, "|")
         show_fixture && print(io, " ", entry.fixture, " |")
+        show_design && print(io, " ", entry.design, " |")
         show_variant && print(io, " ", entry.variant, " |")
         println(io, " ", entry.library, " | ", entry.noise, " | ", entry.n, " | ",
             join(cells, " | "), " |")

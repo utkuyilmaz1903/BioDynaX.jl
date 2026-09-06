@@ -69,20 +69,44 @@ function m4b_initial_conditions(kind::Symbol)
 end
 
 """
-    designed_trained_graph_local_coordinates(n_sample_points; x_seed=619)
+    designed_trained_graph_local_coordinates(n_sample_points; x_seed=619,
+                                             design=:constant, s_range=nothing)
 
 Locked 4×n designed coordinates (S, R, Q, Z). Not occupancy, not a fill
 grid, and not functional-identifiability `domain.z`. Independent of any stored evidence.X.
+
+`design = :constant` (the library check's design) fixes the target state S
+at 0.4 on every sample. `design = :varying` spreads S over `s_range =
+(lo, hi)` in a fixed shuffled order (`randperm` seeded by `x_seed`), as the
+two-state fixture of the library comparison study does, so that the S
+column of a library is not a multiple of the constant term. R, Q, and Z are
+the same under both designs.
 """
 function designed_trained_graph_local_coordinates(n_sample_points::Integer;
-        x_seed::Integer = 619)
+        x_seed::Integer = 619, design::Symbol = :constant, s_range = nothing)
     n = Int(n_sample_points)
     r = collect(range(0.1, 2.0; length = n))
-    s = fill(0.4, n)
+    if design === :constant
+        s = fill(0.4, n)
+    elseif design === :varying
+        s_range === nothing && throw(ArgumentError(
+            "design = :varying needs s_range = (lo, hi)"))
+        lo, hi = Float64(s_range[1]), Float64(s_range[2])
+        lo < hi || throw(ArgumentError("s_range must satisfy lo < hi; got $(s_range)"))
+        s = collect(range(lo, hi; length = n))[randperm(MersenneTwister(x_seed), n)]
+    else
+        throw(ArgumentError("design must be :constant or :varying; got $(design)"))
+    end
     q = r .^ 2 .+ 0.08 .* maximum(r .^ 2) .* randn(MersenneTwister(x_seed), n)
     z = r .+ 0.10 .* (maximum(r) - minimum(r)) .*
              randn(MersenneTwister(x_seed), n)
     return permutedims(hcat(s, r, q, z))
+end
+
+"""Range of the target state (row 1) over the observations of `set`."""
+function _observed_target_range(set::ExperimentSet)
+    return extrema(reduce(vcat,
+        (experiment.observations[1, :] for experiment in set.experiments)))
 end
 
 function dummy_trained_graph_local_times(n::Integer)
@@ -177,7 +201,8 @@ end
 """
     evaluate_trained_graph_local(; kind, training_call=fit_unknown_destruction,
                                  seed=m4b_budget(kind).seed,
-                                 noise_σ=m4b_budget(kind).noise_σ)
+                                 noise_σ=m4b_budget(kind).noise_σ,
+                                 stability_selection=nothing, design=:constant)
 
 Unexported orchestrator of the trained-model library check. Exactly one `training_call`, one learned-D
 sample, and three `discover_equations` executions. Holdout does not
@@ -188,14 +213,18 @@ select the optimizer, initialization, or scope.
 experiments. Their defaults are the budget's own values (seed 401, no noise),
 so a call without them reproduces the original single run. The library
 comparison study varies them. `stability_selection` is passed to every
-`discover_equations` call (off by default).
+`discover_equations` call (off by default). `design` is the sample
+coordinate design of `designed_trained_graph_local_coordinates`:
+`:constant` (the default, S fixed at 0.4) or `:varying` (S spread over the
+range observed in the training experiments).
 """
 function evaluate_trained_graph_local(;
         kind::Symbol,
         training_call = fit_unknown_destruction,
         seed::Integer = m4b_budget(kind).seed,
         noise_σ::Real = m4b_budget(kind).noise_σ,
-        stability_selection::Union{Nothing, StabilitySelection} = nothing)
+        stability_selection::Union{Nothing, StabilitySelection} = nothing,
+        design::Symbol = :constant)
     budget = m4b_budget(kind)
     ude_net = build_three_state_unknown_network(;
         known = false, with_distractor = true, parent = 2)
@@ -209,8 +238,9 @@ function evaluate_trained_graph_local(;
         bfgs = budget.bfgs_iterations)
     training isa TrainingResult || throw(ArgumentError(
         "training_call must return a TrainingResult"))
+    s_range = design === :varying ? _observed_target_range(train_set) : nothing
     X = designed_trained_graph_local_coordinates(
-        budget.n_sample_points; x_seed = budget.x_seed)
+        budget.n_sample_points; x_seed = budget.x_seed, design, s_range)
     (_, D, term) = sample_unknown_destruction(model, training.params, X)
     D = Matrix{Float64}(D)
     X = Matrix{Float64}(X)
