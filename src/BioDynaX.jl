@@ -104,7 +104,7 @@ export discover_equations, discover_unknown_rate, DiscoveryResult, DiscoveryRetc
        SingularLibrary, DiscoveryFailed,
        DiscoveryConfig, ImplicitSINDyPI, ExplicitSTLSQ,
        StabilitySelection, stability_selection_report, format_stability_selection,
-       discover_unknown_term, UnknownTermResult, report,
+       discover_unknown_term, UnknownTermResult, report_unknown_term,
        ImplicitCandidate, ExplicitCandidate,
        local_basis, export_rhs, equation_to_latex, equation_to_function,
        estimate_derivatives, compose_hybrid_rhs, sample_unknown_destruction,

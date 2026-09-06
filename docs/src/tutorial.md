@@ -79,7 +79,7 @@ REPRODUCTION
 `result` is an `UnknownTermResult`: `result.params` are the trained
 parameters, `result.discovery` the `DiscoveryResult`, `result.identifiability`
 the trade-off report, `result.residuals` the three residuals above, and
-`report(result)` the text. The held-out residual (experiments 8 and 9, never
+`report_unknown_term(result)` the text. The held-out residual (experiments 8 and 9, never
 used for training) is about twice the training residual; both are far below
 the acceptance threshold of 0.3. The rest of this page is what the one call
 does, step by step, with the reference example

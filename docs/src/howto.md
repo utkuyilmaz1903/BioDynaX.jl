@@ -18,7 +18,7 @@ result = discover_unknown_term(ude_net, set; rng = MersenneTwister(0), holdout =
 result.params            # trained parameters
 result.discovery         # DiscoveryResult
 result.residuals         # (data_residual, data_residual_train, data_residual_holdout)
-report(result)           # the report as a string
+report_unknown_term(result)   # the report as a string
 ```
 
 `training = TrainingConfig(...)`, `discovery = DiscoveryConfig(...)`,

@@ -5,8 +5,10 @@
 # fixture: the four-state network (benchmark/results/library_comparison.csv,
 # or library_comparison_variants.csv) and the two-state network
 # (library_comparison_two_state.csv, or library_comparison_two_state_variants.csv),
-# all written by benchmark/library_comparison_study.jl. Only the :study
-# variant is drawn. A panel whose file is missing is skipped. Writes
+# all written by benchmark/library_comparison_study.jl. The four-state panel
+# draws the :reference variant (the reference protocol's discovery
+# configuration, from the --variants all run) and the two-state panel the
+# :study variant. A panel whose file is missing is skipped. Writes
 # docs/src/assets/library_comparison.png.
 #
 # Requires Plots.jl in the active environment, for example:
@@ -23,10 +25,11 @@ const PNG_PATH = length(ARGS) >= 1 ? ARGS[1] :
     "library_comparison.png")
 
 const PANELS = (
-    (fixture = :four_state, title = "four-state network",
-        csv = (joinpath(@__DIR__, "results", "library_comparison.csv"),
-            joinpath(@__DIR__, "results", "library_comparison_variants.csv"))),
-    (fixture = :two_state, title = "two-state network",
+    (fixture = :four_state, variant = :reference,
+        title = "four-state network, reference configuration",
+        csv = (joinpath(@__DIR__, "results", "library_comparison_variants.csv"),
+            joinpath(@__DIR__, "results", "library_comparison.csv"))),
+    (fixture = :two_state, variant = :study, title = "two-state network",
         csv = (joinpath(@__DIR__, "results", "library_comparison_two_state.csv"),
             joinpath(@__DIR__, "results", "library_comparison_two_state_variants.csv"))))
 
@@ -42,8 +45,9 @@ const STYLES = Dict(
     :global => (linestyle = :dash, linewidth = 2, marker = :square, markersize = 4),
     :wrong_graph => (linestyle = :dot, linewidth = 2, marker = :diamond, markersize = 4))
 
-function panel(rows, title)
-    rows = [row for row in rows if row.variant === :study]
+function panel(rows, title, variant)
+    rows = [row for row in rows if row.variant === variant]
+    isempty(rows) && error("no rows for variant $(variant)")
     summary = BioDynaX.library_study_summary(rows; metrics = (:support_f1,))
     seeds = length(unique(row.seed for row in rows))
     figure = plot(;
@@ -76,7 +80,7 @@ function main()
             println("no rows for the ", spec.title, "; panel skipped")
             continue
         end
-        push!(panels, panel(rows, spec.title))
+        push!(panels, panel(rows, spec.title, spec.variant))
     end
     isempty(panels) && error("no study CSV found; run library_comparison_study.jl first")
     figure = plot(panels...; layout = (1, length(panels)),
