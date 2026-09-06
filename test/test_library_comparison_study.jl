@@ -37,6 +37,81 @@ end
         @test noisy.experiments[1].observations != set.experiments[1].observations
     end
 
+    @testset "sample coordinate design" begin
+        n = 24
+        constant = designed_trained_graph_local_coordinates(n)
+        @test constant == designed_trained_graph_local_coordinates(n; design = :constant)
+        @test all(==(0.4), constant[1, :])
+        varying = designed_trained_graph_local_coordinates(n; design = :varying,
+            s_range = (0.2, 0.9))
+        @test size(varying) == (4, n)
+        @test varying[2:4, :] == constant[2:4, :]
+        @test sort(varying[1, :]) == collect(range(0.2, 0.9; length = n))
+        @test varying[1, :] != collect(range(0.2, 0.9; length = n))
+        @test varying == designed_trained_graph_local_coordinates(n; design = :varying,
+            s_range = (0.2, 0.9))
+        @test_throws ArgumentError designed_trained_graph_local_coordinates(n;
+            design = :varying)
+        @test_throws ArgumentError designed_trained_graph_local_coordinates(n;
+            design = :varying, s_range = (0.9, 0.2))
+        @test_throws ArgumentError designed_trained_graph_local_coordinates(n;
+            design = :other)
+
+        default = evaluate_trained_graph_local(kind = :smoke)
+        spread = evaluate_trained_graph_local(kind = :smoke, design = :varying)
+        @test spread.params_nn_fingerprint == default.params_nn_fingerprint
+        @test spread.X[2:4, :] == default.X[2:4, :]
+        set = _LCS.library_study_training_set(:smoke)
+        @test extrema(spread.X[1, :]) == _LCS._observed_target_range(set)
+        @test length(unique(spread.X[1, :])) == size(spread.X, 2)
+        @test all(==(0.4), default.X[1, :])
+
+        @test _LCS.library_study_default_design(:four_state) ===
+              _LCS.LIBRARY_STUDY_DEFAULT_DESIGN
+        @test _LCS.library_study_default_design(:two_state) === :varying
+        @test_throws ArgumentError _LCS.library_study_default_design(:other)
+        rows = _LCS.library_comparison_smoke()
+        @test all(row.design === _LCS.LIBRARY_STUDY_DEFAULT_DESIGN for row in rows)
+        explicit = _LCS.library_comparison_smoke(design = :constant)
+        @test all(row.design === :constant for row in explicit)
+        spread_rows = _LCS.library_comparison_smoke(design = :varying)
+        @test all(row.design === :varying for row in spread_rows)
+        @test length(spread_rows) == 3
+        @test spread_rows[1].nn_rate_rmse == rows[1].nn_rate_rmse
+        @test_throws ArgumentError _LCS.library_comparison_run(
+            seed = 1, noise_σ = 0.0, kind = :smoke, design = :other)
+        @test_throws ArgumentError _LCS.library_comparison_run(
+            seed = 1, noise_σ = 0.0, kind = :smoke, fixture = :two_state,
+            design = :constant)
+        both = vcat(explicit, spread_rows)
+        summary = _LCS.library_study_summary(both)
+        @test length(summary) == 6
+        @test [entry.design for entry in summary] ==
+              [:constant, :constant, :constant, :varying, :varying, :varying]
+        table = _LCS.format_library_study_summary(summary)
+        @test occursin("| design |", table)
+        @test !occursin("| design |",
+            _LCS.format_library_study_summary(
+                _LCS.library_study_summary(explicit)))
+        # Files written before the design column existed (0.11) read with the
+        # design those runs used.
+        v2_path = joinpath(mktempdir(), "v2.csv")
+        open(v2_path, "w") do io
+            println(io, join(string.(_LCS.LIBRARY_STUDY_COLUMNS_V2), ","))
+            for row in explicit
+                fields = [_LCS._library_study_csv_field(getproperty(row, column))
+                          for column in _LCS.LIBRARY_STUDY_COLUMNS_V2]
+                println(io, join(fields, ","))
+                println(io, replace(join(fields, ","), "four_state" => "two_state"))
+            end
+        end
+        v2_rows = _LCS.read_library_study_csv(v2_path)
+        @test length(v2_rows) == 6
+        @test all(propertynames(row) == _LCS.LIBRARY_STUDY_COLUMNS for row in v2_rows)
+        @test all(row.design === (row.fixture === :two_state ? :varying : :constant)
+        for row in v2_rows)
+    end
+
     @testset "smoke study reuses the single run and reports every column" begin
         rows = _LCS.library_comparison_smoke()
         @test length(rows) == 3
@@ -150,6 +225,7 @@ end
         old_rows = _LCS.read_library_study_csv(old_path)
         @test length(old_rows) == 3
         @test all(row.fixture === :four_state && row.variant === :study for row in old_rows)
+        @test all(row.design === :constant for row in old_rows)
         @test old_rows[1].support_f1 == rows[1].support_f1
     end
 
@@ -192,6 +268,7 @@ end
             variants = (:study, :reference))
         @test length(rows) == 6
         @test all(row.fixture === :two_state for row in rows)
+        @test all(row.design === :varying for row in rows)
         @test all(row.seed == _LCS.M4B_SMOKE.seed for row in rows)
         @test length(unique(row.train_time_s for row in rows)) == 1
         @test all(isfinite(row.nn_rate_rmse) for row in rows)

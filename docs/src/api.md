@@ -161,4 +161,7 @@ BioDynaX.format_library_study_summary
 BioDynaX.append_library_study_row
 BioDynaX.read_library_study_csv
 BioDynaX.library_study_training_set
+BioDynaX.LIBRARY_STUDY_DESIGNS
+BioDynaX.library_study_default_design
+BioDynaX.designed_trained_graph_local_coordinates
 ```

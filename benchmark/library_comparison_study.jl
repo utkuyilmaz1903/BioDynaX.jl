@@ -28,6 +28,11 @@
 #                         reference) from the same trainings; rows go to
 #                         benchmark/results/library_comparison_variants.csv
 #                         (two_state: library_comparison_two_state_variants.csv)
+#   --design varying      sample coordinate design of the four-state fixture:
+#                         varying (S spread over its observed range) or
+#                         constant (S fixed at 0.4, the library check's design);
+#                         default: the study's default design. When given, the
+#                         CSV name gains the suffix _<design>
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -53,11 +58,14 @@ const FIXTURE = Symbol(_option(ARGS_, "--fixture", "four_state"))
 const VARIANTS = _option(ARGS_, "--variants", "study") == "all" ?
                  BioDynaX.LIBRARY_STUDY_VARIANTS :
                  Tuple(Symbol.(split(_option(ARGS_, "--variants", "study"), ",")))
+const DESIGN_OPTION = _option(ARGS_, "--design", nothing)
+const DESIGN = DESIGN_OPTION === nothing ? nothing : Symbol(DESIGN_OPTION)
 const OUT = _option(ARGS_, "--out",
     joinpath(@__DIR__, "results",
         string("library_comparison",
             FIXTURE === :four_state ? "" : "_" * string(FIXTURE),
             length(VARIANTS) > 1 ? "_variants" : "",
+            DESIGN === nothing ? "" : "_" * string(DESIGN),
             PRUNING ? "_pruned" : "", ".csv")))
 const LIBRARIES = PRUNING ? (:graph_local,) : BioDynaX.LIBRARY_STUDY_LIBRARIES
 const SELECTION = PRUNING ? StabilitySelection() : nothing
@@ -81,7 +89,8 @@ end
 function main()
     println("Library comparison study")
     println("Julia ", VERSION, "; ", dependency_versions())
-    println("fixture: ", FIXTURE, "; variants: ", join(VARIANTS, ", "))
+    println("fixture: ", FIXTURE, "; variants: ", join(VARIANTS, ", "), "; design: ",
+        DESIGN === nothing ? BioDynaX.library_study_default_design(FIXTURE) : DESIGN)
     println("seeds: ", join(SEEDS, ", "), "; noise: ", join(NOISE, ", "),
         "; libraries: ", join(LIBRARIES, ", "),
         "; stability selection: ", SELECTION === nothing ? "off" :
@@ -95,7 +104,7 @@ function main()
     started = time()
     rows = BioDynaX.library_comparison_study(;
         seeds = SEEDS, noise_levels = NOISE, libraries = LIBRARIES,
-        fixture = FIXTURE, variants = VARIANTS,
+        fixture = FIXTURE, variants = VARIANTS, design = DESIGN,
         stability_selection = SELECTION,
         skip = (seed, noise, library, variant) -> (seed, noise, library, variant) in done,
         on_row = row -> begin
