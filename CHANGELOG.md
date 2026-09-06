@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.11.0] - 2026-09-06
+
 ### Added
 
 - `discover_unknown_term(network, experiments; ...)`, a one-call entry
@@ -319,7 +323,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.9.0...v0.9.1
