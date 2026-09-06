@@ -88,6 +88,13 @@ end
 Species graph (`NodeSpec`), directed interactions (`EdgeSpec`), and
 stoichiometric reactions (`ReactionSpec`). Unknown edges and reactions compile
 to neural destruction terms; known families become mechanistic IR.
+
+The interaction graph, which `candidate_parents` and the graph-local library
+read, holds one edge per `EdgeSpec` and, in addition, one edge from each
+regulator of every reaction with `known = false` to each species that
+reaction changes. A network that declares its unknown term as a reaction
+alone therefore has the same graph parents as one that also declares the
+edge. Regulators of known reactions add no edges.
 """
 struct BiologicalNetwork
     graph::SimpleDiGraph{Int}
@@ -113,6 +120,19 @@ function BiologicalNetwork(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec};
             throw(ArgumentError("duplicate interaction $key"))
         add_edge!(g, edge.source, edge.target)
         interactions[key] = edge
+    end
+    # A reaction with unknown kinetics is what discovery has to express, so
+    # each of its regulators is a graph parent of every species it changes,
+    # whether or not an EdgeSpec declares the interaction (a regulator that is
+    # the species itself gives a self-loop, as an explicit self-edge would).
+    # Regulators of known reactions enter the model through the compiled
+    # kinetics and add no edge.
+    for reaction in reactions
+        reaction.known && continue
+        for species in keys(reaction.stoichiometry), regulator in reaction.regulators
+            (1 ≤ species ≤ length(nodes) && 1 ≤ regulator ≤ length(nodes)) || continue
+            add_edge!(g, regulator, species)
+        end
     end
     names = Dict(i => String(node.name) for (i, node) in pairs(nodes))
     kinds = Dict(key => edge.kind for (key, edge) in interactions)

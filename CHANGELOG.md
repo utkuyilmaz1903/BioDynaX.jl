@@ -7,7 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- A sample coordinate design for the four-state fixture of the library
+  comparison study: `design = :varying` spreads the target state S over
+  the range observed in the training experiments (as the two-state fixture
+  already did), `design = :constant` keeps it at 0.4 as the library check
+  does. `designed_trained_graph_local_coordinates`,
+  `evaluate_trained_graph_local`, `library_comparison_run`, and
+  `library_comparison_study` take the keyword; study rows and CSV files
+  gain a `design` column (files written by 0.11 still read); the study
+  script takes `--design`.
+- Benchmarks page: the S-varying run of the four-state study on the same
+  15 trained models, which settles the cause of the recall 0.5 of the
+  library-check configuration (the constant S column of the sample
+  design, not the presence of the target state in the library).
+- A test that a network declaring its unknown term as a reaction alone has
+  the same graph parents as one that also declares the edge.
+
+### Changed
+
+- The library comparison study's default design for the four-state fixture
+  is `:varying`. With it the library-check configuration (`study` variant)
+  recovers the true support in 15 of 15 runs with the graph-local library
+  (0 of 15 with S constant); the headline reference-configuration rows are
+  identical under both designs. `design = :constant` reproduces the 0.11
+  rows; `evaluate_trained_graph_local` keeps its constant design and its
+  recorded outputs. `local_basis` is unchanged.
+- The interaction graph of a `BiologicalNetwork` holds, in addition to the
+  declared edges, an edge from each regulator of every reaction with
+  `known = false` to the species that reaction changes. A network that
+  declares its unknown term as a reaction only (the tutorial's
+  `build_hill_recovery_network(known = false)`) therefore gets a graph-local
+  library that contains its regulators instead of the target state alone.
+  Networks that declare their edges explicitly, including every benchmark
+  fixture, are unchanged (graph parents, discovered supports, and study
+  rows verified identical). Regulators of known reactions add no edges.
+
+### Fixed
+
+- The warm-up training of `discover_unknown_term` now uses the learning
+  rate, gradient clip, constraint, solver, and frozen parameters of the
+  `training` config (it used only its Adam iterations and log interval);
+  the defaults are unchanged.
 
 ## [0.11.0] - 2026-09-06
 

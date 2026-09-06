@@ -132,10 +132,20 @@ Both are configured through `DiscoveryConfig` (threshold, maximum degree,
 bootstrap resamples, validation fraction, domain samples, chunk size).
 
 The library is graph-local: `local_basis(network, target; scope = :graph)`
-builds monomials only from the target's parents in the interaction graph.
+builds monomials from the target state and its parents in the interaction
+graph. The graph holds the declared edges and, since 0.12, an edge from
+each regulator of every reaction with `known = false` to the species that
+reaction changes, so a network that declares its unknown term as a
+reaction alone (the tutorial's network does) gets the same graph-local
+library as one that also declares the edge; in 0.11 and earlier its library
+held the target state alone. Regulators of known reactions add no edges.
 `scope = :global` uses every dynamic node and is the comparison used in the
 benchmarks. For a bounded in-degree `k`, the library size grows with the sum
-of `k_i^d` over targets rather than with `n^d`.
+of `k_i^d` over targets rather than with `n^d`. The target state is always
+part of its own library; the library comparison study on the
+[Benchmarks](benchmarks.md#Why-the-four-state-recall-is-0.5) page shows
+that this costs nothing as long as the samples vary in the target state,
+and that a sample design on which the target is constant does.
 
 ```@example concepts
 net = BiologicalNetwork(

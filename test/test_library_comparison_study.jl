@@ -125,12 +125,23 @@ end
         @test all(row.nn_rate_rmse == rows[1].nn_rate_rmse for row in rows)
         @test 0 < rows[1].train_time_s <= rows[1].run_time_s
 
-        evidence = evaluate_trained_graph_local(kind = :smoke)
+        # The rows of a design reproduce the library check run with that design:
+        # the default (S varying since 0.12) and the check's own constant design.
+        evidence = evaluate_trained_graph_local(kind = :smoke,
+            design = _LCS.LIBRARY_STUDY_DEFAULT_DESIGN)
         names = [node.name for node in evidence.model.network.nodes]
         @test names == [:S, :R, :Q, :Z]
-        for (row, discovery) in zip(rows,
-            (evidence.graph_discovery,
-                evidence.global_discovery, evidence.wrong_graph_discovery))
+        constant_rows = _LCS.library_comparison_smoke(design = :constant)
+        constant_evidence = evaluate_trained_graph_local(kind = :smoke)
+        @test constant_evidence.X ==
+              evaluate_trained_graph_local(kind = :smoke,
+            design = :constant).X
+        for (row, discovery) in zip(
+            vcat(rows, constant_rows),
+            (evidence.graph_discovery, evidence.global_discovery,
+                evidence.wrong_graph_discovery, constant_evidence.graph_discovery,
+                constant_evidence.global_discovery,
+                constant_evidence.wrong_graph_discovery))
             scores = _LCS.library_study_scores(discovery, _LCS_TRUTH; names)
             @test row.success == scores.success
             @test row.support_recall == scores.support_recall
@@ -285,11 +296,13 @@ end
             _LCS.LIBRARY_STUDY_TWO_STATE_PARAMS;
             tspan = _LCS.UNIQUE_CLAIM_PROTOCOL.tspan, n_points = 8, noise_σ = 0.0)
         @test length(set.experiments) == 9
-        # The reference network declares the unknown term as a reaction only, so
-        # its graph prior is empty; the fixture's discovery networks add the edge.
+        # The reference network declares the unknown term as a reaction only;
+        # since 0.12 the graph derives the R -> S edge from that reaction, so its
+        # graph prior equals the fixture's discovery network, which declares the
+        # edge explicitly (the fixture keeps doing so; its rows did not change).
         plain = _LCS.build_hill_recovery_network(; known = false)
         @test _LCS.local_basis(plain, 1; degree = 2, include_interactions = false,
-            scope = :graph).variables == [1]
+            scope = :graph).variables == [1, 2]
         graph_net = _LCS._library_study_two_state_graph_network(; parent = 2)
         @test _LCS.local_basis(graph_net, 1; degree = 2, include_interactions = false,
             scope = :graph).variables == [1, 2]
@@ -302,5 +315,52 @@ end
         both = vcat(_LCS.library_comparison_smoke(), rows)
         table = _LCS.format_library_study_summary(_LCS.library_study_summary(both))
         @test occursin("| fixture |", table)
+    end
+
+    @testset "two-state settings for the extra-term study (smoke)" begin
+        seed = _LCS.M4B_SMOKE.seed
+        seen = NamedTuple[]
+        plain = _LCS.library_comparison_run(; seed, noise_σ = 0.0, kind = :smoke,
+            fixture = :two_state, variants = (:reference,),
+            libraries = (:graph_local,), on_discovery = d -> push!(seen, d))
+        @test length(seen) == 1
+        @test seen[1].variant === :reference && seen[1].library === :graph_local
+        @test seen[1].discovery isa _LCS.DiscoveryResult
+        @test seen[1].seed == seed && seen[1].fixture === :two_state
+        # Fixed production: k_prod stays at its true value through training.
+        trained = _LCS._library_study_train_two_state(seed, 0.0, :smoke,
+            _LCS.fit_unknown_destruction; fixed_production = true)
+        @test trained.production_scale ≈ _LCS.LIBRARY_STUDY_TWO_STATE_PARAMS.k_prod
+        free = _LCS._library_study_train_two_state(seed, 0.0, :smoke,
+            _LCS.fit_unknown_destruction)
+        @test isfinite(free.production_scale) && free.production_scale > 0
+        @test size(free.X, 2) == _LCS.LIBRARY_STUDY_TWO_STATE_BUDGET.smoke.n_sample_points
+        dense = _LCS._library_study_train_two_state(seed, 0.0, :smoke,
+            _LCS.fit_unknown_destruction; n_sample_points = 2 * size(free.X, 2))
+        @test size(dense.X, 2) == 2 * size(free.X, 2)
+        @test size(dense.D, 2) == size(dense.X, 2)
+        @test_throws ArgumentError _LCS._library_study_train_two_state(seed, 0.0,
+            :smoke, _LCS.fit_unknown_destruction; n_sample_points = 1)
+        # Normalised rate: the discovered rate is scaled back for the residuals,
+        # so a candidate with the same support gives the same residual.
+        normalised = _LCS.library_comparison_run(; seed, noise_σ = 0.0, kind = :smoke,
+            fixture = :two_state, variants = (:reference,),
+            libraries = (:graph_local,), normalise_rate = true)
+        @test length(normalised) == 1
+        @test normalised[1].nn_rate_rmse == plain[1].nn_rate_rmse
+        if normalised[1].extras == plain[1].extras && normalised[1].success
+            @test isapprox(normalised[1].data_residual, plain[1].data_residual;
+                rtol = 1e-6)
+        end
+        fixed = _LCS.library_comparison_run(; seed, noise_σ = 0.0, kind = :smoke,
+            fixture = :two_state, variants = (:reference,),
+            libraries = (:graph_local,), fixed_production = true)
+        @test length(fixed) == 1
+        @test fixed[1].nn_rate_rmse != plain[1].nn_rate_rmse
+        for bad in ((; fixed_production = true), (; normalise_rate = true),
+            (; n_sample_points = 40))
+            @test_throws ArgumentError _LCS.library_comparison_run(; seed,
+                noise_σ = 0.0, kind = :smoke, fixture = :four_state, bad...)
+        end
     end
 end
