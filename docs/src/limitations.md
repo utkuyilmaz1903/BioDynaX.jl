@@ -18,12 +18,14 @@ destruction term. This page collects every caveat in one place.
 - **Validation on synthetic data; two measured datasets.** The benchmarks and
   the tests use data generated from the compiled ground-truth mechanism; the
   CSV in `examples/data/` is synthetic, and the repressilator fixture with
-  published dimensionless parameters is an ODE, not a measured series. Two
-  case studies on measured data exist: the laccase/ABTS progress curves of
-  the [enzyme case study](case-study-laccase.md), nine substrate-depletion
-  curves with one observed state, and the single-cell p53 traces of the
-  [p53–Mdm2 case study](case-study-p53.md), 40 MCF7 cells with p53 observed
-  and Mdm2 an unobserved state. Both are downloaded by scripts with
+  published dimensionless parameters is an ODE, not a measured series. The
+  primary real-data example is the [laccase/ABTS case study](case-study-laccase.md):
+  on nine published substrate-depletion curves, the two-state
+  product-inhibition model yields an accepted rational rate, a saturating
+  function of the substrate (the one-state model does not). The
+  [p53–Mdm2 case study](case-study-p53.md) is a partially observed
+  illustration: 40 MCF7 cells with p53 measured and Mdm2 an unobserved
+  state, and no accepted rate. Both are downloaded by scripts with
   checksums (the data do not ship with the package) and run outside the
   tests and CI. They exercise the workflow on real measurements; neither
   has both states of a regulated destruction term measured.

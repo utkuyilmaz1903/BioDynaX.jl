@@ -149,7 +149,11 @@ initial p53 level to about 40 model units) instead of pulsing; with an
 Mdm2 that never comes down there is no negative feedback loop left to
 oscillate, and the trained model is a first pulse followed by a plateau. The
 data do oscillate (every selected cell has at least three peaks); the model
-class found a non-oscillating fit to their mean level.
+class found a non-oscillating fit to their mean level. A two-state
+negative-feedback loop without a delay or an intermediate species cannot
+sustain oscillations (the 2006 study's own model includes one), so the
+plateau is a limitation of the assumed known structure and of the
+unobserved regulator, not evidence about the discovery step.
 
 **Identifiability.** The diagnostic flags the edge: correlation 1.000 between
 `k_prod` and the other parameters in the Fisher information, collinearity
