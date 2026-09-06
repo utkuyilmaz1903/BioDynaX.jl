@@ -28,11 +28,19 @@
 #                         reference) from the same trainings; rows go to
 #                         benchmark/results/library_comparison_variants.csv
 #                         (two_state: library_comparison_two_state_variants.csv)
-#   --design varying      sample coordinate design of the four-state fixture:
-#                         varying (S spread over its observed range) or
-#                         constant (S fixed at 0.4, the library check's design);
-#                         default: the study's default design. When given, the
+#   --design constant     sample coordinate design of the four-state fixture:
+#                         varying (S spread over its observed range, the default
+#                         since 0.12) or constant (S fixed at 0.4, the library
+#                         check's design and the 0.11 default). When given, the
 #                         CSV name gains the suffix _<design>
+#   --fixed-production    two_state only: train with k_prod frozen at its true
+#                         value (suffix _fixed_production)
+#   --normalise-rate      two_state only: divide the learned rate samples by the
+#                         fitted k_prod before discovery (suffix _normalised)
+#   --sample-points N     two_state only: N points on the regulator grid instead
+#                         of 80 (suffix _pointsN)
+#   With --pruning, the stability-selection frequencies of every discovery are
+#   appended to <csv name>_frequencies.txt.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -60,13 +68,21 @@ const VARIANTS = _option(ARGS_, "--variants", "study") == "all" ?
                  Tuple(Symbol.(split(_option(ARGS_, "--variants", "study"), ",")))
 const DESIGN_OPTION = _option(ARGS_, "--design", nothing)
 const DESIGN = DESIGN_OPTION === nothing ? nothing : Symbol(DESIGN_OPTION)
+const FIXED_PRODUCTION = "--fixed-production" in ARGS_
+const NORMALISE_RATE = "--normalise-rate" in ARGS_
+const POINTS_OPTION = _option(ARGS_, "--sample-points", nothing)
+const SAMPLE_POINTS = POINTS_OPTION === nothing ? nothing : parse(Int, POINTS_OPTION)
 const OUT = _option(ARGS_, "--out",
     joinpath(@__DIR__, "results",
         string("library_comparison",
             FIXTURE === :four_state ? "" : "_" * string(FIXTURE),
             length(VARIANTS) > 1 ? "_variants" : "",
             DESIGN === nothing ? "" : "_" * string(DESIGN),
+            FIXED_PRODUCTION ? "_fixed_production" : "",
+            NORMALISE_RATE ? "_normalised" : "",
+            SAMPLE_POINTS === nothing ? "" : "_points" * string(SAMPLE_POINTS),
             PRUNING ? "_pruned" : "", ".csv")))
+const FREQUENCIES = replace(OUT, r"\.csv$" => "") * "_frequencies.txt"
 const LIBRARIES = PRUNING ? (:graph_local,) : BioDynaX.LIBRARY_STUDY_LIBRARIES
 const SELECTION = PRUNING ? StabilitySelection() : nothing
 const SEEDS = TIMED ? (first(BioDynaX.LIBRARY_STUDY_SEEDS),) :
@@ -91,12 +107,17 @@ function main()
     println("Julia ", VERSION, "; ", dependency_versions())
     println("fixture: ", FIXTURE, "; variants: ", join(VARIANTS, ", "), "; design: ",
         DESIGN === nothing ? BioDynaX.library_study_default_design(FIXTURE) : DESIGN)
+    (FIXED_PRODUCTION || NORMALISE_RATE || SAMPLE_POINTS !== nothing) &&
+        println("two-state settings: fixed production ", FIXED_PRODUCTION,
+            ", normalised rate ", NORMALISE_RATE, ", sample points ",
+            SAMPLE_POINTS === nothing ? 80 : SAMPLE_POINTS)
     println("seeds: ", join(SEEDS, ", "), "; noise: ", join(NOISE, ", "),
         "; libraries: ", join(LIBRARIES, ", "),
         "; stability selection: ", SELECTION === nothing ? "off" :
                                    string("n_boot ", SELECTION.n_boot, ", τ ", SELECTION.τ))
     if FRESH && isfile(OUT)
         rm(OUT)
+        rm(FREQUENCIES; force = true)
     end
     existing = TIMED ? NamedTuple[] : BioDynaX.read_library_study_csv(OUT)
     done = BioDynaX.library_study_keys(existing)
@@ -106,6 +127,13 @@ function main()
         seeds = SEEDS, noise_levels = NOISE, libraries = LIBRARIES,
         fixture = FIXTURE, variants = VARIANTS, design = DESIGN,
         stability_selection = SELECTION,
+        fixed_production = FIXED_PRODUCTION, normalise_rate = NORMALISE_RATE,
+        n_sample_points = SAMPLE_POINTS,
+        on_discovery = PRUNING && !TIMED ? (d -> open(FREQUENCIES, "a") do io
+            println(io, "seed ", d.seed, " noise ", d.noise, " ", d.variant, " ",
+                d.library)
+            print(io, format_stability_selection(d.discovery))
+        end) : nothing,
         skip = (seed, noise, library, variant) -> (seed, noise, library, variant) in done,
         on_row = row -> begin
             TIMED || BioDynaX.append_library_study_row(OUT, row)

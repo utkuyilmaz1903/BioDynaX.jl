@@ -239,25 +239,29 @@ function two_regulator_library_row()
     spec, vars = graph_library_variables(net, 1)
     parents = graph_parent_set(net, 1)
     unknown = only(r for r in net.reactions if !r.known)
+    # The unknown reaction D(S, I) is declared without edges; both of its
+    # regulators (S itself and I) are graph parents of S since 0.12.
     return (;
         vars = sort(collect(vars)),
         parents = sort(collect(parents)),
         n_regs = length(unknown.regulators),
         n_graph_parents = length(parents),
-        holds = length(unknown.regulators) == 2 && isempty(parents) &&
+        holds = length(unknown.regulators) == 2 &&
+                sort(collect(parents)) == sort(unknown.regulators) &&
                 validate_network(net) === net)
 end
 
 function hill_unknown_library_row()
     net = build_hill_recovery_network(; known = false, hill_order = 2)
     packed = graph_local_library_row(:hill, net, 1; true_parent = 2)
+    # Declared as a reaction only; the graph derives the R -> S edge (0.12).
     return (;
         packed,
         holes = count_unknown_destructions(net),
-        empty_graph = isempty(candidate_parents(net, 1)),
+        graph_parents = candidate_parents(net, 1),
         holds = packed.holds && count_unknown_destructions(net) == 1 &&
-                isempty(candidate_parents(net, 1)) &&
-                packed.typed.true_in_graph == false)
+                candidate_parents(net, 1) == [2] &&
+                packed.typed.true_in_graph == true)
 end
 
 function mm_unknown_library_row()
@@ -266,7 +270,10 @@ function mm_unknown_library_row()
     return (;
         packed,
         holes = count_unknown_destructions(net),
-        holds = packed.holds && count_unknown_destructions(net) == 1)
+        graph_parents = candidate_parents(net, 1),
+        holds = packed.holds && count_unknown_destructions(net) == 1 &&
+                candidate_parents(net, 1) == [2] &&
+                packed.typed.true_in_graph == true)
 end
 
 function default_example_library_row()
@@ -760,7 +767,7 @@ function graph_local_library_typed_matrix()
         hill = graph_local_library_row_namedtuple(hill.packed.typed),
         wrong = graph_local_library_row_namedtuple(wrong.packed.typed),
         holds = hill.holds && wrong.holds &&
-                hill.packed.typed.true_in_graph == false &&
+                hill.packed.typed.true_in_graph == true &&
                 wrong.packed.typed.true_in_graph == false)
 end
 
@@ -796,7 +803,7 @@ function format_graph_local_library_index()
     println(io, "| skipped_duplicate | dense two-head graph libraries |")
     println(io, "| repressilator | known three-state graph libraries |")
     println(io, "| mm_known | known MM graph library |")
-    println(io, "| hill_known | known Hill graph contains R |")
+    println(io, "| hill_known | known Hill kinetics add no graph edge |")
     println(io, "| default_scope | local_basis default scope is :graph |")
     println(io, "| invalid_scope | unknown scope throws ArgumentError |")
     println(io, "| oor_target | target out of range throws |")

@@ -13,10 +13,11 @@
 # Fixtures:
 #   :four_state  the trained-model library check (`evaluate_trained_graph_local`):
 #                states S, R, Q, Z; three initial conditions; designed sample
-#                coordinates. With `design = :constant` (the check's own
-#                design, S fixed at 0.4) the discovery variant :study is that
-#                check's configuration, unchanged; `design = :varying` spreads
-#                S over its observed range on the same samples of R, Q, Z.
+#                coordinates. With `design = :varying` (the default since 0.12)
+#                S is spread over its observed range on the same samples of R,
+#                Q, Z; with `design = :constant` (the check's own design, S
+#                fixed at 0.4, the 0.11 default) the discovery variant :study
+#                is that check's configuration, unchanged.
 #   :two_state   the reference-protocol network (`build_hill_recovery_network`):
 #                nine initial conditions split 7/2; samples on the regulator
 #                grid of the training experiments. That network declares its
@@ -102,8 +103,15 @@ The two-state fixture always varies S.
 """
 const LIBRARY_STUDY_DESIGNS = (:constant, :varying)
 
-"""Default sample coordinate design of the four-state fixture."""
-const LIBRARY_STUDY_DEFAULT_DESIGN = :constant
+"""
+Default sample coordinate design of the four-state fixture: `:varying` since
+0.12. With `:constant` (the 0.11 default and the library check's own design)
+the target state S is fixed at 0.4 on every sample, so its column is a
+multiple of the constant term and the `:study` variant recovers the true
+support with recall 0.5; with `:varying` it recovers it in 15 of 15 runs.
+Pass `design = :constant` to reproduce the 0.11 rows.
+"""
+const LIBRARY_STUDY_DEFAULT_DESIGN = :varying
 
 """Default design of a fixture: `LIBRARY_STUDY_DEFAULT_DESIGN` for the four-state fixture, `:varying` for the two-state fixture."""
 function library_study_default_design(fixture::Symbol)
@@ -274,14 +282,16 @@ and the wall times. The `:study` variant of the four-state fixture is the
 `TrainedGraphLocalEvidence` itself, so its rows reproduce the library check.
 """
 function _library_study_train(fixture::Symbol, seed, noise_σ, kind, training_call,
-        holdout_ics, stability_selection, design)
+        holdout_ics, stability_selection, design; fixed_production = false,
+        n_sample_points = nothing)
     if fixture === :four_state
         return _library_study_train_four_state(
             seed, noise_σ, kind, training_call, holdout_ics, stability_selection, design)
     elseif fixture === :two_state
         design === :varying || throw(ArgumentError(
             "the two-state fixture always varies S; design must be :varying"))
-        return _library_study_train_two_state(seed, noise_σ, kind, training_call)
+        return _library_study_train_two_state(seed, noise_σ, kind, training_call;
+            fixed_production, n_sample_points)
     end
     throw(ArgumentError(
         "fixture must be one of $(LIBRARY_STUDY_FIXTURES); got $(fixture)"))
@@ -325,6 +335,8 @@ function _library_study_train_four_state(seed, noise_σ, kind, training_call,
             :graph_local => evidence.graph_discovery,
             :global => evidence.global_discovery,
             :wrong_graph => evidence.wrong_graph_discovery),
+        production_scale = _library_study_phys_value(
+            evidence.model, evidence.training.params, :k_prod),
         train_time = train_time[], run_time)
 end
 
@@ -347,8 +359,10 @@ end
 """
 Two-state network with the unknown Hill edge `parent -> S` declared as an
 edge, for library construction. `build_hill_recovery_network` declares the
-unknown term as a reaction only, and `local_basis` reads parents from the
-interaction graph, which is built from edges.
+unknown term as a reaction only; since 0.12 the interaction graph derives
+the same edge from that reaction, so both networks have the same graph
+parents. The fixture keeps the explicit edge so that its rows do not depend
+on that derivation.
 """
 function _library_study_two_state_graph_network(; parent::Int = 2)
     base = build_hill_recovery_network(; known = false, hill_order = 2, parent = parent)
@@ -357,10 +371,35 @@ function _library_study_two_state_graph_network(; parent::Int = 2)
     return BiologicalNetwork(base.nodes, edges; reactions = base.reactions)
 end
 
-function _library_study_train_two_state(seed, noise_σ, kind, training_call)
+"""
+Physical value of the parameter `name` in `params` (the stored value passed
+through the positivity transform), or `NaN` when absent.
+"""
+function _library_study_phys_value(model::UDEModel, params, name::Symbol)
+    names = parameter_schema(model).phys_names
+    index = findfirst(==(name), names)
+    index === nothing && return NaN
+    return Float64(positive_parameter(collect(params.phys)[index]))
+end
+
+"""
+Initial physical parameters of the two-state fixture with the production
+rate at its true value and every other parameter at the reference guess 0.8.
+"""
+function _library_study_fixed_production_init(model::UDEModel)
+    names = Tuple(parameter_schema(model).phys_names)
+    return NamedTuple{names}(ntuple(
+        i -> names[i] === :k_prod ? Float64(LIBRARY_STUDY_TWO_STATE_PARAMS.k_prod) : 0.8,
+        length(names)))
+end
+
+function _library_study_train_two_state(seed, noise_σ, kind, training_call;
+        fixed_production::Bool = false, n_sample_points = nothing)
     budget = kind === :smoke ? LIBRARY_STUDY_TWO_STATE_BUDGET.smoke :
              kind === :protocol ? LIBRARY_STUDY_TWO_STATE_BUDGET.protocol :
              throw(ArgumentError("kind must be :smoke or :protocol; got $(kind)"))
+    n_points = n_sample_points === nothing ? budget.n_sample_points : Int(n_sample_points)
+    n_points ≥ 2 || throw(ArgumentError("n_sample_points must be at least 2"))
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     graph_net = _library_study_two_state_graph_network(; parent = 2)
@@ -373,14 +412,21 @@ function _library_study_train_two_state(seed, noise_σ, kind, training_call)
     split = unique_claim_experiment_split(set)
     model, p0 = build_ude_model(MersenneTwister(seed), ude_net)
     train_started = time()
-    training = training_call(model, p0, split.train;
-        adam = budget.adam_iterations, bfgs = budget.bfgs_iterations)
+    training = if fixed_production
+        training_call(model, p0, split.train;
+            adam = budget.adam_iterations, bfgs = budget.bfgs_iterations,
+            frozen_phys = [:k_prod],
+            phys_init = _library_study_fixed_production_init(model))
+    else
+        training_call(model, p0, split.train;
+            adam = budget.adam_iterations, bfgs = budget.bfgs_iterations)
+    end
     training isa TrainingResult || throw(ArgumentError(
         "training_call must return a TrainingResult"))
     train_time = time() - train_started
     term = only_unknown_destruction(model)
     X = _library_study_two_state_coordinates(
-        split.train, term, budget.n_sample_points, budget.x_seed)
+        split.train, term, n_points, budget.x_seed)
     (_, D, _) = sample_unknown_destruction(model, training.params, X)
     D = Matrix{Float64}(D)
     times = dummy_trained_graph_local_times(size(X, 2))
@@ -395,6 +441,7 @@ function _library_study_train_two_state(seed, noise_σ, kind, training_call)
         names = [node.name for node in model.network.nodes],
         budget = (; bootstrap = 0, discovery_seed = M4B_PROTOCOL.discovery_seed),
         study_discoveries = nothing,
+        production_scale = _library_study_phys_value(model, training.params, :k_prod),
         train_time, run_time = time() - started)
 end
 
@@ -406,7 +453,9 @@ end
                            holdout_ics=LIBRARY_STUDY_HOLDOUT_ICS,
                            training_call=fit_unknown_destruction,
                            stability_selection=nothing, design=nothing,
-                           on_row=nothing)
+                           fixed_production=false, normalise_rate=false,
+                           n_sample_points=nothing, on_row=nothing,
+                           on_discovery=nothing)
 
 One study run: one training of `fixture` at `seed` and `noise_σ`, then one
 row per requested variant and library with the columns in
@@ -420,6 +469,17 @@ four-state fixture `:constant` keeps S at 0.4 on every sample and
 fixture's default (`LIBRARY_STUDY_DEFAULT_DESIGN` for the four-state
 fixture). The two-state fixture always varies S and accepts only
 `:varying`. The design is recorded in the `design` column.
+
+Three settings of the two-state fixture, all off by default, exist to test
+where the reference protocol's extra terms `1` and `R` come from:
+`fixed_production = true` trains with the production rate `k_prod` frozen
+at its true value (`training_call` receives `frozen_phys` and `phys_init`);
+`normalise_rate = true` divides the learned rate samples by the fitted
+production rate before discovery (the residuals scale the discovered rate
+back); `n_sample_points` replaces the 80 points of the regulator grid. They
+are refused for the four-state fixture. `on_discovery` is called with
+`(; seed, noise, fixture, variant, library, discovery)` for every
+discovery, for example to record stability-selection frequencies.
 
 `data_residual` is the hybrid residual on the first training experiment,
 `holdout_residual` the mean hybrid residual on the held-out experiments (two
@@ -444,10 +504,19 @@ function library_comparison_run(;
         training_call = fit_unknown_destruction,
         stability_selection::Union{Nothing, StabilitySelection} = nothing,
         design::Union{Nothing, Symbol} = nothing,
-        on_row = nothing)
+        fixed_production::Bool = false,
+        normalise_rate::Bool = false,
+        n_sample_points::Union{Nothing, Integer} = nothing,
+        on_row = nothing,
+        on_discovery = nothing)
     design = design === nothing ? library_study_default_design(fixture) : design
     design in LIBRARY_STUDY_DESIGNS || throw(ArgumentError(
         "design must be one of $(LIBRARY_STUDY_DESIGNS); got $(design)"))
+    if fixture !== :two_state && (fixed_production || normalise_rate ||
+        n_sample_points !== nothing)
+        throw(ArgumentError(
+            "fixed_production, normalise_rate, and n_sample_points apply to the two-state fixture only"))
+    end
     for library in libraries
         library in LIBRARY_STUDY_LIBRARIES || throw(ArgumentError(
             "library must be one of $(LIBRARY_STUDY_LIBRARIES); got $(library)"))
@@ -458,11 +527,19 @@ function library_comparison_run(;
     end
     trained = _library_study_train(
         fixture, seed, noise_σ, kind, training_call, holdout_ics, stability_selection,
-        design)
+        design; fixed_production, n_sample_points)
     r = vec(trained.X[trained.truth.variable, :])
     nn_rate_rmse = rate_rel_rmse(vec(trained.D),
         hill_rate_truth(r; vmax = trained.truth.vmax, K = trained.truth.K,
             n = trained.truth.n))
+    rate_scale = 1.0
+    D_used = trained.D
+    if normalise_rate
+        isfinite(trained.production_scale) && trained.production_scale > 0 ||
+            throw(ArgumentError("normalise_rate needs a positive fitted k_prod"))
+        rate_scale = trained.production_scale
+        D_used = trained.D ./ rate_scale
+    end
     rows = NamedTuple[]
     for variant in variants, library in libraries
         if variant === :study && trained.study_discoveries !== nothing
@@ -470,17 +547,21 @@ function library_comparison_run(;
             discovery_rows = trained.all_rows
         else
             discovery, discovery_rows = _library_study_discover(
-                variant, library, trained.X, trained.D, trained.times,
+                variant, library, trained.X, D_used, trained.times,
                 trained.networks, trained.parent_rows, trained.all_rows,
                 trained.budget; stability_selection)
         end
+        on_discovery === nothing || on_discovery((; seed = Int(seed),
+            noise = Float64(noise_σ), fixture, variant, library, discovery))
         truth = _library_study_truth(trained.truth, discovery_rows)
         scores = library_study_scores(discovery, truth;
             names = trained.names[discovery_rows])
         data_residual = NaN
         holdout_residual = NaN
         if scores.candidate !== nothing
-            rate_fn = equation_to_function(scores.candidate)
+            discovered_fn = equation_to_function(scores.candidate)
+            rate_fn = rate_scale == 1.0 ? discovered_fn :
+                      (u -> rate_scale * discovered_fn(u))
             data_residual = _library_study_residual(
                 trained.model, trained.params, trained.term, rate_fn, discovery_rows,
                 trained.train_set.experiments[1])

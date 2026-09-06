@@ -151,9 +151,12 @@ the trained-model library comparison. The states are S, R, Q, and a
 distractor Z; the unknown term is the Hill degradation of S with regulator
 R, `D(R) = 1.7 R^2 / (0.36 + R^2)`. For each seed and noise level one model
 is trained on three initial conditions with 40 points each (Adam 100, then
-BFGS 50), its learned rate is sampled once on 80 designed coordinates, and
-discovery runs three times on those samples with the reference protocol's
-configuration (`discover_unknown_rate` with `rate_discovery_config()`:
+BFGS 50), its learned rate is sampled once on 80 designed coordinates (R on
+a grid from 0.1 to 2.0, Q and Z noisy functions of R, and S spread over the
+range observed in the training experiments in a fixed shuffled order; in
+0.11 S was fixed at 0.4, which is still available as `design = :constant`),
+and discovery runs three times on those samples with the reference
+protocol's configuration (`discover_unknown_rate` with `rate_discovery_config()`:
 bootstrap 8, consensus refit, samples permuted before the validation
 split): with the graph-local library, monomials up to degree 2 of the
 parent of S in the graph (R); with the global library, monomials of every
@@ -168,11 +171,14 @@ The default study is seeds 103, 107, 111, 113, and 127, observation noise
 0, 0.02, and 0.05 (standard deviation of additive Gaussian noise on the
 observations), and the three libraries: 15 trainings and 45 rows per
 discovery configuration. `benchmark/library_comparison_study.jl --variants
-all` trained the 15 models in 33 minutes on 4 cores (median training 119 s,
-with three other studies running on the same machine) and scored four
-discovery configurations on each; the table below is the reference
-configuration (the `reference` variant), and
-`benchmark/plot_library_comparison.jl` drew the figure from the same rows.
+all` trained the 15 models in 32 minutes on 4 cores (median training 97 s,
+with the test suite running on the same machine) and scored four discovery
+configurations on each; the table below is the reference configuration
+(the `reference` variant), and `benchmark/plot_library_comparison.jl` drew
+the figure from the same rows. The reference-configuration rows of this
+run are identical, row for row, to the 0.11 run with S fixed at 0.4: the
+libraries of that configuration contain the parent states only, so the S
+coordinate does not enter them.
 
 ![Support F1 against observation noise, one line per library, median over five seeds with the interquartile band; left the four-state network, right the two-state network](assets/library_comparison.png)
 
@@ -205,7 +211,7 @@ runs; the global extra terms are the constant, Q, Q^2, Z, and Z^2.
 
 Environment of the run: Julia 1.10.12, OrdinaryDiffEq 7.8.1,
 SciMLSensitivity 7.119.2, Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13
-(SciMLBase 3.50.2), 2026-09-05. No Manifest is committed, so a rerun with
+(SciMLBase 3.50.2), 2026-09-06. No Manifest is committed, so a rerun with
 other dependency versions can give other values.
 
 What the numbers show. With the reference configuration all three
@@ -226,7 +232,7 @@ admits; it does not show recovery of the exact Hill form, since two
 nuisance terms remain, and it is five seeds on one network. The next
 subsection runs the same study on the two-state reference network; the
 one after it shows the original library-check configuration, whose
-recall is 0.5, and why.
+recall was 0.5 in 0.11, and what caused it.
 
 ### Two-state network
 
@@ -245,8 +251,11 @@ and its parent R) and the global library (S and the only other state, R)
 are the same library, so their rows coincide; the wrong graph makes S its
 own parent and its library is S alone. `benchmark/library_comparison_study.jl
 --fixture two_state --variants all` ran the 15 trainings in 39 minutes
-(median training 128 s, four studies sharing 4 cores). Median over the
-five seeds:
+(median training 128 s, four studies sharing 4 cores) for 0.11, and again
+for 0.12 after the interaction-graph change described on the
+[Concepts](concepts.md#Symbolic-discovery) page (32 minutes, median
+training 120 s, the test suite running alongside): the 180 rows of the
+two runs are identical column for column. Median over the five seeds:
 
 | library | noise | support F1 | support recall | extra terms | held-out residual | neural-rate error |
 |---|---|---|---|---|---|---|
@@ -272,8 +281,10 @@ more than a hundred times larger; one of its 15 discoveries failed
 The trained-model library check (`evaluate_trained_graph_local`, the
 `study` variant) uses its own discovery configuration: libraries built by
 `local_basis` (graph-local: S and R; global: all four states; wrong graph:
-S and Q), no bootstrap, and the samples in their generated order. On the
-same 15 trained models it gives, median over the five seeds:
+S and Q), no bootstrap, and the samples in their generated order. In 0.11
+the study also used the check's own sample coordinates, on which S is
+fixed at 0.4 (`design = :constant`). On the same 15 trained models that
+configuration gives, median over the five seeds:
 
 | library | noise | support F1 | support recall | extra terms | held-out residual |
 |---|---|---|---|---|---|
@@ -295,21 +306,22 @@ in the numerator with `R` in all 15 runs and `1` in 7 of them, for example
 `2.05 R - 0.62 R^2` at seed 103 without noise) and no denominator term is
 selected. This configuration and the reference protocol use the same
 discovery thresholds and degrees but differ in the library (`local_basis`
-always includes the target state S, and on the designed sample
+always includes the target state S, and on the check's sample
 coordinates S is fixed at 0.4, so its column is a multiple of the constant
 term), in the bootstrap (none here; the reference protocol uses a block
 bootstrap of 8 with a consensus refit and nested pruning), and in the
 sample order (the reference protocol permutes the samples before the
 validation split). The denominator candidates are the
 same in both: every non-constant monomial, including `R^2`. To find which
-difference matters, the study ran discovery on the same learned-rate
+difference matters, the 0.11 study ran discovery on the same learned-rate
 samples of the same 15 trained models in four variants: `study` (the
 table above), `bootstrap` (the study's libraries with the reference
 bootstrap), `parents` (libraries over the parent states only, no
 bootstrap), and `reference` (parent-only libraries with the reference
 bootstrap, seed, and permutation; for the graph-local library this is
 exactly `discover_unknown_rate` with `rate_discovery_config()`; this is the
-headline table of this section). Pooled over the 15 runs of each library:
+headline table of this section). Pooled over the 15 runs of each library,
+S fixed at 0.4:
 
 | variant | library | runs with recall 1.0 | support F1 | extra terms | held-out residual | extra-term labels (runs) |
 |---|---|---|---|---|---|---|
@@ -333,25 +345,58 @@ of this run are identical, row for row, to an earlier run of
 (28 minutes on 4 cores, median training 107 s), so retraining is
 reproducible on this machine.
 
-What the numbers show. The bootstrap removes the extra constant term but
-leaves recall at 0.5 in every run. Leaving the target state S out of the
-library restores recall 1.0 in all 15 runs, with the reference protocol's
-two extra terms, whether or not the bootstrap and the permutation are
-added. The recall gap between the four-state study and the reference
-protocol is therefore a library-construction difference: on the designed
-sample coordinates S is constant, and with that column in the library the
-implicit fit settles on a polynomial in R and never selects a denominator
-term. The two-state table above, where S varies across the samples and the
-library still contains S, reaches recall 1.0 as well, which points at the
-constant column rather than at the presence of the target state; a
-four-state run with S varying on the designed coordinates was not part of
-this study. The ordering graph-local, then global, then wrong graph holds
-in all four variants: with parent-only libraries the global library also
-recovers the true support but keeps five extra terms and has a residual
-five to eight times larger than the graph-local library's (pooled over
-the noise levels). The `study` variant remains the default of the study
-and of `evaluate_trained_graph_local`; the other variants are available
-through the `variants` keyword.
+The bootstrap removes the extra constant term but leaves recall at 0.5 in
+every run, and leaving the target state S out of the library restores
+recall 1.0 in all 15 runs, with the reference protocol's two extra terms,
+whether or not the bootstrap and the permutation are added. That left two
+candidate causes: the presence of S in the library, or the fact that its
+column is constant on the check's coordinates. The two-state table above,
+where S varies across the samples and the library still contains S,
+reaches recall 1.0, which pointed at the constant column.
+
+The 0.12 run settled it. The same four variants were run on the same 15
+trained models with the S coordinate spread over its observed range
+(`design = :varying`), the samples of R, Q, and Z unchanged
+(`benchmark/library_comparison_study.jl --variants all --design varying`,
+32 minutes on 4 cores, median training 97 s; the trained models and their
+neural-rate errors are identical to the run above). Pooled over the 15
+runs of each library:
+
+| variant | library | runs with recall 1.0 | support F1 | extra terms | held-out residual | extra-term labels (runs) |
+|---|---|---|---|---|---|---|
+| study | graph-local | 15 of 15 | 0.57 [0.57, 0.57] | 2 [2, 2] | 0.020 [0.007, 0.052] | 1 15, R 15 |
+| study | global | 15 of 15 | 0.25 [0.25, 0.28] | 7 [7, 7] | 0.176 [0.121, 0.297] | 1 15, Q 15, Q^2 15, Z 15, S 14, S^2 14, Z^2 14 |
+| study | wrong graph | 0 of 15 | 0.00 | 2 [2, 2] | 0.340 [0.338, 0.345] | 1 15, Q 15 |
+| bootstrap | graph-local | 15 of 15 | 0.57 [0.57, 0.57] | 2 [2, 2] | 0.020 [0.007, 0.052] | 1 15, R 15 |
+| bootstrap | global | 15 of 15 | 0.44 [0.40, 0.44] | 3 [3, 4] | 0.120 [0.074, 0.164] | 1 15, Q 15, Z 15, Z^2 5, Q^2 3 |
+| bootstrap | wrong graph | 0 of 15 | 0.00 | 2 [1, 2] | 0.343 [0.339, 0.489] | Q 15, 1 9 |
+| parents | graph-local | 15 of 15 | 0.57 [0.57, 0.57] | 2 [2, 2] | 0.020 [0.007, 0.052] | 1 15, R 15 |
+| parents | global | 15 of 15 | 0.31 [0.31, 0.36] | 5 [5, 5] | 0.171 [0.116, 0.298] | 1 15, Q 15, Q^2 15, Z 15, Z^2 14 |
+| parents | wrong graph | 0 of 15 | 0.00 | 2 [2, 2] | 0.339 [0.337, 0.343] | 1 15, Q 15 |
+| reference | graph-local | 15 of 15 | 0.57 [0.57, 0.62] | 2 [2, 2] | 0.020 [0.007, 0.047] | 1 14, R 14 |
+| reference | global | 14 of 15 | 0.36 [0.36, 0.38] | 5 [4, 5] | 0.139 [0.046, 0.200] | 1 14, Q 14, Z 14, Q^2 11, Z^2 11 |
+| reference | wrong graph | 0 of 15 | 0.00 | 3 [3, 3] | 0.255 [0.252, 0.258] | 1 14, Q^2 14, Q 13 |
+
+The `parents` and `reference` rows are identical to the S-constant run
+(their libraries have no S column). With S varying, the `study`
+configuration recovers the true support in 15 of 15 runs with the graph-local
+library, with exactly the reference protocol's two extra terms and the same
+held-out residual as the parent-only library: the same discovery on the
+same learned rate, with S in the library, gives the same candidate as
+without it once the S column is not a multiple of the constant term. The
+cause of the recall 0.5 was therefore the constant column of the check's
+coordinate design, not the presence of the target state in the library,
+and the fix belongs to the study's coordinate design, not to
+`local_basis`, which is unchanged. Since 0.12 the study's default design is
+`:varying`; `design = :constant` reproduces the 0.11 rows, and
+`evaluate_trained_graph_local` itself keeps its constant design (its
+recorded outputs are unchanged). Two things are worth noting on the
+global library under the new design: it also recovers the true support in
+15 of 15 runs, but with seven extra terms (S and S^2 now among them) and a
+held-out residual of 0.18 against 0.13 with S constant, so the ordering
+graph-local, then global, then wrong graph holds in all four variants of
+both runs, with a wider margin under the new design. The other variants
+are available through the `variants` keyword.
 
 ### Stability selection on the library comparison study
 
@@ -360,15 +405,16 @@ The optional stability-selection stage (see
 (100 resamples, τ = 0.8) on the graph-local library of both networks, for
 the `study` and the `reference` discovery variants, on the same 15
 trainings (`benchmark/library_comparison_study.jl --pruning --variants
-study,reference`; 34 and 39 minutes; the trainings reproduced the
-neural-rate errors of the runs above exactly). Median over the five seeds,
-pruning off against pruning on:
+study,reference`, run in 0.11 with the S-constant design; 34 and 39
+minutes; the trainings reproduced the neural-rate errors of the runs
+above exactly). It has not been rerun with the S-varying design. Median
+over the five seeds, pruning off against pruning on:
 
 | network | variant | noise | F1 off | F1 on | recall off | recall on | extra terms off | extra terms on |
 |---|---|---|---|---|---|---|---|---|
-| four-state | study | 0 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
-| four-state | study | 0.02 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
-| four-state | study | 0.05 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
+| four-state | study, S constant | 0 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
+| four-state | study, S constant | 0.02 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
+| four-state | study, S constant | 0.05 | 0.40 [0.40, 0.50] | 0.50 [0.50, 0.50] | 0.5 | 0.5 | 2 [1, 2] | 1 [1, 1] |
 | four-state | reference | 0 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
 | four-state | reference | 0.02 | 0.57 [0.57, 0.57] | 0.57 [0.57, 0.57] | 1.0 | 1.0 | 2 | 2 |
 | four-state | reference | 0.05 | 0.67 [0.67, 0.67] | 0.67 [0.67, 0.67] | 1.0 | 1.0 | 2 | 2 |

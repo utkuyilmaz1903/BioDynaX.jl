@@ -124,8 +124,9 @@ in the same order and with the same defaults:
    unknown destruction term (`term` selects it when several exist).
 2. Physical parameters start from a flat guess of 0.8 (`phys_init` overrides).
 3. A warm-up `train_ude` on the first training experiment with the training
-   config's Adam iterations, no BFGS, and the horizon curriculum
-   35%, 70%, 100% (`warmup = false` skips it).
+   config's settings (Adam iterations and learning rate, gradient clip,
+   constraint, solver, frozen parameters), no BFGS, and the horizon
+   curriculum 35%, 70%, 100% (`warmup = false` skips it).
 4. `train_experiments` on the training experiments with `training`
    (default: Adam 100 then BFGS 50).
 5. The learned rate is sampled on the regulator grid of the training
@@ -184,10 +185,8 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
     if warmup
         warm = train_ude(
             ude_init, first_exp.observations, first_exp.times, first_exp.u0, tspan, model;
-            config = TrainingConfig(
-                adam_iterations = training.adam_iterations, bfgs_iterations = 0,
-                horizon_schedule = HorizonCurriculum(fractions = [0.35, 0.7, 1.0]),
-                log_every = training.log_every),
+            config = TrainingConfig(training; bfgs_iterations = 0,
+                horizon_schedule = HorizonCurriculum(fractions = [0.35, 0.7, 1.0])),
             verbose = verbose)
         start = warm.params
     end
