@@ -8,26 +8,26 @@
     @test product.practical_not_structural
     @test product.unknown_holes == 1
     @test coefficients_are_biological_constants(edge_true) == false
-    @test unique_claim_identifiability_holds(edge_true)
-    @test assert_unique_claim_identifiability(edge_true) === edge_true
+    @test reference_protocol_identifiability_holds(edge_true)
+    @test assert_reference_protocol_identifiability(edge_true) === edge_true
 
     edge_false = (; unidentifiable_edge = false, production_param = :k_prod)
     @test coefficients_are_biological_constants(edge_false)
-    @test unique_claim_identifiability_holds(edge_false) == false
+    @test reference_protocol_identifiability_holds(edge_false) == false
     @test identifiability_product(edge_false).coefficients_are_biological_constants
-    @test_throws ErrorException assert_unique_claim_identifiability(edge_false)
+    @test_throws ErrorException assert_reference_protocol_identifiability(edge_false)
 
     @test coefficients_are_biological_constants(nothing)
-    @test unique_claim_identifiability_holds(nothing) == false
-    @test_throws ErrorException assert_unique_claim_identifiability(nothing)
+    @test reference_protocol_identifiability_holds(nothing) == false
+    @test_throws ErrorException assert_reference_protocol_identifiability(nothing)
     missing_flag = (; production_param = :k_prod)
     @test coefficients_are_biological_constants(missing_flag)
-    @test unique_claim_identifiability_holds(missing_flag) == false
+    @test reference_protocol_identifiability_holds(missing_flag) == false
     @test identifiability_product(missing_flag).unidentifiable_edge == false
     @test identifiability_product(nothing; unknown_holes = 0).unknown_holes == 0
     @test !(:identifiability_product in names(BioDynaX))
     @test !(:coefficients_are_biological_constants in names(BioDynaX))
-    @test !(:assert_unique_claim_identifiability in names(BioDynaX))
+    @test !(:assert_reference_protocol_identifiability in names(BioDynaX))
 end
 
 @testset "protocol_result field order rejects swapped or extra keys" begin
@@ -86,57 +86,57 @@ end
     @test_throws ErrorException assert_protocol_result_fields(wrong_claim)
 end
 
-@testset "KPI helpers name the failed gate and ignore F1" begin
-    hold = locked_ude_kpis((;
+@testset "KPI helpers name the failed criterion and ignore F1" begin
+    passing = locked_ude_kpis((;
         data_residual = 0.003,
         support_recall = 1.0,
         support_f1 = 0.40,
         identifiability = (; unidentifiable_edge = true)))
-    @test unique_claim_kpis_hold(hold)
-    @test isempty(unique_claim_kpi_failures(hold))
-    @test assert_unique_claim_kpis(hold) === hold
-    @test unique_claim_residual_holds(hold.data_residual)
-    @test unique_claim_recall_holds(hold.support_recall)
-    @test unique_claim_f1_meets_skeleton_floor(0.57)
-    @test unique_claim_f1_meets_skeleton_floor(0.40) == false
-    @test unique_claim_f1_reaches_analytical_gate(0.57) == false
-    @test unique_claim_f1_reaches_analytical_gate(0.99)
-    @test UNIQUE_CLAIM_KPI_FIELDS == (
+    @test reference_protocol_kpis_hold(passing)
+    @test isempty(reference_protocol_kpi_failures(passing))
+    @test assert_reference_protocol_kpis(passing) === passing
+    @test reference_protocol_residual_holds(passing.data_residual)
+    @test reference_protocol_recall_holds(passing.support_recall)
+    @test reference_protocol_f1_meets_skeleton_floor(0.57)
+    @test reference_protocol_f1_meets_skeleton_floor(0.40) == false
+    @test reference_protocol_f1_reaches_analytical_threshold(0.57) == false
+    @test reference_protocol_f1_reaches_analytical_threshold(0.99)
+    @test REFERENCE_PROTOCOL_KPI_FIELDS == (
         :unidentifiable_edge, :data_residual, :support_recall)
-    @test !(:support_f1 in UNIQUE_CLAIM_KPI_FIELDS)
+    @test !(:support_f1 in REFERENCE_PROTOCOL_KPI_FIELDS)
 
     miss_edge = locked_ude_kpis((;
         data_residual = 0.003,
         support_recall = 1.0,
         identifiability = (; unidentifiable_edge = false)))
-    @test unique_claim_kpi_failures(miss_edge) == [:unidentifiable_edge]
-    @test_throws ErrorException assert_unique_claim_kpis(miss_edge)
+    @test reference_protocol_kpi_failures(miss_edge) == [:unidentifiable_edge]
+    @test_throws ErrorException assert_reference_protocol_kpis(miss_edge)
 
     miss_residual = locked_ude_kpis((;
         data_residual = 0.31,
         support_recall = 1.0,
         identifiability = (; unidentifiable_edge = true)))
-    @test unique_claim_kpi_failures(miss_residual) == [:data_residual]
-    @test unique_claim_residual_holds(0.31) == false
-    @test_throws ErrorException assert_unique_claim_residual(0.31)
+    @test reference_protocol_kpi_failures(miss_residual) == [:data_residual]
+    @test reference_protocol_residual_holds(0.31) == false
+    @test_throws ErrorException assert_reference_protocol_residual(0.31)
 
     miss_recall = locked_ude_kpis((;
         data_residual = 0.003,
         support_recall = 0.5,
         identifiability = (; unidentifiable_edge = true)))
-    @test unique_claim_kpi_failures(miss_recall) == [:support_recall]
-    @test unique_claim_recall_holds(0.5) == false
-    @test_throws ErrorException assert_unique_claim_recall(0.5)
-    @test assert_unique_claim_recall(1.0) == 1.0
+    @test reference_protocol_kpi_failures(miss_recall) == [:support_recall]
+    @test reference_protocol_recall_holds(0.5) == false
+    @test_throws ErrorException assert_reference_protocol_recall(0.5)
+    @test assert_reference_protocol_recall(1.0) == 1.0
 
     miss_all = locked_ude_kpis((;
         data_residual = 0.5,
         support_recall = 0.0,
         identifiability = nothing))
-    @test unique_claim_kpi_failures(miss_all) == [
+    @test reference_protocol_kpi_failures(miss_all) == [
         :unidentifiable_edge, :data_residual, :support_recall]
     err = try
-        assert_unique_claim_kpis(miss_all)
+        assert_reference_protocol_kpis(miss_all)
         nothing
     catch e
         e
@@ -146,17 +146,17 @@ end
     @test occursin("data_residual", err.msg)
     @test occursin("support_recall", err.msg)
     @test !occursin("support_f1", err.msg)
-    @test !(:unique_claim_kpi_failures in names(BioDynaX))
-    @test !(:assert_unique_claim_kpis in names(BioDynaX))
-    @test !(:assert_unique_claim_recall in names(BioDynaX))
+    @test !(:reference_protocol_kpi_failures in names(BioDynaX))
+    @test !(:assert_reference_protocol_kpis in names(BioDynaX))
+    @test !(:assert_reference_protocol_recall in names(BioDynaX))
 end
 
 @testset "live extras on dirty Hill do not open Hill-from-NN" begin
-    hill = unique_claim_truth_support(; family = :hill, order = 2)
+    hill = reference_protocol_truth_support(; family = :hill, order = 2)
     @test first(hill.numerator) == ((1,), (2,))
-    mm = unique_claim_truth_support(; family = :mm)
+    mm = reference_protocol_truth_support(; family = :mm)
     @test first(mm.numerator) == ((1,), (1,))
-    @test_throws ArgumentError unique_claim_truth_support(; family = :competitive)
+    @test_throws ArgumentError reference_protocol_truth_support(; family = :competitive)
 
     r = collect(range(0.1, 2.0; length = 180))
     times = collect(range(0.0, 1.0; length = length(r)))
@@ -166,33 +166,33 @@ end
         config = rate_discovery_config(bootstrap = 0, seed = 1),
         verbose = false, strict = true)
     @test clean.success
-    @test isempty(unique_claim_discovery_extras(clean))
-    @test isempty(unique_claim_discovery_extras(clean.candidates[1]))
+    @test isempty(reference_protocol_discovery_extras(clean))
+    @test isempty(reference_protocol_discovery_extras(clean.candidates[1]))
     clean_f1 = support_f1(
         clean.candidates[1], hill.numerator, hill.denominator).combined.f1
-    @test unique_claim_f1_reaches_analytical_gate(clean_f1)
+    @test reference_protocol_f1_reaches_analytical_threshold(clean_f1)
 
     dirty = discover_unknown_rate(
         reshape(r, 1, :), times, reshape(D .+ 0.04 .+ 0.04 .* r, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 103),
         verbose = false, strict = false)
     @test dirty.success
-    extras = unique_claim_discovery_extras(dirty)
+    extras = reference_protocol_discovery_extras(dirty)
     @test "1" in extras
     @test "r" in extras
     @test !("r^2" in extras)
     dirty_f1 = support_f1(
         dirty.candidates[1], hill.numerator, hill.denominator).combined.f1
-    @test unique_claim_f1_reaches_analytical_gate(dirty_f1) == false
-    @test unique_claim_f1_attempt_verdict(;
+    @test reference_protocol_f1_reaches_analytical_threshold(dirty_f1) == false
+    @test reference_protocol_f1_attempt_verdict(;
         extras, reaches_clean = false) ===
           :extras_remain_claim_stays_recall_plus_residual
-    @test unique_claim_f1_attempt_verdict(;
+    @test reference_protocol_f1_attempt_verdict(;
         extras = String[], reaches_clean = true) ===
           :reopen_only_after_protocol_holds_clean
-    @test unique_claim_f1_attempt_verdict(;
+    @test reference_protocol_f1_attempt_verdict(;
         extras = String[], reaches_clean = false) ===
-          :no_extras_but_clean_gate_not_reached
+          :no_extras_but_clean_threshold_not_reached
 
     failed = discover_equations(
         reshape(collect(range(0.1, 0.2; length = 5)), 1, :),
@@ -201,9 +201,9 @@ end
         derivatives = reshape(collect(range(0.1, 0.2; length = 5)), 1, :),
         verbose = false, strict = false)
     @test !failed.success
-    @test unique_claim_discovery_extras(failed) == String[]
-    @test !(:unique_claim_discovery_extras in names(BioDynaX))
-    @test !(:unique_claim_f1_attempt_verdict in names(BioDynaX))
+    @test reference_protocol_discovery_extras(failed) == String[]
+    @test !(:reference_protocol_discovery_extras in names(BioDynaX))
+    @test !(:reference_protocol_f1_attempt_verdict in names(BioDynaX))
 end
 
 @testset "single-hole instrument does not close validate_network" begin
@@ -263,7 +263,7 @@ end
         discovery_seed = 3,
         smoke = false)
     @test sections.order_holds
-    @test unique_claim_product_blocks() == UNIQUE_CLAIM_PRODUCT_BLOCKS
+    @test reference_protocol_product_blocks() == REFERENCE_PROTOCOL_PRODUCT_BLOCKS
     @test protocol_block_order_holds(sections.text)
     @test startswith(sections.identifiability, "IDENTIFIABILITY")
     @test occursin("unidentifiable_edge: true", sections.identifiability)

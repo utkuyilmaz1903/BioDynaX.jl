@@ -13,7 +13,7 @@ const RECOVERY_SUITE_SKIP_MUST_CONTAIN = (
     "function recovery_suite_plan",
     "function with_train_unknown_edge_counter",
     "function recovery_suite_section_body",
-    "function skipped_unique_claim_does_not_train")
+    "function skipped_reference_protocol_does_not_train")
 
 const RECOVERY_SUITE_SKIP_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
@@ -104,7 +104,7 @@ function recovery_suite_default_sections()
         :ude_discovery, :mm_unknown, :ablation)
 end
 
-function recovery_suite_unique_claim_trainers()
+function recovery_suite_reference_protocol_trainers()
     return (:ude_discovery, :mm_unknown)
 end
 
@@ -186,19 +186,21 @@ function recovery_suite_spec_matrix()
     default_trainers = [spec.name
                         for spec in specs
                         if spec.trains_unknown_edge && spec.default_suite]
-    unique_claim = [spec.name for spec in specs if spec.kind === :unique_claim]
+    reference_protocol = [spec.name for spec in specs if spec.kind === :reference_protocol]
     open_known = [spec.name for spec in specs if spec.kind === :known_kinetics]
     return (;
         n = length(specs),
         names = Tuple(names),
         trainers = Tuple(trainers),
         default_trainers = Tuple(default_trainers),
-        unique_claim = Tuple(unique_claim),
+        reference_protocol = Tuple(reference_protocol),
         open_known = Tuple(open_known),
         holds = length(specs) == length(recovery_suite_sections()) &&
-                issetequal(trainers, recovery_suite_unique_claim_trainers()) &&
-                issetequal(default_trainers, recovery_suite_unique_claim_trainers()) &&
-                issetequal(unique_claim, recovery_suite_unique_claim_sections()) &&
+                issetequal(trainers, recovery_suite_reference_protocol_trainers()) &&
+                issetequal(
+                    default_trainers, recovery_suite_reference_protocol_trainers()) &&
+                issetequal(
+                    reference_protocol, recovery_suite_reference_protocol_sections()) &&
                 issetequal(open_known, RECOVERY_SUITE_KNOWN_KINETICS_SECTIONS))
 end
 
@@ -251,10 +253,10 @@ function recovery_suite_plan_namedtuple(plan::RecoverySuitePlan)
         n_skipped = length(plan.skipped))
 end
 
-function recovery_suite_skipped_unique_claim_trainers(sections)
+function recovery_suite_skipped_reference_protocol_trainers(sections)
     plan = recovery_suite_plan(sections)
     return [section
-            for section in recovery_suite_unique_claim_trainers()
+            for section in recovery_suite_reference_protocol_trainers()
             if section in plan.skipped]
 end
 
@@ -291,20 +293,20 @@ function recovery_suite_section_body(section::Symbol)
     return rest[1:stop]
 end
 
-function recovery_suite_section_is_gated(section::Symbol)
+function recovery_suite_section_is_checked(section::Symbol)
     body = recovery_suite_section_body(section)
     return startswith(body, "if :$section in wanted")
 end
 
-function recovery_suite_all_sections_gated()
-    return all(recovery_suite_section_is_gated, recovery_suite_sections())
+function recovery_suite_all_sections_checked()
+    return all(recovery_suite_section_is_checked, recovery_suite_sections())
 end
 
 function recovery_suite_section_source_row(section::Symbol)
     spec = recovery_suite_section_spec(section)
     body = recovery_suite_section_body(section)
     isempty(body) && return (;
-        section, gated = false, trains_unknown_edge = false,
+        section, checked = false, trains_unknown_edge = false,
         trains_ude = false, trains_experiments = false, discovers = false,
         uses_admit = false, uses_generate = false, holds = false)
     trains_unknown = occursin("_train_unknown_edge", body)
@@ -317,17 +319,17 @@ function recovery_suite_section_source_row(section::Symbol)
     uses_generate = occursin("generate_experiment_set(", body) ||
                     (spec.uses_generate_experiment_set &&
                      occursin("_train_unknown_edge", body))
-    gated = recovery_suite_section_is_gated(section)
+    checked = recovery_suite_section_is_checked(section)
     generate_ok = spec.uses_generate_experiment_set ? uses_generate :
                   !occursin("generate_experiment_set(", body)
-    holds = gated &&
+    holds = checked &&
             trains_unknown == spec.trains_unknown_edge &&
             trains_ude == spec.trains_ude &&
             uses_admit == spec.uses_admit &&
             generate_ok
     return (;
         section,
-        gated,
+        checked,
         trains_unknown_edge = trains_unknown,
         trains_ude,
         trains_experiments,
@@ -344,15 +346,15 @@ function recovery_suite_section_source_matrix()
     return (;
         rows,
         n = length(rows),
-        gated = all(row -> row.gated, rows),
+        checked = all(row -> row.checked, rows),
         trainer_sections = Tuple(row.section for row in trainer_bodies),
         holds = all(row -> row.holds, rows) &&
                 issetequal(
             [row.section for row in trainer_bodies],
-            recovery_suite_unique_claim_trainers()))
+            recovery_suite_reference_protocol_trainers()))
 end
 
-function train_unknown_edge_only_in_unique_claim_source()
+function train_unknown_edge_only_in_reference_protocol_source()
     src = read(recovery_jl_source_path(), String)
     start = findfirst("function _train_unknown_edge", src)
     start === nothing && return false
@@ -378,13 +380,13 @@ end
 # -- Skip reports -------------------------------------------------------------
 
 """
-    skipped_unique_claim_does_not_train(sections; kwargs...)
+    skipped_reference_protocol_does_not_train(sections; kwargs...)
 
 Run `run_recovery_suite` on `sections` and return the `_train_unknown_edge`
 count. Callers must not pass `:ude_discovery` or `:mm_unknown` when they
 only want the skip oracle.
 """
-function skipped_unique_claim_does_not_train(sections;
+function skipped_reference_protocol_does_not_train(sections;
         rng::AbstractRNG = MersenneTwister(1), kwargs...)
     plan = recovery_suite_plan(sections)
     n = with_train_unknown_edge_counter() do counter
@@ -394,7 +396,7 @@ function skipped_unique_claim_does_not_train(sections;
             keys = Tuple(sort(collect(keys(report)))),
             report)
     end
-    skipped_trainers = recovery_suite_skipped_unique_claim_trainers(sections)
+    skipped_trainers = recovery_suite_skipped_reference_protocol_trainers(sections)
     return (;
         plan = recovery_suite_plan_namedtuple(plan),
         skipped_trainers = Tuple(skipped_trainers),
@@ -407,19 +409,19 @@ function skipped_unique_claim_does_not_train(sections;
 end
 
 function skip_linear_only_report()
-    return skipped_unique_claim_does_not_train(
+    return skipped_reference_protocol_does_not_train(
         (:linear,);
         linear_adam = 1, linear_bfgs = 0)
 end
 
 function skip_mm_only_report()
-    return skipped_unique_claim_does_not_train(
+    return skipped_reference_protocol_does_not_train(
         (:mm,);
         mm_adam = 1, mm_bfgs = 0)
 end
 
 function skip_known_kinetics_report()
-    return skipped_unique_claim_does_not_train(
+    return skipped_reference_protocol_does_not_train(
         (:linear, :mm, :hill, :competitive);
         linear_adam = 1, linear_bfgs = 0,
         mm_adam = 1, mm_bfgs = 0,
@@ -428,34 +430,34 @@ function skip_known_kinetics_report()
 end
 
 function skip_ablation_only_report()
-    return skipped_unique_claim_does_not_train((:ablation,))
+    return skipped_reference_protocol_does_not_train((:ablation,))
 end
 
 function skip_identifiability_only_report()
-    return skipped_unique_claim_does_not_train((:identifiability,))
+    return skipped_reference_protocol_does_not_train((:identifiability,))
 end
 
 function skip_literature_only_report()
-    return skipped_unique_claim_does_not_train((:literature,))
+    return skipped_reference_protocol_does_not_train((:literature,))
 end
 
 function skip_three_state_only_report()
-    return skipped_unique_claim_does_not_train((:three_state,))
+    return skipped_reference_protocol_does_not_train((:three_state,))
 end
 
 function skip_wrong_graph_only_report()
-    return skipped_unique_claim_does_not_train((:wrong_graph,))
+    return skipped_reference_protocol_does_not_train((:wrong_graph,))
 end
 
 function skip_competitive_unknown_only_report()
-    return skipped_unique_claim_does_not_train((:competitive_unknown,))
+    return skipped_reference_protocol_does_not_train((:competitive_unknown,))
 end
 
-function skip_empty_unique_claim_plan()
+function skip_empty_reference_protocol_plan()
     plan = recovery_suite_plan((:linear, :ablation, :literature))
     return (;
         plan = recovery_suite_plan_namedtuple(plan),
-        skipped_trainers = Tuple(recovery_suite_skipped_unique_claim_trainers(
+        skipped_trainers = Tuple(recovery_suite_skipped_reference_protocol_trainers(
             (:linear, :ablation, :literature))),
         would_train = recovery_suite_would_train_unknown_edge(
             (:linear, :ablation, :literature)),
@@ -472,7 +474,7 @@ function default_suite_plan_includes_trainers()
     return (;
         plan = recovery_suite_plan_namedtuple(plan),
         holds = issetequal(plan.train_unknown_edge,
-                    collect(recovery_suite_unique_claim_trainers())) &&
+                    collect(recovery_suite_reference_protocol_trainers())) &&
                 :ude_discovery in plan.requested &&
                 :mm_unknown in plan.requested &&
                 :ablation in plan.requested)
@@ -483,7 +485,7 @@ function skip_report_matrix()
     ablation = skip_ablation_only_report()
     ident = skip_identifiability_only_report()
     literature = skip_literature_only_report()
-    empty = skip_empty_unique_claim_plan()
+    empty = skip_empty_reference_protocol_plan()
     default = default_suite_plan_includes_trainers()
     source = recovery_suite_section_source_matrix()
     specs = recovery_suite_spec_matrix()
@@ -512,16 +514,6 @@ function skipped_section_does_not_generate_set_source(section::Symbol)
     body = recovery_suite_section_body(section)
     return occursin("_train_unknown_edge", body) &&
            startswith(body, "if :$section in wanted")
-end
-
-function unique_claim_skip_source_holds()
-    return all(skipped_section_does_not_admit_source,
-               recovery_suite_unique_claim_sections()) &&
-           all(skipped_section_does_not_generate_set_source,
-               recovery_suite_unique_claim_trainers()) &&
-           train_unknown_edge_only_in_unique_claim_source() &&
-           recovery_suite_all_sections_gated() &&
-           recovery_suite_default_sections_source()
 end
 
 # -- Source checks ----------------------------------------------------------
@@ -554,7 +546,7 @@ function recovery_suite_cost_matrix()
         holds = length(rows) == length(recovery_suite_sections()) &&
                 issetequal(
             [row.section for row in trainer_cost],
-            recovery_suite_unique_claim_trainers()))
+            recovery_suite_reference_protocol_trainers()))
 end
 
 function skip_linear_compile_report()
@@ -593,11 +585,6 @@ function partial_obs_does_not_train_unknown_edge_source()
            startswith(body, "if :partial_obs in wanted")
 end
 
-function unique_claim_non_trainers_source_hold()
-    return ident_interventions_does_not_train_unknown_edge_source() &&
-           partial_obs_does_not_train_unknown_edge_source()
-end
-
 function recovery_suite_expected_report_keys(section::Symbol)
     section === :linear && return (:rmse, :rel, :final_loss)
     section === :mm && return (:rmse, :rel, :final_loss)
@@ -630,7 +617,7 @@ function recovery_suite_expected_report_keys(section::Symbol)
     section === :competitive_unknown && return (
         :compiled_regulators, :two_parent_success, :canonical_f1_claimed)
     section === :literature && return (
-        :source, :experimental_csv, :unique_claim_protocol,
+        :source, :experimental_csv, :reference_protocol_protocol,
         :licensed_experimental_series, :finite_trajectory)
     throw(ArgumentError("unknown recovery suite section $section"))
 end
@@ -695,12 +682,12 @@ const RECOVERY_SUITE_SECTION_NEEDLES = (
     competitive = ("train_ude(", "build_competitive_test_network"),
     ude_discovery = ("_train_unknown_edge",
         "admit_recovery_suite_network(:ude_discovery)",
-        "UNIQUE_CLAIM_PROTOCOL.tspan",
-        "UNIQUE_CLAIM_PROTOCOL.n_points"),
+        "REFERENCE_PROTOCOL.tspan",
+        "REFERENCE_PROTOCOL.n_points"),
     mm_unknown = ("_train_unknown_edge",
         "admit_recovery_suite_network(:mm_unknown)",
-        "UNIQUE_CLAIM_PROTOCOL.tspan",
-        "UNIQUE_CLAIM_PROTOCOL.n_points"),
+        "REFERENCE_PROTOCOL.tspan",
+        "REFERENCE_PROTOCOL.n_points"),
     ablation = ("discover_equations(", "build_rate_ablation_network",
         "scope = :graph", "scope = :global"),
     three_state = ("discover_equations(", "build_three_state_unknown_network"),
@@ -720,7 +707,7 @@ const RECOVERY_SUITE_SECTION_NEEDLES = (
         "canonical_f1_claimed = false"),
     literature = ("build_repressilator_network",
         "experimental_csv = false",
-        "unique_claim_protocol = false"))
+        "reference_protocol_protocol = false"))
 
 function recovery_suite_section_needles(section::Symbol)
     needles = RECOVERY_SUITE_SECTION_NEEDLES
@@ -740,12 +727,12 @@ function recovery_suite_needles_matrix()
     rows = [(;
                 section,
                 holds = recovery_suite_section_needles_hold(section),
-                gated = recovery_suite_section_is_gated(section))
+                checked = recovery_suite_section_is_checked(section))
             for section in recovery_suite_sections()]
     return (;
         rows,
         n = length(rows),
-        holds = all(row -> row.holds && row.gated, rows))
+        holds = all(row -> row.holds && row.checked, rows))
 end
 
 function recovery_suite_skip_index_row(section::Symbol)
@@ -765,7 +752,7 @@ function recovery_suite_skip_index_row(section::Symbol)
         uses_admit = spec.uses_admit,
         default_suite = spec.default_suite,
         uses_shared_rng = spec.uses_shared_rng,
-        gated = source.gated,
+        checked = source.checked,
         needles = recovery_suite_section_needles(section),
         report_keys = recovery_suite_expected_report_keys(section),
         skip_avoids_unknown_edge = !spec.trains_unknown_edge,
@@ -786,13 +773,13 @@ function recovery_suite_skip_index()
         trainers = Tuple(trainers),
         holds = all(row -> row.holds, rows) &&
                 length(rows) == length(recovery_suite_sections()) &&
-                issetequal(trainers, recovery_suite_unique_claim_trainers()))
+                issetequal(trainers, recovery_suite_reference_protocol_trainers()))
 end
 
-function recovery_suite_shared_rng_honesty()
+function recovery_suite_shared_rng_consistency()
     shared = [spec.name for spec in recovery_suite_section_specs()
               if spec.uses_shared_rng]
-    trainers = collect(recovery_suite_unique_claim_trainers())
+    trainers = collect(recovery_suite_reference_protocol_trainers())
     return (;
         shared = Tuple(shared),
         trainers = Tuple(trainers),
@@ -840,9 +827,9 @@ end
 
 function skip_default_minus_trainers_report()
     sections = filter(
-        section -> !(section in recovery_suite_unique_claim_trainers()),
+        section -> !(section in recovery_suite_reference_protocol_trainers()),
         collect(recovery_suite_default_sections()))
-    return skipped_unique_claim_does_not_train(
+    return skipped_reference_protocol_does_not_train(
         Tuple(sections);
         linear_adam = 1, linear_bfgs = 0,
         mm_adam = 1, mm_bfgs = 0,
@@ -893,13 +880,13 @@ function recovery_suite_skip_markdown_holds()
            occursin("library_fixture", text)
 end
 
-function unique_claim_trainer_keeps_protocol_source()
+function reference_protocol_trainer_keeps_protocol_source()
     ude = recovery_suite_section_body(:ude_discovery)
     mm = recovery_suite_section_body(:mm_unknown)
-    return occursin("UNIQUE_CLAIM_PROTOCOL.tspan", ude) &&
-           occursin("UNIQUE_CLAIM_PROTOCOL.n_points", ude) &&
-           occursin("UNIQUE_CLAIM_PROTOCOL.tspan", mm) &&
-           occursin("UNIQUE_CLAIM_PROTOCOL.n_points", mm) &&
+    return occursin("REFERENCE_PROTOCOL.tspan", ude) &&
+           occursin("REFERENCE_PROTOCOL.n_points", ude) &&
+           occursin("REFERENCE_PROTOCOL.tspan", mm) &&
+           occursin("REFERENCE_PROTOCOL.n_points", mm) &&
            !occursin("n_ics = 1", ude) &&
            !occursin("n_points = 8", ude)
 end

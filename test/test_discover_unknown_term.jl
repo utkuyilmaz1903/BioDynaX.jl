@@ -9,7 +9,7 @@ const _DUT_CONFIG = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0,
 function _dut_fixture()
     truth_net = BioDynaX.build_hill_recovery_network(; known = true, hill_order = 2)
     ude_net = BioDynaX.build_hill_recovery_network(; known = false, hill_order = 2)
-    set = BioDynaX.unique_claim_experiment_set(
+    set = BioDynaX.reference_protocol_experiment_set(
         MersenneTwister(103), truth_net; smoke = true, truth_params = _DUT_TRUTH,
         initial_conditions = [[0.25, 0.20], [0.80, 0.35], [0.40, 1.10]])
     return ude_net, set
@@ -38,7 +38,7 @@ function _dut_chain(ude_net, set; rng_seed = 7)
         r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
     discovery = discover_unknown_rate(R, times_grid, D;
-        config = BioDynaX.unique_claim_discovery_config(), verbose = false,
+        config = BioDynaX.reference_protocol_discovery_config(), verbose = false,
         strict = false)
     ident = BioDynaX.report_production_destruction_tradeoff(
         model, trained.params, first_exp.observations, first_exp.times,
@@ -80,16 +80,16 @@ end
         @test isempty(result.holdout_indices)
         if chain.discovery.success
             @test result.extras ==
-                  BioDynaX.unique_claim_discovery_extras(chain.discovery.candidates[1])
+                  BioDynaX.reference_protocol_discovery_extras(chain.discovery.candidates[1])
             @test isfinite(result.residuals.data_residual_train)
         end
         @test result.settings.n_ics == 3
         @test result.settings.n_points == size(first(set.experiments).observations, 2)
         @test result.settings.adam_iters == 2
         @test result.settings.bfgs_iters == 0
-        @test result.settings.bootstrap == BioDynaX.UNIQUE_CLAIM_PROTOCOL.bootstrap
+        @test result.settings.bootstrap == BioDynaX.REFERENCE_PROTOCOL.bootstrap
         @test result.settings.discovery_seed ==
-              BioDynaX.UNIQUE_CLAIM_PROTOCOL.discovery_seed
+              BioDynaX.REFERENCE_PROTOCOL.discovery_seed
         @test result.settings.unknown_holes == 1
     end
 

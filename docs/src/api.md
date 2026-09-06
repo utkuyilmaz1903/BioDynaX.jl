@@ -165,3 +165,14 @@ BioDynaX.LIBRARY_STUDY_DESIGNS
 BioDynaX.library_study_default_design
 BioDynaX.designed_trained_graph_local_coordinates
 ```
+
+## Deprecated names
+
+Renamed in 0.12; the old names forward to the new ones with a deprecation
+warning and are removed in 0.13.
+
+| Old | New |
+|---|---|
+| `BioDynaX.UNIQUE_CLAIM_PROTOCOL` | `BioDynaX.REFERENCE_PROTOCOL` |
+| `BioDynaX.unique_claim_experiment_set` | `BioDynaX.reference_protocol_experiment_set` |
+| `BioDynaX.unique_claim_discovery_config` | `BioDynaX.reference_protocol_discovery_config` |

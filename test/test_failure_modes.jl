@@ -9,12 +9,12 @@
     @test validate_network_stays_open_source()
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.discovery_retcode_mapper_source_holds()
-    @test BioDynaX.discovery_sample_floor_source_holds()
-    @test BioDynaX.discovery_n_samples_entry_source_holds()
-    @test BioDynaX.extras_source_holds()
-    @test BioDynaX.failure_mode_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test discovery_retcode_mapper_source_holds()
+    @test discovery_sample_floor_source_holds()
+    @test discovery_n_samples_entry_source_holds()
+    @test extras_source_holds()
+    @test failure_mode_index_holds()
     @test BioDynaX.failure_mode_formatter_lock_holds()
 end
 
@@ -58,7 +58,7 @@ end
     @test BioDynaX.discovery_retcode_exports_hold()
 end
 
-@testset "explicit success is an honest DiscoverySuccess" begin
+@testset "explicit success is a consistent DiscoverySuccess" begin
     success = BioDynaX.explicit_success_row()
     @test success.holds
     @test success.retcode === DiscoverySuccess
@@ -94,8 +94,8 @@ end
     @test examples.holds
     f1 = BioDynaX.kpi_f1_never_failure_symbol_row()
     @test f1.holds
-    @test f1.high_hold
-    @test f1.low_hold
+    @test f1.high_kpis_hold
+    @test f1.low_kpis_hold
     @test RECOVERY_THRESHOLDS.support_f1_ude == 0.50
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
     @test RECOVERY_THRESHOLDS.data_residual == 0.30

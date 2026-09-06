@@ -13,9 +13,9 @@ const EXPERIMENT_CHECKPOINT_MUST_CONTAIN = (
     "function experiment_batch_row",
     "function checkpoint_resume_row",
     "function remapped_generate_train_row",
-    "function unique_claim_fingerprint_set_row",
+    "function reference_protocol_fingerprint_set_row",
     "function remapped_warmup_generate_train_row",
-    "function unique_claim_from_compiled_fingerprint_row",
+    "function reference_protocol_from_compiled_fingerprint_row",
     "function resume_equivalence_row",
     "function mm_unknown_generate_train_row",
     "function masked_fingerprint_train_row",
@@ -119,14 +119,14 @@ function data_fingerprint_row(data, times, u0)
         holds = a == b && a != c && length(a) == 64)
 end
 
-function unique_claim_fingerprint_set_row(; smoke::Bool = true)
+function reference_protocol_fingerprint_set_row(; smoke::Bool = true)
     net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    set = unique_claim_experiment_set(
+    set = reference_protocol_experiment_set(
         MersenneTwister(103), net; smoke = smoke, truth_params = truth_params)
-    again = unique_claim_experiment_set(
+    again = reference_protocol_experiment_set(
         MersenneTwister(103), net; smoke = smoke, truth_params = truth_params)
-    fp = unique_claim_fingerprint(; smoke)
+    fp = reference_protocol_fingerprint(; smoke)
     row = experiment_fingerprint_row(set)
     return (;
         row,
@@ -135,11 +135,11 @@ function unique_claim_fingerprint_set_row(; smoke::Bool = true)
         n_points = size(first(set.experiments).observations, 2),
         fingerprint_n_ics = fp.n_ics,
         same_hash = experiment_fingerprint(set) == experiment_fingerprint(again),
-        matches_kind = unique_claim_experiment_set_matches_fingerprint(
+        matches_kind = reference_protocol_experiment_set_matches_fingerprint(
             set; smoke = smoke),
         holds = row.holds && experiment_set_is_compiled_once(set) &&
                 experiment_fingerprint(set) == experiment_fingerprint(again) &&
-                unique_claim_experiment_set_matches_fingerprint(set; smoke = smoke) &&
+                reference_protocol_experiment_set_matches_fingerprint(set; smoke = smoke) &&
                 length(set.experiments) == fp.n_ics)
 end
 
@@ -277,13 +277,6 @@ function artifact_roundtrip_row(result; dir)
                 length(loaded.history) == length(result.history))
 end
 
-function resume_source_holds()
-    body = training_jl_checkpoint_source()
-    return occursin("optimizer_state = checkpoint.optimizer_state", body) &&
-           occursin("initial_iteration = checkpoint.iteration", body) &&
-           occursin("train_ude(", body)
-end
-
 # -- Remapped generate + train ------------------------------------------------
 
 """
@@ -392,7 +385,7 @@ function hill_ude_generate_train_row()
     truth = build_hill_recovery_network(; known = true, hill_order = 2)
     rng = MersenneTwister(11)
     model, p0 = build_ude_model(rng, net)
-    set = unique_claim_experiment_set(
+    set = reference_protocol_experiment_set(
         MersenneTwister(103), truth; smoke = true,
         truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6))
     init = pack_parameters((k_prod = 0.8, k_rs = 0.9, k_r = 0.7), p0.nn)
@@ -404,7 +397,7 @@ function hill_ude_generate_train_row()
             verbose = false)
         counter[]
     end
-    fp = unique_claim_fingerprint_set_row()
+    fp = reference_protocol_fingerprint_set_row()
     return (;
         compiles = n,
         compiled_once = experiment_set_is_compiled_once(set),
@@ -434,9 +427,9 @@ function dual_generate_train_row()
     return (;
         compiles = n,
         n_heads = neural_head_count(model),
-        recovery_admits = unique_claim_recovery_admits(net),
+        recovery_admits = reference_protocol_recovery_admits(net),
         holds = n == 0 && neural_head_count(model) == 2 &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function six_state_generate_train_row()
@@ -530,7 +523,7 @@ function experiment_checkpoint_fixture_matrix(; dir)
     dual = dual_generate_train_row()
     six = six_state_generate_train_row()
     skipped = skipped_duplicate_generate_train_row()
-    claim = unique_claim_fingerprint_set_row()
+    claim = reference_protocol_fingerprint_set_row()
     ckpt = linear_checkpoint_fixture_row(; dir = dir)
     extra = experiment_checkpoint_extended_matrix(; dir = dir)
     return (;
@@ -542,57 +535,7 @@ end
 
 # -- Source locks -------------------------------------------------------------
 
-function experiment_fingerprint_source_holds()
-    src = read(experiment_jl_source_path(), String)
-    start = findfirst("function experiment_fingerprint", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("exp.times", body) &&
-           occursin("exp.observations", body) &&
-           occursin("exp.mask", body) &&
-           occursin("exp.u0", body) &&
-           !occursin("exp.metadata", body)
-end
-
-function experiment_batches_source_holds()
-    src = read(experiment_jl_source_path(), String)
-    start = findfirst("function experiment_batches", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("batch_size", body) &&
-           occursin("shuffle", body) &&
-           occursin("Random.shuffle!", body)
-end
-
 # -- Checkpoint serialization --------------------------------------------
-
-function save_checkpoint_source_holds()
-    src = read(training_jl_source_path(), String)
-    start = findfirst("function save_checkpoint", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("serialize(io, checkpoint)", body) &&
-           !occursin("JSON", body) &&
-           !occursin("json", body)
-end
-
-function load_checkpoint_source_holds()
-    src = read(training_jl_source_path(), String)
-    start = findfirst("function load_checkpoint", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("deserialize", body) &&
-           occursin("CHECKPOINT_SCHEMA_VERSION.major", body) &&
-           occursin("checkpoint isa Checkpoint", body)
-end
 
 function checkpoint_metadata_source_row()
     src = read(training_jl_source_path(), String)
@@ -771,22 +714,22 @@ function generated_data_fingerprint_row()
 end
 
 """
-    unique_claim_from_compiled_fingerprint_row()
+    reference_protocol_from_compiled_fingerprint_row()
 
 Compile the reference-protocol truth once, then generate the smoke set from
 that stored model. Fingerprints and `compile_network` stay at zero
 while the set is built.
 """
-function unique_claim_from_compiled_fingerprint_row()
+function reference_protocol_from_compiled_fingerprint_row()
     net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     truth = compile_ground_truth_model(
         MersenneTwister(103), net; truth_params = truth_params)
-    fp = unique_claim_fingerprint(; smoke = true)
+    fp = reference_protocol_fingerprint(; smoke = true)
     n = with_compile_network_counter() do counter
         set = generate_experiment_set_from_compiled_model(
             truth, MersenneTwister(103);
-            initial_conditions = unique_claim_protocol_ics(; smoke = true),
+            initial_conditions = reference_protocol_protocol_ics(; smoke = true),
             tspan = fp.tspan, n_points = fp.n_points, noise_σ = 0.0)
         digest = experiment_fingerprint(set)
         ics = [experiment_fingerprint(ExperimentSet(
@@ -809,7 +752,7 @@ function unique_claim_from_compiled_fingerprint_row()
     return n
 end
 
-function unique_claim_ic_fingerprint_uniqueness_row()
+function reference_protocol_ic_fingerprint_uniqueness_row()
     net = build_linear_test_network()
     set = generate_experiment_set(
         MersenneTwister(79); network = net,
@@ -877,9 +820,9 @@ function batch_remainder_row(set::ExperimentSet; batch_size::Int = 2)
                 last_short)
 end
 
-function unique_claim_batch_row()
+function reference_protocol_batch_row()
     net = build_hill_recovery_network(; known = true, hill_order = 2)
-    set = unique_claim_experiment_set(
+    set = reference_protocol_experiment_set(
         MersenneTwister(103), net; smoke = true,
         truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6))
     row = experiment_batch_row(set; batch_size = 1)
@@ -1118,10 +1061,10 @@ function mm_unknown_generate_train_row()
         compiles = n,
         compiled_once = experiment_set_is_compiled_once(set),
         n_heads = neural_head_count(model),
-        recovery_admits = unique_claim_recovery_admits(train_net),
+        recovery_admits = reference_protocol_recovery_admits(train_net),
         holds = n == 0 && experiment_set_is_compiled_once(set) &&
                 neural_head_count(model) == 1 &&
-                unique_claim_recovery_admits(train_net))
+                reference_protocol_recovery_admits(train_net))
 end
 
 function competitive_known_generate_train_row()
@@ -1219,12 +1162,12 @@ function zero_hole_generate_fingerprint_row()
         fingerprint = fp,
         batches,
         validate_open = validate_network(net) === net,
-        recovery_admits = unique_claim_recovery_admits(net),
+        recovery_admits = reference_protocol_recovery_admits(net),
         holds = experiment_set_is_compiled_once(set) &&
                 count_unknown_destructions(net) == 0 &&
                 fp.holds && batches.holds &&
                 validate_network(net) === net &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function default_example_generate_train_row()
@@ -1379,10 +1322,10 @@ function hill_warmup_from_compiled_row()
     truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     truth = compile_ground_truth_model(
         MersenneTwister(167), truth_net; truth_params = truth_params)
-    fp = unique_claim_fingerprint(; smoke = true)
+    fp = reference_protocol_fingerprint(; smoke = true)
     set = generate_experiment_set_from_compiled_model(
         truth, MersenneTwister(167);
-        initial_conditions = unique_claim_protocol_ics(; smoke = true),
+        initial_conditions = reference_protocol_protocol_ics(; smoke = true),
         tspan = fp.tspan, n_points = fp.n_points, noise_σ = 0.0)
     rng = MersenneTwister(167)
     model, p0 = build_ude_model(rng, train_net)
@@ -1435,11 +1378,11 @@ function experiment_checkpoint_extended_matrix(; dir)
     irregular = irregular_times_fingerprint_row(linear_probe_set())
     noise = noise_fingerprint_row()
     generated = generated_data_fingerprint_row()
-    from_compiled = unique_claim_from_compiled_fingerprint_row()
-    uniqueness = unique_claim_ic_fingerprint_uniqueness_row()
+    from_compiled = reference_protocol_from_compiled_fingerprint_row()
+    uniqueness = reference_protocol_ic_fingerprint_uniqueness_row()
     csv = csv_experiment_fingerprint_row()
     remainder = batch_remainder_row(linear_probe_set(); batch_size = 2)
-    claim_batch = unique_claim_batch_row()
+    claim_batch = reference_protocol_batch_row()
     shuffle = shuffle_seed_independence_row(linear_probe_set(); batch_size = 2)
     masked = masked_fingerprint_train_row()
     frozen = frozen_phys_checkpoint_row(; dir = dir)
@@ -1548,16 +1491,6 @@ function format_experiment_checkpoint_index()
     println(io, "| two_warmup | two-regulator warmup train |")
     println(io, "| metadata_source | resume_training restores AL fields |")
     return String(take!(io))
-end
-
-function experiment_checkpoint_index_holds()
-    text = format_experiment_checkpoint_index()
-    index = experiment_checkpoint_row_index()
-    return index.holds &&
-           occursin("remap_warmup", text) &&
-           occursin("from_compiled", text) &&
-           occursin("frozen_phys", text) &&
-           !occursin("support_f1_ude = 0.99", text)
 end
 
 function experiment_checkpoint_fixture_matrix_namedtuple(matrix)

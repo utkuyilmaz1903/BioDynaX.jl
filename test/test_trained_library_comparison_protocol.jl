@@ -1,4 +1,4 @@
-# M4-B protocol path. This is the trained-UDE scientific acceptance path.
+# protocol path. This is the trained-UDE scientific acceptance path.
 # PR smoke is not trained-UDE scientific acceptance.
 # This file is outside test/runtests.jl.
 
@@ -9,7 +9,7 @@ if !@isdefined(evaluate_trained_graph_local)
     include(joinpath(@__DIR__, "internals.jl"))
 end
 if !@isdefined(_b4_run)
-    include(joinpath(@__DIR__, "m4_b_helpers.jl"))
+    include(joinpath(@__DIR__, "trained_library_comparison_helpers.jl"))
 end
 
 const _B4_PROTO_STARTED_AT = time()
@@ -21,15 +21,16 @@ const _B4_PROTO_ELAPSED_S = time() - _B4_PROTO_STARTED_AT
     @test bundle.logs.set_return[] === nothing
     @test length(bundle.logs.entry) == 1
     entry = bundle.logs.entry[1]
-    @test entry.adam == M4B_PROTOCOL.adam_iterations
-    @test entry.bfgs == M4B_PROTOCOL.bfgs_iterations
-    @test entry.adam == UNIQUE_CLAIM_PROTOCOL.adam_iterations
-    @test entry.bfgs == UNIQUE_CLAIM_PROTOCOL.bfgs_iterations
-    @test entry.fit_set_length == M4B_PROTOCOL.n_ics
+    @test entry.adam == TRAINED_LIBRARY_COMPARISON.adam_iterations
+    @test entry.bfgs == TRAINED_LIBRARY_COMPARISON.bfgs_iterations
+    @test entry.adam == REFERENCE_PROTOCOL.adam_iterations
+    @test entry.bfgs == REFERENCE_PROTOCOL.bfgs_iterations
+    @test entry.fit_set_length == TRAINED_LIBRARY_COMPARISON.n_ics
     @test length(bundle.logs.fit_set) == 1
     @test length(bundle.logs.split) == 0
     @test length(bundle.logs.holdout) == 0
-    @test [exp.u0 for exp in entry.fit_set] == m4b_initial_conditions(:protocol)
+    @test [exp.u0 for exp in entry.fit_set] ==
+          trained_library_comparison_initial_conditions(:protocol)
     @test bundle.capture.count[] == 1
     @test bundle.capture.result[] isa TrainingResult
     @test bundle.capture.constructed[] == false
@@ -100,14 +101,14 @@ end
     wrong_cand = _b4_first_candidate(bundle.replays.wrong)
     @test bundle.replays.graph.success
     @test graph_cand !== nothing
-    @test local_has_true_parent_gate(graph_cand; variable = 2) === true
-    @test local_has_true_parent_gate(wrong_cand; variable = 2) === false
+    @test local_has_true_parent_check(graph_cand; variable = 2) === true
+    @test local_has_true_parent_check(wrong_cand; variable = 2) === false
     prod_graph = _b4_first_candidate(bundle.evidence.graph_discovery)
     prod_wrong = _b4_first_candidate(bundle.evidence.wrong_graph_discovery)
-    @test local_has_true_parent_gate(prod_graph; variable = 2) ===
-          local_has_true_parent_gate(graph_cand; variable = 2)
-    @test local_has_true_parent_gate(prod_wrong; variable = 2) ===
-          local_has_true_parent_gate(wrong_cand; variable = 2)
+    @test local_has_true_parent_check(prod_graph; variable = 2) ===
+          local_has_true_parent_check(graph_cand; variable = 2)
+    @test local_has_true_parent_check(prod_wrong; variable = 2) ===
+          local_has_true_parent_check(wrong_cand; variable = 2)
     @test !_b4_accepts_hardcoded_support(true)
 end
 
@@ -123,9 +124,9 @@ end
 end
 
 @testset "T-B4-PROTO-SCOPE a priori plan is not a holdout winner" begin
-    @test M4B_SCOPE_PLAN[1].name === :graph
-    @test M4B_SCOPE_PLAN[2].name === :global
-    @test M4B_SCOPE_PLAN[3].name === :wrong_graph
+    @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[1].name === :graph
+    @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[2].name === :global
+    @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[3].name === :wrong_graph
     @test length(_B4_PROTO_BUNDLE.logs.discover) == 3
     @test length(_B4_PROTO_BUNDLE.logs.holdout) == 0
     best_scope = :global
@@ -165,5 +166,5 @@ end
         D_replay = bundle.D_replay,
         sample_fp = bundle.sample_fp,
         replays = bundle.replays))
-    @info "M4-B protocol trained-UDE runtime" elapsed_s=_B4_PROTO_ELAPSED_S
+    @info "protocol trained-UDE runtime" elapsed_s=_B4_PROTO_ELAPSED_S
 end

@@ -1,6 +1,6 @@
 using Test: @inferred
 
-@testset "type stability and allocation gates" begin
+@testset "type stability and allocation checks" begin
     rng = MersenneTwister(77)
     linear_network = build_linear_test_network()
     nn, nn_ps, st = build_ude_nn(rng)

@@ -22,7 +22,7 @@
     @test size(Array(sol), 1) == 2
 end
 
-@testset "SciMLBase ODEProblem contract" begin
+@testset "SciMLBase ODEProblem interface" begin
     rng = MersenneTwister(17)
     network = build_linear_test_network()
     model, params = build_ude_model(rng, network)
@@ -50,7 +50,7 @@ end
     @test Array(sol_remade) ≈ Array(sol_oop)
 end
 
-@testset "SciML forward and adjoint contracts" begin
+@testset "SciML forward and adjoint interfaces" begin
     rng = MersenneTwister(23)
     model, params = build_ude_model(rng, build_linear_test_network())
     u0 = [0.2, 0.1]

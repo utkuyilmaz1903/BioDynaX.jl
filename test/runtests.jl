@@ -1,8 +1,9 @@
 # Default test suite. Set BIODYNAX_TEST_HEAVY=1 to also run the multi-minute
 # training-loop testsets; the trained-model recovery protocol lives in
-# run_recovery_hard.jl and run_m4_b_protocol.jl and is not part of Pkg.test().
+# run_recovery_hard.jl and run_trained_library_comparison.jl and is not part of Pkg.test().
 using BioDynaX
 include("internals.jl")
+include(joinpath("support", "support.jl"))
 using ComponentArrays
 using LinearAlgebra
 using Lux
@@ -25,7 +26,7 @@ include("test_training.jl")
 include("test_discovery.jl")
 include("test_experiments.jl")
 include("test_compiler.jl")
-include("test_quality_gates.jl")
+include("test_quality_checks.jl")
 include("test_release.jl")
 include("test_sciml_interface.jl")
 include("test_metadata.jl")
@@ -39,19 +40,20 @@ include("test_recovery_pipeline.jl")
 include("test_holdout.jl")
 include("test_functional_identifiability.jl")
 include("test_trajectory_occupancy.jl")
-include("test_m4_a2_separation.jl")
-include("test_m4_b_trained_graph_local.jl")
+include("test_occupancy_separation.jl")
+include("test_trained_library_comparison.jl")
 include("test_library_comparison_study.jl")
 include("test_stability_selection.jl")
 include("test_discover_unknown_term.jl")
-include("test_golden_path.jl")
+include("test_deprecations.jl")
+include("test_reference_path.jl")
 include("test_invariants.jl")
 include("test_example_smoke.jl")
-include("test_unique_claim_product.jl")
+include("test_reference_protocol_product.jl")
 include("test_protocol_fingerprint.jl")
-include("test_compiler_contract.jl")
+include("test_compiler_spec.jl")
 include("test_protocol_surface.jl")
-include("test_datagen_contract.jl")
+include("test_datagen_spec.jl")
 include("test_recovery_admission.jl")
 include("test_discovery_workspace.jl")
 include("test_training_reuse.jl")

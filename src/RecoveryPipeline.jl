@@ -122,7 +122,7 @@ end
 # Production training and discovery are unchanged unless a test observer
 # is installed.
 const GENERATE_RECOVERY_EXPERIMENTS_OBSERVER = Ref{Any}(nothing)
-const UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER = Ref{Any}(nothing)
+const REFERENCE_PROTOCOL_EXPERIMENT_SPLIT_OBSERVER = Ref{Any}(nothing)
 const FIT_UNKNOWN_DESTRUCTION_OBSERVER = Ref{Any}(nothing)
 const EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER = Ref{Any}(nothing)
 const SAMPLE_UNKNOWN_DESTRUCTION_GRID_OBSERVER = Ref{Any}(nothing)
@@ -140,8 +140,8 @@ function _note_generate_recovery_experiments(set)
     return nothing
 end
 
-function _note_unique_claim_experiment_split(split)
-    observer = UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[]
+function _note_reference_protocol_experiment_split(split)
+    observer = REFERENCE_PROTOCOL_EXPERIMENT_SPLIT_OBSERVER[]
     observer === nothing && return nothing
     observer(split)
     return nothing
@@ -237,13 +237,13 @@ function with_generate_recovery_experiments_observer(f::Function, observer)
     end
 end
 
-function with_unique_claim_experiment_split_observer(f::Function, observer)
-    previous = UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[]
-    UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[] = observer
+function with_reference_protocol_experiment_split_observer(f::Function, observer)
+    previous = REFERENCE_PROTOCOL_EXPERIMENT_SPLIT_OBSERVER[]
+    REFERENCE_PROTOCOL_EXPERIMENT_SPLIT_OBSERVER[] = observer
     try
         return f()
     finally
-        UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER[] = previous
+        REFERENCE_PROTOCOL_EXPERIMENT_SPLIT_OBSERVER[] = previous
     end
 end
 
@@ -342,7 +342,7 @@ end
                                  noise_σ, initial_conditions)
 
 Nine-IC synthetic set used by reference-protocol training. This is not
-`unique_claim_experiment_set` and does not attach fingerprint metadata.
+`reference_protocol_experiment_set` and does not attach fingerprint metadata.
 """
 function generate_recovery_experiments(rng, truth_net, truth_params;
         tspan, n_points, noise_σ,
@@ -355,11 +355,11 @@ function generate_recovery_experiments(rng, truth_net, truth_params;
     return set
 end
 
-"""Locked reference-protocol train indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
-const UNIQUE_CLAIM_TRAIN_INDICES = (1, 2, 3, 4, 5, 6, 7)
+"""Locked reference-protocol train indices. Not a `REFERENCE_PROTOCOL` field."""
+const REFERENCE_PROTOCOL_TRAIN_INDICES = (1, 2, 3, 4, 5, 6, 7)
 
-"""Locked reference-protocol holdout indices. Not a `UNIQUE_CLAIM_PROTOCOL` field."""
-const UNIQUE_CLAIM_HOLDOUT_INDICES = (8, 9)
+"""Locked reference-protocol holdout indices. Not a `REFERENCE_PROTOCOL` field."""
+const REFERENCE_PROTOCOL_HOLDOUT_INDICES = (8, 9)
 
 """
     ExperimentSplit
@@ -377,31 +377,31 @@ struct ExperimentSplit
 end
 
 """
-    unique_claim_experiment_split(set::ExperimentSet) -> ExperimentSplit
+    reference_protocol_experiment_split(set::ExperimentSet) -> ExperimentSplit
 
 Partition a 9-IC reference-protocol `ExperimentSet` into the locked 7/2 view.
 Requires `length(set) == 9`. Consumes the already-generated set: it does
 not generate experiments and does not mutate `set`.
 """
-function unique_claim_experiment_split(set::ExperimentSet)
+function reference_protocol_experiment_split(set::ExperimentSet)
     length(set) == 9 || throw(ArgumentError(
-        "unique_claim_experiment_split requires exactly 9 experiments; got $(length(set))"))
+        "reference_protocol_experiment_split requires exactly 9 experiments; got $(length(set))"))
     train = ExperimentSet(
-        [set.experiments[i] for i in UNIQUE_CLAIM_TRAIN_INDICES],
+        [set.experiments[i] for i in REFERENCE_PROTOCOL_TRAIN_INDICES],
         set.state_names;
         units = set.units,
         metadata = set.metadata)
     holdout = ExperimentSet(
-        [set.experiments[i] for i in UNIQUE_CLAIM_HOLDOUT_INDICES],
+        [set.experiments[i] for i in REFERENCE_PROTOCOL_HOLDOUT_INDICES],
         set.state_names;
         units = set.units,
         metadata = set.metadata)
     split = ExperimentSplit(
-        UNIQUE_CLAIM_TRAIN_INDICES,
-        UNIQUE_CLAIM_HOLDOUT_INDICES,
+        REFERENCE_PROTOCOL_TRAIN_INDICES,
+        REFERENCE_PROTOCOL_HOLDOUT_INDICES,
         train,
         holdout)
-    _note_unique_claim_experiment_split(split)
+    _note_reference_protocol_experiment_split(split)
     return split
 end
 
@@ -436,7 +436,7 @@ function fit_unknown_destruction(ude_model, ude_p0, set;
     guess = phys_init === nothing ?
             NamedTuple{names}(ntuple(_ -> 0.8, length(names))) : phys_init
     ude_init = pack_parameters(guess, ude_p0.nn)
-    config = unique_claim_training_config(
+    config = reference_protocol_training_config(
         model = ude_model,
         adam_iterations = adam,
         bfgs_iterations = bfgs,
@@ -588,7 +588,7 @@ function _holdout_observed_regulators(holdout::ExperimentSet, term)
         for exp in holdout.experiments))
 end
 
-function _unique_claim_external_regulator_band(train::ExperimentSet, term)
+function _reference_protocol_external_regulator_band(train::ExperimentSet, term)
     r_train = reduce(
         vcat, (exp.observations[term.regulator, :]
         for exp in train.experiments))
@@ -644,7 +644,7 @@ function evaluate_holdout(split::ExperimentSplit, evaled, model, params, term,
     (R, D_hat_vals, _) = sample_unknown_destruction_grid(
         model, params, term; r_range = r_holdout, fill_value = 0.3)
     d_rmse_holdout = _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))
-    r_band_external = _unique_claim_external_regulator_band(split.train, term)
+    r_band_external = _reference_protocol_external_regulator_band(split.train, term)
     (R, D_hat_vals, _) = sample_unknown_destruction_grid(
         model, params, term; r_range = r_band_external, fill_value = 0.3)
     d_rmse_holdout_domain = _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))

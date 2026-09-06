@@ -1,18 +1,18 @@
-# M2-G2 live checks only. Legacy scientific gates stay unchanged.
+# live checks only. The earlier scientific checks stay unchanged.
 # data_residual_holdout is observational: it is not compared to 0.30.
 function _m2_g2_assert_live_result(result, truth_rate; label::String)
     @test result.split isa ExperimentSplit
     @test length(result.split.train) == 7
     @test length(result.split.holdout) == 2
-    @test result.split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES
-    @test result.split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES
+    @test result.split.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES
+    @test result.split.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES
     @test length(result.experiments) == 9
     @test all(result.split.train[i] === result.experiments[i] for i in 1:7)
     @test result.split.holdout[1] === result.experiments[8]
     @test result.split.holdout[2] === result.experiments[9]
     if result.discovery === nothing
         @test result.holdout === nothing
-        @info "M2-G2 $label Case A" data_residual=result.data_residual
+        @info "$label Case A" data_residual=result.data_residual
         return nothing
     end
     @test result.holdout isa HoldoutEvidence
@@ -33,7 +33,7 @@ function _m2_g2_assert_live_result(result, truth_rate; label::String)
     (R, D_hat_vals, _) = sample_unknown_destruction_grid(
         model, params, term; r_range = r_holdout, fill_value = 0.3)
     @test ev.d_rmse_holdout === _finite_rate_rel_rmse(D_hat_vals, truth_rate(vec(R)))
-    r_band = _unique_claim_external_regulator_band(result.split.train, term)
+    r_band = _reference_protocol_external_regulator_band(result.split.train, term)
     (R, D_hat_vals, _) = sample_unknown_destruction_grid(
         model, params, term; r_range = r_band, fill_value = 0.3)
     @test ev.d_rmse_holdout_domain ===
@@ -45,8 +45,8 @@ function _m2_g2_assert_live_result(result, truth_rate; label::String)
     @test ev.d_rmse_holdout_domain === ev2.d_rmse_holdout_domain
     @test isfinite(result.data_residual)
     case = result.discovery.success ? "C" : "B"
-    @info "M2-G2 $label Case $case" nn_correlation=result.nn_correlation nn_rate_rmse=result.nn_rate_rmse support_recall=result.support_recall support_f1=result.support_f1 data_residual=result.data_residual data_residual_train=ev.data_residual_train data_residual_holdout=ev.data_residual_holdout d_rmse_holdout=ev.d_rmse_holdout d_rmse_holdout_domain=ev.d_rmse_holdout_domain holdout_residual_gt_030=(ev.data_residual_holdout >
-                                                                                                                                                                                                                                                                                                                                                                                                                  0.30)
+    @info "$label Case $case" nn_correlation=result.nn_correlation nn_rate_rmse=result.nn_rate_rmse support_recall=result.support_recall support_f1=result.support_f1 data_residual=result.data_residual data_residual_train=ev.data_residual_train data_residual_holdout=ev.data_residual_holdout d_rmse_holdout=ev.d_rmse_holdout d_rmse_holdout_domain=ev.d_rmse_holdout_domain holdout_residual_gt_030=(ev.data_residual_holdout >
+                                                                                                                                                                                                                                                                                                                                                                                                            0.30)
     return ev
 end
 
@@ -78,9 +78,9 @@ end
     @test kpis.support_recall ≥ RECOVERY_THRESHOLDS.support_recall
     @test kpis.unidentifiable_edge
     @test kpis.claim === :recall_plus_data_residual
-    @test unique_claim_kpis_hold(kpis)
-    @test isempty(unique_claim_kpi_failures(kpis))
-    @test assert_unique_claim_kpis(kpis) === kpis
+    @test reference_protocol_kpis_hold(kpis)
+    @test isempty(reference_protocol_kpi_failures(kpis))
+    @test assert_reference_protocol_kpis(kpis) === kpis
     proto = ude.protocol_result
     @test assert_protocol_result_fields(proto) === proto
     @test proto.coefficients_are_biological_constants == false
@@ -90,24 +90,24 @@ end
     @test proto.data_residual == ude.data_residual
     @test proto.support_recall == ude.support_recall
     @test ude.support_f1 < RECOVERY_THRESHOLDS.support_f1_clean
-    @test unique_claim_f1_reaches_analytical_gate(ude.support_f1) == false
-    @test unique_claim_f1_meets_skeleton_floor(ude.support_f1)
+    @test reference_protocol_f1_reaches_analytical_threshold(ude.support_f1) == false
+    @test reference_protocol_f1_meets_skeleton_floor(ude.support_f1)
     extras = proto.extras
     @test extras !== nothing
     @test "1" in extras || "r" in extras || !isempty(extras)
     @test occursin("collinear", BioDynaX.format_production_destruction_warning(ident))
     @test isfinite(ude.normalized_support_f1)
-    @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
-    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
-    row = unique_claim_protocol_row(ude)
+    @test REFERENCE_PROTOCOL.n_ics == 9
+    @test REFERENCE_PROTOCOL.seed == 103
+    row = reference_protocol_protocol_row(ude)
     @test row.kpi_failures == Symbol[]
-    @test format_unique_claim_kpi_failures(row.kpi_failures) == "(none)"
-    @test unique_claim_kpi_failure_symbols() ==
+    @test format_reference_protocol_kpi_failures(row.kpi_failures) == "(none)"
+    @test reference_protocol_kpi_failure_symbols() ==
           (:unidentifiable_edge, :data_residual, :support_recall)
-    @test !(:support_f1 in unique_claim_kpi_failure_symbols())
-    @test assert_unique_claim_protocol_row_holds(row) === row
+    @test !(:support_f1 in reference_protocol_kpi_failure_symbols())
+    @test assert_reference_protocol_protocol_row_holds(row) === row
     @test extras_print_label(proto.extras) == row.extras_label
-    @test unique_claim_fingerprint_is_protocol(row.fingerprint)
+    @test reference_protocol_fingerprint_is_protocol(row.fingerprint)
     @test occursin("unidentifiable_edge: true", row.text)
     _m2_g2_assert_live_result(
         ude, r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2);

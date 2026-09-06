@@ -1,6 +1,6 @@
 @testset "graph-local library helpers are not exported" begin
     @test !(:graph_vs_global_library_row in names(BioDynaX))
-    @test !(:local_has_true_parent_gate in names(BioDynaX))
+    @test !(:local_has_true_parent_check in names(BioDynaX))
     @test !(:GraphLocalLibraryRow in names(BioDynaX))
     @test !(:wrong_graph_parent_row in names(BioDynaX))
     @test public_export_list_holds()
@@ -10,12 +10,12 @@
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.local_basis_scope_source_holds()
-    @test BioDynaX.local_has_true_parent_gate_source_holds()
-    @test BioDynaX.recovery_suite_uses_parent_gates_source_holds()
-    @test BioDynaX.candidate_parents_source_holds()
-    @test BioDynaX.graph_local_library_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test local_basis_scope_source_holds()
+    @test local_has_true_parent_check_source_holds()
+    @test recovery_suite_uses_parent_checks_source_holds()
+    @test candidate_parents_source_holds()
+    @test graph_local_library_index_holds()
 end
 
 @testset "graph library keeps true parents and drops wrong ones" begin
@@ -59,8 +59,8 @@ end
     @test mm_k.holds
 end
 
-@testset "parent gates and discovery honesty" begin
-    none = BioDynaX.nothing_candidate_gate_row()
+@testset "parent checks and discovery consistency" begin
+    none = BioDynaX.nothing_candidate_check_row()
     @test none.holds
     scope = BioDynaX.default_scope_is_graph_row()
     @test scope.holds
@@ -77,12 +77,12 @@ end
     smoke = BioDynaX.smoke_vs_protocol_discovery_row()
     @test smoke.holds
     @test smoke.protocol_ics == 9
-    abl = BioDynaX.ablation_discovery_gate_row()
+    abl = BioDynaX.ablation_discovery_check_row()
     @test abl.holds
     @test abl.n_ics == 1
-    three = BioDynaX.three_state_discovery_gate_row()
+    three = BioDynaX.three_state_discovery_check_row()
     @test three.holds
-    wrong = BioDynaX.wrong_graph_discovery_gate_row()
+    wrong = BioDynaX.wrong_graph_discovery_check_row()
     @test wrong.holds
     @test wrong.local_has_true == false
     typed = BioDynaX.graph_local_library_typed_matrix()
@@ -105,7 +105,7 @@ end
     @test six_targets.holds
     three_targets = BioDynaX.three_state_per_target_library_row()
     @test three_targets.holds
-    @test BioDynaX.suite_library_index_holds()
+    @test suite_library_index_holds()
     screen = BioDynaX.screen_variables_bound_row()
     @test screen.holds
     ev = BioDynaX.evaluate_graph_library_finite_row()
@@ -118,7 +118,7 @@ end
     extra = BioDynaX.extra_candidates_do_not_shrink_graph_row()
     @test extra.holds
     @test BioDynaX.public_export_list_untouched_library_row().holds
-    ics = BioDynaX.unique_claim_not_faster_by_dropping_ics_row()
+    ics = BioDynaX.reference_protocol_not_faster_by_dropping_ics_row()
     @test ics.holds
     @test ics.n_ics == 9
     @test ics.n_table == 9
@@ -132,6 +132,6 @@ end
     @test occursin("include(\"GraphLocalLibrary.jl\")", src)
     @test isfile(joinpath(@__DIR__, "..", "src", "GraphLocalLibrary.jl"))
     recovery = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
-    @test occursin("function local_has_true_parent_gate", recovery)
-    @test occursin("local_has_true_parent = local_has_true_parent_gate(", recovery)
+    @test occursin("function local_has_true_parent_check", recovery)
+    @test occursin("local_has_true_parent = local_has_true_parent_check(", recovery)
 end

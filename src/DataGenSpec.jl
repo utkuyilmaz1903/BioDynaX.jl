@@ -339,20 +339,20 @@ end
 # -- Reference-protocol experiment helper -------------------------------------------
 
 """
-    unique_claim_experiment_set(rng, network; smoke=false, kwargs...)
+    reference_protocol_experiment_set(rng, network; smoke=false, kwargs...)
 
 `generate_experiment_set` on the reference-protocol fingerprint: protocol ICs and
 point count, fingerprint `tspan`, observation noise. Caller must pass
 `initial_conditions` when the network is not 2-state.
 """
-function unique_claim_experiment_set(rng::AbstractRNG, network::BiologicalNetwork;
+function reference_protocol_experiment_set(rng::AbstractRNG, network::BiologicalNetwork;
         smoke::Bool = false,
         truth_params = nothing,
         noise_σ = nothing,
         initial_conditions = nothing)
-    fp = unique_claim_fingerprint(; smoke)
+    fp = reference_protocol_fingerprint(; smoke)
     ics = initial_conditions === nothing ?
-          unique_claim_protocol_ics(; smoke) : initial_conditions
+          reference_protocol_protocol_ics(; smoke) : initial_conditions
     isempty(ics) && throw(ArgumentError("reference-protocol experiment set needs ICs"))
     nstates = length(state_nodes(network))
     length(first(ics)) == nstates || throw(ArgumentError(
@@ -365,19 +365,19 @@ function unique_claim_experiment_set(rng::AbstractRNG, network::BiologicalNetwor
         tspan = fp.tspan,
         n_points = fp.n_points,
         noise_σ = σ)
-    set.metadata[:unique_claim_fingerprint_kind] = fp.kind
-    set.metadata[:unique_claim_n_ics] = fp.n_ics
-    set.metadata[:unique_claim_n_points] = fp.n_points
-    set.metadata[:unique_claim_smoke] = fp.smoke
+    set.metadata[:reference_protocol_fingerprint_kind] = fp.kind
+    set.metadata[:reference_protocol_n_ics] = fp.n_ics
+    set.metadata[:reference_protocol_n_points] = fp.n_points
+    set.metadata[:reference_protocol_smoke] = fp.smoke
     return set
 end
 
-function unique_claim_experiment_set_matches_fingerprint(set::ExperimentSet;
+function reference_protocol_experiment_set_matches_fingerprint(set::ExperimentSet;
         smoke::Bool = false)
-    fp = unique_claim_fingerprint(; smoke)
+    fp = reference_protocol_fingerprint(; smoke)
     n = length(set.experiments)
     n == fp.n_ics || return false
-    get(set.metadata, :unique_claim_fingerprint_kind, nothing) === fp.kind ||
+    get(set.metadata, :reference_protocol_fingerprint_kind, nothing) === fp.kind ||
         return false
     experiment_set_is_compiled_once(set) || return false
     for exp in set.experiments
@@ -388,10 +388,10 @@ function unique_claim_experiment_set_matches_fingerprint(set::ExperimentSet;
     return true
 end
 
-function unique_claim_example_uses_experiment_set()
-    src = read(unique_claim_example_path(), String)
-    return occursin("unique_claim_experiment_set", src) &&
-           occursin("unique_claim_fingerprint", src)
+function reference_protocol_example_uses_experiment_set()
+    src = read(reference_protocol_example_path(), String)
+    return occursin("reference_protocol_experiment_set", src) &&
+           occursin("reference_protocol_fingerprint", src)
 end
 
 # -- Joint rules row -------------------------------------------------------
@@ -429,7 +429,7 @@ function joint_datagen_compiler_row(network::BiologicalNetwork;
         tspan, n_points,
         truth_params = phys)
     defaults = default_parameters(snap.model; rng = MersenneTwister(29))
-    admission = unique_claim_recovery_admission(network)
+    admission = reference_protocol_recovery_admission(network)
     return (;
         snap,
         named,
@@ -449,7 +449,7 @@ function joint_datagen_compiler_row(network::BiologicalNetwork;
                       named.finite && set_snap.finite)
 end
 
-function remapped_two_regulator_contract_holds()
+function remapped_two_regulator_spec_holds()
     row = joint_datagen_compiler_row(
         build_remapped_two_regulator_network();
         rng = MersenneTwister(13),

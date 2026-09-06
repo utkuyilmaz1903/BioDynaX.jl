@@ -10,24 +10,24 @@
 # PR smoke is not trained-UDE scientific acceptance.
 #
 # This file does not change RECOVERY_THRESHOLDS, LOCKED_PUBLIC_EXPORTS,
-# evaluate_holdout, the functional-identifiability diagnostic, occupancy, or UNIQUE_CLAIM_PROTOCOL. No public
+# evaluate_holdout, the functional-identifiability diagnostic, occupancy, or REFERENCE_PROTOCOL. No public
 # export is added. training_call is an unexported composition argument.
 ###############################################################################
 
-const M4B_PROTOCOL = (
+const TRAINED_LIBRARY_COMPARISON = (
     seed = 401,
     n_ics = 3,
     n_points = 40,
     tspan = (0.0, 8.0),
     noise_σ = 0.0,
-    adam_iterations = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-    bfgs_iterations = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+    adam_iterations = REFERENCE_PROTOCOL.adam_iterations,
+    bfgs_iterations = REFERENCE_PROTOCOL.bfgs_iterations,
     discovery_seed = 11,
     bootstrap = 0,
     n_sample_points = 80,
     x_seed = 619)
 
-const M4B_SMOKE = (
+const TRAINED_LIBRARY_COMPARISON_SMOKE = (
     seed = 401,
     n_ics = 1,
     n_points = 8,
@@ -40,23 +40,23 @@ const M4B_SMOKE = (
     n_sample_points = 24,
     x_seed = 619)
 
-const M4B_SCOPE_PLAN = (
+const TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN = (
     (name = :graph, network = :ude, basis_scope = :graph),
     (name = :global, network = :ude, basis_scope = :global),
     (name = :wrong_graph, network = :wrong, basis_scope = :graph))
 
 """Truth parameters of the trained-model library check for data generation. Not discovery D."""
-m4b_truth_params() = (
+trained_library_comparison_truth_params() = (
     k_prod = 0.9, vmax = 1.7, K = 0.6,
     k_rq = 1.0, k_r = 0.6, k_qs = 0.8, k_q = 0.5, k_z = 0.4)
 
-function m4b_budget(kind::Symbol)
-    kind === :smoke && return M4B_SMOKE
-    kind === :protocol && return M4B_PROTOCOL
+function trained_library_comparison_budget(kind::Symbol)
+    kind === :smoke && return TRAINED_LIBRARY_COMPARISON_SMOKE
+    kind === :protocol && return TRAINED_LIBRARY_COMPARISON
     throw(ArgumentError("kind must be :smoke or :protocol; got $(kind)"))
 end
 
-function m4b_initial_conditions(kind::Symbol)
+function trained_library_comparison_initial_conditions(kind::Symbol)
     if kind === :smoke
         return [[0.30, 0.25, 0.20, 0.15]]
     elseif kind === :protocol
@@ -156,13 +156,13 @@ struct TrainedGraphLocalEvidence
     end
 end
 
-function _m4b_scope_network(name::Symbol, ude_net, wrong_net)
+function _trained_library_comparison_scope_network(name::Symbol, ude_net, wrong_net)
     name === :ude && return ude_net
     name === :wrong && return wrong_net
     throw(ArgumentError("scope network must be :ude or :wrong; got $(name)"))
 end
 
-function _m4b_discovery_config(budget, scope::Symbol)
+function _trained_library_comparison_discovery_config(budget, scope::Symbol)
     return rate_discovery_config(
         scope = scope,
         bootstrap = budget.bootstrap,
@@ -181,10 +181,10 @@ budget's own seed, noise, and initial conditions, so
 trains on. Not exported.
 """
 function library_study_training_set(kind::Symbol;
-        seed::Integer = m4b_budget(kind).seed,
-        noise_σ::Real = m4b_budget(kind).noise_σ,
-        initial_conditions = m4b_initial_conditions(kind))
-    budget = m4b_budget(kind)
+        seed::Integer = trained_library_comparison_budget(kind).seed,
+        noise_σ::Real = trained_library_comparison_budget(kind).noise_σ,
+        initial_conditions = trained_library_comparison_initial_conditions(kind))
+    budget = trained_library_comparison_budget(kind)
     truth_net = build_three_state_unknown_network(;
         known = true, with_distractor = true, parent = 2)
     return generate_experiment_set(
@@ -194,14 +194,14 @@ function library_study_training_set(kind::Symbol;
         tspan = budget.tspan,
         n_points = budget.n_points,
         noise_σ = Float64(noise_σ),
-        truth_params = m4b_truth_params(),
+        truth_params = trained_library_comparison_truth_params(),
         generator = :compiled_mechanism)
 end
 
 """
     evaluate_trained_graph_local(; kind, training_call=fit_unknown_destruction,
-                                 seed=m4b_budget(kind).seed,
-                                 noise_σ=m4b_budget(kind).noise_σ,
+                                 seed=trained_library_comparison_budget(kind).seed,
+                                 noise_σ=trained_library_comparison_budget(kind).noise_σ,
                                  stability_selection=nothing, design=:constant)
 
 Unexported orchestrator of the trained-model library check. Exactly one `training_call`, one learned-D
@@ -221,11 +221,11 @@ range observed in the training experiments).
 function evaluate_trained_graph_local(;
         kind::Symbol,
         training_call = fit_unknown_destruction,
-        seed::Integer = m4b_budget(kind).seed,
-        noise_σ::Real = m4b_budget(kind).noise_σ,
+        seed::Integer = trained_library_comparison_budget(kind).seed,
+        noise_σ::Real = trained_library_comparison_budget(kind).noise_σ,
         stability_selection::Union{Nothing, StabilitySelection} = nothing,
         design::Symbol = :constant)
-    budget = m4b_budget(kind)
+    budget = trained_library_comparison_budget(kind)
     ude_net = build_three_state_unknown_network(;
         known = false, with_distractor = true, parent = 2)
     wrong_net = build_wrong_graph_unknown_network(;
@@ -248,14 +248,16 @@ function evaluate_trained_graph_local(;
     dX[1, :] .= vec(D)
     times = dummy_trained_graph_local_times(size(X, 2))
     discoveries = DiscoveryResult[]
-    for scope in M4B_SCOPE_PLAN
-        network = _m4b_scope_network(scope.network, ude_net, wrong_net)
+    for scope in TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN
+        network = _trained_library_comparison_scope_network(
+            scope.network, ude_net, wrong_net)
         push!(discoveries,
             discover_equations(
                 X, times, network;
                 derivatives = dX,
                 targets = 1,
-                config = _m4b_discovery_config(budget, scope.basis_scope),
+                config = _trained_library_comparison_discovery_config(
+                    budget, scope.basis_scope),
                 verbose = false,
                 stability_selection = stability_selection))
     end

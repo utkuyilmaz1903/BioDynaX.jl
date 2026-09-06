@@ -149,8 +149,8 @@ and not used otherwise; `verbose` prints training progress and the report.
 function discover_unknown_term(network::BiologicalNetwork, experiments::ExperimentSet;
         term = nothing,
         training::TrainingConfig = TrainingConfig(
-            adam_iterations = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-            bfgs_iterations = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+            adam_iterations = REFERENCE_PROTOCOL.adam_iterations,
+            bfgs_iterations = REFERENCE_PROTOCOL.bfgs_iterations,
             log_every = 10^6),
         discovery::DiscoveryConfig = rate_discovery_config(),
         holdout::Integer = 2,

@@ -92,45 +92,6 @@ function discovery_retcode_mapper_row()
                 unsupported === DiscoveryFailed)
 end
 
-function discovery_retcode_mapper_source_holds()
-    src = read(discovery_jl_source_path(), String)
-    start = findfirst("function _discovery_retcode", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("DenominatorUnsafe", body) &&
-           occursin("SingularLibrary", body) &&
-           occursin("InsufficientSamples", body) &&
-           occursin("EmptySupport", body) &&
-           occursin("DiscoveryFailed", body) &&
-           occursin("insufficient", body) &&
-           occursin("empty support", body)
-end
-
-function discovery_sample_floor_source_holds()
-    src = read(discovery_jl_source_path(), String)
-    start = findfirst("function _run_discovery", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("size(X, 2) ≥ 20", body) &&
-           occursin("insufficient finite trajectory samples", body) &&
-           occursin("empty support: no terms survived thresholding", body)
-end
-
-function discovery_n_samples_entry_source_holds()
-    src = read(discovery_jl_source_path(), String)
-    start = findfirst("function discover_equations(p_trained, nn, st;", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("n_samples ≥ 20", body) &&
-           occursin("n_samples must be at least 20", body)
-end
-
 # -- Trajectory probe ---------------------------------------------------------
 
 """
@@ -409,7 +370,7 @@ struct HoleValidateSpec
     builder::Function
     expected_holes::Int
     recovery_admits::Bool
-    unique_claim_section::Bool
+    reference_protocol_section::Bool
 end
 
 function hole_validate_specs()
@@ -453,14 +414,14 @@ end
     hole_validate_row(spec)
 
 `validate_network` returns the same network for 0, 1, 2, and 3 holes.
-`unique_claim_recovery_admits` is true only for a single unknown
+`reference_protocol_recovery_admits` is true only for a single unknown
 destruction. `assert_single_unknown_destruction` throws unless holes==1.
 """
 function hole_validate_row(spec::HoleValidateSpec)
     net = spec.builder()
     holes = count_unknown_destructions(net)
     validated = validate_network(net)
-    admits = unique_claim_recovery_admits(net)
+    admits = reference_protocol_recovery_admits(net)
     model, _ = build_ude_model(MersenneTwister(0), net)
     threw = false
     try
@@ -539,10 +500,10 @@ function discovery_on_zero_hole_row()
         validate_open = validated === traj.net,
         success = result.success,
         retcode = result.retcode,
-        recovery_admits = unique_claim_recovery_admits(traj.net),
+        recovery_admits = reference_protocol_recovery_admits(traj.net),
         holds = holes == 0 &&
                 validated === traj.net &&
-                unique_claim_recovery_admits(traj.net) == false &&
+                reference_protocol_recovery_admits(traj.net) == false &&
                 result.retcode !== nothing)
 end
 
@@ -567,11 +528,11 @@ function discovery_on_dual_hole_row()
     return (;
         holes = count_unknown_destructions(net),
         validate_open = validate_network(net) === net,
-        recovery_admits = unique_claim_recovery_admits(net),
+        recovery_admits = reference_protocol_recovery_admits(net),
         retcode = result.retcode,
         holds = count_unknown_destructions(net) == 2 &&
                 validate_network(net) === net &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 # -- KPI failure grid ---------------------------------------------------------
@@ -580,7 +541,7 @@ end
     kpi_probe_row(; unidentifiable_edge, data_residual, support_recall, support_f1)
 
 One synthetic KPI row. Combined F1 is stored and must not appear in
-`unique_claim_kpi_failures`.
+`reference_protocol_kpi_failures`.
 """
 function kpi_probe_row(;
         unidentifiable_edge::Bool,
@@ -592,11 +553,11 @@ function kpi_probe_row(;
         data_residual,
         support_recall,
         support_f1)
-    failures = unique_claim_kpi_failures(kpis)
+    failures = reference_protocol_kpi_failures(kpis)
     expected = Symbol[]
     unidentifiable_edge === true || push!(expected, :unidentifiable_edge)
-    unique_claim_residual_holds(data_residual) || push!(expected, :data_residual)
-    unique_claim_recall_holds(support_recall) || push!(expected, :support_recall)
+    reference_protocol_residual_holds(data_residual) || push!(expected, :data_residual)
+    reference_protocol_recall_holds(support_recall) || push!(expected, :support_recall)
     return (;
         unidentifiable_edge,
         data_residual,
@@ -604,14 +565,14 @@ function kpi_probe_row(;
         support_f1,
         failures = Tuple(failures),
         expected = Tuple(expected),
-        symbols_hold = unique_claim_kpi_failure_symbols_hold(failures),
+        symbols_hold = reference_protocol_kpi_failure_symbols_hold(failures),
         f1_absent = !(:support_f1 in failures) &&
                     !(:canonical_hill_from_nn in failures),
-        message = unique_claim_kpi_failure_message(failures),
-        label = format_unique_claim_kpi_failures(failures),
-        hold = unique_claim_kpis_hold(kpis),
+        message = reference_protocol_kpi_failure_message(failures),
+        label = format_reference_protocol_kpi_failures(failures),
+        kpis_hold = reference_protocol_kpis_hold(kpis),
         holds = failures == expected &&
-                unique_claim_kpi_failure_symbols_hold(failures) &&
+                reference_protocol_kpi_failure_symbols_hold(failures) &&
                 !(:support_f1 in failures))
 end
 
@@ -630,17 +591,17 @@ function kpi_failure_grid()
                 support_f1 = f1))
     end
     n_fail = count(r -> !isempty(r.failures), rows)
-    n_hold = count(r -> r.hold, rows)
+    n_kpis_hold = count(r -> r.kpis_hold, rows)
     painted = count(r -> :support_f1 in r.failures, rows)
     return (;
         n = length(rows),
         n_fail,
-        n_hold,
+        n_kpis_hold,
         painted,
         rows,
         holds = all(r -> r.holds, rows) &&
                 painted == 0 &&
-                n_fail ≥ 1 && n_hold ≥ 1 &&
+                n_fail ≥ 1 && n_kpis_hold ≥ 1 &&
                 length(rows) == 2 * 3 * 3 * 4)
 end
 
@@ -662,7 +623,7 @@ function kpi_failure_named_examples()
         support_recall = 0.40, support_f1 = 0.99)
     return (;
         pass, residual, recall, ident, all_fail,
-        holds = pass.holds && pass.hold &&
+        holds = pass.holds && pass.kpis_hold &&
                 residual.holds && residual.failures == (:data_residual,) &&
                 recall.holds && recall.failures == (:support_recall,) &&
                 ident.holds && ident.failures == (:unidentifiable_edge,) &&
@@ -680,9 +641,9 @@ function kpi_f1_never_failure_symbol_row()
         support_recall = 1.0, support_f1 = 0.10)
     return (;
         high, low,
-        high_hold = high.hold,
-        low_hold = low.hold,
-        holds = high.holds && low.holds && high.hold && low.hold &&
+        high_kpis_hold = high.kpis_hold,
+        low_kpis_hold = low.kpis_hold,
+        holds = high.holds && low.holds && high.kpis_hold && low.kpis_hold &&
                 high.failures == () && low.failures == () &&
                 RECOVERY_THRESHOLDS.support_f1_ude == 0.50 &&
                 RECOVERY_THRESHOLDS.support_f1_clean == 0.99)
@@ -761,15 +722,15 @@ function extras_empty_vs_na_row()
 end
 
 function extras_hardcoded_attempt_row()
-    honest = extras_print_label(("1", "r"))
+    printed = extras_print_label(("1", "r"))
     attempt = extras_print_label("1, r remain after the UDE F1 attempt")
     return (;
-        honest,
+        printed,
         attempt,
-        honest_hardcoded = extras_print_is_hardcoded_attempt(honest),
+        printed_hardcoded = extras_print_is_hardcoded_attempt(printed),
         attempt_hardcoded = extras_print_is_hardcoded_attempt(attempt),
-        holds = honest == "1, r" &&
-                extras_print_is_hardcoded_attempt(honest) == false &&
+        holds = printed == "1, r" &&
+                extras_print_is_hardcoded_attempt(printed) == false &&
                 extras_print_is_hardcoded_attempt(attempt))
 end
 
@@ -794,8 +755,8 @@ function kpi_threshold_boundary_row()
         support_f1 = 0.57)
     return (;
         residual_pass, residual_fail, recall_pass, recall_fail,
-        holds = residual_pass.hold && !residual_fail.hold &&
-                recall_pass.hold && !recall_fail.hold &&
+        holds = residual_pass.kpis_hold && !residual_fail.kpis_hold &&
+                recall_pass.kpis_hold && !recall_fail.kpis_hold &&
                 residual_fail.failures == (:data_residual,) &&
                 recall_fail.failures == (:support_recall,) &&
                 residual_pass.f1_absent && residual_fail.f1_absent)
@@ -885,18 +846,6 @@ function discovery_retcode_exports_hold()
         :DenominatorUnsafe, :EmptySupport, :SingularLibrary, :DiscoveryFailed)
     return all(sym -> sym in LOCKED_PUBLIC_EXPORTS, exported) &&
            public_export_list_holds()
-end
-
-function extras_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
-    start = findfirst("function _format_protocol_extras", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("NA", body) &&
-           occursin("(none)", body) &&
-           occursin("isempty(extras)", body)
 end
 
 # -- Failed protocol print checks --------------------------------------------
@@ -1069,16 +1018,6 @@ function format_failure_mode_index()
     return String(take!(io))
 end
 
-function failure_mode_index_holds()
-    text = format_failure_mode_index()
-    index = failure_mode_row_index()
-    return index.holds &&
-           occursin("InsufficientSamples", text) &&
-           occursin("validate open", text) &&
-           occursin("0.99 F1", text) &&
-           !occursin("support_f1_ude = 0.99", text)
-end
-
 # -- Formatter / test-file lock -----------------------------------------------
 
 function failure_mode_test_path()
@@ -1103,4 +1042,4 @@ function failure_mode_formatter_lock_holds()
     return julia_formatter_toml_holds() && failure_mode_test_file_holds()
 end
 
-# -- Source / docs contracts --------------------------------------------------
+# -- Source / docs checks ----------------------------------------------------

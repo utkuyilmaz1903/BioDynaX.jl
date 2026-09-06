@@ -116,7 +116,7 @@ end
     @test !isdefined(BioDynaX, :DestructionSamples)
     @test isdefined(BioDynaX, :ExperimentSplit)
     @test !(:ExperimentSplit in names(BioDynaX))
-    @test !(:unique_claim_experiment_split in names(BioDynaX))
+    @test !(:reference_protocol_experiment_split in names(BioDynaX))
     @test isdefined(BioDynaX, :generate_recovery_experiments)
     @test isdefined(BioDynaX, :consume_shared_suite_rng!)
     @test isdefined(BioDynaX, :fit_unknown_destruction)
@@ -131,10 +131,10 @@ end
     @test !(:report_recovery in names(BioDynaX))
 end
 
-@testset "generate_recovery_experiments is the 9-IC unique-claim set" begin
+@testset "generate_recovery_experiments is the 9-IC reference protocol set" begin
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    proto = UNIQUE_CLAIM_PROTOCOL
+    proto = REFERENCE_PROTOCOL
     ics = BioDynaX._unknown_edge_ics()
     set = generate_recovery_experiments(
         MersenneTwister(7), truth_net, truth;
@@ -150,7 +150,7 @@ end
     @test set.metadata[:n_ics] == 9
     @test set.metadata[:n_points] == proto.n_points
     @test set.metadata[:tspan] == proto.tspan
-    @test !haskey(set.metadata, :unique_claim_fingerprint_kind)
+    @test !haskey(set.metadata, :reference_protocol_fingerprint_kind)
     for (generated, expected, u0) in zip(set.experiments, legacy.experiments, ics)
         @test generated.u0 == u0
         @test length(generated.times) == proto.n_points
@@ -343,7 +343,7 @@ end
     @test !occursin("discover_unknown_rate", body)
     @test !occursin("normalize_destruction_samples", body)
     @test !occursin("training_ok", body)
-    @test !occursin("unique_claim_discovery_config", body)
+    @test !occursin("reference_protocol_discovery_config", body)
     @test !occursin("times =", body)
     @test !occursin("RECOVERY_THRESHOLDS", body)
     composer = _composer_function_body()
@@ -477,7 +477,7 @@ end
         protocol_result = expected_proto)
     @test format_recovery_protocol(reported; equations = "D(z) = 1 + r") ==
           format_recovery_protocol(legacy; equations = "D(z) = 1 + r")
-    row = unique_claim_protocol_row(reported)
+    row = reference_protocol_protocol_row(reported)
     @test row.protocol_result === reported.protocol_result
     @test row.kpis === reported.locked_kpis
 end
@@ -523,7 +523,7 @@ end
     txt = format_recovery_protocol(bare; equations = "D(z) = 1")
     @test occursin("canonical_hill_from_nn: false", txt)
     @test occursin("hybrid_data_residual: 0.003", txt)
-    row = unique_claim_protocol_row(bare)
+    row = reference_protocol_protocol_row(bare)
     @test row.protocol_result !== nothing
     @test row.kpis !== nothing
     @test Tuple(keys(row.protocol_result)) == PROTOCOL_RESULT_FIELDS
@@ -545,7 +545,7 @@ end
     @test reported.holdout === nothing
 end
 
-@testset "report_recovery M2 fields default to nothing; no M3 fields" begin
+@testset "report_recovery holdout fields default to nothing; no functional-identifiability fields" begin
     reported = report_recovery(
         _composer_valid_evaled(), (; unidentifiable_edge = true))
     fields = fieldnames(typeof(reported))
@@ -577,7 +577,7 @@ end
     @test public_export_list_holds()
 end
 
-@testset "live unique-claim sections construct results through report_recovery" begin
+@testset "live reference protocol sections construct results through report_recovery" begin
     ude_body = recovery_suite_section_body(:ude_discovery)
     mm_body = recovery_suite_section_body(:mm_unknown)
     for body in (ude_body, mm_body)
@@ -599,10 +599,10 @@ end
     end
     @test occursin("admit_recovery_suite_network(:ude_discovery)", ude_body)
     @test occursin("admit_recovery_suite_network(:mm_unknown)", mm_body)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.tspan", ude_body)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.n_points", ude_body)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.tspan", mm_body)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.n_points", mm_body)
+    @test occursin("REFERENCE_PROTOCOL.tspan", ude_body)
+    @test occursin("REFERENCE_PROTOCOL.n_points", ude_body)
+    @test occursin("REFERENCE_PROTOCOL.tspan", mm_body)
+    @test occursin("REFERENCE_PROTOCOL.n_points", mm_body)
     @test occursin("family = :mm", mm_body)
     @test findfirst("_train_unknown_edge", ude_body) <
           findfirst("_evaluate_unknown_rate_recovery", ude_body)
@@ -656,7 +656,7 @@ end
     txt = format_recovery_protocol(reported)
     @test occursin("hybrid_data_residual: Inf", txt)
     @test occursin("canonical_hill_from_nn: false", txt)
-    row = unique_claim_protocol_row(reported)
+    row = reference_protocol_protocol_row(reported)
     @test row.protocol_result !== nothing
     @test row.kpis !== nothing
 end
@@ -711,7 +711,7 @@ end
         @test occursin("DISCOVERY", txt)
         @test occursin("REPRODUCTION", txt)
         @test occursin("canonical_hill_from_nn: false", txt)
-        proto_row = unique_claim_protocol_row(row)
+        proto_row = reference_protocol_protocol_row(row)
         @test proto_row.protocol_result !== nothing
         @test proto_row.kpis !== nothing
         @test proto_row.protocol_result === row.protocol_result
@@ -724,7 +724,7 @@ end
     @test public_export_list_holds()
 end
 
-@testset "composer owns sample, training gate, early exit, and evaluation" begin
+@testset "composer owns sample, training check, early exit, and evaluation" begin
     composer = _composer_function_body()
     sample_at = _first_needle(composer,
         ("sample_destruction(", "sample_unknown_destruction_grid"))
@@ -747,8 +747,8 @@ end
     @test count("discover_unknown_rate", composer) == 2
 end
 
-@testset "unique-claim suite shells stay a gated dispatcher" begin
-    @test recovery_suite_all_sections_gated()
+@testset "reference protocol suite shells stay a checked dispatcher" begin
+    @test recovery_suite_all_sections_checked()
     ude_body = recovery_suite_section_body(:ude_discovery)
     mm_body = recovery_suite_section_body(:mm_unknown)
     for body in (ude_body, mm_body)

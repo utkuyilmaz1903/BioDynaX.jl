@@ -1,18 +1,18 @@
 using BioDynaX: ExperimentSplit,
-                unique_claim_experiment_split,
-                UNIQUE_CLAIM_TRAIN_INDICES,
-                UNIQUE_CLAIM_HOLDOUT_INDICES,
+                reference_protocol_experiment_split,
+                REFERENCE_PROTOCOL_TRAIN_INDICES,
+                REFERENCE_PROTOCOL_HOLDOUT_INDICES,
                 generate_recovery_experiments,
                 MechanismRecoveryResult,
                 recovery_suite_section_body,
                 LOCKED_PUBLIC_EXPORTS,
-                UNIQUE_CLAIM_PROTOCOL,
+                REFERENCE_PROTOCOL,
                 RECOVERY_THRESHOLDS,
                 experiment_fingerprint,
                 public_export_list_holds,
                 build_hill_recovery_network,
                 with_generate_recovery_experiments_observer,
-                with_unique_claim_experiment_split_observer,
+                with_reference_protocol_experiment_split_observer,
                 with_fit_unknown_destruction_observer,
                 with_evaluate_unknown_rate_recovery_range_observer,
                 with_sample_unknown_destruction_grid_observer,
@@ -23,12 +23,12 @@ using BioDynaX: ExperimentSplit,
                 HoldoutEvidence,
                 evaluate_holdout,
                 _holdout_observed_regulators,
-                _unique_claim_external_regulator_band,
+                _reference_protocol_external_regulator_band,
                 _finite_rate_rel_rmse,
                 _mean_hybrid_residual,
                 _train_unknown_edge,
                 _regulator_grid,
-                _unique_claim_rate_recovery,
+                _reference_protocol_rate_recovery,
                 _evaluate_unknown_rate_recovery,
                 only_unknown_destruction,
                 DiscoveryFailed,
@@ -39,9 +39,9 @@ using BioDynaX: ExperimentSplit,
                 sample_unknown_destruction_grid,
                 neural_identity_rate,
                 hybrid_data_residual,
-                unique_claim_discovery_config,
+                reference_protocol_discovery_config,
                 hill_rate_truth,
-                unique_claim_kpis_hold,
+                reference_protocol_kpis_hold,
                 PROTOCOL_RESULT_FIELDS,
                 Experiment,
                 ExperimentSet,
@@ -55,30 +55,30 @@ const _M2A_INTERNAL_NAMES = (
     :ExperimentSplit,
     :HoldoutEvidence,
     :evaluate_holdout,
-    :unique_claim_experiment_split,
-    :UNIQUE_CLAIM_TRAIN_INDICES,
-    :UNIQUE_CLAIM_HOLDOUT_INDICES,
+    :reference_protocol_experiment_split,
+    :REFERENCE_PROTOCOL_TRAIN_INDICES,
+    :REFERENCE_PROTOCOL_HOLDOUT_INDICES,
     :_holdout_observed_regulators,
-    :_unique_claim_external_regulator_band,
+    :_reference_protocol_external_regulator_band,
     :_finite_rate_rel_rmse,
     :_mean_hybrid_residual)
 
 const _M2B_INTERNAL_NAMES = (
     :with_generate_recovery_experiments_observer,
-    :with_unique_claim_experiment_split_observer,
+    :with_reference_protocol_experiment_split_observer,
     :with_fit_unknown_destruction_observer,
     :_note_generate_recovery_experiments,
-    :_note_unique_claim_experiment_split,
+    :_note_reference_protocol_experiment_split,
     :_note_fit_unknown_destruction,
     :GENERATE_RECOVERY_EXPERIMENTS_OBSERVER,
-    :UNIQUE_CLAIM_EXPERIMENT_SPLIT_OBSERVER,
+    :REFERENCE_PROTOCOL_EXPERIMENT_SPLIT_OBSERVER,
     :FIT_UNKNOWN_DESTRUCTION_OBSERVER)
 
 const _M2C_INTERNAL_NAMES = (
     :with_evaluate_unknown_rate_recovery_range_observer,
     :_note_evaluate_unknown_rate_recovery_range,
     :EVALUATE_UNKNOWN_RATE_RECOVERY_RANGE_OBSERVER,
-    :_unique_claim_rate_recovery)
+    :_reference_protocol_rate_recovery)
 
 const _M2C_DOMAIN_TOKEN = "r_range = _regulator_grid(split.train, term)"
 
@@ -222,7 +222,7 @@ function _m2b_probe_train_unknown_edge(; seed = 17, mark_holdout::Bool = false)
         mark_holdout && _m2b_mark_holdout!(set)
         nothing
     end) do
-        with_unique_claim_experiment_split_observer(split -> push!(splits, split)) do
+        with_reference_protocol_experiment_split_observer(split -> push!(splits, split)) do
             with_fit_unknown_destruction_observer(set -> begin
                 push!(fit_sets, set)
                 _m2b_dummy_training_result(set)
@@ -247,7 +247,7 @@ end
 function _m2c_rate_recovery_body()
     body = _m2a_source_function_body(
         joinpath(@__DIR__, "..", "src", "Recovery.jl"),
-        "_unique_claim_rate_recovery")
+        "_reference_protocol_rate_recovery")
     return body === nothing ? "" : body
 end
 
@@ -305,7 +305,7 @@ function _m2c_consumed_discovery_range(set, term, model, params)
         captured[] = collect(r_range)
         _m2c_dummy_evaled(term)
     end) do
-        _unique_claim_rate_recovery(
+        _reference_protocol_rate_recovery(
             model, params, term, _ -> 0.0, set;
             order = 2, family = :hill, noise_σ = 0.0,
             data_residual_fn = _ -> 0.0)
@@ -343,7 +343,7 @@ const _M2D_INTERNAL_NAMES = (
     :HoldoutEvidence,
     :evaluate_holdout,
     :_holdout_observed_regulators,
-    :_unique_claim_external_regulator_band,
+    :_reference_protocol_external_regulator_band,
     :_finite_rate_rel_rmse,
     :_mean_hybrid_residual,
     :with_sample_unknown_destruction_grid_observer,
@@ -424,10 +424,10 @@ function _m2d_synthetic_set(;
     train = [_m2d_experiment(Symbol(:train, i),
                  fill(Float64(train_r[i]), n_points),
                  fill(0.20 + 0.05 * i, n_points)) for i in 1:7]
-    hold = [_m2d_experiment(Symbol(:hold, j),
-                fill(Float64(rj), n_points), fill(Float64(sj), n_points))
-            for (j, (rj, sj)) in enumerate(zip(holdout_r, holdout_s))]
-    return ExperimentSet(vcat(train, hold), [:S, :R])
+    held_out = [_m2d_experiment(Symbol(:hold, j),
+                    fill(Float64(rj), n_points), fill(Float64(sj), n_points))
+                for (j, (rj, sj)) in enumerate(zip(holdout_r, holdout_s))]
+    return ExperimentSet(vcat(train, held_out), [:S, :R])
 end
 
 function _m2d_evaled(term; success = true, discovery = :ok,
@@ -516,11 +516,11 @@ end
     @test :d_rmse_holdout ∉ fieldnames(ExperimentSplit)
 end
 
-@testset "L-API M2-A names stay unexported" begin
+@testset "L-API names stay unexported" begin
     @test isdefined(BioDynaX, :ExperimentSplit)
-    @test isdefined(BioDynaX, :unique_claim_experiment_split)
-    @test isdefined(BioDynaX, :UNIQUE_CLAIM_TRAIN_INDICES)
-    @test isdefined(BioDynaX, :UNIQUE_CLAIM_HOLDOUT_INDICES)
+    @test isdefined(BioDynaX, :reference_protocol_experiment_split)
+    @test isdefined(BioDynaX, :REFERENCE_PROTOCOL_TRAIN_INDICES)
+    @test isdefined(BioDynaX, :REFERENCE_PROTOCOL_HOLDOUT_INDICES)
     @test !isdefined(BioDynaX, :split_experiments)
     for name in _M2A_INTERNAL_NAMES
         @test !(name in names(BioDynaX))
@@ -536,9 +536,9 @@ end
     for i in 1:9
         set.experiments[i].metadata[:probe] = i
     end
-    split = unique_claim_experiment_split(set)
-    @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
-    @test split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    split = reference_protocol_experiment_split(set)
+    @test split.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+    @test split.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     @test propertynames(split) ==
           (:train_indices, :holdout_indices, :train, :holdout)
     @test length(split.train) == 7
@@ -579,7 +579,7 @@ end
 
 @testset "L-SPLIT-META / L-SET-META split is not hidden on the set" begin
     set = _m2a_nine_ic_set(11)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     @test !haskey(set.metadata, :train)
     @test !haskey(set.metadata, :holdout)
     @test !haskey(set.metadata, :split)
@@ -608,7 +608,7 @@ end
     mask_before = [set.experiments[i].mask for i in 1:9]
     name_before = [set.experiments[i].name for i in 1:9]
     public_fields_before = fieldnames(typeof(set))
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     @test set.experiments === vec_before
     @test length(set.experiments) == 9
     @test length(set) == 9
@@ -645,18 +645,18 @@ end
     end
     short = ExperimentSet(
         collect(set.experiments[1:8]), set.state_names; units = set.units)
-    @test_throws ArgumentError unique_claim_experiment_split(short)
+    @test_throws ArgumentError reference_protocol_experiment_split(short)
     @test set.experiments === vec_before
     @test length(set) == 9
-    again = unique_claim_experiment_split(set)
+    again = reference_protocol_experiment_split(set)
     @test set.experiments === vec_before
     @test again.train[1] === split.train[1] === set.experiments[1]
     @test again.holdout[2] === split.holdout[2] === set.experiments[9]
 end
 
 @testset "L-SET-INTACT splitter call graph does not mutate the original set" begin
-    bodies = _m2a_reachable_split_bodies("unique_claim_experiment_split")
-    @test haskey(bodies, "unique_claim_experiment_split")
+    bodies = _m2a_reachable_split_bodies("reference_protocol_experiment_split")
+    @test haskey(bodies, "reference_protocol_experiment_split")
     for (name, body) in bodies
         for mutator in _M2A_FORBIDDEN_MUTATORS
             @test !occursin(mutator * "(", body)
@@ -670,11 +670,11 @@ end
         read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
 end
 
-@testset "M2-D evaluator exists; suite calls it once after ident" begin
+@testset "evaluator exists; suite calls it once after ident" begin
     @test isdefined(BioDynaX, :HoldoutEvidence)
     @test isdefined(BioDynaX, :evaluate_holdout)
     @test isdefined(BioDynaX, :_holdout_observed_regulators)
-    @test isdefined(BioDynaX, :_unique_claim_external_regulator_band)
+    @test isdefined(BioDynaX, :_reference_protocol_external_regulator_band)
     @test isdefined(BioDynaX, :_finite_rate_rel_rmse)
     @test isdefined(BioDynaX, :_mean_hybrid_residual)
     @test :split in fieldnames(MechanismRecoveryResult)
@@ -684,9 +684,9 @@ end
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
     @test !haskey(RECOVERY_THRESHOLDS, :data_residual_holdout)
     @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
-    @test !haskey(UNIQUE_CLAIM_PROTOCOL, :train_indices)
-    @test !haskey(UNIQUE_CLAIM_PROTOCOL, :holdout_indices)
-    @test !haskey(UNIQUE_CLAIM_PROTOCOL, :split)
+    @test !haskey(REFERENCE_PROTOCOL, :train_indices)
+    @test !haskey(REFERENCE_PROTOCOL, :holdout_indices)
+    @test !haskey(REFERENCE_PROTOCOL, :split)
     train_body = _m2a_train_unknown_edge_body()
     @test occursin("generate_recovery_experiments(", train_body)
     @test occursin("fit_unknown_destruction(", train_body)
@@ -708,13 +708,13 @@ end
         @test occursin("_train_unknown_edge", body)
         @test occursin("_evaluate_unknown_rate_recovery(", body)
         @test occursin("report_recovery(", body)
-        @test occursin("unique_claim_experiment_split(ude_set)", body)
+        @test occursin("reference_protocol_experiment_split(ude_set)", body)
         @test count("evaluate_holdout(", body) == 1
         @test !occursin("HoldoutEvidence", body)
     end
 end
 
-@testset "L-API M2-B seams stay unexported" begin
+@testset "L-API seams stay unexported" begin
     for name in _M2B_INTERNAL_NAMES
         @test isdefined(BioDynaX, name)
         @test !(name in names(BioDynaX))
@@ -724,17 +724,17 @@ end
     @test public_export_list_holds()
 end
 
-@testset "L-FIT-A unique-claim path has one fit_unknown_destruction(split.train)" begin
+@testset "L-FIT-A reference protocol path has one fit_unknown_destruction(split.train)" begin
     body = _m2a_train_unknown_edge_body()
     @test count("fit_unknown_destruction(", body) == 1
-    @test occursin("unique_claim_experiment_split(set)", body)
-    @test count("unique_claim_experiment_split(", body) == 1
+    @test occursin("reference_protocol_experiment_split(set)", body)
+    @test count("reference_protocol_experiment_split(", body) == 1
     @test occursin(r"fit_unknown_destruction\(\s*ude_model,\s*ude_p0,\s*split\.train;",
         body)
     @test !occursin(r"fit_unknown_destruction\(\s*ude_model,\s*ude_p0,\s*set;", body)
     @test occursin("return fit, set", body)
     gen_at = findfirst("generate_recovery_experiments(", body)
-    split_at = findfirst("unique_claim_experiment_split(", body)
+    split_at = findfirst("reference_protocol_experiment_split(", body)
     fit_at = findfirst("fit_unknown_destruction(", body)
     return_at = findfirst("return fit, set", body)
     @test gen_at !== nothing && split_at !== nothing && fit_at !== nothing
@@ -760,7 +760,7 @@ end
     @test count("train_experiments_with_warmup(", fit_body) == 1
     @test occursin(r"train_experiments_with_warmup\(\s*ude_init,\s*set,\s*ude_model;",
         fit_body)
-    @test !occursin("unique_claim_experiment_split(", fit_body)
+    @test !occursin("reference_protocol_experiment_split(", fit_body)
     @test !occursin("generate_recovery_experiments(", fit_body)
     @test !occursin("generate_experiment_set(", fit_body)
     @test !occursin("generate_data(", fit_body)
@@ -790,8 +790,8 @@ end
     @test set isa ExperimentSet
     @test set === probe.generated[1]
     @test length(set) == 9
-    @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
-    @test split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    @test split.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+    @test split.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     @test 1 ∈ split.train_indices
     @test fit_set === split.train
     @test length(fit_set) == 7
@@ -874,7 +874,7 @@ end
     @test probe.splits[1].holdout[2] === ids_gen[9]
 end
 
-@testset "L-SET-INTACT M2-B leaves the original nine Experiment objects" begin
+@testset "L-SET-INTACT leaves the original nine Experiment objects" begin
     probe = _m2b_probe_train_unknown_edge()
     set = probe.result[2]
     vec_before = probe.generated[1].experiments
@@ -897,7 +897,7 @@ end
     end
 end
 
-@testset "L-API M2-C domain seam stays unexported" begin
+@testset "L-API domain seam stays unexported" begin
     for name in _M2C_INTERNAL_NAMES
         @test isdefined(BioDynaX, name)
         @test !(name in names(BioDynaX))
@@ -908,14 +908,14 @@ end
     @test public_export_list_holds()
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
     @test RECOVERY_THRESHOLDS.nn_correlation == 0.90
-    @test :train_indices ∉ keys(UNIQUE_CLAIM_PROTOCOL)
-    @test :holdout_indices ∉ keys(UNIQUE_CLAIM_PROTOCOL)
+    @test :train_indices ∉ keys(REFERENCE_PROTOCOL)
+    @test :holdout_indices ∉ keys(REFERENCE_PROTOCOL)
 end
 
-@testset "L-DOM-A unique-claim production domain is _regulator_grid(split.train, term)" begin
+@testset "L-DOM-A reference protocol production domain is _regulator_grid(split.train, term)" begin
     helper = _m2c_rate_recovery_body()
     _m2c_assert_domain_source(helper)
-    @test occursin("unique_claim_experiment_split(set)", helper)
+    @test occursin("reference_protocol_experiment_split(set)", helper)
     @test occursin("_evaluate_unknown_rate_recovery(", helper)
     @test occursin(_M2C_DOMAIN_TOKEN, helper)
     @test count("_evaluate_unknown_rate_recovery(", helper) == 1
@@ -924,8 +924,8 @@ end
     for section in (:ude_discovery, :mm_unknown)
         body = recovery_suite_section_body(section)
         _m2c_assert_domain_source(body; allow_evaluate_holdout = true)
-        @test occursin("split = unique_claim_experiment_split(ude_set)", body)
-        @test count("unique_claim_experiment_split(", body) == 1
+        @test occursin("split = reference_protocol_experiment_split(ude_set)", body)
+        @test count("reference_protocol_experiment_split(", body) == 1
         @test count("_evaluate_unknown_rate_recovery(", body) == 1
         call = _m2c_composer_call(body)
         @test occursin(_M2C_DOMAIN_TOKEN, call)
@@ -943,7 +943,7 @@ end
         @test !occursin("ude_set.experiments[8]", body)
         @test !occursin("ude_set.experiments[9]", body)
         train_at = findfirst("_train_unknown_edge", body)
-        split_at = findfirst("unique_claim_experiment_split(ude_set)", body)
+        split_at = findfirst("reference_protocol_experiment_split(ude_set)", body)
         eval_at = findfirst("_evaluate_unknown_rate_recovery(", body)
         @test train_at !== nothing && split_at !== nothing && eval_at !== nothing
         @test first(train_at) < first(split_at) < first(eval_at)
@@ -987,9 +987,10 @@ end
     set = _m2a_nine_ic_set(23)
     ids = [set.experiments[i] for i in 1:9]
     obs = [set.experiments[i].observations for i in 1:9]
-    split0 = unique_claim_experiment_split(set)
-    @test split0.train_indices === UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
-    @test split0.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    split0 = reference_protocol_experiment_split(set)
+    @test split0.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES ===
+          (1, 2, 3, 4, 5, 6, 7)
+    @test split0.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     @test length(split0.train) == 7
     @test length(split0.holdout) == 2
     r0 = _m2c_consumed_discovery_range(set, term, model, params)
@@ -998,7 +999,7 @@ end
     @test all(set.experiments[i].observations === obs[i] for i in 1:9)
 
     _m2c_apply_holdout_sentinel!(set, term)
-    split1 = unique_claim_experiment_split(set)
+    split1 = reference_protocol_experiment_split(set)
     r1 = _m2c_consumed_discovery_range(set, term, model, params)
     @test r1 == r0
     @test r1 == collect(_regulator_grid(split1.train, term))
@@ -1020,18 +1021,18 @@ end
     r0 = _m2c_consumed_discovery_range(baseline, term, model, params)
     set = _m2a_nine_ic_set(23)
     _m2c_apply_train_sentinel!(set, term)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     r2 = _m2c_consumed_discovery_range(set, term, model, params)
     @test r2 != r0
     @test r2 == collect(_regulator_grid(split.train, term))
     holdout_vals = reduce(vcat,
         (exp.observations[term.regulator, :] for exp in split.holdout))
-    baseline_holdout = unique_claim_experiment_split(baseline)
+    baseline_holdout = reference_protocol_experiment_split(baseline)
     @test holdout_vals == reduce(vcat,
         (exp.observations[term.regulator, :] for exp in baseline_holdout.holdout))
 end
 
-@testset "L-SET-INTACT M2-C domain path leaves the original nine experiments" begin
+@testset "L-SET-INTACT domain path leaves the original nine experiments" begin
     model, params, term = _m2c_probe_models()
     set = _m2a_nine_ic_set(29)
     vec_before = set.experiments
@@ -1051,7 +1052,7 @@ end
     @test !hasfield(ExperimentSet, :holdout)
     @test !haskey(set.metadata, :train)
     @test !haskey(set.metadata, :holdout)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     for i in 1:7
         @test split.train[i] === set.experiments[i]
         @test split.train[i].observations === set.experiments[i].observations
@@ -1062,7 +1063,7 @@ end
     end
 end
 
-@testset "L-RNG / L-DISC-B M2-C does not regenerate or evaluate holdout" begin
+@testset "L-RNG / L-DISC-B does not regenerate or evaluate holdout" begin
     helper = _m2c_rate_recovery_body()
     @test occursin("return _evaluate_unknown_rate_recovery(", helper) ||
           occursin("_evaluate_unknown_rate_recovery(", helper)
@@ -1073,7 +1074,7 @@ end
     @test !occursin("HoldoutEvidence", helper)
     @test !occursin("d_rmse_holdout", helper)
     @test !occursin("data_residual_holdout", helper)
-    @test !occursin("_unique_claim_external_regulator_band", helper)
+    @test !occursin("_reference_protocol_external_regulator_band", helper)
     composer = _m2c_composer_body()
     @test !occursin("evaluate_holdout(", composer)
     @test !occursin("HoldoutEvidence", composer)
@@ -1106,7 +1107,7 @@ end
     @test :discovery ∉ fieldnames(HoldoutEvidence)
 end
 
-@testset "L-API M2-D names stay unexported" begin
+@testset "L-API names stay unexported" begin
     for name in _M2D_INTERNAL_NAMES
         @test isdefined(BioDynaX, name)
         @test !(name in names(BioDynaX))
@@ -1120,7 +1121,7 @@ end
     body = _m2d_evaluate_holdout_body()
     @test occursin("function evaluate_holdout", body)
     @test occursin("_holdout_observed_regulators(split.holdout, term)", body)
-    @test occursin("_unique_claim_external_regulator_band(split.train, term)", body)
+    @test occursin("_reference_protocol_external_regulator_band(split.train, term)", body)
     @test occursin("r_range = r_holdout", body)
     @test occursin("r_range = r_band_external", body)
     @test occursin("fill_value = 0.3", body)
@@ -1146,7 +1147,7 @@ end
     @test haskey(bodies, "evaluate_holdout")
     @test haskey(bodies, "_mean_hybrid_residual")
     @test haskey(bodies, "_holdout_observed_regulators")
-    @test haskey(bodies, "_unique_claim_external_regulator_band")
+    @test haskey(bodies, "_reference_protocol_external_regulator_band")
     @test haskey(bodies, "_finite_rate_rel_rmse")
     for (_, helper) in bodies
         for token in _M2D_FORBIDDEN_DISCOVERY
@@ -1205,7 +1206,7 @@ end
     for i in 1:9
         set.experiments[i].metadata[:probe] = i
     end
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     @test split.holdout[1] === set.experiments[8] === ids[8]
     @test split.holdout[2] === set.experiments[9] === ids[9]
     generated = Any[]
@@ -1227,7 +1228,7 @@ end
 @testset "L-RES-HOLD train/holdout residuals use exact arithmetic means" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     rhos = [_m2d_experiment_residual(model, params, term, set.experiments[i])
             for i in 1:9]
     @test all(isfinite, rhos)
@@ -1244,7 +1245,7 @@ end
 @testset "L-RES-LEGACY IC[1] residual stays distinct from the train mean" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     legacy = _m2d_legacy_ic1_residual(model, params, term, set)
     evaled = _m2d_evaled(term; data_residual = legacy)
     ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
@@ -1258,7 +1259,7 @@ end
 @testset "L-RES-HOLD sentinel changes only the intended residual" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     evaled = _m2d_evaled(term;
         data_residual = _m2d_legacy_ic1_residual(model, params, term, set))
     ev0 = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
@@ -1279,7 +1280,7 @@ end
 @testset "L-D-OCC d_rmse_holdout is the returned production value" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     truth_rate = r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2)
     ev, consumed = _m2d_capture_grid_ranges() do
         evaluate_holdout(split, _m2d_evaled(term), model, params, term, truth_rate)
@@ -1298,7 +1299,7 @@ end
 @testset "L-BAND / L-D-OCC domain RMSE uses the train-derived band" begin
     model, params, term = _m2c_probe_models()
     set_a = _m2d_synthetic_set(; train_r_extrema = (0.50, 1.50))
-    split_a = unique_claim_experiment_split(set_a)
+    split_a = reference_protocol_experiment_split(set_a)
     truth_rate = r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2)
     ev_a, consumed_a = _m2d_capture_grid_ranges() do
         evaluate_holdout(split_a, _m2d_evaled(term), model, params, term, truth_rate)
@@ -1312,7 +1313,7 @@ end
 
     set_b = _m2d_synthetic_set(; train_r_extrema = (1.0, 3.0),
         holdout_r = (1.75, 1.75))
-    split_b = unique_claim_experiment_split(set_b)
+    split_b = reference_protocol_experiment_split(set_b)
     ev_b, consumed_b = _m2d_capture_grid_ranges() do
         evaluate_holdout(split_b, _m2d_evaled(term), model, params, term, truth_rate)
     end
@@ -1328,7 +1329,7 @@ end
 @testset "L-BAND holdout extrema cannot change the consumed domain" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     truth_rate = _m2d_unit_truth
     ev_before, consumed_before = _m2d_capture_grid_ranges() do
         evaluate_holdout(split, _m2d_evaled(term), model, params, term, truth_rate)
@@ -1347,7 +1348,7 @@ end
     model0, params, term = _m2c_probe_models()
     model = _m2d_memorization_model(model0)
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     truth_rate = r -> fill(1.0, length(r))
     ev, consumed = _m2d_capture_grid_ranges() do
         evaluate_holdout(split, _m2d_evaled(term), model, params, term, truth_rate)
@@ -1374,7 +1375,7 @@ end
 @testset "L-EARLY Case B still evaluates holdout without Inf-as-failure" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
     @test evaled_b.discovery !== nothing
     @test evaled_b.discovery.success == false
@@ -1399,7 +1400,7 @@ end
     set = _m2d_synthetic_set()
     set.experiments[8].observations .+= 8.0
     set.experiments[9].observations .+= 9.0
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     rho8 = _m2d_experiment_residual(model, params, term, set.experiments[8])
     rho9 = _m2d_experiment_residual(model, params, term, set.experiments[9])
     ev = evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
@@ -1412,7 +1413,7 @@ end
 @testset "L-DISC-A live evaluate_holdout enters no discovery or trainer" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     ev = with_discover_unknown_rate_observer(
         (_...) -> error("discover_unknown_rate entered")) do
         with_discover_equations_observer(
@@ -1443,7 +1444,7 @@ end
                 R = copy(R), times = copy(times), D = copy(D), config))
             return _m2d_dummy_discovery()
         end) do
-            _unique_claim_rate_recovery(
+            _reference_protocol_rate_recovery(
                 model, params, term, truth_rate, current;
                 order = 2, family = :hill, noise_σ = 0.0,
                 data_residual_fn = _ -> 0.0)
@@ -1455,7 +1456,7 @@ end
     dummy = collect(range(0.0, 1.0; length = size(captured0[1].R, 2)))
     @test captured0[1].times == dummy
     @test captured0[2].times == dummy
-    @test captured0[1].config.seed == unique_claim_discovery_config().seed
+    @test captured0[1].config.seed == reference_protocol_discovery_config().seed
     _m2c_apply_holdout_sentinel!(set, term)
     captured1 = capture_discovery(set)
     @test length(captured1) == 2
@@ -1476,7 +1477,7 @@ end
     times_before = [set.experiments[i].times for i in 1:9]
     meta_before = deepcopy(set.metadata)
     fp_before = experiment_fingerprint(set)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     ev = evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
     @test ev isa HoldoutEvidence
     @test set.experiments === vec_before
@@ -1511,7 +1512,7 @@ const _M2E_FORBIDDEN_RESULT_FIELDS = (
 function _m2e_holdout_fixture()
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     ident = (; unidentifiable_edge = true, production_param = :k_prod)
     return model, params, term, set, split, ident
 end
@@ -1534,7 +1535,7 @@ function _m2e_decision_window(body)
     return body[first(ident_at):first(report_at)]
 end
 
-@testset "M2-E TEST 1 result surface is split plus HoldoutEvidence" begin
+@testset "TEST 1 result surface is split plus HoldoutEvidence" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled = _m2d_evaled(term)
     ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
@@ -1559,7 +1560,7 @@ end
     end
 end
 
-@testset "M2-E TEST 2 Case A training failure keeps holdout nothing" begin
+@testset "TEST 2 Case A training failure keeps holdout nothing" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled = _m2d_evaled(term; success = false, discovery = nothing,
         data_residual = Inf)
@@ -1583,7 +1584,7 @@ end
     @test defaulted.data_residual === Inf
 end
 
-@testset "M2-E TEST 3 Case B discovery failure still reports holdout" begin
+@testset "TEST 3 Case B discovery failure still reports holdout" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
     @test evaled_b.discovery !== nothing
@@ -1613,7 +1614,7 @@ end
     @test result.success == false
 end
 
-@testset "M2-E TEST 4 Case C matches Case B holdout scalars" begin
+@testset "TEST 4 Case C matches Case B holdout scalars" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
     evaled_c = _m2d_evaled(term; success = true, discovery = :ok)
@@ -1642,12 +1643,12 @@ end
     @test result_c.success == true
 end
 
-@testset "M2-E TEST 5 holdout residual is not a 0.30 gate" begin
+@testset "TEST 5 holdout residual is not a 0.30 threshold" begin
     model, params, term, set, _, ident = _m2e_holdout_fixture()
     legacy = 0.01
     set.experiments[8].observations .+= 8.0
     set.experiments[9].observations .+= 9.0
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     evaled = _m2d_evaled(term; data_residual = legacy)
     rho8 = _m2d_experiment_residual(model, params, term, set.experiments[8])
     rho9 = _m2d_experiment_residual(model, params, term, set.experiments[9])
@@ -1663,10 +1664,10 @@ end
     @test result.data_residual === evaled.data_residual
     @test result.data_residual != result.holdout.data_residual_holdout
     @test result.success == evaled.success
-    @test unique_claim_kpis_hold(result.locked_kpis) === true
+    @test reference_protocol_kpis_hold(result.locked_kpis) === true
 end
 
-@testset "M2-E TEST 6 report_recovery forwards holdout without recomputing" begin
+@testset "TEST 6 report_recovery forwards holdout without recomputing" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled = _m2d_evaled(term)
     ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
@@ -1697,7 +1698,7 @@ end
     @test !occursin("sample_unknown_destruction", report_body)
 end
 
-@testset "M2-E TEST 7 unique-claim path evaluates holdout once" begin
+@testset "TEST 7 reference protocol path evaluates holdout once" begin
     ude = recovery_suite_section_body(:ude_discovery)
     mm = recovery_suite_section_body(:mm_unknown)
     rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
@@ -1729,7 +1730,7 @@ end
     end
 end
 
-@testset "M2-E TEST 8 legacy M1 property access stays valid" begin
+@testset "TEST 8 legacy composer property access stays valid" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled = _m2d_evaled(term)
     ev = evaluate_holdout(split, evaled, model, params, term, _m2d_unit_truth)
@@ -1749,7 +1750,7 @@ end
     proto = build_protocol_result(result)
     @test kpis.data_residual === result.data_residual
     @test proto.data_residual === result.data_residual
-    @test unique_claim_kpis_hold(result.locked_kpis)
+    @test reference_protocol_kpis_hold(result.locked_kpis)
     txt = format_recovery_protocol(result)
     @test occursin("IDENTIFIABILITY", txt)
     @test occursin("FIT", txt)
@@ -1758,15 +1759,15 @@ end
     @test occursin("canonical_hill_from_nn: false", txt)
 end
 
-@testset "M2-E TEST 9 public API and thresholds stay locked" begin
+@testset "TEST 9 public API and thresholds stay locked" begin
     @test !(:ExperimentSplit in names(BioDynaX))
     @test !(:HoldoutEvidence in names(BioDynaX))
     @test !(:evaluate_holdout in names(BioDynaX))
-    @test !(:unique_claim_experiment_split in names(BioDynaX))
-    @test !(:UNIQUE_CLAIM_TRAIN_INDICES in names(BioDynaX))
-    @test !(:UNIQUE_CLAIM_HOLDOUT_INDICES in names(BioDynaX))
+    @test !(:reference_protocol_experiment_split in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL_TRAIN_INDICES in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL_HOLDOUT_INDICES in names(BioDynaX))
     @test !(:_holdout_observed_regulators in names(BioDynaX))
-    @test !(:_unique_claim_external_regulator_band in names(BioDynaX))
+    @test !(:_reference_protocol_external_regulator_band in names(BioDynaX))
     @test !(:_finite_rate_rel_rmse in names(BioDynaX))
     @test !(:_mean_hybrid_residual in names(BioDynaX))
     @test !(:report_recovery in names(BioDynaX))
@@ -1780,7 +1781,7 @@ end
     @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
 end
 
-@testset "M2-E TEST 10 result has no M3 or M4 fields" begin
+@testset "TEST 10 result has no functional-identifiability or occupancy fields" begin
     result = report_recovery(
         _m2d_evaled(:term), (; unidentifiable_edge = true))
     fields = fieldnames(typeof(result))
@@ -1797,9 +1798,9 @@ end
 
 const _M2F_LOCKED_DECISION = """
     if evaled.discovery === nothing
-        holdout = nothing
+ holdout = nothing
     else
-        holdout = evaluate_holdout(
+ holdout = evaluate_holdout(
 """
 
 # Indentation-insensitive comparison so that reformatting the source does not
@@ -1823,7 +1824,7 @@ const _M2F_EVALUATOR_HELPERS = (
     "evaluate_holdout",
     "_note_holdout_eval",
     "_holdout_observed_regulators",
-    "_unique_claim_external_regulator_band",
+    "_reference_protocol_external_regulator_band",
     "_finite_rate_rel_rmse",
     "_mean_hybrid_residual")
 
@@ -1854,7 +1855,7 @@ function _m2f_reachable_bodies(entry::String)
     return _m2a_reachable_split_bodies(entry)
 end
 
-@testset "M2-F L-SITE sections keep the locked A/B/C decision" begin
+@testset "L-SITE sections keep the locked A/B/C decision" begin
     rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
     pipe = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
     ude = recovery_suite_section_body(:ude_discovery)
@@ -1905,7 +1906,7 @@ end
     @test !occursin("evaluate_holdout(", helper)
 end
 
-@testset "M2-F Case A training failure keeps Q7 absent" begin
+@testset "Case A training failure keeps held-out evidence absent" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled = _m2d_evaled(term; success = false, discovery = nothing,
         data_residual = Inf)
@@ -1931,7 +1932,7 @@ end
     @test result.success == false
 end
 
-@testset "M2-F Case A live ude_adam=0 does not evaluate holdout" begin
+@testset "Case A live ude_adam=0 does not evaluate holdout" begin
     calls = Ref(0)
     report = with_evaluate_holdout_observer(
         (_...) -> (calls[] += 1; error("live Case A called evaluate_holdout"))) do
@@ -1957,7 +1958,7 @@ end
     end
 end
 
-@testset "M2-F Case B discovery failure still reports Q7" begin
+@testset "Case B discovery failure still reports held-out evidence" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
     @test evaled_b.discovery !== nothing
@@ -1989,7 +1990,7 @@ end
     @test result.data_residual === evaled_b.data_residual
 end
 
-@testset "M2-F Case C matches Case B holdout evidence" begin
+@testset "Case C matches Case B holdout evidence" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
     evaled_c = _m2d_evaled(term; success = true, discovery = :ok)
@@ -2020,13 +2021,13 @@ end
     @test result_c.discovery.success == true
 end
 
-@testset "M2-F holdout residual above 0.30 does not suppress Q7" begin
+@testset "holdout residual above 0.30 does not suppress held-out evidence" begin
     model, params, term, set, _, ident = _m2e_holdout_fixture()
     legacy = 0.01
     ic1 = _m2d_legacy_ic1_residual(model, params, term, set)
     set.experiments[8].observations .+= 8.0
     set.experiments[9].observations .+= 9.0
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     evaled = _m2d_evaled(term; data_residual = legacy)
     @test evaled.discovery !== nothing
     @test legacy <= 0.30
@@ -2047,7 +2048,7 @@ end
     @test result.data_residual != result.holdout.data_residual_holdout
     @test result.data_residual != result.holdout.data_residual_train
     @test result.success == evaled.success
-    @test unique_claim_kpis_hold(result.locked_kpis) === true
+    @test reference_protocol_kpis_hold(result.locked_kpis) === true
     ic1_evaled = _m2d_evaled(term; data_residual = ic1)
     ic1_result, _ = _m2f_production_report(
         ic1_evaled, ident, split, model, params, term, _m2d_unit_truth)
@@ -2058,7 +2059,7 @@ end
     @test ic1_result.success == ic1_evaled.success
 end
 
-@testset "M2-F report_recovery forwards the evaluator sentinel" begin
+@testset "report_recovery forwards the evaluator sentinel" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled = _m2d_evaled(term; success = false, discovery = :failed)
     sentinel = HoldoutEvidence(1.11, 2.22, 3.33, 4.44)
@@ -2090,7 +2091,7 @@ end
     @test skipped.holdout === nothing
 end
 
-@testset "M2-F unique-claim sections evaluate holdout once" begin
+@testset "reference protocol sections evaluate holdout once" begin
     sentinel = HoldoutEvidence(9.01, 9.02, 9.03, 9.04)
     evaled_b = _m2d_evaled(:term; success = false, discovery = :failed)
     calls = Any[]
@@ -2139,12 +2140,12 @@ end
     @test length(mm_only) == 1
 end
 
-@testset "M2-F L-GATE evaluator and report do not threshold holdout" begin
+@testset "L-GATE evaluator and report do not threshold holdout" begin
     for name in _M2F_EVALUATOR_HELPERS
         body = _m2a_lookup_local_function(name)
         @test body !== nothing
         @test !occursin("RECOVERY_THRESHOLDS", body)
-        @test !occursin("unique_claim_kpis_hold", body)
+        @test !occursin("reference_protocol_kpis_hold", body)
         @test !occursin("> 0.30", body)
         @test !occursin(">0.30", body)
         @test !occursin("evaled.success", body)
@@ -2154,7 +2155,7 @@ end
         joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"),
         "report_recovery")
     @test !occursin("RECOVERY_THRESHOLDS", report_body)
-    @test !occursin("unique_claim_kpis_hold", report_body)
+    @test !occursin("reference_protocol_kpis_hold", report_body)
     @test !occursin("> 0.30", report_body)
     @test !occursin("evaluate_holdout(", report_body)
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
@@ -2162,7 +2163,7 @@ end
     @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
 end
 
-@testset "M2-F L-API and M1 property surface stay locked" begin
+@testset "L-API and composer property surface stay locked" begin
     for name in (_M2A_INTERNAL_NAMES..., _M2F_INTERNAL_NAMES...)
         @test isdefined(BioDynaX, name)
         @test !(name in names(BioDynaX))
@@ -2191,125 +2192,31 @@ end
 end
 
 # =============================================================================
-# M2-G1 — adversarial leakage / contract tests
+# — adversarial leakage tests
 #
-# These tests do not change M2 science. They close remaining holes that a
-# plausible wrong unique-claim implementation can still keep green:
+# These tests do not change holdout science. They close remaining holes that a
+# plausible wrong reference protocol implementation can still keep green:
 # non-underscore local helpers, warmup-as-training, second generate on the
 # suite path, wrong D grids, fake scalars, and lock edits.
 # =============================================================================
 
-const _M2G1_LOCKED_PUBLIC_EXPORTS = (
-    :ACTIVATION,
-    :AbstractADPolicy,
-    :AbstractConstraintStrategy,
-    :AugmentedLagrangianConfig,
-    :BiologicalNetwork,
-    :COMPETITIVE,
-    :CUSTOM_KINETIC,
-    :CompetitiveMetadata,
-    :CustomKineticMetadata,
-    :DenominatorUnsafe,
-    :DiscoveryConfig,
-    :DiscoveryFailed,
-    :DiscoveryResult,
-    :DiscoveryRetcode,
-    :DiscoverySuccess,
-    :EdgeKind,
-    :EdgeSpec,
-    :EmptyMetadata,
-    :EmptySupport,
-    :Experiment,
-    :ExperimentSet,
-    :ExplicitCandidate,
-    :ExplicitSTLSQ,
-    :HILL,
-    :HillMetadata,
-    :HorizonCurriculum,
-    :INHIBITION,
-    :INPUT,
-    :ImplicitCandidate,
-    :ImplicitSINDyPI,
-    :InputDriveMetadata,
-    :InsufficientSamples,
-    :KineticFamily,
-    :KineticMetadata,
-    :LATENT,
-    :LinearDecayMetadata,
-    :MASS_ACTION,
-    :MassActionMetadata,
-    :MetadataLike,
-    :NeuralDestructionTerm,
-    :NodeKind,
-    :NodeSpec,
-    :ParameterSchema,
-    :ProductionAD,
-    :RECOVERY_THRESHOLDS,
-    :ReactionSpec,
-    :SATURATION,
-    :STATE,
-    :SaturationMetadata,
-    :SingularLibrary,
-    :SolverConfig,
-    :StabilitySelection,
-    :StructuralPositivity,
-    :TrainingConfig,
-    :TrainingResult,
-    :TrainingRetcode,
-    :UDEModel,
-    :UNKNOWN_NN,
-    :UnknownTermResult,
-    :ZygoteAD,
-    :allocate_cache,
-    :auto_sensealg,
-    :build_ude_function,
-    :build_ude_model,
-    :candidate_parents,
-    :compile_mechanism,
-    :compose_hybrid_rhs,
-    :default_solver_config,
-    :discover_equations,
-    :discover_unknown_rate,
-    :discover_unknown_term,
-    :equation_to_function,
-    :equation_to_latex,
-    :estimate_derivatives,
-    :experiment_from_csv,
-    :export_rhs,
-    :format_stability_selection,
-    :generate_experiment_set,
-    :hybrid_data_residual,
-    :local_basis,
-    :pack_parameters,
-    :parameter_schema,
-    :positive_parameter,
-    :predict_ude,
-    :report_unknown_term,
-    :sample_unknown_destruction,
-    :stability_selection_report,
-    :state_nodes,
-    :train_experiments,
-    :train_ude,
-    :ude_rhs!,
-    :ude_system,
-    :validate_network,
-    :write_experiment_csv
-)
+# The public name list is locked in one place, src/ReferenceProtocol.jl
+# (`LOCKED_PUBLIC_EXPORTS`); the tests below read it rather than keeping a copy.
 
 const _M2G1_TRAIN_EDGE_STOP = Set((
     "generate_recovery_experiments",
-    "unique_claim_experiment_split",
+    "reference_protocol_experiment_split",
     "fit_unknown_destruction",
     "_note_train_unknown_edge",
     "_note_generate_recovery_experiments",
-    "_note_unique_claim_experiment_split",
+    "_note_reference_protocol_experiment_split",
     "_note_fit_unknown_destruction"))
 
 const _M2G1_SPLIT_STOP = Set((
     "generate_recovery_experiments",
     "generate_experiment_set",
     "generate_data",
-    "_note_unique_claim_experiment_split"))
+    "_note_reference_protocol_experiment_split"))
 
 const _M2G1_HOLDOUT_STOP = Set((
     "sample_unknown_destruction_grid",
@@ -2337,7 +2244,7 @@ const _M2G1_HOLDOUT_STOP = Set((
 
 const _M2G1_SECTION_STOP = Set((
     "_train_unknown_edge",
-    "unique_claim_experiment_split",
+    "reference_protocol_experiment_split",
     "_evaluate_unknown_rate_recovery",
     "evaluate_holdout",
     "report_recovery",
@@ -2505,9 +2412,9 @@ function _m2g_snapshot(set)
         n = n)
 end
 
-@testset "M2-G1 walker is transitive on hidden local helpers" begin
+@testset "walker is transitive on hidden local helpers" begin
     dirty_split = """
-function unique_claim_experiment_split(set)
+function reference_protocol_experiment_split(set)
     return hidden_helper(set)
 end
 function hidden_helper(set)
@@ -2527,7 +2434,7 @@ end
     dirty_train = """
 function _train_unknown_edge()
     set = generate_recovery_experiments()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     fit = fit_unknown_destruction(ude_model, ude_p0, split.train)
     return fit, hidden_helper(set)
 end
@@ -2538,7 +2445,7 @@ end
     dirty_regen = """
 function _train_unknown_edge()
     set = generate_recovery_experiments()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     fit = fit_unknown_destruction(ude_model, ude_p0, split.train)
     return fit, _regen()
 end
@@ -2555,7 +2462,7 @@ function peek_holdout(split)
 end
 """
     split_bodies = _m2g_reachable(
-        "unique_claim_experiment_split", _m2g_index_functions(dirty_split))
+        "reference_protocol_experiment_split", _m2g_index_functions(dirty_split))
     @test haskey(split_bodies, "hidden_helper")
     @test haskey(split_bodies, "_prepare!")
     @test haskey(split_bodies, "_partition!")
@@ -2582,7 +2489,7 @@ end
     @test _m2g_has_token(hold_bodies, "discover_unknown_destruction(")
 end
 
-@testset "M2-G1 ATTACK 1 second trainer is forbidden on the unique-claim path" begin
+@testset "ATTACK 1 second trainer is forbidden on the reference protocol path" begin
     index = _m2g_production_index()
     edge = _m2g_reachable("_train_unknown_edge", index; stop = _M2G1_TRAIN_EDGE_STOP)
     @test haskey(edge, "_train_unknown_edge")
@@ -2629,7 +2536,7 @@ end
           objectid.([probe.fit_sets[1][i] for i in 1:7])
 end
 
-@testset "M2-G1 ATTACK 2 warmup is training and receives only split.train" begin
+@testset "ATTACK 2 warmup is training and receives only split.train" begin
     fit_body = _m2g_function_body_from_src(
         _m2g_normalize(read(
             joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)),
@@ -2642,13 +2549,13 @@ end
     @test !occursin("train_ude(", fit_body)
     @test !occursin("train_experiments(", fit_body)
     @test !occursin("generate_recovery_experiments(", fit_body)
-    @test !occursin("unique_claim_experiment_split(", fit_body)
+    @test !occursin("reference_protocol_experiment_split(", fit_body)
     warmup_body = _m2g_trainer_source("train_experiments_with_warmup")
     @test occursin(r"warmup_first_experiment\(\s*p_init,\s*set,\s*model", warmup_body)
     @test occursin(r"train_experiments\(\s*p_init,\s*set,\s*model", warmup_body)
     @test occursin(r"train_experiments\(\s*warm\.params,\s*set,\s*model", warmup_body)
     @test !occursin("generate_recovery_experiments(", warmup_body)
-    @test !occursin("unique_claim_experiment_split(", warmup_body)
+    @test !occursin("reference_protocol_experiment_split(", warmup_body)
     @test !occursin("split.holdout", warmup_body)
     first_warm = _m2g_trainer_source("warmup_first_experiment")
     @test occursin("first(set.experiments)", first_warm)
@@ -2667,7 +2574,7 @@ end
     @test first(probe.fit_sets[1]) === probe.generated[1].experiments[1]
 end
 
-@testset "M2-G1 ATTACK 3 one generate and the original 9-IC identity" begin
+@testset "ATTACK 3 one generate and the original 9-IC identity" begin
     index = _m2g_production_index()
     edge = _m2g_reachable("_train_unknown_edge", index; stop = _M2G1_TRAIN_EDGE_STOP)
     @test count("generate_recovery_experiments(", edge["_train_unknown_edge"]) == 1
@@ -2685,7 +2592,7 @@ end
     pipeline = _m2g_pipeline_names()
     allow = name -> _m2g_allow_m2_helper(name, pipeline)
     split_bodies = _m2g_reachable(
-        "unique_claim_experiment_split", index; stop = _M2G1_SPLIT_STOP,
+        "reference_protocol_experiment_split", index; stop = _M2G1_SPLIT_STOP,
         allow = allow)
     hold_bodies = _m2g_reachable(
         "evaluate_holdout", index; stop = _M2G1_HOLDOUT_STOP, allow = allow)
@@ -2719,12 +2626,12 @@ end
     regenerated = Any[]
     ev = with_generate_recovery_experiments_observer(
         s -> (push!(regenerated, s); error("second generate"))) do
-        split = unique_claim_experiment_split(probe.result[2])
+        split = reference_protocol_experiment_split(probe.result[2])
         evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
     end
     @test isempty(regenerated)
     @test ev isa HoldoutEvidence
-    split = unique_claim_experiment_split(probe.result[2])
+    split = reference_protocol_experiment_split(probe.result[2])
     @test split.holdout[1] === ids_gen[8]
     @test split.holdout[2] === ids_gen[9]
     @test all(split.train[i] === ids_gen[i] for i in 1:7)
@@ -2763,12 +2670,12 @@ end
     @test report[:ude_discovery].split.holdout[2] === suite_ids[9]
 end
 
-@testset "M2-G1 ATTACK 4 original ExperimentSet is never carved" begin
+@testset "ATTACK 4 original ExperimentSet is never carved" begin
     index = _m2g_production_index()
     pipeline = _m2g_pipeline_names()
     allow = name -> _m2g_allow_m2_helper(name, pipeline)
     for (entry, stop) in (
-        ("unique_claim_experiment_split", _M2G1_SPLIT_STOP),
+        ("reference_protocol_experiment_split", _M2G1_SPLIT_STOP),
         ("evaluate_holdout", _M2G1_HOLDOUT_STOP))
         bodies = _m2g_reachable(entry, index; stop = stop, allow = allow)
         @test haskey(bodies, entry)
@@ -2782,7 +2689,7 @@ end
     model, params, term = _m2c_probe_models()
     set = _m2a_nine_ic_set(47)
     snap = _m2g_snapshot(set)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     ev = evaluate_holdout(split, _m2d_evaled(term), model, params, term, _m2d_unit_truth)
     @test ev isa HoldoutEvidence
     @test set.experiments === snap.vec
@@ -2802,9 +2709,9 @@ end
     end
 end
 
-@testset "M2-G1 ATTACK 5 production domain is exactly split.train" begin
+@testset "ATTACK 5 production domain is exactly split.train" begin
     index = _m2g_production_index()
-    helper = index["_unique_claim_rate_recovery"]
+    helper = index["_reference_protocol_rate_recovery"]
     @test count(r"r_range\s*=", helper) == 1
     @test occursin(_M2C_DOMAIN_TOKEN, helper)
     after = helper[(last(findfirst(_M2C_DOMAIN_TOKEN, helper)) + 1):end]
@@ -2815,14 +2722,14 @@ end
     end
     model, params, term = _m2c_probe_models()
     set = _m2a_nine_ic_set(23)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     consumed = _m2c_consumed_discovery_range(set, term, model, params)
     @test consumed == collect(_regulator_grid(split.train, term))
     @test consumed != collect(_regulator_grid(split.holdout, term))
     @test consumed != collect(_regulator_grid(set, term))
 end
 
-@testset "M2-G1 ATTACK 6 discovery domain is not a constant" begin
+@testset "ATTACK 6 discovery domain is not a constant" begin
     model, params, term = _m2c_probe_models()
     baseline = _m2a_nine_ic_set(23)
     r0 = _m2c_consumed_discovery_range(baseline, term, model, params)
@@ -2835,20 +2742,22 @@ end
     r_train = _m2c_consumed_discovery_range(train_only, term, model, params)
     @test r_train != r0
     @test r_train == collect(_regulator_grid(
-        unique_claim_experiment_split(train_only).train, term))
+        reference_protocol_experiment_split(train_only).train, term))
     @test collect(_regulator_grid(hold_only, term)) != r_hold
     @test collect(_regulator_grid(baseline, term)) != r0 ||
           collect(_regulator_grid(hold_only, term)) !=
-          collect(_regulator_grid(unique_claim_experiment_split(hold_only).train, term))
+          collect(_regulator_grid(
+        reference_protocol_experiment_split(hold_only).train, term))
     @test collect(_regulator_grid(hold_only, term)) !=
-          collect(_regulator_grid(unique_claim_experiment_split(hold_only).train, term))
+          collect(_regulator_grid(
+        reference_protocol_experiment_split(hold_only).train, term))
 end
 
-@testset "M2-G1 ATTACK 7/8 holdout D RMSE is the production calculation" begin
+@testset "ATTACK 7/8 holdout D RMSE is the production calculation" begin
     model0, params, term = _m2c_probe_models()
     model = _m2d_memorization_model(model0)
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     truth_rate = r -> fill(1.0, length(r))
     ev, consumed = _m2d_capture_grid_ranges() do
         evaluate_holdout(split, _m2d_evaled(term), model, params, term, truth_rate)
@@ -2887,10 +2796,10 @@ end
     @test report.holdout.d_rmse_holdout_domain === expected_band
 end
 
-@testset "M2-G1 ATTACK 9 residual aggregation is the arithmetic mean" begin
+@testset "ATTACK 9 residual aggregation is the arithmetic mean" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     rhos = [_m2d_experiment_residual(model, params, term, set.experiments[i])
             for i in 1:9]
     @test all(isfinite, rhos)
@@ -2915,13 +2824,13 @@ end
     @test result.data_residual != ev.data_residual_holdout
 end
 
-@testset "M2-G1 ATTACK 10 holdout 0.30 is not a Q7 gate" begin
+@testset "ATTACK 10 holdout 0.30 is not a held-out evidence threshold" begin
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
     legacy = _m2d_legacy_ic1_residual(model, params, term, set)
     set.experiments[8].observations .+= 8.0
     set.experiments[9].observations .+= 9.0
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     @test legacy <= 0.30
     @test _m2d_legacy_ic1_residual(model, params, term, set) === legacy
     rho8 = _m2d_experiment_residual(model, params, term, set.experiments[8])
@@ -2938,7 +2847,7 @@ end
     @test result.data_residual === legacy
     @test result.data_residual <= 0.30
     @test result.success == evaled.success
-    @test unique_claim_kpis_hold(result.locked_kpis) === true
+    @test reference_protocol_kpis_hold(result.locked_kpis) === true
     pipeline = _m2g_pipeline_names()
     bodies = _m2g_reachable(
         "evaluate_holdout", _m2g_production_index();
@@ -2955,7 +2864,7 @@ end
     end
 end
 
-@testset "M2-G1 ATTACK 11 Case B does not suppress holdout" begin
+@testset "ATTACK 11 Case B does not suppress holdout" begin
     model, params, term, _, split, ident = _m2e_holdout_fixture()
     evaled_b = _m2d_evaled(term; success = false, discovery = :failed)
     @test evaled_b.discovery !== nothing
@@ -2994,7 +2903,7 @@ end
     end
 end
 
-@testset "M2-G1 ATTACK 12 evaluate_holdout does not discover" begin
+@testset "ATTACK 12 evaluate_holdout does not discover" begin
     index = _m2g_production_index()
     pipeline = _m2g_pipeline_names()
     bodies = _m2g_reachable(
@@ -3013,7 +2922,7 @@ end
     end
     model, params, term = _m2c_probe_models()
     set = _m2d_synthetic_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     ev = with_discover_unknown_rate_observer(
         (_...) -> error("discover_unknown_rate entered")) do
         with_discover_equations_observer(
@@ -3030,7 +2939,7 @@ end
     @test count("discover_unknown_destruction(", pipe) == 0
 end
 
-@testset "M2-G1 ATTACK 13 evaluate_holdout is called once per unique-claim section" begin
+@testset "ATTACK 13 evaluate_holdout is called once per reference protocol section" begin
     ude = recovery_suite_section_body(:ude_discovery)
     mm = recovery_suite_section_body(:mm_unknown)
     rec = _m2g_normalize(read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String))
@@ -3069,7 +2978,7 @@ end
     end
 end
 
-@testset "M2-G1 ATTACK 14 MechanismRecoveryResult has only approved M2 fields" begin
+@testset "ATTACK 14 MechanismRecoveryResult has only approved holdout fields" begin
     fields = fieldnames(MechanismRecoveryResult)
     @test fields == (_M2E_M1_FIELDS..., :split, :holdout)
     for name in _M2E_FORBIDDEN_RESULT_FIELDS
@@ -3088,8 +2997,9 @@ end
     @test !hasfield(ExperimentSet, :holdout)
 end
 
-@testset "M2-G1 ATTACK 15 public API and thresholds stay locked" begin
-    @test LOCKED_PUBLIC_EXPORTS === _M2G1_LOCKED_PUBLIC_EXPORTS
+@testset "ATTACK 15 public API and thresholds stay locked" begin
+    @test allunique(LOCKED_PUBLIC_EXPORTS)
+    @test issetequal(names(BioDynaX), (:BioDynaX, LOCKED_PUBLIC_EXPORTS...))
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test RECOVERY_THRESHOLDS == recovery_thresholds_lock()
@@ -3098,7 +3008,7 @@ end
     @test !haskey(RECOVERY_THRESHOLDS, :d_rmse_holdout)
     for name in (_M2A_INTERNAL_NAMES..., _M2F_INTERNAL_NAMES...,
         :_train_unknown_edge, :_regulator_grid,
-        :_unique_claim_rate_recovery)
+        :_reference_protocol_rate_recovery)
         @test !(name in names(BioDynaX))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
@@ -3107,14 +3017,14 @@ end
     @test !(:evaluate_holdout in names(BioDynaX))
 end
 
-@testset "M2-G1 ATTACK 16/17 experiment identity and original set integrity" begin
+@testset "ATTACK 16/17 experiment identity and original set integrity" begin
     model, params, term = _m2c_probe_models()
     set = _m2a_nine_ic_set(53)
     for i in 1:9
         set.experiments[i].metadata[:probe] = i
     end
     snap = _m2g_snapshot(set)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     @test split.train_indices === (1, 2, 3, 4, 5, 6, 7)
     @test split.holdout_indices === (8, 9)
     for i in 1:7

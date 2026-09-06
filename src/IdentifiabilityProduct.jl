@@ -1,10 +1,10 @@
 ###############################################################################
 # Identifiability product rows (not exported).
 #
-# UniqueClaim already names coefficients_are_biological_constants from
+# ReferenceProtocol already names coefficients_are_biological_constants from
 # unidentifiable_edge. This file locks the remaining join:
 # production_destruction_tradeoff → identifiability_product →
-# UniqueClaimProtocolRow → format_protocol_result, including collinearity
+# ReferenceProtocolRow → format_protocol_result, including collinearity
 # print and the coefficients boolean on live fixtures.
 #
 # Does not change production_destruction_tradeoff return keys.
@@ -82,7 +82,7 @@ end
     coefficients_are_biological_constants_row()
 
 Boolean matrix for `coefficients_are_biological_constants`. Missing
-ident still returns true; `unique_claim_identifiability_holds` is false.
+ident still returns true; `reference_protocol_identifiability_holds` is false.
 """
 function coefficients_are_biological_constants_row()
     edge_true = (; unidentifiable_edge = true, production_param = :k_prod,
@@ -111,9 +111,9 @@ function coefficients_are_biological_constants_row()
                 product_false.coefficients_are_biological_constants == true &&
                 product_missing.unidentifiable_edge == false &&
                 product_nothing.unknown_holes == 0 &&
-                unique_claim_identifiability_holds(edge_true) &&
-                unique_claim_identifiability_holds(edge_false) == false &&
-                unique_claim_identifiability_holds(nothing) == false)
+                reference_protocol_identifiability_holds(edge_true) &&
+                reference_protocol_identifiability_holds(edge_false) == false &&
+                reference_protocol_identifiability_holds(nothing) == false)
 end
 
 function coefficients_follow_live_edge_row(tradeoff)
@@ -243,8 +243,8 @@ end
 function smoke_vs_protocol_print_row()
     ident = (; unidentifiable_edge = true, collinearity = 0.99,
         production_param = :k_prod)
-    protocol_fp = unique_claim_fingerprint()
-    smoke_fp = unique_claim_fingerprint(; smoke = true)
+    protocol_fp = reference_protocol_fingerprint()
+    smoke_fp = reference_protocol_fingerprint(; smoke = true)
     protocol_txt = format_protocol_result(ident, protocol_fp;
         residual = 0.01, support_recall = 1.0, support_f1 = 0.57)
     smoke_txt = format_protocol_result(ident, smoke_fp;
@@ -269,8 +269,8 @@ function smoke_vs_protocol_print_row()
                 occursin("n_points: 8", smoke_txt) &&
                 occursin("protocol_kind: smoke", smoke_txt) &&
                 smoke_fp.n_ics != protocol_fp.n_ics &&
-                unique_claim_fingerprint_is_protocol(protocol_fp) &&
-                unique_claim_fingerprint_is_smoke(smoke_fp))
+                reference_protocol_fingerprint_is_protocol(protocol_fp) &&
+                reference_protocol_fingerprint_is_smoke(smoke_fp))
 end
 
 # -- Typed join ---------------------------------------------------------------
@@ -305,18 +305,18 @@ end
     join_tradeoff_protocol_row(name, tradeoff; kwargs...)
 
 Join a live or synthetic tradeoff to `identifiability_product` and a
-`UniqueClaimProtocolRow`. Combined F1 is stored and is not a failure
+`ReferenceProtocolRow`. Combined F1 is stored and is not a failure
 symbol.
 """
 function join_tradeoff_protocol_row(name::Symbol, tradeoff;
         residual = 0.01, recall = 1.0, f1 = 0.57,
         extras = String[], unknown_holes::Integer = 1,
-        fingerprint::UniqueClaimFingerprint = unique_claim_fingerprint())
+        fingerprint::ReferenceProtocolFingerprint = reference_protocol_fingerprint())
     product = identifiability_product(tradeoff; unknown_holes = unknown_holes)
     ude = synthetic_ude_from_tradeoff(tradeoff;
         residual = residual, recall = recall, f1 = f1,
         extras = extras, unknown_holes = unknown_holes)
-    row = unique_claim_protocol_row(ude; fingerprint = fingerprint)
+    row = reference_protocol_protocol_row(ude; fingerprint = fingerprint)
     coeff = coefficients_are_biological_constants(tradeoff)
     warning = format_production_destruction_warning(tradeoff)
     text_has_coeff = occursin(
@@ -344,7 +344,7 @@ function join_tradeoff_protocol_row(name::Symbol, tradeoff;
     return (;
         typed,
         product,
-        protocol = unique_claim_protocol_row_namedtuple(row),
+        protocol = reference_protocol_protocol_row_namedtuple(row),
         warning,
         text = row.text,
         kpi_failures = row.kpi_failures,
@@ -443,7 +443,7 @@ function linear_zero_hole_tradeoff_path()
     trade = live_production_destruction_tradeoff(
         model, packed, [0.20, 0.10]; production_param = :k_ba)
     join = join_tradeoff_protocol_row(:linear_zero, trade;
-        unknown_holes = 0, fingerprint = unique_claim_fingerprint(; smoke = true))
+        unknown_holes = 0, fingerprint = reference_protocol_fingerprint(; smoke = true))
     return (;
         trade, join,
         holes = count_unknown_destructions(net),
@@ -537,10 +537,10 @@ function remapped_tradeoff_path()
         n_terms = length(terms),
         rows,
         dense = neural_index_is_dense(model),
-        admits = unique_claim_recovery_admits(net),
+        admits = reference_protocol_recovery_admits(net),
         holds = length(terms) == 2 && neural_index_is_dense(model) &&
                 all(r -> r.join_holds, rows) &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function dual_tradeoff_path()
@@ -566,10 +566,10 @@ function dual_tradeoff_path()
         n_terms = length(terms),
         join,
         only_threw,
-        admits = unique_claim_recovery_admits(net),
+        admits = reference_protocol_recovery_admits(net),
         validate_open = validate_network(net) === net,
         holds = join.holds && length(terms) == 2 && only_threw &&
-                unique_claim_recovery_admits(net) == false &&
+                reference_protocol_recovery_admits(net) == false &&
                 validate_network(net) === net)
 end
 
@@ -790,65 +790,11 @@ function protocol_row_rejects_hill_from_nn_row()
     end
     return (;
         threw,
-        closed = ude.protocol_result.canonical_hill_from_nn === false,
+        not_attempted = ude.protocol_result.canonical_hill_from_nn === false,
         holds = threw && ude.protocol_result.canonical_hill_from_nn === false)
 end
 
 # -- Source locks -------------------------------------------------------------
-
-function production_destruction_tradeoff_source_holds()
-    src = read(identifiability_jl_source_path(), String)
-    start = findfirst(
-        "function production_destruction_tradeoff(", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\n\"\"\"", rest, 40)
-    body = nxt === nothing ? rest[1:min(lastindex(rest), 2500)] :
-           rest[1:(first(nxt) - 1)]
-    return occursin("assess_identifiability", body) &&
-           occursin("collinearity", body) &&
-           occursin("unidentifiable_edge", body) &&
-           occursin("_destruction_contribution", body) &&
-           !occursin("StructuralIdentifiability", body)
-end
-
-function format_production_destruction_warning_source_holds()
-    src = read(identifiability_jl_source_path(), String)
-    start = findfirst("function format_production_destruction_warning", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\n\"\"\"", rest, 20)
-    body = nxt === nothing ? rest[1:min(lastindex(rest), 1200)] :
-           rest[1:(first(nxt) - 1)]
-    return occursin("not structural", body) &&
-           occursin("collinear", body)
-end
-
-function format_protocol_result_collinearity_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    start = findfirst("function format_protocol_result(ident;", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\n\"\"\"", rest, 40)
-    body = nxt === nothing ? rest[1:min(lastindex(rest), 2500)] :
-           rest[1:(first(nxt) - 1)]
-    return occursin("coefficients_are_biological_constants", body) &&
-           occursin("collinearity", body) &&
-           occursin("isfinite(ident.collinearity)", body) &&
-           occursin("canonical_hill_from_nn: false", body)
-end
-
-function coefficients_are_biological_constants_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "UniqueClaim.jl"), String)
-    start = findfirst(
-        "function coefficients_are_biological_constants(ident)", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("unidentifiable_edge", body) &&
-           occursin("!ident.unidentifiable_edge", body)
-end
 
 # -- Matrices / catalog -------------------------------------------------------
 
@@ -860,7 +806,7 @@ function identifiability_product_fixture_matrix()
     smoke = smoke_vs_protocol_print_row()
     extras = extras_not_invented_on_join_row()
     kpi = kpi_f1_not_a_failure_on_join_row()
-    hill_closed = protocol_row_rejects_hill_from_nn_row()
+    hill_not_attempted = protocol_row_rejects_hill_from_nn_row()
     missing = missing_production_param_row()
     frozen = frozen_k_prod_raw_unchanged_row()
     compile_free = compile_free_tradeoff_row()
@@ -885,13 +831,13 @@ function identifiability_product_fixture_matrix()
     matched = format_matches_joined_protocol_row()
     return (;
         coeff, collinearity, warning, sections, smoke, extras, kpi,
-        hill_closed, missing, frozen, compile_free, verbose,
+        hill_not_attempted, missing, frozen, compile_free, verbose,
         hill_known, hill_unknown, mm_unknown, mm_known, linear, two,
         six, default, remap, dual, comp, three, skipped, repress,
         middle, kinetic, cond, matched,
         holds = coeff.holds && collinearity.holds && warning.holds &&
                 sections.holds && smoke.holds && extras.holds && kpi.holds &&
-                hill_closed.holds && missing.holds && frozen.holds &&
+                hill_not_attempted.holds && missing.holds && frozen.holds &&
                 compile_free.holds && verbose.holds && hill_known.holds &&
                 hill_unknown.holds && mm_unknown.holds && mm_known.holds &&
                 linear.holds && two.holds && six.holds && default.holds &&
@@ -978,7 +924,7 @@ function format_matches_joined_protocol_row()
     trade = live_production_destruction_tradeoff(
         built.model, built.packed, [0.30, 0.25])
     ude = synthetic_ude_from_tradeoff(trade)
-    row = unique_claim_protocol_row(ude)
+    row = reference_protocol_protocol_row(ude)
     matched = try
         assert_format_matches_protocol_result(row.protocol_result, row.text)
         true
@@ -986,7 +932,7 @@ function format_matches_joined_protocol_row()
         false
     end
     asserted = try
-        assert_unique_claim_protocol_row(row)
+        assert_reference_protocol_protocol_row(row)
         true
     catch
         false
@@ -1017,7 +963,7 @@ end
 function identifiability_product_fixture_names()
     return (
         :coefficients, :collinearity_print, :warning, :sections,
-        :smoke_protocol, :extras, :kpi_f1, :hill_closed,
+        :smoke_protocol, :extras, :kpi_f1, :hill_not_attempted,
         :missing_param, :frozen_raw, :compile_free, :verbose,
         :hill_known, :hill_unknown, :mm_unknown, :mm_known,
         :linear_zero, :two_regulator, :six_state, :default_example,
@@ -1037,7 +983,8 @@ function format_identifiability_product_index()
     println(io, "| smoke_protocol | 1 IC / 8 points is not 9 ICs / 50 points |")
     println(io, "| extras | NA / (none) / live leftovers; no F1-attempt paint |")
     println(io, "| kpi_f1 | combined F1 is not a KPI failure symbol |")
-    println(io, "| hill_closed | canonical_hill_from_nn stays false |")
+    println(io,
+        "| hill_not_attempted | canonical_hill_from_nn stays false: no canonical Hill form is attempted |")
     println(io, "| missing_param | unknown production_param leaves correlation NaN |")
     println(io, "| frozen_raw | live tradeoff does not mutate packed phys |")
     println(io, "| compile_free | tradeoff does not call compile_network |")
@@ -1063,18 +1010,9 @@ function format_identifiability_product_index()
     return String(take!(io))
 end
 
-function identifiability_product_index_holds()
-    text = format_identifiability_product_index()
-    names = identifiability_product_fixture_names()
-    return length(unique(names)) == length(names) &&
-           occursin("unidentifiable_edge", text) &&
-           occursin("9 ICs", text) &&
-           !occursin("support_f1_ude = 0.99", text)
-end
-
 # -- Source checks ----------------------------------------------------------
 
-function unique_claim_product_blocks_hold_on_join()
+function reference_protocol_product_blocks_hold_on_join()
     trade = (;
         production_param = :k_prod,
         condition_number = 12.0,
@@ -1083,14 +1021,14 @@ function unique_claim_product_blocks_hold_on_join()
         unidentifiable_edge = true,
         fisher = nothing)
     join = join_tradeoff_protocol_row(:blocks, trade)
-    blocks = unique_claim_product_blocks()
+    blocks = reference_protocol_product_blocks()
     pos = protocol_block_positions(join.text)
     starts = [range === nothing ? nothing : first(range) for range in values(pos)]
     return (;
         blocks,
         starts,
         order = protocol_block_order_holds(join.text),
-        holds = join.holds && blocks == UNIQUE_CLAIM_PRODUCT_BLOCKS &&
+        holds = join.holds && blocks == REFERENCE_PROTOCOL_PRODUCT_BLOCKS &&
                 protocol_block_order_holds(join.text) &&
                 starts[1] < starts[2] < starts[3] < starts[4])
 end

@@ -1,4 +1,4 @@
-# Shared M4-B test helpers. Not a scientific result and not a public API.
+# Shared test helpers. Not a scientific result and not a public API.
 
 const _B4_LOCKED_SENTENCES = (
     analytic = "analytic library-membership control uses hill_rate_truth and is not trained-UDE evidence.",
@@ -7,13 +7,13 @@ const _B4_LOCKED_SENTENCES = (
 
 const _B4_A1_IDS = (
     "T-A-API", "T-A-SRC", "T-A-XNEQ", "T-A-PROV", "T-A-SPLIT",
-    "T-A-LEN", "T-A-R", "T-A-Q4SEP", "T-A-SAMP", "T-A-DTRUTH",
-    "T-A-M1", "T-A-TIME", "T-A-M2", "T-A-RES", "T-A-INTACT",
+    "T-A-LEN", "T-A-R", "T-A-DOMAIN-SEP", "T-A-SAMP", "T-A-DTRUTH",
+    "T-A-COMPOSER", "T-A-TIME", "T-A-HOLDOUT", "T-A-RES", "T-A-INTACT",
     "T-A-VECTOR")
 
 const _B4_A2_IDS = (
-    "T-A2-M1", "T-A2-M1-TIME", "T-A2-Q4", "T-A2-Q4SEP",
-    "T-A2-M2", "T-A2-M2-D")
+    "T-A2-COMPOSER", "T-A2-COMPOSER-TIME", "T-A2-DOMAIN", "T-A2-DOMAIN-SEP",
+    "T-A2-HOLDOUT", "T-A2-HOLDOUT-D")
 
 const _B4_FORBIDDEN_EVIDENCE_FIELDS = (
     :success, :holdout, :occupancy, :z, :domain, :payload, :extra,
@@ -37,10 +37,10 @@ const _B4_PRODUCTION_MUST_NOT_CONTAIN = (
     "sample_learned_function",
     "discover_unknown_rate",
     "equation_to_function",
-    "unique_claim_experiment_split",
+    "reference_protocol_experiment_split",
     "evaluate_holdout",
     "_evaluate_unknown_rate_recovery",
-    "_unique_claim_rate_recovery",
+    "_reference_protocol_rate_recovery",
     "sample_destruction_occupancy",
     "TrajectoryOccupancy",
     "FunctionalIdentifiabilityDomain",
@@ -193,7 +193,7 @@ function _b4_with_observers(f, logs; inject = nothing)
                                         push!(logs.range, r_range)
                                         nothing
                                     end) do
-                                        with_unique_claim_experiment_split_observer(
+                                        with_reference_protocol_experiment_split_observer(
                                             split -> begin
                                             push!(logs.split, split)
                                             nothing
@@ -247,8 +247,8 @@ function _b4_discovery_bound(production, replay)
         pc = production.candidates[1]
         rc = replay.candidates[1]
         pc.specification.variables == rc.specification.variables || return false
-        local_has_true_parent_gate(pc; variable = 2) ==
-        local_has_true_parent_gate(rc; variable = 2) || return false
+        local_has_true_parent_check(pc; variable = 2) ==
+        local_has_true_parent_check(rc; variable = 2) || return false
         support_uses_variable(pc; variable = 2) ==
         support_uses_variable(rc; variable = 2) || return false
         pc.numerator_coefficients ≈ rc.numerator_coefficients || return false

@@ -1,4 +1,4 @@
-@testset "experiment contracts" begin
+@testset "experiment interface" begin
     times = collect(range(0.0, 1.0; length = 5))
     observations = [times'; (2 .* times)']
     mask = trues(size(observations))

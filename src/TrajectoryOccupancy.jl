@@ -97,8 +97,8 @@ function _validated_occupancy_indices(
     stored = Tuple(Int(i) for i in split_indices)
     length(stored) == n_experiments || throw(DimensionMismatch(
         "split_indices length must equal the number of selected experiments"))
-    train_ids = UNIQUE_CLAIM_TRAIN_INDICES
-    hold_ids = UNIQUE_CLAIM_HOLDOUT_INDICES
+    train_ids = REFERENCE_PROTOCOL_TRAIN_INDICES
+    hold_ids = REFERENCE_PROTOCOL_HOLDOUT_INDICES
     protocol_n = length(train_ids) + length(hold_ids)
     n_experiments == protocol_n && throw(ArgumentError(
         "occupancy does not concatenate a full reference-protocol experiment collection; collect split.train and split.holdout separately"))

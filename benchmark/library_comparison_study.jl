@@ -129,7 +129,8 @@ function main()
         stability_selection = SELECTION,
         fixed_production = FIXED_PRODUCTION, normalise_rate = NORMALISE_RATE,
         n_sample_points = SAMPLE_POINTS,
-        on_discovery = PRUNING && !TIMED ? (d -> open(FREQUENCIES, "a") do io
+        on_discovery = PRUNING && !TIMED ?
+                       (d -> open(FREQUENCIES, "a") do io
             println(io, "seed ", d.seed, " noise ", d.noise, " ", d.variant, " ",
                 d.library)
             print(io, format_stability_selection(d.discovery))

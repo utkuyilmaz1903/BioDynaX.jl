@@ -1,4 +1,4 @@
-# M4-A1 occupancy is produced from observed Experiment.observations.
+# occupancy is produced from observed Experiment.observations.
 # Sentinel matrices distinguish full X from regulator-only X, keep
 # duplicates and original order, and keep non-regulator states off 0.3.
 
@@ -6,7 +6,7 @@ const _M4A_FORBIDDEN_TOKENS = (
     "predict_ude",
     "_collect_trajectory_data",
     "_regulator_grid",
-    "_unique_claim_external_regulator_band",
+    "_reference_protocol_external_regulator_band",
     "sample_unknown_destruction_grid",
     "sample_learned_function",
     "hill_rate_truth",
@@ -19,8 +19,8 @@ const _M4A_FORBIDDEN_MUTATORS = (
     "splice!", "deleteat!", "pop!", "push!", "insert!",
     "append!", "resize!", "setindex!", "replace!")
 
-const _M4A_PROTOCOL_TRAIN_COLS = 7 * UNIQUE_CLAIM_PROTOCOL.n_points
-const _M4A_PROTOCOL_HOLDOUT_COLS = 2 * UNIQUE_CLAIM_PROTOCOL.n_points
+const _M4A_PROTOCOL_TRAIN_COLS = 7 * REFERENCE_PROTOCOL.n_points
+const _M4A_PROTOCOL_HOLDOUT_COLS = 2 * REFERENCE_PROTOCOL.n_points
 const _M4A_PROTOCOL_TOTAL_COLS = _M4A_PROTOCOL_TRAIN_COLS + _M4A_PROTOCOL_HOLDOUT_COLS
 
 function _m4a_source()
@@ -52,7 +52,7 @@ function _m4a_experiment(name::Symbol, times, observations)
     return Experiment(name, t, obs, obs[:, 1])
 end
 
-# Independent oracle: same hcat contract, not the occupancy constructor.
+# Independent oracle: the same hcat layout, not the occupancy constructor.
 function _m4a_independent_X(experiments)
     return reduce(hcat, (Float64.(exp.observations) for exp in experiments))
 end
@@ -77,8 +77,8 @@ function _m4a_three_state_split()
                                             9.91 0.22]),
         _m4a_experiment(:H2, [0.5], reshape([1.33, 0.40, 4.40], 3, 1)))
     return ExperimentSplit(
-        UNIQUE_CLAIM_TRAIN_INDICES,
-        UNIQUE_CLAIM_HOLDOUT_INDICES,
+        REFERENCE_PROTOCOL_TRAIN_INDICES,
+        REFERENCE_PROTOCOL_HOLDOUT_INDICES,
         ExperimentSet(collect(train), [:S, :R, :Q]),
         ExperimentSet(collect(holdout), [:S, :R, :Q]))
 end
@@ -93,8 +93,8 @@ function _m4a_two_state_split()
                                             1.75 1.75]),
         _m4a_experiment(:H2, [0.5], reshape([1.33, 0.40], 2, 1)))
     return ExperimentSplit(
-        UNIQUE_CLAIM_TRAIN_INDICES,
-        UNIQUE_CLAIM_HOLDOUT_INDICES,
+        REFERENCE_PROTOCOL_TRAIN_INDICES,
+        REFERENCE_PROTOCOL_HOLDOUT_INDICES,
         ExperimentSet(collect(train), [:S, :R]),
         ExperimentSet(collect(holdout), [:S, :R]))
 end
@@ -108,7 +108,7 @@ end
 function _m4a_protocol_set()
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    proto = UNIQUE_CLAIM_PROTOCOL
+    proto = REFERENCE_PROTOCOL
     return generate_recovery_experiments(
         MersenneTwister(proto.seed), truth_net, truth;
         tspan = proto.tspan, n_points = proto.n_points,
@@ -218,7 +218,7 @@ function _m4a_assert_intact(set::ExperimentSet, snap)
     return nothing
 end
 
-# Full call log for sample_unknown_destruction. Isolated M4-A1 sampling
+# Full call log for sample_unknown_destruction. Isolated sampling
 # tests must empty the log, push every invocation, assert
 # length(captured_calls) == 1, and inspect captured_calls[1]. Do not
 # keep only the last log entry.
@@ -285,7 +285,7 @@ function Base.replace!(v::_M4ALoggedExperiments, args...; kwargs...)
     return replace!(v.data, args...; kwargs...)
 end
 
-@testset "T-A-API M4-A1 occupancy helpers stay unexported" begin
+@testset "T-A-API occupancy helpers stay unexported" begin
     @test :TrajectoryOccupancy ∉ names(BioDynaX)
     @test :collect_observed_occupancy ∉ names(BioDynaX)
     @test :sample_destruction_occupancy ∉ names(BioDynaX)
@@ -307,7 +307,7 @@ end
     @test FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
 end
 
-@testset "M4-A1 field contract and closed Q4 construction" begin
+@testset "occupancy fields and the functional-identifiability domain construction" begin
     @test fieldnames(TrajectoryOccupancy) === (
         :X, :experiment_index, :sample_index_in_exp, :times,
         :provenance, :split_indices, :n_points, :construction)
@@ -347,21 +347,21 @@ end
     @test predict_hits[] == 0
 end
 
-@testset "T-A-XNEQ full X is not regulator-only, not fill 0.3, and not Q4 z" begin
+@testset "T-A-XNEQ full X is not regulator-only, not fill 0.3, and not functional-identifiability z" begin
     split = _m4a_three_state_split()
     occupancy = collect_observed_occupancy(split, :train_observed_states)
     hold = collect_observed_occupancy(split, :holdout_observed_states)
     regulator_only = occupancy.X[2:2, :]
-    q4_like_z = vcat(occupancy.X[2, :], hold.X[2, :])
+    domain_like_z = vcat(occupancy.X[2, :], hold.X[2, :])
     reconstructed = fill(0.3, size(occupancy.X))
     reconstructed[2, :] .= occupancy.X[2, :]
     @test size(occupancy.X) == (3, 4)
     @test size(regulator_only) == (1, 4)
     @test occupancy.X != regulator_only
     @test occupancy.X[2, :] == vec(regulator_only)
-    @test occupancy.X[2, :] != q4_like_z
-    @test vec(occupancy.X) != q4_like_z
-    @test occupancy.X != q4_like_z
+    @test occupancy.X[2, :] != domain_like_z
+    @test vec(occupancy.X) != domain_like_z
+    @test occupancy.X != domain_like_z
     @test all(occupancy.X[1, :] .!= 0.3)
     @test all(occupancy.X[3, :] .!= 0.3)
     @test occupancy.X[1, :] != fill(0.3, occupancy.n_points)
@@ -423,16 +423,16 @@ end
         _m4a_nine_ic_set(), :holdout_observed_states)
 end
 
-@testset "T-A-LEN T-A-PROV T-A-SPLIT T-A-R T-A-Q4SEP protocol 9x50 occupancy" begin
+@testset "T-A-LEN T-A-PROV T-A-SPLIT T-A-R T-A-DOMAIN-SEP protocol 9x50 occupancy" begin
     set = _m4a_protocol_set()
-    @test length(set) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
-    @test all(size(exp.observations, 2) == UNIQUE_CLAIM_PROTOCOL.n_points
+    @test length(set) == REFERENCE_PROTOCOL.n_ics == 9
+    @test all(size(exp.observations, 2) == REFERENCE_PROTOCOL.n_points
     for exp in set.experiments)
     model, params, term = _m4a_probe_models()
-    split = unique_claim_experiment_split(set)
-    @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES ===
+    split = reference_protocol_experiment_split(set)
+    @test split.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES ===
           (1, 2, 3, 4, 5, 6, 7)
-    @test split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    @test split.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     @test length(split.train) == 7
     @test length(split.holdout) == 2
     train_occ = collect_observed_occupancy(split, :train_observed_states)
@@ -524,14 +524,14 @@ end
     @test !occursin("sample_unknown_destruction_grid", body)
 end
 
-@testset "T-A-SAMP T-A-Q4SEP real train 350-column live production call" begin
+@testset "T-A-SAMP T-A-DOMAIN-SEP real train 350-column live production call" begin
     set = _m4a_protocol_set()
-    @test length(set) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
-    @test all(size(exp.observations, 2) == UNIQUE_CLAIM_PROTOCOL.n_points
+    @test length(set) == REFERENCE_PROTOCOL.n_ics == 9
+    @test all(size(exp.observations, 2) == REFERENCE_PROTOCOL.n_points
     for exp in set.experiments)
     model, params, term = _m4a_probe_models()
-    split = unique_claim_experiment_split(set)
-    @test split.train_indices === UNIQUE_CLAIM_TRAIN_INDICES ===
+    split = reference_protocol_experiment_split(set)
+    @test split.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES ===
           (1, 2, 3, 4, 5, 6, 7)
     train_occupancy = collect_observed_occupancy(split, :train_observed_states)
     @test train_occupancy.provenance === :train_observed_states
@@ -540,11 +540,11 @@ end
     domain = functional_identifiability_domain(split, term.regulator)
     @test train_occupancy.X[term.regulator, :] == domain.z[1:350]
     fake = _m4a_protocol_fake_X(train_occupancy, term)
-    q4_X = reshape(domain.z, 1, :)
-    q4_train_X = reshape(domain.z[1:350], 1, :)
+    domain_X = reshape(domain.z, 1, :)
+    domain_train_X = reshape(domain.z[1:350], 1, :)
     @test train_occupancy.X != fake
-    @test train_occupancy.X != q4_X
-    @test train_occupancy.X != q4_train_X
+    @test train_occupancy.X != domain_X
+    @test train_occupancy.X != domain_train_X
     captured_calls = Any[]
     sampled = _m4a_with_sample_call_log(captured_calls) do
         return sample_destruction_occupancy(
@@ -559,24 +559,24 @@ end
     @test captured_calls[1].X == train_occupancy.X
     @test captured_calls[1].X != fake
     @test captured_calls[1].X !== fake
-    @test captured_calls[1].X != q4_X
-    @test captured_calls[1].X != q4_train_X
+    @test captured_calls[1].X != domain_X
+    @test captured_calls[1].X != domain_train_X
     @test size(captured_calls[1].X, 1) > 1
-    @test size(captured_calls[1].X) != size(q4_X)
-    @test size(captured_calls[1].X) != size(q4_train_X)
+    @test size(captured_calls[1].X) != size(domain_X)
+    @test size(captured_calls[1].X) != size(domain_train_X)
     expected = sample_unknown_destruction(
         model, params, train_occupancy.X; term)
     @test sampled == expected
 end
 
-@testset "T-A-SAMP T-A-Q4SEP real holdout 100-column live production call" begin
+@testset "T-A-SAMP T-A-DOMAIN-SEP real holdout 100-column live production call" begin
     set = _m4a_protocol_set()
-    @test length(set) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
-    @test all(size(exp.observations, 2) == UNIQUE_CLAIM_PROTOCOL.n_points
+    @test length(set) == REFERENCE_PROTOCOL.n_ics == 9
+    @test all(size(exp.observations, 2) == REFERENCE_PROTOCOL.n_points
     for exp in set.experiments)
     model, params, term = _m4a_probe_models()
-    split = unique_claim_experiment_split(set)
-    @test split.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    split = reference_protocol_experiment_split(set)
+    @test split.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     holdout_occupancy = collect_observed_occupancy(
         split, :holdout_observed_states)
     @test holdout_occupancy.provenance === :holdout_observed_states
@@ -585,10 +585,10 @@ end
     domain = functional_identifiability_domain(split, term.regulator)
     @test holdout_occupancy.X[term.regulator, :] == domain.z[351:450]
     fake = _m4a_protocol_fake_X(holdout_occupancy, term)
-    q4_X = reshape(domain.z, 1, :)
+    domain_X = reshape(domain.z, 1, :)
     q4_hold_X = reshape(domain.z[351:450], 1, :)
     @test holdout_occupancy.X != fake
-    @test holdout_occupancy.X != q4_X
+    @test holdout_occupancy.X != domain_X
     @test holdout_occupancy.X != q4_hold_X
     captured_calls = Any[]
     sampled = _m4a_with_sample_call_log(captured_calls) do
@@ -604,10 +604,10 @@ end
     @test captured_calls[1].X == holdout_occupancy.X
     @test captured_calls[1].X != fake
     @test captured_calls[1].X !== fake
-    @test captured_calls[1].X != q4_X
+    @test captured_calls[1].X != domain_X
     @test captured_calls[1].X != q4_hold_X
     @test size(captured_calls[1].X, 1) > 1
-    @test size(captured_calls[1].X) != size(q4_X)
+    @test size(captured_calls[1].X) != size(domain_X)
     @test size(captured_calls[1].X) != size(q4_hold_X)
     expected = sample_unknown_destruction(
         model, params, holdout_occupancy.X; term)
@@ -649,10 +649,10 @@ end
     end
 end
 
-@testset "T-A-M1 composer still uses _regulator_grid(split.train), not occupancy" begin
+@testset "T-A-COMPOSER composer still uses _regulator_grid(split.train), not occupancy" begin
     model, params, term = _m4a_probe_models()
     set = _m4a_composer_set()
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     expected = collect(_regulator_grid(split.train, term))
     captured = Ref{Any}()
     occupancy_hits = Ref(0)
@@ -661,7 +661,7 @@ end
         occupancy_hits[] += r_range isa TrajectoryOccupancy
         _m4a_dummy_evaled(term)
     end) do
-        _unique_claim_rate_recovery(
+        _reference_protocol_rate_recovery(
             model, params, term, _ -> 0.0, set;
             order = 2, family = :hill, noise_σ = 0.0,
             data_residual_fn = _ -> 0.0)
@@ -672,7 +672,7 @@ end
     @test collect(captured[]) == expected
     @test collect(captured[]) != collect(_regulator_grid(split.holdout, term))
     @test collect(captured[]) != collect(_regulator_grid(set, term))
-    helper = _m4a_recovery_function_body("_unique_claim_rate_recovery")
+    helper = _m4a_recovery_function_body("_reference_protocol_rate_recovery")
     @test occursin("r_range = _regulator_grid(split.train, term)", helper)
     @test !occursin("TrajectoryOccupancy", helper)
     @test !occursin("collect_observed_occupancy", helper)
@@ -680,11 +680,11 @@ end
     @test evaled.term === term
 end
 
-@testset "T-A-TIME M1 discovery still receives dummy time" begin
+@testset "T-A-TIME composer discovery still receives dummy time" begin
     model, params, term = _m4a_probe_models()
     set = _m4a_composer_set()
     occupancy = collect_observed_occupancy(
-        unique_claim_experiment_split(set), :train_observed_states)
+        reference_protocol_experiment_split(set), :train_observed_states)
     captured = Any[]
     truth_rate = _m4a_matching_truth(model, params, term)
     with_discover_unknown_rate_observer((R, times, D, config) -> begin
@@ -692,7 +692,7 @@ end
             R = copy(R), times = copy(times), D = copy(D), config))
         return _m4a_dummy_discovery()
     end) do
-        _unique_claim_rate_recovery(
+        _reference_protocol_rate_recovery(
             model, params, term, truth_rate, set;
             order = 2, family = :hill, noise_σ = 0.0,
             data_residual_fn = _ -> 0.0)
@@ -714,7 +714,7 @@ end
     @test sample_hits[] == 1
 end
 
-@testset "T-A-M2 T-A-RES occupancy is not attached to M1/M2/M3 objects" begin
+@testset "T-A-HOLDOUT T-A-RES occupancy is not attached to composer/holdout/functional-identifiability objects" begin
     @test :occupancy ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
     @test fieldnames(HoldoutEvidence) == (
         :data_residual_train, :data_residual_holdout,
@@ -731,11 +731,12 @@ end
     collect_body = _m4a_function_body("collect_observed_occupancy")
     @test occursin("exp.observations", collect_body)
     @test occursin("reduce(hcat", collect_body)
-    q4 = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+    functional_source = read(
+        joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
         String)
-    @test !occursin("TrajectoryOccupancy", q4)
-    @test !occursin("collect_observed_occupancy", q4)
-    @test !occursin("sample_destruction_occupancy", q4)
+    @test !occursin("TrajectoryOccupancy", functional_source)
+    @test !occursin("collect_observed_occupancy", functional_source)
+    @test !occursin("sample_destruction_occupancy", functional_source)
     hold = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
     @test !occursin("occupancy::", hold)
     @test occursin("struct HoldoutEvidence", hold)
@@ -744,7 +745,7 @@ end
 @testset "T-A-INTACT ExperimentSet identity/value unchanged after occupancy" begin
     set = _m4a_protocol_set()
     snap = _m4a_snapshot_set(set)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     _m4a_assert_intact(set, snap)
     train_occ = collect_observed_occupancy(split, :train_observed_states)
     hold_occ = collect_observed_occupancy(split, :holdout_observed_states)
@@ -785,10 +786,10 @@ end
         collect(set.experiments), :holdout_observed_states)
     @test_throws DimensionMismatch collect_observed_occupancy(
         collect(set.experiments), :train_observed_states;
-        split_indices = UNIQUE_CLAIM_TRAIN_INDICES)
+        split_indices = REFERENCE_PROTOCOL_TRAIN_INDICES)
     @test_throws DimensionMismatch collect_observed_occupancy(
         collect(set.experiments), :holdout_observed_states;
-        split_indices = UNIQUE_CLAIM_HOLDOUT_INDICES)
+        split_indices = REFERENCE_PROTOCOL_HOLDOUT_INDICES)
     @test isempty(logged.log.calls)
     proto = _m4a_protocol_set()
     proto_logged = _M4ALoggedExperiments(collect(proto.experiments),
@@ -798,12 +799,12 @@ end
     @test_throws ArgumentError collect_observed_occupancy(
         proto_logged, :holdout_observed_states)
     @test isempty(proto_logged.log.calls)
-    split = unique_claim_experiment_split(proto)
+    split = reference_protocol_experiment_split(proto)
     train_logged = _M4ALoggedExperiments(collect(split.train.experiments),
         _M4AMutationLog(String[]))
     train_occ = collect_observed_occupancy(
         train_logged, :train_observed_states;
-        split_indices = UNIQUE_CLAIM_TRAIN_INDICES)
+        split_indices = REFERENCE_PROTOCOL_TRAIN_INDICES)
     @test train_occ.n_points == 350
     @test train_occ.split_indices == (1, 2, 3, 4, 5, 6, 7)
     @test isempty(train_logged.log.calls)
@@ -811,7 +812,7 @@ end
         _M4AMutationLog(String[]))
     hold_occ = collect_observed_occupancy(
         hold_logged, :holdout_observed_states;
-        split_indices = UNIQUE_CLAIM_HOLDOUT_INDICES)
+        split_indices = REFERENCE_PROTOCOL_HOLDOUT_INDICES)
     @test hold_occ.n_points == 100
     @test hold_occ.split_indices == (8, 9)
     @test isempty(hold_logged.log.calls)

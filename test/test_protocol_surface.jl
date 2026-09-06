@@ -1,17 +1,17 @@
-@testset "UniqueClaimFingerprint types protocol versus smoke" begin
-    fp = unique_claim_fingerprint()
-    sm = unique_claim_fingerprint(; smoke = true)
-    @test fp isa UniqueClaimFingerprint
-    @test sm isa UniqueClaimFingerprint
-    @test unique_claim_fingerprint(:protocol) == fp
-    @test unique_claim_fingerprint(:smoke) == sm
-    @test_throws ArgumentError unique_claim_fingerprint(:notebook)
-    @test unique_claim_fingerprint_is_protocol(fp)
-    @test unique_claim_fingerprint_is_smoke(sm)
-    @test unique_claim_fingerprint_holds(fp)
-    @test unique_claim_fingerprint_holds(sm)
-    @test unique_claim_fingerprint_is_protocol(sm) == false
-    @test unique_claim_fingerprint_is_smoke(fp) == false
+@testset "ReferenceProtocolFingerprint types protocol versus smoke" begin
+    fp = reference_protocol_fingerprint()
+    sm = reference_protocol_fingerprint(; smoke = true)
+    @test fp isa ReferenceProtocolFingerprint
+    @test sm isa ReferenceProtocolFingerprint
+    @test reference_protocol_fingerprint(:protocol) == fp
+    @test reference_protocol_fingerprint(:smoke) == sm
+    @test_throws ArgumentError reference_protocol_fingerprint(:notebook)
+    @test reference_protocol_fingerprint_is_protocol(fp)
+    @test reference_protocol_fingerprint_is_smoke(sm)
+    @test reference_protocol_fingerprint_holds(fp)
+    @test reference_protocol_fingerprint_holds(sm)
+    @test reference_protocol_fingerprint_is_protocol(sm) == false
+    @test reference_protocol_fingerprint_is_smoke(fp) == false
     @test fp.kind === :protocol
     @test sm.kind === :smoke
     @test fp.n_ics == 9
@@ -27,26 +27,26 @@
     @test fp.observation_noise == 0.0
     @test fp.tspan == (0.0, 8.0)
     @test fp != sm
-    named = unique_claim_fingerprint_namedtuple(fp)
+    named = reference_protocol_fingerprint_namedtuple(fp)
     @test named.is_protocol
     @test named.n_ics == 9
-    repro = unique_claim_reproduction(fp)
+    repro = reference_protocol_reproduction(fp)
     @test repro.is_protocol
     @test repro.n_ics == fp.n_ics
-    @test unique_claim_reproduction(sm).is_protocol == false
-    text = format_unique_claim_fingerprint(fp)
+    @test reference_protocol_reproduction(sm).is_protocol == false
+    text = format_reference_protocol_fingerprint(fp)
     @test occursin("fingerprint_kind: protocol", text)
     @test occursin("is_protocol: true", text)
-    @test occursin("n_ics: 9", format_unique_claim_fingerprint(fp))
-    @test occursin("n_ics: 1", format_unique_claim_fingerprint(sm))
-    @test !(:UniqueClaimFingerprint in names(BioDynaX))
-    @test !(:unique_claim_fingerprint in names(BioDynaX))
+    @test occursin("n_ics: 9", format_reference_protocol_fingerprint(fp))
+    @test occursin("n_ics: 1", format_reference_protocol_fingerprint(sm))
+    @test !(:ReferenceProtocolFingerprint in names(BioDynaX))
+    @test !(:reference_protocol_fingerprint in names(BioDynaX))
 end
 
 @testset "format_protocol_result consumes the typed fingerprint" begin
     ident = (; unidentifiable_edge = true, production_param = :k_prod,
         collinearity = 0.997)
-    fp = unique_claim_fingerprint()
+    fp = reference_protocol_fingerprint()
     text = format_protocol_result(ident, fp;
         residual = 0.003, support_recall = 1.0, support_f1 = 0.57,
         extras = ("1", "r"), unknown_holes = 1)
@@ -58,7 +58,8 @@ end
     @test occursin("n_points: 50", text)
     @test occursin("acceptance_criteria: scale warning raised", text)
     @test occursin("hybrid_data_residual: 0.003", text)
-    smoke_txt = format_protocol_result(ident, unique_claim_fingerprint(; smoke = true);
+    smoke_txt = format_protocol_result(
+        ident, reference_protocol_fingerprint(; smoke = true);
         residual = Inf, extras = nothing)
     @test occursin("protocol_kind: smoke", smoke_txt)
     @test occursin("n_ics: 1", smoke_txt)
@@ -136,19 +137,19 @@ end
 
 @testset "recovery admission is independent of validate_network" begin
     one = build_hill_recovery_network(; known = false)
-    @test unique_claim_recovery_admits(one)
-    @test assert_unique_claim_recovery_network(one) === one
-    @test unique_claim_compiler_stays_open(one)
+    @test reference_protocol_recovery_admits(one)
+    @test assert_reference_protocol_recovery_network(one) === one
+    @test reference_protocol_compiler_stays_open(one)
     rng = MersenneTwister(0)
     model, _ = build_ude_model(rng, one)
-    @test unique_claim_recovery_admits(model)
+    @test reference_protocol_recovery_admits(model)
     @test recovery_suite_uses_single_hole_instrument()
     recovery_src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
     @test occursin("admit_recovery_suite_network", recovery_src)
     @test occursin("only_unknown_destruction", recovery_src)
     suite_src = read(joinpath(pkgdir(BioDynaX), "benchmark", "recovery_suite.jl"), String)
     @test occursin("format_recovery_protocol", suite_src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", suite_src)
+    @test occursin("REFERENCE_PROTOCOL.seed", suite_src)
     @test occursin("extras_print_label", suite_src)
     @test !occursin("extras=(\"1\", \"r\")", suite_src)
     fake = (;
@@ -163,7 +164,7 @@ end
             support_f1 = 0.57,
             extras = ["1", "r"],
             identifiability = (; unidentifiable_edge = true))))
-    recovery_txt = format_recovery_protocol(fake, unique_claim_fingerprint();
+    recovery_txt = format_recovery_protocol(fake, reference_protocol_fingerprint();
         equations = "D(z) = 1 + r")
     @test format_protocol_result_field_order_holds(recovery_txt)
     @test occursin("extras: 1, r", recovery_txt)
@@ -171,7 +172,7 @@ end
 end
 
 @testset "F1 attempt contract is not the protocol fingerprint" begin
-    contract = unique_claim_f1_attempt_contract()
+    contract = reference_protocol_f1_attempt_spec()
     @test contract.is_protocol == false
     @test contract.trains_ude == false
     @test contract.n_ics == 0
@@ -182,26 +183,26 @@ end
     @test contract.support_f1_clean == 0.99
     @test contract.support_f1_ude == RECOVERY_THRESHOLDS.support_f1_ude
     @test contract.support_f1_clean == RECOVERY_THRESHOLDS.support_f1_clean
-    @test unique_claim_f1_attempt_holds()
-    violations = unique_claim_f1_attempt_source_violations()
+    @test reference_protocol_f1_attempt_holds()
+    violations = reference_protocol_f1_attempt_source_violations()
     @test isempty(violations.missing)
     @test isempty(violations.forbidden)
-    row = unique_claim_f1_attempt_row(; extras = ["1", "r"], f1 = 0.57)
+    row = reference_protocol_f1_attempt_row(; extras = ["1", "r"], f1 = 0.57)
     @test row.is_protocol == false
     @test row.reaches_clean == false
     @test row.meets_skeleton
     @test row.verdict === :extras_remain_claim_stays_recall_plus_residual
-    @test !(:UNIQUE_CLAIM_F1_ATTEMPT in names(BioDynaX))
-    @test !(:unique_claim_f1_attempt_contract in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL_F1_ATTEMPT in names(BioDynaX))
+    @test !(:reference_protocol_f1_attempt_spec in names(BioDynaX))
 end
 
 @testset "example and docs lock the new protocol surfaces" begin
-    src = read(unique_claim_example_path(), String)
-    @test occursin("unique_claim_fingerprint", src)
-    @test occursin("unique_claim_experiment_set", src)
-    @test occursin("assert_unique_claim_recovery_network", src)
+    src = read(reference_protocol_example_path(), String)
+    @test occursin("reference_protocol_fingerprint", src)
+    @test occursin("reference_protocol_experiment_set", src)
+    @test occursin("assert_reference_protocol_recovery_network", src)
     @test occursin("format_protocol_result(ident, fingerprint", src)
-    violations = unique_claim_example_source_violations()
+    violations = reference_protocol_example_source_violations()
     @test isempty(violations.missing)
     @test isempty(violations.forbidden)
 end

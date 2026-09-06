@@ -11,8 +11,8 @@ end
 
 function _m3a_split(train_exps, hold_exps; state_names = [:S, :R])
     return ExperimentSplit(
-        UNIQUE_CLAIM_TRAIN_INDICES,
-        UNIQUE_CLAIM_HOLDOUT_INDICES,
+        REFERENCE_PROTOCOL_TRAIN_INDICES,
+        REFERENCE_PROTOCOL_HOLDOUT_INDICES,
         ExperimentSet(collect(train_exps), state_names),
         ExperimentSet(collect(hold_exps), state_names))
 end
@@ -48,7 +48,7 @@ function _m3a_independent_ls(D_i, D_j)
         end)
 end
 
-@testset "M3-A helpers stay unexported" begin
+@testset "helpers stay unexported" begin
     @test :FunctionalIdentifiabilityDomain ∉ names(BioDynaX)
     @test :functional_identifiability_domain ∉ names(BioDynaX)
     @test :scale_align_destruction ∉ names(BioDynaX)
@@ -231,7 +231,7 @@ end
     @test single.traj_rmse_holdout == expected_holdout
 end
 
-@testset "M3-A source stays a pure metric layer" begin
+@testset "source stays a pure metric layer" begin
     src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
         String)
     forbidden = (
@@ -241,7 +241,7 @@ end
         "run_recovery_suite",
         "RECOVERY_THRESHOLDS",
         "_regulator_grid",
-        "_unique_claim_external_regulator_band",
+        "_reference_protocol_external_regulator_band",
         "range(0.05, 2.0",
         "range(0.0, 1.0")
     for token in forbidden
@@ -268,7 +268,7 @@ function _m3b_protocol_split(; holdout_obs_scale = 1.0)
         obs[2, 2] = u0[2] * (1.1 * scale)
         Experiment(Symbol(:E, i), times, obs, copy(u0))
     end
-    return unique_claim_experiment_split(ExperimentSet(experiments, [:S, :R]))
+    return reference_protocol_experiment_split(ExperimentSet(experiments, [:S, :R]))
 end
 
 function _m3b_shift_params(p0, seed)
@@ -362,7 +362,7 @@ function _m3b_run_restarts(split, ude_net;
         order, fit_calls = fit_calls[], seed_attempts)
 end
 
-@testset "M3-B helpers stay unexported" begin
+@testset "helpers stay unexported" begin
     for name in (
         :FUNCTIONAL_ID_RESTART_SEEDS,
         :FUNCTIONAL_ID_TRAINING_CONFIG,
@@ -603,7 +603,7 @@ end
     @test all(restart -> restart.included, live.result.restarts)
 end
 
-@testset "T-B-ZLIVE domain is the M3-A observed union" begin
+@testset "T-B-ZLIVE domain is the observed union" begin
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     split = _m3a_sentinel_split()
     live = _m3b_run_restarts(split, ude_net)
@@ -619,7 +619,7 @@ end
     end
 end
 
-@testset "T-B-COMPAT M3-C is internal; M2 surface stays untouched" begin
+@testset "T-B-COMPAT is internal; holdout surface stays untouched" begin
     @test isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
     @test isdefined(BioDynaX, :assess_functional_identifiability)
     @test isdefined(BioDynaX, :FunctionalIdentifiabilityPair)
@@ -795,7 +795,7 @@ function _m3c_independent_flags(diag)
         trajectory_agree_function_disagree = trajectory_agree && function_disagree)
 end
 
-@testset "T-C-FIELDS locked surfaces stay closed" begin
+@testset "T-C-FIELDS locked surfaces stay locked" begin
     @test fieldnames(FunctionalIdentifiabilityRestart) === (
         :seed, :included, :training_retcode, :failure_reason, :message,
         :nn_init_fingerprint, :nn_final_fingerprint)
@@ -811,7 +811,7 @@ end
         :trajectory_agree_function_disagree, :status,
         :practical_not_structural)
     for name in (:success, :passed, :holdout, :payload, :misc, :extra,
-        :uncertainty, :hypothesis, :occupancy, :q4, :q7)
+        :uncertainty, :hypothesis, :occupancy, :functional, :q7)
         @test name ∉ fieldnames(FunctionalIdentifiabilityRestart)
         @test name ∉ fieldnames(FunctionalIdentifiabilityPair)
         @test name ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
@@ -1159,15 +1159,15 @@ const _M3D_FORBIDDEN_PHRASES = (
     "functionally identifiable",
     "structurally identifiable",
     "Bayesian credible",
-    "Q4 gate",
+    "functional-identifiability check",
     "certified",
     "verified",
-    "success gate",
+    "success check",
     "passed",
     "credible interval",
     "credible level")
 
-function _m3d_function_body(src, signature)
+function _diag_function_body(src, signature)
     start = findfirst(signature, src)
     start === nothing && return ""
     rest = src[first(start):end]
@@ -1175,14 +1175,14 @@ function _m3d_function_body(src, signature)
     return nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
 end
 
-function _m3d_q3_q4_sections(text)
+function _diagnostic_sections(text)
     marker = "FUNCTIONAL DIAGNOSTIC"
     idx = findfirst(marker, text)
     idx === nothing && return text, ""
     return text[1:(first(idx) - 1)], text[first(idx):end]
 end
 
-function _m3d_assert_required_and_forbidden(text)
+function _diag_assert_required_and_forbidden(text)
     for phrase in _M3D_REQUIRED_PHRASES
         @test occursin(phrase, text)
     end
@@ -1191,7 +1191,7 @@ function _m3d_assert_required_and_forbidden(text)
     end
 end
 
-function _m3d_assert_diag_rows(text, diag)
+function _diag_assert_diag_rows(text, diag)
     @test count("seed_i=", text) == length(diag.pairs)
     failed = [restart for restart in diag.restarts if !restart.included]
     @test count("included=false", text) == length(failed)
@@ -1227,7 +1227,7 @@ function _m3d_assert_diag_rows(text, diag)
         text)
 end
 
-function _m3d_distinctive_pairs()
+function _diag_distinctive_pairs()
     seeds = collect(Int, FUNCTIONAL_ID_RESTART_SEEDS)
     pairs = FunctionalIdentifiabilityPair[]
     k = 0
@@ -1244,7 +1244,7 @@ function _m3d_distinctive_pairs()
     return pairs
 end
 
-function _m3d_outlier_pairs()
+function _diag_outlier_pairs()
     seeds = collect(Int, FUNCTIONAL_ID_RESTART_SEEDS)
     pairs = FunctionalIdentifiabilityPair[]
     k = 0
@@ -1260,7 +1260,7 @@ function _m3d_outlier_pairs()
     return pairs
 end
 
-function _m3d_status_diagnostics()
+function _diag_status_diagnostics()
     domain = functional_identifiability_domain(_m3a_sentinel_split(), 2)
     included5 = _m3c_restarts((true, true, true, true, true))
     included2 = _m3c_restarts((true, true, false, false, false))
@@ -1282,11 +1282,11 @@ function _m3d_status_diagnostics()
             _m3c_constant_pairs(201:205, 0.25, 0.01)))
 end
 
-@testset "T-D-SRC formatters stay internal and off the M2 surface" begin
+@testset "T-D-SRC formatters stay internal and off the holdout surface" begin
     @test isdefined(BioDynaX, :format_functional_identifiability_diagnostic)
-    @test isdefined(BioDynaX, :format_q3_q4_side_by_side)
+    @test isdefined(BioDynaX, :format_diagnostics_side_by_side)
     @test :format_functional_identifiability_diagnostic ∉ names(BioDynaX)
-    @test :format_q3_q4_side_by_side ∉ names(BioDynaX)
+    @test :format_diagnostics_side_by_side ∉ names(BioDynaX)
     @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
     @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
     @test public_export_list_holds()
@@ -1296,41 +1296,41 @@ end
         String)
     rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
     pipe = read(joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String)
-    uc = read(joinpath(@__DIR__, "..", "src", "UniqueClaim.jl"), String)
+    uc = read(joinpath(@__DIR__, "..", "src", "ReferenceProtocol.jl"), String)
     @test occursin("function format_functional_identifiability_diagnostic", fi)
-    @test occursin("function format_q3_q4_side_by_side", fi)
+    @test occursin("function format_diagnostics_side_by_side", fi)
     for src in (rec, pipe, uc)
         @test !occursin("format_functional_identifiability_diagnostic", src)
-        @test !occursin("format_q3_q4_side_by_side", src)
+        @test !occursin("format_diagnostics_side_by_side", src)
         @test !occursin("assess_functional_identifiability", src)
     end
-    fmt_body = _m3d_function_body(rec, "function format_protocol_result(ident;")
-    rep_body = _m3d_function_body(pipe, "function report_recovery(evaled, ident;")
-    hold_body = _m3d_function_body(rec, "function unique_claim_kpis_hold(kpis)")
+    fmt_body = _diag_function_body(rec, "function format_protocol_result(ident;")
+    rep_body = _diag_function_body(pipe, "function report_recovery(evaled, ident;")
+    hold_body = _diag_function_body(rec, "function reference_protocol_kpis_hold(kpis)")
     @test !isempty(fmt_body)
     @test !isempty(rep_body)
     @test !isempty(hold_body)
     @test !occursin("format_functional", fmt_body)
-    @test !occursin("format_q3_q4", fmt_body)
+    @test !occursin("format_diagnostics_side_by_side", fmt_body)
     @test !occursin("assess_functional", fmt_body)
     @test !occursin("format_functional", rep_body)
-    @test !occursin("format_q3_q4", rep_body)
+    @test !occursin("format_diagnostics_side_by_side", rep_body)
     @test !occursin("assess_functional", rep_body)
     @test !occursin("function_disagree", hold_body)
     @test !occursin("assess_functional", hold_body)
-    q4_body = _m3d_function_body(fi,
+    functional_body = _diag_function_body(fi,
         "function format_functional_identifiability_diagnostic")
-    pair_body = _m3d_function_body(fi, "function _format_functional_id_pair_row")
-    @test occursin("diag.pairs", q4_body)
-    @test occursin("diag.restarts", q4_body)
-    @test !occursin("pairwise_destruction_metrics", q4_body)
-    @test !occursin("pairwise_trajectory_metrics", q4_body)
-    @test !occursin("assemble_functional_identifiability_diagnostic", q4_body)
-    @test !occursin("rate_rel_rmse", q4_body)
+    pair_body = _diag_function_body(fi, "function _format_functional_id_pair_row")
+    @test occursin("diag.pairs", functional_body)
+    @test occursin("diag.restarts", functional_body)
+    @test !occursin("pairwise_destruction_metrics", functional_body)
+    @test !occursin("pairwise_trajectory_metrics", functional_body)
+    @test !occursin("assemble_functional_identifiability_diagnostic", functional_body)
+    @test !occursin("rate_rel_rmse", functional_body)
     @test occursin("pair.d_rmse_scale_normalized", pair_body)
     @test !occursin("pairwise_destruction_metrics", pair_body)
-    @test !occursin("unique_claim_kpis_hold", q4_body)
-    @test !occursin("RECOVERY_THRESHOLDS", q4_body)
+    @test !occursin("reference_protocol_kpis_hold", functional_body)
+    @test !occursin("RECOVERY_THRESHOLDS", functional_body)
 end
 
 @testset "T-D-ALL T-D-FAIL live assess rows stay visible" begin
@@ -1344,8 +1344,8 @@ end
     @test length(diag.pairs) == 1
     @test diag.status === :incomplete
     text = format_functional_identifiability_diagnostic(diag)
-    _m3d_assert_required_and_forbidden(text)
-    _m3d_assert_diag_rows(text, diag)
+    _diag_assert_required_and_forbidden(text)
+    _diag_assert_diag_rows(text, diag)
     for seed in FUNCTIONAL_ID_RESTART_SEEDS
         @test occursin("seed=$seed", text)
     end
@@ -1363,7 +1363,7 @@ end
 end
 
 @testset "T-D-FIVE T-D-MUST T-D-BAN all five statuses" begin
-    diags = _m3d_status_diagnostics()
+    diags = _diag_status_diagnostics()
     @test diags.incomplete.status === :incomplete
     @test diags.traj_disagree.status === :traj_disagree
     @test diags.scale_ambiguity.status === :scale_ambiguity
@@ -1374,8 +1374,8 @@ end
           Set(FUNCTIONAL_ID_STATUS_VOCABULARY)
     for (name, diag) in pairs(diags)
         text = format_functional_identifiability_diagnostic(diag)
-        _m3d_assert_required_and_forbidden(text)
-        _m3d_assert_diag_rows(text, diag)
+        _diag_assert_required_and_forbidden(text)
+        _diag_assert_diag_rows(text, diag)
         @test occursin("status: $(diag.status)", text)
         @test name === diag.status
     end
@@ -1386,17 +1386,17 @@ end
     included5 = _m3c_restarts((true, true, true, true, true))
     distinctive = assemble_functional_identifiability_diagnostic(
         :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
-        _m3d_distinctive_pairs())
+        _diag_distinctive_pairs())
     outlier = assemble_functional_identifiability_diagnostic(
         :hill, FUNCTIONAL_ID_RESTART_SEEDS, domain, included5,
-        _m3d_outlier_pairs())
+        _diag_outlier_pairs())
     @test length(distinctive.pairs) == 10
     @test any(
         pair -> pair.d_rmse_scale_normalized !=
                 distinctive.median_d_rmse_scale_normalized,
         distinctive.pairs)
     text = format_functional_identifiability_diagnostic(distinctive)
-    _m3d_assert_diag_rows(text, distinctive)
+    _diag_assert_diag_rows(text, distinctive)
     @test count("seed_i=", text) == 10
     @test count("median_d_rmse_scale_normalized:", text) == 1
     outlier_text = format_functional_identifiability_diagnostic(outlier)
@@ -1435,8 +1435,8 @@ end
     @test length(diag_b.pairs) == 10
     text_a = format_functional_identifiability_diagnostic(diag_a)
     text_b = format_functional_identifiability_diagnostic(diag_b)
-    _m3d_assert_diag_rows(text_a, diag_a)
-    _m3d_assert_diag_rows(text_b, diag_b)
+    _diag_assert_diag_rows(text_a, diag_a)
+    _diag_assert_diag_rows(text_b, diag_b)
     @test text_a != text_b
     pair_a = only(filter(p -> p.seed_i == 201 && p.seed_j == 202, diag_a.pairs))
     pair_b = only(filter(p -> p.seed_i == 201 && p.seed_j == 202, diag_b.pairs))
@@ -1453,15 +1453,15 @@ end
         production_param = :k_prod,
         collinearity = 0.99,
         condition_number = 1.0e7)
-    side_a = format_q3_q4_side_by_side(ident, diag_a)
-    side_b = format_q3_q4_side_by_side(ident, diag_b)
+    side_a = format_diagnostics_side_by_side(ident, diag_a)
+    side_b = format_diagnostics_side_by_side(ident, diag_b)
     @test side_a != side_b
     @test occursin(
         "d_rmse_scale_normalized=$(pair_b.d_rmse_scale_normalized)", side_b)
 end
 
-@testset "T-D-Q3Q4 Q3 and Q4 stay separate" begin
-    diags = _m3d_status_diagnostics()
+@testset "T-D-Q3Q4 scale-collinearity and functional-identifiability stay separate" begin
+    diags = _diag_status_diagnostics()
     ident_true = (;
         unidentifiable_edge = true,
         production_param = :k_prod,
@@ -1474,37 +1474,37 @@ end
         condition_number = 10.0)
     @test diags.function_agree.function_disagree === false
     @test diags.trajectory_agree_function_disagree.function_disagree === true
-    cross = format_q3_q4_side_by_side(ident_true, diags.function_agree)
-    opposite = format_q3_q4_side_by_side(
+    cross = format_diagnostics_side_by_side(ident_true, diags.function_agree)
+    opposite = format_diagnostics_side_by_side(
         ident_false, diags.trajectory_agree_function_disagree)
-    _m3d_assert_required_and_forbidden(cross)
-    _m3d_assert_required_and_forbidden(opposite)
-    q3_cross, q4_cross = _m3d_q3_q4_sections(cross)
-    q3_opp, q4_opp = _m3d_q3_q4_sections(opposite)
-    @test occursin("unidentifiable_edge: true", q3_cross)
-    @test occursin("practical scale warning", q3_cross)
-    @test occursin("asymptotic Fisher interval", q3_cross)
-    @test !occursin("function_disagree", q3_cross)
-    @test occursin("function_disagree: false", q4_cross)
-    @test !occursin("unidentifiable_edge", q4_cross)
-    @test occursin("unidentifiable_edge: false", q3_opp)
-    @test !occursin("function_disagree", q3_opp)
-    @test occursin("function_disagree: true", q4_opp)
-    @test !occursin("unidentifiable_edge", q4_opp)
+    _diag_assert_required_and_forbidden(cross)
+    _diag_assert_required_and_forbidden(opposite)
+    scale_cross, functional_cross = _diagnostic_sections(cross)
+    scale_opp, functional_opp = _diagnostic_sections(opposite)
+    @test occursin("unidentifiable_edge: true", scale_cross)
+    @test occursin("practical scale warning", scale_cross)
+    @test occursin("asymptotic Fisher interval", scale_cross)
+    @test !occursin("function_disagree", scale_cross)
+    @test occursin("function_disagree: false", functional_cross)
+    @test !occursin("unidentifiable_edge", functional_cross)
+    @test occursin("unidentifiable_edge: false", scale_opp)
+    @test !occursin("function_disagree", scale_opp)
+    @test occursin("function_disagree: true", functional_opp)
+    @test !occursin("unidentifiable_edge", functional_opp)
     for text in (cross, opposite)
         @test !occursin("unidentifiable_edge => function_disagree", text)
         @test !occursin("function_disagree => unidentifiable_edge", text)
     end
-    minimal = format_q3_q4_side_by_side(
+    minimal = format_diagnostics_side_by_side(
         (; unidentifiable_edge = true), diags.incomplete)
-    q3_min, q4_min = _m3d_q3_q4_sections(minimal)
-    @test occursin("unidentifiable_edge: true", q3_min)
-    @test !occursin("function_disagree", q3_min)
-    @test occursin("status: incomplete", q4_min)
+    scale_min, functional_min = _diagnostic_sections(minimal)
+    @test occursin("unidentifiable_edge: true", scale_min)
+    @test !occursin("function_disagree", scale_min)
+    @test occursin("status: incomplete", functional_min)
 end
 
-@testset "T-D-GATE formatter does not modify Q3/Q1/Q5 hold" begin
-    diags = _m3d_status_diagnostics()
+@testset "T-D-CHECK formatter does not modify the scale-warning, residual, and recall verdicts" begin
+    diags = _diag_status_diagnostics()
     hold_kpis = (;
         unidentifiable_edge = true,
         data_residual = 0.003,
@@ -1513,26 +1513,26 @@ end
         unidentifiable_edge = false,
         data_residual = 0.003,
         support_recall = 0.99)
-    @test unique_claim_kpis_hold(hold_kpis)
-    @test !unique_claim_kpis_hold(fail_edge)
-    @test UNIQUE_CLAIM_KPI_FIELDS ===
+    @test reference_protocol_kpis_hold(hold_kpis)
+    @test !reference_protocol_kpis_hold(fail_edge)
+    @test REFERENCE_PROTOCOL_KPI_FIELDS ===
           (:unidentifiable_edge, :data_residual, :support_recall)
     format_functional_identifiability_diagnostic(
         diags.trajectory_agree_function_disagree)
-    format_q3_q4_side_by_side(
+    format_diagnostics_side_by_side(
         (; unidentifiable_edge = false, production_param = :k_prod,
             collinearity = 0.11),
         diags.function_agree)
-    @test unique_claim_kpis_hold(hold_kpis)
-    @test !unique_claim_kpis_hold(fail_edge)
-    @test UNIQUE_CLAIM_KPI_FIELDS ===
+    @test reference_protocol_kpis_hold(hold_kpis)
+    @test !reference_protocol_kpis_hold(fail_edge)
+    @test REFERENCE_PROTOCOL_KPI_FIELDS ===
           (:unidentifiable_edge, :data_residual, :support_recall)
     @test recovery_thresholds_hold()
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
     @test RECOVERY_THRESHOLDS.support_recall == 0.99
 end
 
-@testset "T-D-M2 M2 stdout and protocol fields stay unchanged" begin
+@testset "T-D-holdout holdout stdout and protocol fields stay unchanged" begin
     ident = (;
         unidentifiable_edge = true,
         collinearity = 0.99,
@@ -1543,7 +1543,7 @@ end
     @test occursin("\nDISCOVERY\n", proto)
     @test occursin("\nREPRODUCTION\n", proto)
     @test format_protocol_result_field_order_holds(proto)
-    @test UNIQUE_CLAIM_PRODUCT_BLOCKS ===
+    @test REFERENCE_PROTOCOL_PRODUCT_BLOCKS ===
           (:IDENTIFIABILITY, :FIT, :DISCOVERY, :REPRODUCTION)
     @test PROTOCOL_RESULT_FIELDS === (
         :unknown_holes,
@@ -1559,18 +1559,18 @@ end
     @test !occursin("seed_i=", proto)
     @test !occursin("function_disagree", proto)
     @test !occursin("FUNCTIONAL DIAGNOSTIC", proto)
-    diags = _m3d_status_diagnostics()
-    q4 = format_functional_identifiability_diagnostic(diags.function_agree)
-    side = format_q3_q4_side_by_side(ident, diags.function_agree)
+    diags = _diag_status_diagnostics()
+    functional = format_functional_identifiability_diagnostic(diags.function_agree)
+    side = format_diagnostics_side_by_side(ident, diags.function_agree)
     proto2 = format_protocol_result(ident; residual = 0.003)
     @test proto == proto2
-    @test q4 != proto
+    @test functional != proto
     @test side != proto
-    @test !occursin("IDENTIFIABILITY", q4)
+    @test !occursin("IDENTIFIABILITY", functional)
     @test occursin("IDENTIFIABILITY", proto)
 end
 
-# -- M3-E live assess-path binding --------------------------------------------
+# -- live assess-path binding --------------------------------------------
 
 function _m3e_run_assess(split, ude_net;
         throw_seeds = Int[],
@@ -1748,7 +1748,7 @@ const _M3E_FORBIDDEN_TARGETS = (
     "evaluate_holdout",
     "report_recovery",
     "_regulator_grid",
-    "_unique_claim_external_regulator_band")
+    "_reference_protocol_external_regulator_band")
 
 const _M3E_FORBIDDEN_TOKENS = (
     _M3E_FORBIDDEN_TARGETS...,
@@ -1880,7 +1880,7 @@ function _m3e_official_discovery_binds(scripts)
     return _m3e_script_live_bind(path)
 end
 
-@testset "M3-E seams stay unexported" begin
+@testset "seams stay unexported" begin
     for name in (
         :ASSESS_FUNCTIONAL_IDENTIFIABILITY_OBSERVER,
         :with_assess_functional_identifiability_observer,
@@ -2032,7 +2032,7 @@ end
     @test live_D[2] != wrong_other
 end
 
-@testset "T-E-LIVE-SAMPLE live r_range is the M3-A domain" begin
+@testset "T-E-LIVE-SAMPLE live r_range is the domain" begin
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     split = _m3a_sentinel_split()
     live = _m3e_run_assess(split, ude_net)
@@ -2307,7 +2307,7 @@ end
     @test _m3e_ast_has_call(src, :assess_functional_identifiability)
     @test _m3e_ast_has_call(src, :format_functional_identifiability_diagnostic)
     @test _m3e_ast_has_call(src, :generate_recovery_experiments)
-    @test _m3e_ast_has_call(src, :unique_claim_experiment_split)
+    @test _m3e_ast_has_call(src, :reference_protocol_experiment_split)
     commented = join("# " .* Base.split(_m3e_normalize(src), '\n'), '\n')
     @test !_m3e_ast_has_call(commented, :assess_functional_identifiability)
     for token in _M3E_FORBIDDEN_TARGETS
@@ -2366,7 +2366,7 @@ end
             FunctionalIdentifiabilityPair,
             FunctionalIdentifiabilityRestart,
             format_functional_identifiability_diagnostic
-        domain = FunctionalIdentifiabilityDomain(
+ domain = FunctionalIdentifiabilityDomain(
             2, [0.1, 0.5, 0.1, 0.8], 2, 2, 0.3, :train_obs_union_holdout_obs)
         restarts = [
             FunctionalIdentifiabilityRestart(
@@ -2486,8 +2486,8 @@ end
         d_disagree_scale_norm_rel_rmse = 0.20)
 end
 
-@testset "T-E-HOLD unique_claim_kpis_hold stays Q3+Q1+Q5" begin
-    hold = (;
+@testset "T-E-HOLD reference_protocol_kpis_hold stays scale warning plus residual plus recall" begin
+    kpis = (;
         unidentifiable_edge = true,
         data_residual = 0.003,
         support_recall = 0.99)
@@ -2495,19 +2495,19 @@ end
         unidentifiable_edge = false,
         data_residual = 0.003,
         support_recall = 0.99)
-    @test UNIQUE_CLAIM_KPI_FIELDS ===
+    @test REFERENCE_PROTOCOL_KPI_FIELDS ===
           (:unidentifiable_edge, :data_residual, :support_recall)
-    @test :function_disagree ∉ UNIQUE_CLAIM_KPI_FIELDS
-    @test unique_claim_kpis_hold(hold)
-    @test !unique_claim_kpis_hold(miss)
+    @test :function_disagree ∉ REFERENCE_PROTOCOL_KPI_FIELDS
+    @test reference_protocol_kpis_hold(kpis)
+    @test !reference_protocol_kpis_hold(miss)
     with_q4 = (;
         unidentifiable_edge = true,
         data_residual = 0.003,
         support_recall = 0.99,
         function_disagree = true)
-    @test unique_claim_kpis_hold(with_q4)
+    @test reference_protocol_kpis_hold(with_q4)
     src = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
-    body = _m3e_function_body_from_src(src, "unique_claim_kpis_hold")
+    body = _m3e_function_body_from_src(src, "reference_protocol_kpis_hold")
     @test occursin("unidentifiable_edge", body)
     @test occursin("data_residual", body)
     @test occursin("support_recall", body)
@@ -2515,7 +2515,7 @@ end
     @test !occursin("assess_functional_identifiability", body)
 end
 
-@testset "T-E-M2HASH M2 lock IDs and Q4 surface stay" begin
+@testset "T-E-LOCKHASH holdout lock IDs and functional-identifiability surface stay" begin
     holdout = read(joinpath(@__DIR__, "test_holdout.jl"), String)
     recovery = read(joinpath(@__DIR__, "test_recovery_pipeline.jl"), String)
     hard = read(joinpath(@__DIR__, "test_recovery_hard.jl"), String)
@@ -2524,11 +2524,11 @@ end
         "L-SPLIT-ID", "L-SET-INTACT", "L-FIT-A", "L-FIT-B", "L-RNG",
         "L-DOM-A", "L-DOM-B", "L-D-OCC", "L-OVERFIT", "L-RES-HOLD",
         "L-RES-LEGACY", "L-DISC-A", "L-DISC-B-1", "L-DISC-B-2",
-        "L-DISC-B-3", "L-EARLY", "L-GATE", "L-SITE", "L-API", "M2-G1",
-        "M2-G2")
+        "L-DISC-B-3", "L-EARLY", "L-GATE", "L-SITE", "L-API", "",
+        "")
         @test occursin(id, corpus)
     end
-    @test occursin("no M3 or M4 fields", holdout)
+    @test occursin("no functional-identifiability or occupancy fields", holdout)
     @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
         holdout)
     @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
@@ -2610,11 +2610,11 @@ end
 @testset "T-F-SRC T-F-NOM T-F-PCI Fisher terminology" begin
     ident_src = read(joinpath(@__DIR__, "..", "src", "Identifiability.jl"),
         String)
-    q4_src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
+    functional_src = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
         String)
     for phrase in _M3F_FORBIDDEN_PHRASES
         @test !occursin(phrase, ident_src)
-        @test !occursin(phrase, q4_src)
+        @test !occursin(phrase, functional_src)
     end
     @test occursin("asymptotic Fisher interval", ident_src)
     @test occursin("nominal coverage", ident_src)
@@ -2629,7 +2629,7 @@ end
     @test occursin("function parameter_credible_intervals", ident_src)
 end
 
-@testset "T-F-Z T-F-KEYS Fisher math, Q3 warning, Q4, exports" begin
+@testset "T-F-Z T-F-KEYS Fisher math, scale-collinearity warning, functional-identifiability, exports" begin
     @test BioDynaX._z_score(0.90) == 1.6448536269514722
     @test BioDynaX._z_score(0.95) == 1.959963984540054
     @test BioDynaX._z_score(0.99) == 2.5758293035489004
@@ -2713,29 +2713,29 @@ end
     @test miss ==
           "Practical k_prod↔D collinearity cosine=0.11 (below threshold)."
 
-    fid = _m3d_status_diagnostics().function_agree
-    cross = format_q3_q4_side_by_side(
+    fid = _diag_status_diagnostics().function_agree
+    cross = format_diagnostics_side_by_side(
         (;
             unidentifiable_edge = true,
             production_param = :k_prod,
             collinearity = 0.99,
             condition_number = 1.0e7),
         fid)
-    q3, q4 = _m3d_q3_q4_sections(cross)
-    @test occursin("practical scale warning", q3)
-    @test occursin("asymptotic Fisher interval", q3)
-    @test !occursin("function_disagree", q3)
-    @test occursin("function_disagree: false", q4)
-    @test !occursin("unidentifiable_edge", q4)
-    @test UNIQUE_CLAIM_KPI_FIELDS ===
+    scale, functional = _diagnostic_sections(cross)
+    @test occursin("practical scale warning", scale)
+    @test occursin("asymptotic Fisher interval", scale)
+    @test !occursin("function_disagree", scale)
+    @test occursin("function_disagree: false", functional)
+    @test !occursin("unidentifiable_edge", functional)
+    @test REFERENCE_PROTOCOL_KPI_FIELDS ===
           (:unidentifiable_edge, :data_residual, :support_recall)
-    @test :function_disagree ∉ UNIQUE_CLAIM_KPI_FIELDS
-    @test unique_claim_kpis_hold((;
+    @test :function_disagree ∉ REFERENCE_PROTOCOL_KPI_FIELDS
+    @test reference_protocol_kpis_hold((;
         unidentifiable_edge = true,
         data_residual = 0.003,
         support_recall = 0.99,
         function_disagree = true))
-    @test !unique_claim_kpis_hold((;
+    @test !reference_protocol_kpis_hold((;
         unidentifiable_edge = false,
         data_residual = 0.003,
         support_recall = 0.99))
@@ -2970,12 +2970,12 @@ end
     official = _m3e_official_benchmark_path()
     src = read(official, String)
     @test _m3e_ast_has_call(src, :generate_recovery_experiments)
-    @test _m3e_ast_has_call(src, :unique_claim_experiment_split)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL", src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.tspan", src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.n_points", src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.observation_noise", src)
+    @test _m3e_ast_has_call(src, :reference_protocol_experiment_split)
+    @test occursin("REFERENCE_PROTOCOL", src)
+    @test occursin("REFERENCE_PROTOCOL.seed", src)
+    @test occursin("REFERENCE_PROTOCOL.tspan", src)
+    @test occursin("REFERENCE_PROTOCOL.n_points", src)
+    @test occursin("REFERENCE_PROTOCOL.observation_noise", src)
     @test !occursin("protocol=", src)
     @test !occursin("protocol =", src)
     @test !occursin("consume_shared_suite_rng", src)
@@ -2986,11 +2986,11 @@ end
     @test haskey(kwargs, :n_points)
     @test haskey(kwargs, :noise_σ)
     @test !haskey(kwargs, :protocol)
-    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
-    @test UNIQUE_CLAIM_PROTOCOL.tspan === (0.0, 8.0)
-    @test UNIQUE_CLAIM_PROTOCOL.n_points == 50
-    @test UNIQUE_CLAIM_PROTOCOL.observation_noise == 0.0
-    @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
+    @test REFERENCE_PROTOCOL.seed == 103
+    @test REFERENCE_PROTOCOL.tspan === (0.0, 8.0)
+    @test REFERENCE_PROTOCOL.n_points == 50
+    @test REFERENCE_PROTOCOL.observation_noise == 0.0
+    @test REFERENCE_PROTOCOL.n_ics == 9
 end
 
 @testset "T-G-SEEDS five locked restart seeds" begin
@@ -3000,7 +3000,7 @@ end
     @test FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
     @test length(FUNCTIONAL_ID_RESTART_SEEDS) == 5
     @test 103 ∉ FUNCTIONAL_ID_RESTART_SEEDS
-    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
+    @test REFERENCE_PROTOCOL.seed == 103
     @test isempty(intersect(FUNCTIONAL_ID_RESTART_SEEDS, _M3G_M4_SEEDS))
     @test occursin("FUNCTIONAL_ID_RESTART_SEEDS", src)
     @test !occursin("107, 111, 113, 127", src)
@@ -3043,7 +3043,7 @@ end
     end
 end
 
-@testset "T-G-CI benchmark is not a PR gate" begin
+@testset "T-G-CI benchmark is not a PR check" begin
     official = _m3e_official_benchmark_path()
     runtests = read(joinpath(@__DIR__, "runtests.jl"), String)
     hard = read(joinpath(@__DIR__, "run_recovery_hard.jl"), String)
@@ -3066,7 +3066,7 @@ end
     @test occursin("not an acceptance criterion", src)
 end
 
-@testset "T-G-API M2 locks and public exports stay" begin
+@testset "T-G-API holdout locks and public exports stay" begin
     @test :assess_functional_identifiability ∉ names(BioDynaX)
     @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
     @test :FUNCTIONAL_ID_RESTART_SEEDS ∉ names(BioDynaX)
@@ -3085,8 +3085,8 @@ end
     recovery = read(joinpath(@__DIR__, "test_recovery_pipeline.jl"), String)
     hard = read(joinpath(@__DIR__, "test_recovery_hard.jl"), String)
     corpus = holdout * "\n" * recovery * "\n" * hard
-    @test occursin("M2-G1", corpus)
-    @test occursin("M2-G2", corpus)
+    @test occursin("", corpus)
+    @test occursin("", corpus)
     @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
         holdout)
     @test !occursin(
@@ -3117,7 +3117,7 @@ end
             FunctionalIdentifiabilityPair,
             FunctionalIdentifiabilityRestart,
             format_functional_identifiability_diagnostic
-        domain = FunctionalIdentifiabilityDomain(
+ domain = FunctionalIdentifiabilityDomain(
             2, [0.1, 0.5, 0.1, 0.8], 2, 2, 0.3, :train_obs_union_holdout_obs)
         restarts = [
             FunctionalIdentifiabilityRestart(

@@ -21,15 +21,16 @@ end
     @testset "single-run defaults reproduce the original run" begin
         default = evaluate_trained_graph_local(kind = :smoke)
         explicit = evaluate_trained_graph_local(kind = :smoke,
-            seed = _LCS.M4B_SMOKE.seed, noise_σ = _LCS.M4B_SMOKE.noise_σ)
+            seed = _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.seed, noise_σ = _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.noise_σ)
         @test default.params_nn_fingerprint == explicit.params_nn_fingerprint
         @test default.D == explicit.D
         @test default.X == explicit.X
         @test _lcs_supports(default) == _lcs_supports(explicit)
         set = _LCS.library_study_training_set(:smoke)
         @test [experiment.u0 for experiment in set.experiments] ==
-              _LCS.m4b_initial_conditions(:smoke)
-        @test length(set.experiments[1].times) == _LCS.M4B_SMOKE.n_points
+              _LCS.trained_library_comparison_initial_conditions(:smoke)
+        @test length(set.experiments[1].times) ==
+              _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.n_points
         # The generated data is a pure function of the seed and the noise level.
         again = _LCS.library_study_training_set(:smoke)
         @test set.experiments[1].observations == again.experiments[1].observations
@@ -117,8 +118,9 @@ end
         @test length(rows) == 3
         @test [row.library for row in rows] == collect(_LCS.LIBRARY_STUDY_LIBRARIES)
         @test all(propertynames(row) == _LCS.LIBRARY_STUDY_COLUMNS for row in rows)
-        @test all(row.seed == _LCS.M4B_SMOKE.seed for row in rows)
-        @test all(row.noise == _LCS.M4B_SMOKE.noise_σ for row in rows)
+        @test all(row.seed == _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.seed for row in rows)
+        @test all(row.noise == _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.noise_σ
+        for row in rows)
         # The three rows share one training.
         @test all(row.train_time_s == rows[1].train_time_s for row in rows)
         @test all(row.run_time_s == rows[1].run_time_s for row in rows)
@@ -280,7 +282,7 @@ end
         @test length(rows) == 6
         @test all(row.fixture === :two_state for row in rows)
         @test all(row.design === :varying for row in rows)
-        @test all(row.seed == _LCS.M4B_SMOKE.seed for row in rows)
+        @test all(row.seed == _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.seed for row in rows)
         @test length(unique(row.train_time_s for row in rows)) == 1
         @test all(isfinite(row.nn_rate_rmse) for row in rows)
         # Graph-local and global coincide on a two-state network.
@@ -294,7 +296,7 @@ end
         set = _LCS.generate_recovery_experiments(
             Random.MersenneTwister(1), _LCS.build_hill_recovery_network(; known = true),
             _LCS.LIBRARY_STUDY_TWO_STATE_PARAMS;
-            tspan = _LCS.UNIQUE_CLAIM_PROTOCOL.tspan, n_points = 8, noise_σ = 0.0)
+            tspan = _LCS.REFERENCE_PROTOCOL.tspan, n_points = 8, noise_σ = 0.0)
         @test length(set.experiments) == 9
         # The reference network declares the unknown term as a reaction only;
         # since 0.12 the graph derives the R -> S edge from that reaction, so its
@@ -318,7 +320,7 @@ end
     end
 
     @testset "two-state settings for the extra-term study (smoke)" begin
-        seed = _LCS.M4B_SMOKE.seed
+        seed = _LCS.TRAINED_LIBRARY_COMPARISON_SMOKE.seed
         seen = NamedTuple[]
         plain = _LCS.library_comparison_run(; seed, noise_σ = 0.0, kind = :smoke,
             fixture = :two_state, variants = (:reference,),

@@ -14,7 +14,7 @@
     @test occursin("build_ude_model", src)
     @test !occursin("Lux.Dense(1 => 1", src)
     @test !(:generate_from_compiled_model in names(BioDynaX))
-    @test !(:unique_claim_experiment_set in names(BioDynaX))
+    @test !(:reference_protocol_experiment_set in names(BioDynaX))
     @test !(:build_remapped_two_regulator_network in names(BioDynaX))
     @test !(:compile_ground_truth_model in names(BioDynaX))
     @test !(:generate_experiment_set_from_compiled_model in names(BioDynaX))
@@ -59,7 +59,7 @@ end
     @test snap.arch.matches
     @test snap.model.nn isa MultiHeadNetwork
     @test packed_nn_head_count(snap.params) == 2
-    @test unique_claim_recovery_admits(net) == false
+    @test reference_protocol_recovery_admits(net) == false
     named = generate_data_namedtuple_snapshot(
         MersenneTwister(17), net;
         u0 = [0.2, 0.3, 0.4],
@@ -88,7 +88,7 @@ end
     @test snap.arch.packed_dims == [2]
     @test snap.finite
     @test snap.matches_solve
-    @test unique_claim_recovery_admits(net)
+    @test reference_protocol_recovery_admits(net)
     named = generate_data_namedtuple_snapshot(
         MersenneTwister(20), net;
         u0 = [0.25, 0.20, 0.15],
@@ -104,10 +104,10 @@ end
     @test neural_head_count(compiled) == 2
     @test neural_index_is_dense(compiled)
     @test neural_regulator_arities(compiled) == [1, 2]
-    @test unique_claim_recovery_admits(net) == false
-    @test unique_claim_compiler_stays_open(net)
-    @test_throws ErrorException assert_unique_claim_recovery_network(net)
-    @test remapped_two_regulator_contract_holds()
+    @test reference_protocol_recovery_admits(net) == false
+    @test reference_protocol_compiler_stays_open(net)
+    @test_throws ErrorException assert_reference_protocol_recovery_network(net)
+    @test remapped_two_regulator_spec_holds()
     row = joint_datagen_compiler_row(
         net; rng = MersenneTwister(13),
         u0 = remapped_two_regulator_state(),
@@ -128,21 +128,21 @@ end
     @test size(row.snap.cache.nn_inputs, 2) == 2
 end
 
-@testset "unique_claim_experiment_set reads the fingerprint" begin
+@testset "reference_protocol_experiment_set reads the fingerprint" begin
     rng = MersenneTwister(103)
     net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    smoke = unique_claim_experiment_set(
+    smoke = reference_protocol_experiment_set(
         rng, net; smoke = true, truth_params = truth)
-    @test unique_claim_experiment_set_matches_fingerprint(smoke; smoke = true)
+    @test reference_protocol_experiment_set_matches_fingerprint(smoke; smoke = true)
     @test length(smoke.experiments) == 1
     @test size(first(smoke.experiments).observations, 2) == 8
     @test all(isfinite, first(smoke.experiments).observations)
-    @test unique_claim_example_uses_experiment_set()
+    @test reference_protocol_example_uses_experiment_set()
     two = build_two_regulator_unknown_network()
-    @test_throws ArgumentError unique_claim_experiment_set(
+    @test_throws ArgumentError reference_protocol_experiment_set(
         MersenneTwister(1), two; smoke = true)
-    custom = unique_claim_experiment_set(
+    custom = reference_protocol_experiment_set(
         MersenneTwister(2), two; smoke = true,
         initial_conditions = [[0.25, 0.20, 0.15]],
         truth_params = (k_es = 0.8, k_i = 0.5, k_e = 0.4))

@@ -69,7 +69,7 @@ const LIBRARY_STUDY_HOLDOUT_SEED_OFFSET = 7919
 
 """
 True unknown term of the four-state fixture: `D(R) = vmax R^n / (K^n + R^n)`
-on state 2 (R), with the values of `m4b_truth_params`.
+on state 2 (R), with the values of `trained_library_comparison_truth_params`.
 """
 const LIBRARY_STUDY_TRUTH = (vmax = 1.7, K = 0.6, n = 2, variable = 2)
 
@@ -84,14 +84,14 @@ const LIBRARY_STUDY_TWO_STATE_PARAMS = (
 """Training budgets of the two-state fixture (nine initial conditions, 7/2 split)."""
 const LIBRARY_STUDY_TWO_STATE_BUDGET = (
     protocol = (
-        n_points = UNIQUE_CLAIM_PROTOCOL.n_points,
-        tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
-        adam_iterations = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-        bfgs_iterations = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+        n_points = REFERENCE_PROTOCOL.n_points,
+        tspan = REFERENCE_PROTOCOL.tspan,
+        adam_iterations = REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iterations = REFERENCE_PROTOCOL.bfgs_iterations,
         n_sample_points = 80, x_seed = 619),
     smoke = (
-        n_points = UNIQUE_CLAIM_PROTOCOL.smoke_n_points,
-        tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
+        n_points = REFERENCE_PROTOCOL.smoke_n_points,
+        tspan = REFERENCE_PROTOCOL.tspan,
         adam_iterations = 2, bfgs_iterations = 0,
         n_sample_points = 24, x_seed = 619))
 
@@ -299,7 +299,7 @@ end
 
 function _library_study_train_four_state(seed, noise_σ, kind, training_call,
         holdout_ics, stability_selection, design)
-    budget = m4b_budget(kind)
+    budget = trained_library_comparison_budget(kind)
     train_time = Ref(NaN)
     timed_call = function (args...; kwargs...)
         train_started = time()
@@ -409,7 +409,7 @@ function _library_study_train_two_state(seed, noise_σ, kind, training_call;
         MersenneTwister(seed), truth_net, LIBRARY_STUDY_TWO_STATE_PARAMS;
         tspan = budget.tspan, n_points = budget.n_points,
         noise_σ = Float64(noise_σ))
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     model, p0 = build_ude_model(MersenneTwister(seed), ude_net)
     train_started = time()
     training = if fixed_production
@@ -439,7 +439,8 @@ function _library_study_train_two_state(seed, noise_σ, kind, training_call;
         all_rows = collect(1:2),
         truth = LIBRARY_STUDY_TWO_STATE_TRUTH,
         names = [node.name for node in model.network.nodes],
-        budget = (; bootstrap = 0, discovery_seed = M4B_PROTOCOL.discovery_seed),
+        budget = (;
+            bootstrap = 0, discovery_seed = TRAINED_LIBRARY_COMPARISON.discovery_seed),
         study_discoveries = nothing,
         production_scale = _library_study_phys_value(model, training.params, :k_prod),
         train_time, run_time = time() - started)
@@ -654,7 +655,7 @@ end
 """Smoke configuration of the study: one seed, one noise level, the smoke budget."""
 function library_comparison_smoke(; fixture::Symbol = :four_state, kwargs...)
     return library_comparison_study(;
-        seeds = (M4B_SMOKE.seed,), noise_levels = (M4B_SMOKE.noise_σ,),
+        seeds = (TRAINED_LIBRARY_COMPARISON_SMOKE.seed,), noise_levels = (TRAINED_LIBRARY_COMPARISON_SMOKE.noise_σ,),
         kind = :smoke, fixture, kwargs...)
 end
 

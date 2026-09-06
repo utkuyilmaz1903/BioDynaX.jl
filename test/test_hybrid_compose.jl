@@ -9,12 +9,12 @@
     @test validate_network_stays_open_source()
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.compose_hybrid_rhs_source_holds()
-    @test BioDynaX.hybrid_data_residual_source_holds()
-    @test BioDynaX.export_rhs_rejects_failure_source_holds()
-    @test BioDynaX.sample_unknown_destruction_source_holds()
-    @test BioDynaX.hybrid_compose_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test compose_hybrid_rhs_source_holds()
+    @test hybrid_data_residual_source_holds()
+    @test export_rhs_rejects_failure_source_holds()
+    @test sample_unknown_destruction_source_holds()
+    @test hybrid_compose_index_holds()
 end
 
 @testset "neural identity recovers ude_system" begin
@@ -32,7 +32,7 @@ end
     @test three.holds
 end
 
-@testset "zero-hole and multi-head honesty" begin
+@testset "zero-hole and multi-head consistency" begin
     zero = BioDynaX.linear_zero_hole_compose_row()
     @test zero.holds
     @test zero.n_terms == 0
@@ -82,7 +82,7 @@ end
     session = BioDynaX.session_predict_hybrid_row()
     @test session.holds
     @test session.compiles == 0
-    normalized = BioDynaX.normalize_destruction_honesty_row()
+    normalized = normalize_destruction_honesty_row()
     @test normalized.holds
     explicit_fn = BioDynaX.equation_to_function_explicit_row()
     @test explicit_fn.holds
@@ -94,7 +94,7 @@ end
     @test kinetic.holds
     typed = BioDynaX.hybrid_compose_typed_matrix()
     @test typed.holds
-    smoke = BioDynaX.unique_claim_smoke_identity_row()
+    smoke = BioDynaX.reference_protocol_smoke_identity_row()
     @test smoke.holds
     @test smoke.n_ics == 1
     @test smoke.n_points == 8

@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   design, not the presence of the target state in the library).
 - A test that a network declaring its unknown term as a reaction alone has
   the same graph parents as one that also declares the edge.
+- The first case study on measured data, `examples/laccase_abts/`
+  (`download_data.jl`, `preprocess.jl`, `run_case_study.jl`,
+  `plot_case_study.jl`) and the "Case study: measured data" page: nine
+  substrate-depletion progress curves of the laccase-catalysed oxidation of
+  ABTS from the EnzymeML paper's repository, one observed state, the
+  one-call workflow with the reference defaults. The data are downloaded by
+  the script with a checksum and do not ship with the package; the run is
+  not part of the tests or CI. On this dataset no rational rate was
+  accepted (the denominator-safety check rejected the candidate); the page
+  reports the trained model, the learned rate, and why.
 
 ### Changed
 
@@ -43,6 +53,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Networks that declare their edges explicitly, including every benchmark
   fixture, are unchanged (graph parents, discovered supports, and study
   rows verified identical). Regulators of known reactions add no edges.
+
+### Added (extra-term study)
+
+- Three settings of the two-state fixture of the library comparison study,
+  off by default, for the study of the extra terms `1` and `R` of the
+  reference protocol: `fixed_production` (the production rate frozen at
+  its true value during training), `normalise_rate` (the learned rate
+  samples divided by the fitted production rate before discovery), and
+  `n_sample_points` (the density of the regulator grid), with an
+  `on_discovery` callback that receives every discovery result (the study
+  script records the stability-selection frequencies with `--pruning`).
+  Benchmarks page: none of the three removes the terms; the hypothesis
+  that they absorb the production/destruction scale is not supported.
+
+### Deprecated
+
+- `BioDynaX.UNIQUE_CLAIM_PROTOCOL`, `BioDynaX.unique_claim_experiment_set`,
+  and `BioDynaX.unique_claim_discovery_config` are renamed to
+  `REFERENCE_PROTOCOL`, `reference_protocol_experiment_set`, and
+  `reference_protocol_discovery_config`. The old names forward to the new
+  ones with a deprecation warning and are removed in 0.13.
+
+### Changed (internal names)
+
+- Unexported names that carried milestone or review labels are renamed
+  outright: `unique_claim_*` to `reference_protocol_*`,
+  `UniqueClaimFingerprint` to `ReferenceProtocolFingerprint`,
+  `UniqueClaimProtocolRow` to `ReferenceProtocolRow`; `M4B_PROTOCOL`,
+  `M4B_SMOKE`, `M4B_SCOPE_PLAN`, and `m4b_*` to `TRAINED_LIBRARY_COMPARISON`,
+  `TRAINED_LIBRARY_COMPARISON_SMOKE`, `TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN`,
+  and `trained_library_comparison_*`; `format_q3_q4_side_by_side` to
+  `format_diagnostics_side_by_side`; `recovery_suite_section_is_gated`,
+  `recovery_suite_all_sections_gated`, the row field `gated`, and the
+  `*_gate_row` helpers to `*_is_checked`, `*_all_sections_checked`,
+  `checked`, and `*_check_row`; `recovery_hard_named_kpi_contract` and
+  `remapped_two_regulator_contract_holds` to `recovery_hard_named_kpi_spec`
+  and `remapped_two_regulator_spec_holds`; the `hill_from_nn` row field
+  `closed` to `not_attempted`. `src/UniqueClaim.jl` is
+  `src/ReferenceProtocol.jl`, `src/CompilerContract.jl` and
+  `src/DataGenContract.jl` are `src/CompilerSpec.jl` and
+  `src/DataGenSpec.jl`, `test/run_m4_b_protocol.jl` is
+  `test/run_trained_library_comparison.jl`, and
+  `benchmark/allocation_gate.jl` is `benchmark/allocation_check.jl`.
+- The source-reading checks and consistency matrices (`*_source_holds`,
+  `*_index_holds`, `*_honesty_*`, `*_sensealg_honesty`, and the fixture
+  rows only they used, 76 functions and one constant) moved from `src/` to
+  `test/support/source_checks.jl`; they read the package source at test
+  time and are test helpers, not package code. The public name list is
+  locked in one place, `LOCKED_PUBLIC_EXPORTS`, and the test reads it
+  instead of keeping a copy.
 
 ### Fixed
 

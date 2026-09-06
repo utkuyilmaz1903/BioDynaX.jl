@@ -13,7 +13,7 @@ using SciMLSensitivity: BacksolveAdjoint, ZygoteVJP
 end
 
 @testset "recommend_sensealg honesty matrix" begin
-    matrix = BioDynaX.training_sensealg_honesty_matrix()
+    matrix = training_sensealg_honesty_matrix()
     @test matrix.holds
     @test matrix.linear.neural == false
     @test matrix.hill.neural
@@ -116,8 +116,8 @@ end
     @test BioDynaX.optimizer_state_from_result(warm.result) !== nothing
 end
 
-@testset "neural unique-claim warmup does not compile" begin
-    path = BioDynaX.unique_claim_warmup_compile_path(; smoke = true)
+@testset "neural reference protocol warmup does not compile" begin
+    path = reference_protocol_warmup_compile_path(; smoke = true)
     @test path.holds
     @test path.compiles == 0
     @test path.sensealg.neural
@@ -166,7 +166,7 @@ end
     @test BioDynaX.assert_training_sensealg(model, good) === good
 end
 
-@testset "training reuse contract and docs hold" begin
+@testset "training reuse rules and docs hold" begin
     @test BioDynaX.al_constraint_passes_model_source()
     @test BioDynaX.train_experiments_accepts_optimizer_state_source()
     @test BioDynaX.train_unknown_edge_reuses_warmup_source()
@@ -209,7 +209,7 @@ end
 end
 
 @testset "sensealg n_obs honesty: lock follows 100 observations" begin
-    matrix = BioDynaX.sensealg_nobs_honesty_matrix()
+    matrix = sensealg_nobs_honesty_matrix()
     @test matrix.holds
     @test matrix.linear.small_name === :backsolve_mechanistic
     @test matrix.linear.large_name === :interpolating_default
@@ -217,12 +217,12 @@ end
 end
 
 @testset "six-state, MM-unknown, and competitive sessions remake" begin
-    six = BioDynaX.six_state_session_path()
+    six = six_state_session_path()
     @test six.holds
     @test six.nstates == 6
-    mm = BioDynaX.mm_unknown_session_path()
+    mm = mm_unknown_session_path()
     @test mm.holds
-    competitive = BioDynaX.competitive_session_path()
+    competitive = competitive_session_path()
     @test competitive.holds
     @test competitive.n_heads == 0
 end
@@ -244,7 +244,7 @@ end
 end
 
 @testset "extended training-reuse matrix holds" begin
-    matrix = BioDynaX.training_reuse_extended_matrix()
+    matrix = training_reuse_extended_matrix()
     @test matrix.holds
 end
 

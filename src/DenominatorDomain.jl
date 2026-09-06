@@ -459,7 +459,7 @@ function remapped_denominator_row()
         holes = count_unknown_destructions(net),
         holds = all(r -> r.holds, rows) &&
                 count_unknown_destructions(net) == 2 &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function dual_denominator_row()
@@ -469,7 +469,7 @@ function dual_denominator_row()
         packed,
         holes = count_unknown_destructions(net),
         holds = packed.holds && count_unknown_destructions(net) == 2 &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function linear_zero_denominator_row()
@@ -523,7 +523,7 @@ function extras_on_hill_truth_discovery_row()
     times = collect(range(0.0, 1.0; length = 80))
     discovery = discover_unknown_rate(
         R, times, D;
-        config = unique_claim_discovery_config(),
+        config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
     if !discovery.success || isempty(discovery.candidates)
         return (;
@@ -552,7 +552,7 @@ function extras_on_mm_truth_discovery_row()
     times = collect(range(0.0, 1.0; length = 80))
     discovery = discover_unknown_rate(
         R, times, D;
-        config = unique_claim_discovery_config(),
+        config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
     if !discovery.success || isempty(discovery.candidates)
         return (;
@@ -571,8 +571,8 @@ function extras_on_mm_truth_discovery_row()
 end
 
 function smoke_vs_protocol_denominator_row()
-    smoke = unique_claim_fingerprint(; smoke = true)
-    proto = unique_claim_fingerprint()
+    smoke = reference_protocol_fingerprint(; smoke = true)
+    proto = reference_protocol_fingerprint()
     return (;
         smoke_ics = smoke.n_ics,
         proto_ics = proto.n_ics,
@@ -584,93 +584,6 @@ function smoke_vs_protocol_denominator_row()
 end
 
 # -- Source locks -------------------------------------------------------------
-
-function denominator_violation_count_source_holds()
-    src = read(recovery_jl_source_path_for_denominator(), String)
-    return occursin(
-               "function denominator_violation_count(candidate::ImplicitCandidate, X;", src) &&
-           occursin(
-               "function denominator_violation_count(::ExplicitCandidate, X;", src) &&
-           occursin(
-               "function denominator_violation_count(::Nothing, X; floor::Real = 1e-8)", src)
-end
-
-function denominator_split_counts_source_holds()
-    src = read(recovery_jl_source_path_for_denominator(), String)
-    start = findfirst(
-        "function denominator_split_counts(candidate, train_X, val_X, domain_X;", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("denominator_violation_count(candidate, train_X", body) &&
-           occursin("denominator_violation_count(candidate, val_X", body) &&
-           occursin("denominator_violation_count(candidate, domain_X", body)
-end
-
-function ude_extras_denominator_source_holds()
-    src = read(recovery_jl_source_path_for_denominator(), String)
-    start = findfirst(
-        "function ude_extras_denominator_row(candidate, R_grid;", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("denominator_split_counts", body) &&
-           occursin("_denominator_domain_grid", body) &&
-           occursin("extras_print_label", body) &&
-           occursin("extras_print_is_hardcoded_attempt", body)
-end
-
-function extras_path_calls_split_source_holds()
-    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
-    src = read(path, String)
-    start = findfirst("function evaluate_recovery", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin(
-        "extras_denominator = ude_extras_denominator_row(", body) &&
-           occursin(
-        "den_violations = denominator_violation_count(candidate, R_grid)", body)
-end
-
-function implicit_discovery_uses_domain_grid_source_holds()
-    src = read(discovery_jl_source_path_for_denominator(), String)
-    start = findfirst("function _discover_implicit", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("_denominator_domain_grid", body) &&
-           occursin("_check_denominator_safety", body) &&
-           occursin("train_X", body) &&
-           occursin("val_X", body) &&
-           occursin("domain_X", body)
-end
-
-function explicit_path_skips_domain_grid_source_holds()
-    src = read(discovery_jl_source_path_for_denominator(), String)
-    start = findfirst("function _discover_explicit", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return !occursin("_denominator_domain_grid", body) &&
-           !occursin("_check_denominator_safety", body)
-end
-
-function domain_grid_clips_source_holds()
-    src = read(discovery_jl_source_path_for_denominator(), String)
-    start = findfirst("function _denominator_domain_grid", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("max.(zero.(lo), lo .- pad)", body) &&
-           occursin("n ≤ 0 && return", body)
-end
 
 # -- Matrices / catalog -------------------------------------------------------
 
@@ -748,16 +661,6 @@ function format_denominator_domain_index()
     return String(take!(io))
 end
 
-function denominator_domain_index_holds()
-    text = format_denominator_domain_index()
-    names = denominator_domain_fixture_names()
-    return length(unique(names)) == length(names) &&
-           occursin("domain grid", text) &&
-           occursin("typemax", text) &&
-           occursin("9 ICs", text) &&
-           !occursin("support_f1_ude = 0.99", text)
-end
-
 function suite_section_denominator_catalog()
     rows = NamedTuple[]
     for section in recovery_suite_sections()
@@ -805,9 +708,9 @@ end
 
 # -- Source checks ----------------------------------------------------------
 
-function unique_claim_not_faster_by_dropping_ics_denominator_row()
-    fp = unique_claim_fingerprint()
-    ics = unique_claim_protocol_ics()
+function reference_protocol_not_faster_by_dropping_ics_denominator_row()
+    fp = reference_protocol_fingerprint()
+    ics = reference_protocol_protocol_ics()
     return (;
         n_ics = fp.n_ics,
         n_table = length(ics),
@@ -828,7 +731,7 @@ function empty_domain_split_is_train_val_only_row()
 end
 
 function discovery_config_domain_samples_row()
-    cfg = unique_claim_discovery_config()
+    cfg = reference_protocol_discovery_config()
     return (;
         n = cfg.backend.domain_samples,
         floor = cfg.backend.denominator_floor,
@@ -956,9 +859,9 @@ end
 
 function combined_f1_not_a_denominator_kpi_row()
     return (;
-        fields = UNIQUE_CLAIM_KPI_FIELDS,
+        fields = REFERENCE_PROTOCOL_KPI_FIELDS,
         floor = RECOVERY_THRESHOLDS.support_f1_ude,
-        holds = :support_f1 ∉ UNIQUE_CLAIM_KPI_FIELDS &&
+        holds = :support_f1 ∉ REFERENCE_PROTOCOL_KPI_FIELDS &&
                 RECOVERY_THRESHOLDS.support_f1_ude == 0.50 &&
                 RECOVERY_THRESHOLDS.support_f1_clean == 0.99)
 end

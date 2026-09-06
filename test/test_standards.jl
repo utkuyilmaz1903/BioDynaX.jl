@@ -207,7 +207,7 @@ end
         ude_rhs!(cache.du, u, params, 0.0, model, cache)
     end
     hot_ip = @allocated ude_rhs!(cache.du, u, params, 0.0, model, cache)
-    # Existing quality gate allows 512 bytes. This file requires zero.
+    # The existing quality check allows 512 bytes. This file requires zero.
     @test hot_ip == 0
 
     f = build_ude_function(model)
