@@ -15,11 +15,15 @@ destruction term. This page collects every caveat in one place.
 - **Small networks.** The benchmarks cover two-, three-, and six-state
   networks. Larger known graphs use the same machinery, but there is no
   evidence in the repository for them.
-- **Synthetic data only.** All validation uses data generated from the
-  compiled ground-truth mechanism. No experimental dataset ships with the
-  package; the CSV in `examples/data/` is synthetic. A synthetic
-  repressilator with published dimensionless parameters is included as a
-  fixture; it is an ODE, not a measured series.
+- **Validation on synthetic data; one measured dataset.** The benchmarks and
+  the tests use data generated from the compiled ground-truth mechanism; the
+  CSV in `examples/data/` is synthetic, and the repressilator fixture with
+  published dimensionless parameters is an ODE, not a measured series. One
+  case study on measured data exists, the laccase/ABTS progress curves of
+  the [case study](case-study-laccase.md): nine substrate-depletion curves
+  with one observed state, downloaded by a script with a checksum (the data
+  do not ship with the package), run outside the tests and CI. It exercises
+  the workflow on real measurements; it is one enzyme and one dataset.
 
 ## What the diagnostics do and do not establish
 
