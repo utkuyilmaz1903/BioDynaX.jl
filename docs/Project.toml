@@ -1,11 +1,19 @@
 [deps]
 BioDynaX = "b10d7a4f-3e2d-4b1d-9d2e-9c7e8c5f1a6b"
+Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
+Catalyst = "14, 15, 16"
 Documenter = "1"
+Latexify = "0.16"
+ModelingToolkit = "9, 10, 11"
 OrdinaryDiffEq = "7"
 SciMLBase = "3"
+Symbolics = "6, 7"

@@ -8,10 +8,14 @@ function _optional_extension(name::Symbol, hint::AbstractString)
 end
 
 """
-    export_mtk_system(model::UDEModel; name = :BioDynaXNetwork)
+    export_mtk_system(model::UDEModel; name = :BioDynaXNetwork, discovered = nothing)
 
-Convert the compiled known terms of `model` to a ModelingToolkit `ODESystem`.
-Neural terms appear as placeholder variables `nn_i(t)`. Requires
+Convert the compiled known terms of `model` to a ModelingToolkit `ODESystem`
+whose states carry the network's node names. Neural terms appear as
+placeholder variables `nn_i(t)`; `discovered` (a `DiscoveryResult`, a
+candidate, or an `UnknownTermResult`) replaces the placeholder of the single
+unknown term with the discovered rational rate, so the completed model can
+be handed to ModelingToolkit and OrdinaryDiffEq. Requires
 `using ModelingToolkit` (extension `BioDynaXModelingToolkitExt`). Not exported.
 """
 function export_mtk_system(model::UDEModel; kwargs...)
@@ -49,6 +53,56 @@ function import_sbmltoolkit_network(path::AbstractString)
         "import_sbmltoolkit_network requires `using SBMLToolkit` and `using Catalyst` " *
         "(BioDynaXSBMLToolkitExt)")
     return extension.import_sbmltoolkit_network(path)
+end
+
+"""
+    network_from_reactionsystem(rs; unknown) -> BiologicalNetwork
+
+Build a `BiologicalNetwork` from a Catalyst `ReactionSystem`: the same species
+in Catalyst's order, the known kinetics compiled from the rate laws Catalyst
+exposes, the interaction graph derived from the reactions, and exactly one
+reaction, `unknown`, marked as the unknown destruction term. `unknown` is the
+reaction's index in `Catalyst.reactions(rs)` or the string of its
+`description` metadata (`[description = "..."]` in the DSL); `unknown =
+nothing` compiles every reaction as known kinetics (a ground-truth model).
+
+Each Catalyst reaction is split into one BioDynaX term per species it
+changes. Supported rates (the factor Catalyst multiplies by the mass-action
+term): a parameter `k` (first-order loss of a single substrate; constant
+production `k, 0 --> X`, which adds the parameter `input` that multiplies it
+and is meant to be fixed at 1; mass action from one substrate `k, Y --> X`);
+`k * Y` for a species `Y` that is not a substrate (`k * Y, 0 --> X`);
+`hill(Y, v, K, n)` with parameters `v`, `K` and a literal integer `n` on a
+single substrate of stoichiometry 1 (Hill destruction); `mm(Y, v, K)` on a
+single substrate (Michaelis-Menten destruction) or with no substrate
+(Michaelis-Menten production). Any other rate, a full rate law written with
+`=>`, or a shape the compiler has no term for raises an `ArgumentError`
+naming the reaction and the rate. The unknown reaction must consume exactly
+one species with stoichiometry 1 and produce nothing; its regulators are the
+species of its rate (the consumed species itself when the rate has none).
+Requires `using Catalyst` (extension `BioDynaXCatalystExt`).
+"""
+function network_from_reactionsystem(rs; unknown)
+    extension = _optional_extension(:BioDynaXCatalystExt,
+        "network_from_reactionsystem requires `using Catalyst` (BioDynaXCatalystExt)")
+    return extension.network_from_reactionsystem(rs; unknown = unknown)
+end
+
+"""
+    symbolic(candidate, names) -> Num
+    symbolic(result::DiscoveryResult, names; index = 1) -> Num
+    symbolic(result::UnknownTermResult; index = 1) -> Num
+
+The discovered rational rate as a `Symbolics.Num` in the named variables:
+`names` gives one symbol per variable of the candidate's library (for
+`discover_unknown_rate`, the regulators in order; for `discover_equations`,
+the network's states); an `UnknownTermResult` uses its network's state names.
+Requires `using Symbolics` (extension `BioDynaXSymbolicsExt`).
+"""
+function symbolic(args...; kwargs...)
+    extension = _optional_extension(:BioDynaXSymbolicsExt,
+        "symbolic requires `using Symbolics` (BioDynaXSymbolicsExt)")
+    return extension.symbolic(args...; kwargs...)
 end
 
 """Two-state network with two independent neural unknowns (multi-head test fixture)."""
