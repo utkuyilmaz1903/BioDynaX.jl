@@ -169,7 +169,8 @@ end
 Practical collinearity between a production parameter (default `k_prod`) and a
 multiplicative scale on unknown neural destruction `D(z)`. Reports Fisher
 condition number and trajectory-Jacobian cosine. This is not structural
-identifiability.
+identifiability. `mask` marks the observed entries of `data` for the Fisher
+information (all by default); unobserved states pass a `false` row.
 """
 function production_destruction_tradeoff(
         model::UDEModel, p, data, t_data, u0, tspan;
@@ -177,8 +178,9 @@ function production_destruction_tradeoff(
         term = nothing,
         rel_step::Real = 1e-3,
         collinearity_threshold::Real = 0.95,
-        condition_threshold::Real = 1e6)
-    fisher = assess_identifiability(model, p, data, t_data, u0, tspan)
+        condition_threshold::Real = 1e6,
+        mask = trues(size(data)))
+    fisher = assess_identifiability(model, p, data, t_data, u0, tspan; mask = mask)
     names = fisher.parameter_names
     prod_idx = findfirst(==(production_param), names)
     production_correlation = if prod_idx === nothing || length(names) < 2

@@ -113,7 +113,8 @@ end
                           discovery=rate_discovery_config(), holdout=2,
                           rng=MersenneTwister(0), phys_init=nothing, warmup=true,
                           known_support=nothing, stability_selection=nothing,
-                          strict=false, seed=nothing, verbose=true)
+                          strict=false, seed=nothing, regulator_grid=nothing,
+                          verbose=true)
 
 Train the hybrid model of `network` on `experiments`, discover a rational
 expression for its one unknown destruction term, and return an
@@ -133,7 +134,11 @@ in the same order and with the same defaults:
    experiments (`sample_unknown_destruction_grid`) and
    `discover_unknown_rate` fits a rational rate with `discovery` (default:
    the reference protocol's configuration, bootstrap 8, discovery seed 3).
-   `stability_selection` and `strict` are passed through.
+   `stability_selection` and `strict` are passed through. `regulator_grid`
+   replaces the grid: a vector or range of regulator values, or a function
+   `(model, params, training_set, term) -> grid` called after training,
+   which is the way to sample a regulator that is never observed (its
+   observations are `NaN` and masked); `nothing` keeps the observed grid.
 6. `report_production_destruction_tradeoff` on the first training experiment.
 7. `hybrid_data_residual` of the model with the discovered rate against the
    first training experiment, the mean over the training experiments, and
@@ -141,7 +146,9 @@ in the same order and with the same defaults:
 
 `holdout` is the number of experiments at the end of `experiments` that are
 held out of training and used only for the held-out residual (the reference
-protocol holds out 2 of 9). `known_support`, the true implicit support when
+protocol holds out 2 of 9). Residuals and the identifiability diagnostic use
+each experiment's observation mask, so unobserved entries do not count.
+`known_support`, the true implicit support when
 the data are synthetic (for example `BioDynaX.hill_rate_support(2)`), is used
 only to list the extra terms in the report. `seed` is recorded in the report
 and not used otherwise; `verbose` prints training progress and the report.
@@ -161,6 +168,7 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
         stability_selection::Union{Nothing, StabilitySelection} = nothing,
         strict::Bool = false,
         seed = nothing,
+        regulator_grid = nothing,
         verbose::Bool = true)
     n = length(experiments.experiments)
     n ≥ 1 || throw(ArgumentError("experiments must contain at least one experiment"))
@@ -194,7 +202,9 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
         verbose = verbose)
 
     chosen = _unknown_term_choice(model, term)
-    r_range = _regulator_grid(train_set, chosen)
+    r_range = regulator_grid === nothing ? _regulator_grid(train_set, chosen) :
+              regulator_grid isa Function ?
+              regulator_grid(model, trained.params, train_set, chosen) : regulator_grid
     R, D, chosen = sample_unknown_destruction_grid(model, trained.params, chosen;
         r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
@@ -203,7 +213,7 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
         stability_selection = stability_selection)
     ident = report_production_destruction_tradeoff(
         model, trained.params, first_exp.observations, first_exp.times,
-        first_exp.u0, tspan; term = chosen, verbose = false)
+        first_exp.u0, tspan; term = chosen, verbose = false, mask = first_exp.mask)
 
     residual = Inf
     residual_train = Inf
@@ -214,7 +224,8 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
         rate_fn = equation_to_function(candidate)
         function residual_of(e)
             hybrid_data_residual(model, trained.params, chosen, rate_fn,
-                e.u0, (first(e.times), last(e.times)), e.times, e.observations)
+                e.u0, (first(e.times), last(e.times)), e.times, e.observations;
+                mask = e.mask)
         end
         residual = residual_of(first_exp)
         residual_train = mean(residual_of(e) for e in train_set.experiments)
@@ -234,7 +245,9 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
         bootstrap = backend isa ImplicitSINDyPI ? backend.bootstrap_samples : nothing,
         discovery_seed = Int(discovery.seed),
         holdout = holdout,
-        warmup = warmup)
+        warmup = warmup,
+        regulator_grid = regulator_grid === nothing ? :observed :
+                         regulator_grid isa Function ? :function : :given)
     result = UnknownTermResult(
         network, model, trained.params, trained, chosen, ident, found, (; R, D),
         (; data_residual = Float64(residual),

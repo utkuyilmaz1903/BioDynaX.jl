@@ -125,6 +125,62 @@ end
         @test occursin("REPRODUCTION", read(captured_path, String))
     end
 
+    @testset "regulator grid and observation masks" begin
+        given = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+            holdout = 0, rng = MersenneTwister(7), verbose = false,
+            regulator_grid = range(0.2, 1.4; length = 24))
+        @test vec(given.samples.R) == collect(range(0.2, 1.4; length = 24))
+        @test given.settings.regulator_grid === :given
+        called = Ref(0)
+        by_function = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+            holdout = 0, rng = MersenneTwister(7), verbose = false,
+            regulator_grid = (model, params, train_set, term) -> begin
+                called[] += 1
+                @test model isa UDEModel && train_set isa ExperimentSet
+                @test term === only(BioDynaX.neural_destruction_terms(model))
+                range(0.2, 1.4; length = 24)
+            end)
+        @test called[] == 1
+        @test by_function.settings.regulator_grid === :function
+        @test by_function.samples.R == given.samples.R
+        @test by_function.samples.D == given.samples.D
+        @test by_function.discovery.equations == given.discovery.equations
+        default = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+            holdout = 0, rng = MersenneTwister(7), verbose = false)
+        @test default.settings.regulator_grid === :observed
+        @test vec(default.samples.R) ==
+              collect(BioDynaX._regulator_grid(set, default.term))
+        # An unobserved state: NaN observations are masked out of the loss, the
+        # residuals, and the identifiability diagnostic.
+        masked_experiments = map(set.experiments) do e
+            observations = copy(e.observations)
+            observations[2, :] .= NaN
+            Experiment(e.name, e.times, observations, e.u0)
+        end
+        masked_set = ExperimentSet(masked_experiments, set.state_names)
+        @test all(!any(e.mask[2, :]) && all(e.mask[1, :]) for e in masked_set.experiments)
+        masked = discover_unknown_term(ude_net, masked_set; training = _DUT_CONFIG,
+            holdout = 1, rng = MersenneTwister(7), verbose = false,
+            regulator_grid = range(0.2, 1.4; length = 24))
+        @test isfinite(masked.training.final_loss)
+        if masked.discovery.success
+            @test isfinite(masked.residuals.data_residual)
+            @test isfinite(masked.residuals.data_residual_train)
+            @test isfinite(masked.residuals.data_residual_holdout)
+        end
+        @test !isnan(masked.identifiability.condition_number)
+        # With every entry observed the mask changes nothing.
+        full = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+            holdout = 1, rng = MersenneTwister(7), verbose = false)
+        chain_residual = full.discovery.success ?
+                         hybrid_data_residual(full.model, full.params, full.term,
+            equation_to_function(full.discovery.candidates[1]),
+            set.experiments[1].u0,
+            (first(set.experiments[1].times), last(set.experiments[1].times)),
+            set.experiments[1].times, set.experiments[1].observations) : Inf
+        @test isequal(full.residuals.data_residual, chain_residual)
+    end
+
     @testset "arguments" begin
         @test_throws ArgumentError discover_unknown_term(ude_net, set;
             training = _DUT_CONFIG, holdout = 3, verbose = false)

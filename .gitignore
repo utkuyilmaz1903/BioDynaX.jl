@@ -32,3 +32,6 @@ docs/src/changelog.md
 
 # Case-study data downloaded by examples/laccase_abts/download_data.jl
 examples/laccase_abts/data/
+
+# Case-study data downloaded by examples/p53_mdm2/download_data.jl
+examples/p53_mdm2/data/
