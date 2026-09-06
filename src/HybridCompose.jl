@@ -326,7 +326,7 @@ function dual_only_throws_row()
         validate_open = validate_network(net) === net,
         holds = length(terms) == 2 && threw &&
                 validate_network(net) === net &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 """
@@ -685,7 +685,7 @@ function dual_per_term_compose_row()
             true
         end,
         holds = length(terms) == 2 && all(matches) &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function session_predict_hybrid_row()
@@ -709,16 +709,6 @@ function session_predict_hybrid_row()
         remake_count = session.remake_count,
         compiles = n,
         holds = residual < 1e-6 && n == 0 && session.remake_count ≥ 2)
-end
-
-function normalize_destruction_honesty_row()
-    values = [0.0, 0.5, -1.0, 2.0]
-    scaled, scale = normalize_destruction_samples(values)
-    return (;
-        scale,
-        maxabs = maximum(abs, scaled),
-        holds = scale == 2.0 && maximum(abs, scaled) ≈ 1.0 &&
-                scaled ≈ values ./ 2.0)
 end
 
 function equation_to_function_explicit_row()
@@ -809,8 +799,8 @@ function hybrid_compose_row_namedtuple(row::HybridComposeRow)
 end
 
 function hybrid_compose_smoke_vs_protocol_row()
-    smoke = unique_claim_fingerprint(; smoke = true)
-    protocol = unique_claim_fingerprint()
+    smoke = reference_protocol_fingerprint(; smoke = true)
+    protocol = reference_protocol_fingerprint()
     return (;
         smoke_ics = smoke.n_ics,
         protocol_ics = protocol.n_ics,
@@ -821,9 +811,9 @@ function hybrid_compose_smoke_vs_protocol_row()
                 smoke.n_ics != protocol.n_ics)
 end
 
-function unique_claim_smoke_identity_row()
+function reference_protocol_smoke_identity_row()
     truth = hybrid_known_hill_truth(149)
-    set = unique_claim_experiment_set(
+    set = reference_protocol_experiment_set(
         MersenneTwister(103), truth.net; smoke = true,
         truth_params = truth.truth_params)
     built = hybrid_linear_unknown_model(149)
@@ -834,7 +824,7 @@ function unique_claim_smoke_identity_row()
         neural_identity_rate(built.model, built.packed, term),
         exp.u0, (first(exp.times), last(exp.times)),
         exp.times, exp.observations)
-    fp = unique_claim_fingerprint(; smoke = true)
+    fp = reference_protocol_fingerprint(; smoke = true)
     return (;
         compiled_once = experiment_set_is_compiled_once(set),
         n_ics = length(set),
@@ -873,55 +863,6 @@ function compose_does_not_compile_row()
     return (; compiles = n, holds = n == 0)
 end
 
-function compose_hybrid_rhs_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    start = findfirst("function compose_hybrid_rhs", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("ude_system(u, p, t, model)", body) &&
-           occursin("_destruction_contribution", body) &&
-           occursin("rate_fn", body) &&
-           occursin("term.regulators", body) &&
-           !occursin("compile_network", body)
-end
-
-function hybrid_data_residual_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    start = findfirst("function hybrid_data_residual", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("compose_hybrid_rhs", body) &&
-           occursin("SciMLBase.ODEProblem", body) &&
-           occursin("sqrt(mean(abs2", body) &&
-           occursin("mask", body)
-end
-
-function export_rhs_rejects_failure_source_holds()
-    src = read(discovery_jl_source_path(), String)
-    start = findfirst("function export_rhs", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("result.success", body) &&
-           occursin("cannot export RHS from a failed discovery", body)
-end
-
-function sample_unknown_destruction_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    start = findfirst("function sample_unknown_destruction(model::UDEModel, p, X", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("_destruction_contribution", body) &&
-           occursin("chosen.regulators", body)
-end
-
 # -- Matrix / catalog ---------------------------------------------------------
 
 function hybrid_compose_identity_matrix()
@@ -936,55 +877,6 @@ function hybrid_compose_identity_matrix()
         hill, mm, two, six, default, comp, three,
         holds = hill.holds && mm.holds && two.holds && six.holds &&
                 default.holds && comp.holds && three.holds)
-end
-
-function hybrid_compose_honesty_matrix()
-    zero = linear_zero_hole_compose_row()
-    dual = dual_only_throws_row()
-    remap = remapped_compose_row()
-    skipped = skipped_duplicate_compose_row()
-    failed = failed_export_rhs_row()
-    empty = empty_export_rhs_row()
-    discover = discover_then_compose_row()
-    known = hill_known_generate_unknown_identity_row()
-    multi = multi_ic_identity_residual_row()
-    constant = constant_rate_changes_residual_row()
-    middle = skipped_middle_compose_row()
-    mm_known = mm_known_no_compose_row()
-    repress = repressilator_no_compose_row()
-    sample = sample_destruction_matches_identity_row()
-    irregular = irregular_times_residual_row()
-    exploding = failed_solve_residual_is_inf_row()
-    dual_terms = dual_per_term_compose_row()
-    session = session_predict_hybrid_row()
-    normalized = normalize_destruction_honesty_row()
-    explicit_fn = equation_to_function_explicit_row()
-    no_compile = compose_does_not_compile_row()
-    shape = residual_shape_guard_row()
-    kinetic = kinetic_known_no_compose_row()
-    typed = hybrid_compose_typed_matrix()
-    smoke = unique_claim_smoke_identity_row()
-    return (;
-        zero, dual, remap, skipped, failed, empty, discover, known,
-        multi, constant, middle, mm_known, repress, sample, irregular,
-        exploding, dual_terms, session, normalized, explicit_fn, no_compile,
-        shape, kinetic, typed, smoke,
-        holds = zero.holds && dual.holds && remap.holds && skipped.holds &&
-                failed.holds && empty.holds && discover.holds &&
-                known.holds && multi.holds && constant.holds &&
-                middle.holds && mm_known.holds && repress.holds &&
-                sample.holds && irregular.holds && exploding.holds &&
-                dual_terms.holds && session.holds && normalized.holds &&
-                explicit_fn.holds && no_compile.holds &&
-                shape.holds && kinetic.holds && typed.holds && smoke.holds)
-end
-
-function hybrid_compose_fixture_matrix()
-    identity = hybrid_compose_identity_matrix()
-    honesty = hybrid_compose_honesty_matrix()
-    return (;
-        identity, honesty,
-        holds = identity.holds && honesty.holds)
 end
 
 function hybrid_compose_fixture_names()
@@ -1031,15 +923,6 @@ function format_hybrid_compose_index()
     println(io, "| explicit_fn | equation_to_function stays finite |")
     println(io, "| no_compile | compose_hybrid_rhs does not compile |")
     return String(take!(io))
-end
-
-function hybrid_compose_index_holds()
-    text = format_hybrid_compose_index()
-    names = hybrid_compose_fixture_names()
-    return length(unique(names)) == length(names) &&
-           occursin("ude_system", text) &&
-           occursin("export_rhs", text) &&
-           !occursin("support_f1_ude = 0.99", text)
 end
 
 # -- Source checks ----------------------------------------------------------

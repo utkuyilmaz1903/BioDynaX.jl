@@ -93,7 +93,7 @@ jobs:
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - name: In-place right-hand side allocations
-        run: julia --project=. benchmark/allocation_gate.jl
+        run: julia --project=. benchmark/allocation_check.jl
 
   compat:
     name: Project.toml compat entries
@@ -186,7 +186,7 @@ jobs:
       - name: Trained-model recovery protocol
         run: julia --project=. --color=yes test/run_recovery_hard.jl
       - name: Trained-model library comparison
-        run: julia --project=. --color=yes test/run_m4_b_protocol.jl
+        run: julia --project=. --color=yes test/run_trained_library_comparison.jl
       - name: Library comparison study
         run: julia --project=. --color=yes benchmark/library_comparison_study.jl
       - name: JET and SciML standards

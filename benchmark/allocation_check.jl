@@ -3,12 +3,12 @@
 # linear network. Warms up, then prints the bytes allocated by one call.
 # Runs in CI on every push (job "allocation-check"); the result must stay at
 # zero bytes. Runtime: under a minute after precompilation.
-# Run:  julia --project=. benchmark/allocation_gate.jl
+# Run:  julia --project=. benchmark/allocation_check.jl
 
 using BioDynaX
 using Random
 
-function allocation_gate()
+function allocation_check()
     rng = MersenneTwister(0)
     network = BioDynaX.build_linear_test_network()
     model, params = build_ude_model(rng, network)
@@ -23,4 +23,4 @@ function allocation_gate()
     bytes == 0 || bytes ≤ 512 || error("allocation check failed with $bytes bytes")
 end
 
-allocation_gate()
+allocation_check()

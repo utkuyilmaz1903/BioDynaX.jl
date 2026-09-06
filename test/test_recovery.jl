@@ -247,7 +247,7 @@ end
     @test wrong.local_has_true_parent == false
 end
 
-@testset "unique-claim recovery requires exactly one unknown D" begin
+@testset "reference protocol recovery requires exactly one unknown D" begin
     rng = MersenneTwister(0)
     zero_model, _ = build_ude_model(rng, build_linear_test_network())
     @test_throws ErrorException assert_single_unknown_destruction(zero_model)
@@ -323,7 +323,7 @@ end
     report = run_recovery_suite(MersenneTwister(207); sections = (:literature,))
     lit = report[:literature]
     @test lit.experimental_csv == false
-    @test lit.unique_claim_protocol == false
+    @test lit.reference_protocol_protocol == false
     @test lit.licensed_experimental_series == false
     @test lit.finite_trajectory
     @test lit.nonnegative
@@ -370,7 +370,7 @@ end
 
 @testset "golden-path example matches recovery CI protocol" begin
     src = read(joinpath(@__DIR__, "..", "examples", "unknown_inhibition.jl"), String)
-    proto = UNIQUE_CLAIM_PROTOCOL
+    proto = REFERENCE_PROTOCOL
     @test proto.seed == 103
     @test proto.adam_iterations == 100
     @test proto.bfgs_iterations == 50
@@ -382,17 +382,17 @@ end
     @test proto.n_ics == 9
     @test proto.smoke_n_ics == 1
     @test proto.observation_noise == 0.0
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.seed", src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.adam_iterations", src)
-    @test occursin("UNIQUE_CLAIM_PROTOCOL.bfgs_iterations", src)
-    @test occursin("unique_claim_discovery_config", src)
-    @test occursin("unique_claim_protocol_ics", src)
-    @test occursin("unique_claim_protocol_n_points", src)
-    @test occursin("unique_claim_discovery_extras", src)
+    @test occursin("REFERENCE_PROTOCOL.seed", src)
+    @test occursin("REFERENCE_PROTOCOL.adam_iterations", src)
+    @test occursin("REFERENCE_PROTOCOL.bfgs_iterations", src)
+    @test occursin("reference_protocol_discovery_config", src)
+    @test occursin("reference_protocol_protocol_ics", src)
+    @test occursin("reference_protocol_protocol_n_points", src)
+    @test occursin("reference_protocol_discovery_extras", src)
     @test occursin("production_destruction_tradeoff", src)
     @test occursin("assert_single_unknown_destruction", src)
     @test occursin("format_protocol_result", src)
-    @test occursin("assert_unique_claim_residual", src)
+    @test occursin("assert_reference_protocol_residual", src)
     @test !occursin("smoke ? ics_all[1:1]", src)
     @test occursin("sample_unknown_destruction_grid", src)
     @test occursin("_regulator_grid", src)
@@ -400,9 +400,9 @@ end
     @test occursin("HillMetadata", src)
     @test !occursin("build_hill_recovery_network", src)
     @test !occursin("Note:", src)
-    @test !(:UNIQUE_CLAIM_PROTOCOL in names(BioDynaX))
-    @test !(:unique_claim_discovery_config in names(BioDynaX))
-    cfg = unique_claim_discovery_config()
+    @test !(:REFERENCE_PROTOCOL in names(BioDynaX))
+    @test !(:reference_protocol_discovery_config in names(BioDynaX))
+    cfg = reference_protocol_discovery_config()
     @test cfg.seed == proto.discovery_seed
     @test cfg.backend.bootstrap_samples == proto.bootstrap
     @test BioDynaX._unknown_edge_ics() == [
@@ -410,7 +410,7 @@ end
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]]
 end
 
-@testset "unique-claim protocol requires exactly one unknown D" begin
+@testset "reference protocol protocol requires exactly one unknown D" begin
     rng = MersenneTwister(0)
     zero_model, _ = build_ude_model(rng, build_linear_test_network())
     @test_throws ErrorException assert_single_unknown_destruction(zero_model)

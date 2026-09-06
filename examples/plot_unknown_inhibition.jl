@@ -19,14 +19,14 @@ using Random
 
 include(joinpath(@__DIR__, "unknown_inhibition.jl"))
 
-const _PROTOCOL = BioDynaX.UNIQUE_CLAIM_PROTOCOL
+const _PROTOCOL = BioDynaX.REFERENCE_PROTOCOL
 
 function _train_reference(; seed = _PROTOCOL.seed)
     rng = MersenneTwister(seed)
     truth_net = unknown_inhibition_network(; known = true, hill_order = 2)
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    set = BioDynaX.unique_claim_experiment_set(rng, truth_net; truth_params = truth)
+    set = BioDynaX.reference_protocol_experiment_set(rng, truth_net; truth_params = truth)
     model, params = build_ude_model(rng, ude_net)
     phys_names = Tuple(parameter_schema(model).phys_names)
     guess = NamedTuple{phys_names}(ntuple(_ -> 0.8, length(phys_names)))
@@ -51,7 +51,7 @@ function _train_reference(; seed = _PROTOCOL.seed)
         model, trained.params, term; r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
     discovery = discover_unknown_rate(
-        R, times_grid, D; config = BioDynaX.unique_claim_discovery_config(),
+        R, times_grid, D; config = BioDynaX.reference_protocol_discovery_config(),
         verbose = false, strict = true)
     return (; set, model, trained, term, truth, R, D, discovery, tspan)
 end

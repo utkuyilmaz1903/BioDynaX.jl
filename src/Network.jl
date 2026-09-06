@@ -205,7 +205,7 @@ end
 """
     validate_network(network) -> network
 
-Check node uniqueness, bounds, stoichiometry, and kinetic-metadata contracts.
+Check node uniqueness, bounds, stoichiometry, and kinetic-metadata requirements.
 Called by the `BiologicalNetwork` constructor; safe to call again after
 manual edits.
 """

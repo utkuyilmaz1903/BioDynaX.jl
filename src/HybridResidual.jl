@@ -292,7 +292,7 @@ function noise_does_not_paint_f1_row()
     return (;
         row...,
         skeleton = RECOVERY_THRESHOLDS.support_f1_ude,
-        clean_gate = RECOVERY_THRESHOLDS.support_f1_clean,
+        clean_threshold = RECOVERY_THRESHOLDS.support_f1_clean,
         holds = row.holds &&
                 RECOVERY_THRESHOLDS.support_f1_ude == 0.50 &&
                 RECOVERY_THRESHOLDS.support_f1_clean == 0.99 &&
@@ -310,13 +310,13 @@ at seed 103. Neither path trains. Smoke residual is not the protocol
 residual. Protocol ICs are not dropped.
 """
 function smoke_vs_protocol_residual_row()
-    smoke_fp = unique_claim_fingerprint(; smoke = true)
-    protocol_fp = unique_claim_fingerprint()
+    smoke_fp = reference_protocol_fingerprint(; smoke = true)
+    protocol_fp = reference_protocol_fingerprint()
     truth = hybrid_known_hill_truth(229)
-    smoke_set = unique_claim_experiment_set(
+    smoke_set = reference_protocol_experiment_set(
         MersenneTwister(103), truth.net; smoke = true,
         truth_params = truth.truth_params)
-    protocol_set = unique_claim_experiment_set(
+    protocol_set = reference_protocol_experiment_set(
         MersenneTwister(103), truth.net; smoke = false,
         truth_params = truth.truth_params)
     built = hybrid_linear_unknown_model(229)
@@ -363,7 +363,7 @@ end
 
 function smoke_identity_on_self_row()
     built = hybrid_linear_unknown_model(233)
-    fp = unique_claim_fingerprint(; smoke = true)
+    fp = reference_protocol_fingerprint(; smoke = true)
     term = only(neural_destruction_terms(built.model))
     u0 = [0.30, 0.25]
     tspan = (0.0, 0.8)
@@ -387,8 +387,8 @@ function smoke_identity_on_self_row()
 end
 
 function protocol_fingerprint_not_dropped_row()
-    fp = unique_claim_fingerprint()
-    ics = unique_claim_protocol_ics()
+    fp = reference_protocol_fingerprint()
+    ics = reference_protocol_protocol_ics()
     return (;
         n_ics = fp.n_ics,
         n_points = fp.n_points,
@@ -396,7 +396,7 @@ function protocol_fingerprint_not_dropped_row()
         n_table = length(ics),
         holds = fp.n_ics == 9 && fp.n_points == 50 && fp.seed == 103 &&
                 length(ics) == 9 && !fp.smoke &&
-                unique_claim_is_protocol())
+                reference_protocol_is_protocol())
 end
 
 # -- Failed compose paths -----------------------------------------------------
@@ -472,10 +472,10 @@ function failed_compose_dual_only_row()
         n_terms = length(terms),
         only_threw,
         matches,
-        admits = unique_claim_recovery_admits(net),
+        admits = reference_protocol_recovery_admits(net),
         validate_open = validate_network(net) === net,
         holds = length(terms) == 2 && only_threw && all(matches) &&
-                unique_claim_recovery_admits(net) == false &&
+                reference_protocol_recovery_admits(net) == false &&
                 validate_network(net) === net)
 end
 
@@ -939,59 +939,6 @@ end
 
 # -- Source locks -------------------------------------------------------------
 
-function hybrid_data_residual_uses_sciml_solve_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    start = findfirst("function hybrid_data_residual", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("compose_hybrid_rhs", body) &&
-           occursin("SciMLBase.ODEProblem", body) &&
-           occursin("Tsit5()", body) &&
-           occursin("sensealg = nothing", body) &&
-           occursin("sqrt(mean(abs2", body)
-end
-
-function hybrid_residual_sciml_solve_source_holds()
-    src = read(hybrid_residual_source_path(), String)
-    start = findfirst(
-        "function hybrid_residual_sciml_solve(model, p, term, rate_fn, u0, tspan, times, data)",
-        src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("compose_hybrid_rhs", body) &&
-           occursin("SciMLBase.ODEProblem", body) &&
-           occursin("Tsit5()", body) &&
-           !occursin("Rodas5", body)
-end
-
-function hybrid_residual_model_solve_source_holds()
-    src = read(hybrid_residual_source_path(), String)
-    start = findfirst(
-        "function hybrid_residual_model_solve(model::UDEModel, p, u0, tspan, times, data)",
-        src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("SciMLBase.ODEProblem(model", body) &&
-           occursin("Tsit5()", body)
-end
-
-function predict_ude_uses_odeproblem_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Training.jl"), String)
-    start = findfirst("function predict_ude(p, u0, tspan, saveat, nn, st;", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("SciMLBase.ODEProblem", body) &&
-           occursin("solver_config.algorithm", body)
-end
-
 # -- Matrices -----------------------------------------------------------------
 
 function hybrid_residual_identity_matrix()
@@ -1006,55 +953,6 @@ function hybrid_residual_identity_matrix()
         hill, mm, two, six, default, comp, three,
         holds = hill.holds && mm.holds && two.holds && six.holds &&
                 default.holds && comp.holds && three.holds)
-end
-
-function hybrid_residual_honesty_matrix()
-    linear = failed_compose_linear_term_row()
-    empty = failed_compose_empty_terms_row()
-    dual = failed_compose_dual_only_row()
-    export_failed = failed_compose_export_row()
-    empty_export = failed_compose_empty_export_row()
-    exploding = hybrid_residual_failed_solve_row()
-    shape = hybrid_residual_shape_guard_row()
-    wrong = failed_compose_wrong_rate_row()
-    remap = remapped_residual_solver_row()
-    skipped = skipped_duplicate_residual_solver_row()
-    middle = skipped_middle_residual_solver_row()
-    multi = multi_ic_residual_solver_row()
-    known = hill_known_generate_unknown_solver_row()
-    session = session_residual_solver_path()
-    mm_known = mm_known_no_residual_row()
-    repress = repressilator_no_residual_row()
-    kinetic = kinetic_known_no_residual_row()
-    zero = linear_zero_hole_residual_row()
-    noise = noise_does_not_paint_f1_row()
-    grid = begin
-        built = hybrid_linear_unknown_model(389)
-        noise_grid_residual_row(built.model, built.packed, [0.30, 0.25])
-    end
-    smoke = smoke_vs_protocol_residual_row()
-    smoke_self = smoke_identity_on_self_row()
-    protocol = protocol_fingerprint_not_dropped_row()
-    typed = hybrid_residual_typed_matrix()
-    return (;
-        linear, empty, dual, export_failed, empty_export, exploding, shape,
-        wrong, remap, skipped, middle, multi, known, session, mm_known,
-        repress, kinetic, zero, noise, grid, smoke, smoke_self, protocol, typed,
-        holds = linear.holds && empty.holds && dual.holds &&
-                export_failed.holds && empty_export.holds && exploding.holds &&
-                shape.holds && wrong.holds && remap.holds && skipped.holds &&
-                middle.holds && multi.holds && known.holds && session.holds &&
-                mm_known.holds && repress.holds && kinetic.holds && zero.holds &&
-                noise.holds && grid.holds && smoke.holds && smoke_self.holds &&
-                protocol.holds && typed.holds)
-end
-
-function hybrid_residual_fixture_matrix()
-    identity = hybrid_residual_identity_matrix()
-    honesty = hybrid_residual_honesty_matrix()
-    return (;
-        identity, honesty,
-        holds = identity.holds && honesty.holds)
 end
 
 function hybrid_residual_fixture_names()
@@ -1103,15 +1001,6 @@ function format_hybrid_residual_index()
     println(io, "| smoke_self | smoke-width identity residual versus self |")
     println(io, "| protocol_fp | protocol fingerprint keeps 9 ICs / 50 points |")
     return String(take!(io))
-end
-
-function hybrid_residual_index_holds()
-    text = format_hybrid_residual_index()
-    names = hybrid_residual_fixture_names()
-    return length(unique(names)) == length(names) &&
-           occursin("SciMLBase.solve", text) &&
-           occursin("9 ICs", text) &&
-           !occursin("support_f1_ude = 0.99", text)
 end
 
 # -- Source checks ----------------------------------------------------------

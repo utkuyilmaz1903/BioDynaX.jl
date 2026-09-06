@@ -53,7 +53,7 @@ and follow the [reference protocol](concepts.md#The-reference-protocol):
   support from the trained network is not claimed.
 
 The trained-model library comparison (`BioDynaX.evaluate_trained_graph_local`,
-full protocol in `test/run_m4_b_protocol.jl`) runs discovery with the
+full protocol in `test/run_trained_library_comparison.jl`) runs discovery with the
 graph-local, global, and wrong-graph libraries on one trained model's sampled
 rate.
 
@@ -70,7 +70,7 @@ rate.
 | `benchmark/scale_basis.jl` | library size versus node count | no |
 | `benchmark/library_comparison_study.jl` | the library comparison study: five seeds, three noise levels, three libraries; resumable CSV output and a summary table | weekly |
 | `benchmark/plot_library_comparison.jl` | figure of support F1 against noise per library from the study CSV (needs Plots) | no |
-| `benchmark/allocation_gate.jl` | allocation count of the in-place right-hand side | yes |
+| `benchmark/allocation_check.jl` | allocation count of the in-place right-hand side | yes |
 | `benchmark/probe_datadriven.jl` | checks whether DataDrivenSparse resolves in an isolated environment | yes, allowed to fail |
 
 ## Representative results
@@ -435,6 +435,58 @@ so at τ = 0.8 they are stable, not spurious. The stage therefore does not
 raise F1 on the reference protocol; it stays available and off by default.
 Same environment as above.
 
+### Origin of the extra terms `1` and `R`
+
+The reference protocol recovers the true support with two extra terms, the
+constant and the linear term of R. One hypothesis for them is that they
+absorb the production/destruction scale that the identifiability
+diagnostic flags as non-identifiable in practice. Three settings of the
+two-state fixture test it on the same 15 trainings as the study (seeds
+103, 107, 111, 113, 127; noise 0, 0.02, 0.05), reference configuration,
+graph-local library, stability selection on (100 resamples, τ = 0.8) so
+that every library term's selection frequency is reported
+(`benchmark/library_comparison_study.jl --fixture two_state --variants
+reference --pruning` with `--fixed-production`, `--normalise-rate`, or
+`--sample-points 160`; each run 41 minutes with the four runs sharing 4
+cores, median training 155 to 167 s). No default changed; the settings
+are keywords of `library_comparison_run`, off by default.
+
+1. `fixed_production`: the production rate `k_prod` is frozen at its true
+   value (0.9) during training, so the scale of the learned rate is not
+   free.
+2. `normalise_rate`: the learned rate samples are divided by the fitted
+   `k_prod` before the regression (the residuals scale the discovered rate
+   back).
+3. `n_sample_points = 160`: twice the density of the regulator grid.
+
+Pooled over the 15 runs of each setting, extras after pruning, and the
+selection frequency of the constant and linear terms (median over the 15
+runs, quartiles in brackets):
+
+| setting | runs with recall 1.0 | runs with `1` | runs with `R` | support F1 | held-out residual | frequency of `1` | frequency of `R` |
+|---|---|---|---|---|---|---|---|
+| reference defaults | 15 of 15 | 14 | 11 | 0.57 [0.57, 0.73] | 0.021 [0.006, 0.049] | 1.00 [1.00, 1.00] | 1.00 [0.86, 1.00] |
+| `k_prod` frozen at its true value | 15 of 15 | 15 | 11 | 0.57 [0.57, 0.73] | 0.035 [0.020, 0.051] | 1.00 [0.99, 1.00] | 1.00 [0.79, 1.00] |
+| rate samples divided by the fitted `k_prod` | 15 of 15 | 14 | 11 | 0.57 [0.57, 0.73] | 0.021 [0.006, 0.049] | 1.00 [1.00, 1.00] | 1.00 [0.86, 1.00] |
+| 160 grid points | 15 of 15 | 15 | 12 | 0.57 [0.57, 0.62] | 0.021 [0.006, 0.049] | 1.00 [1.00, 1.00] | 1.00 [0.99, 1.00] |
+
+None of the three removes the terms: the constant term is selected in
+every resample of every run in every setting, and the linear term in at
+least 79% of the resamples of the run where it is least stable. Fixing the
+production rate at its true value leaves the extras as they are and makes
+the held-out residual larger; dividing the samples by the fitted scale
+changes nothing (a constant factor does not change which terms survive
+thresholding; the rows are identical to the reference defaults); a denser
+grid makes the terms slightly more stable, not less. The hypothesis that
+`1` and `R` absorb the production/destruction scale is therefore not
+supported by these runs, and the terms are stable features of the learned
+rate itself under this library, threshold, and degree. The recovery rate
+`R^2 / (K^2 + R^2)` and the learned rate agree on the grid to within the
+neural-rate error (0.04 median), so the extra terms are small corrections
+that the regression prefers over the exact form at threshold 1e-3; they
+are not removed by the scale, and #57 stays open with these numbers. Same
+environment as the rest of the page; run 2026-09-06.
+
 ## Report fields
 
 | Field | Meaning |
@@ -457,7 +509,7 @@ Same environment as above.
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'
 julia --project=. test/run_recovery_hard.jl
-julia --project=. test/run_m4_b_protocol.jl
+julia --project=. test/run_trained_library_comparison.jl
 julia --project=. benchmark/recovery_suite.jl
 julia --project=. benchmark/sindy_baseline.jl
 julia --project=. benchmark/recovery_seeds.jl

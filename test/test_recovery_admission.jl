@@ -1,9 +1,9 @@
-@testset "suite section kinds lock unique-claim versus known kinetics" begin
+@testset "suite section kinds lock reference protocol versus known kinetics" begin
     kinds = recovery_suite_section_kinds()
-    @test kinds.ude_discovery === :unique_claim
-    @test kinds.mm_unknown === :unique_claim
-    @test kinds.ident_interventions === :unique_claim
-    @test kinds.partial_obs === :unique_claim
+    @test kinds.ude_discovery === :reference_protocol
+    @test kinds.mm_unknown === :reference_protocol
+    @test kinds.ident_interventions === :reference_protocol
+    @test kinds.partial_obs === :reference_protocol
     @test kinds.linear === :known_kinetics
     @test kinds.literature === :literature
     @test kinds.competitive_unknown === :analytical
@@ -11,12 +11,12 @@
     @test recovery_suite_section_requires_single_hole(:mm_unknown)
     @test recovery_suite_section_requires_single_hole(:linear) == false
     @test recovery_suite_section_requires_single_hole(:ablation) == false
-    @test recovery_suite_unique_claim_sections() ==
+    @test recovery_suite_reference_protocol_sections() ==
           (:ude_discovery, :mm_unknown, :ident_interventions, :partial_obs)
     @test_throws ArgumentError recovery_suite_section_kind(:not_a_section)
     @test !(:admit_recovery_suite_network in names(BioDynaX))
-    @test !(:UniqueClaimProtocolRow in names(BioDynaX))
-    @test !(:unique_claim_kpi_failure_symbols in names(BioDynaX))
+    @test !(:ReferenceProtocolRow in names(BioDynaX))
+    @test !(:reference_protocol_kpi_failure_symbols in names(BioDynaX))
 end
 
 @testset "admit_recovery_suite_network rejects 0/2 holes without training" begin
@@ -44,7 +44,7 @@ end
     @test_throws ErrorException admit_recovery_suite_network(:ude_discovery, two)
     @test admit_recovery_suite_network(:linear, zero) === zero
     one = admit_recovery_suite_network(:ude_discovery)
-    @test unique_claim_recovery_admits(one)
+    @test reference_protocol_recovery_admits(one)
     @test recovery_suite_known_kinetics_admit_zero_holes().holds
 end
 
@@ -54,9 +54,9 @@ end
     violations = recovery_suite_admission_source_violations()
     @test isempty(violations.missing)
     @test isempty(violations.forbidden)
-    for section in recovery_suite_unique_claim_sections()
+    for section in recovery_suite_reference_protocol_sections()
         net = recovery_suite_section_network(section)
-        @test unique_claim_recovery_admits(net)
+        @test reference_protocol_recovery_admits(net)
         @test admit_recovery_suite_network(section, net) === net
         @test count_unknown_destructions(net) == 1
     end
@@ -67,7 +67,7 @@ end
 end
 
 @testset "named KPI failures stay :unidentifiable_edge / :data_residual / :support_recall" begin
-    contract = recovery_hard_named_kpi_contract()
+    contract = recovery_hard_named_kpi_spec()
     @test contract.symbols ==
           (:unidentifiable_edge, :data_residual, :support_recall)
     @test contract.f1_is_not_a_symbol
@@ -75,7 +75,7 @@ end
     @test contract.miss_edge == "unidentifiable_edge"
     @test contract.miss_all == "unidentifiable_edge, data_residual, support_recall"
     hold = named_kpi_failure_row()
-    @test hold.hold
+    @test hold.kpis_hold
     @test isempty(hold.failures)
     @test hold.label == "(none)"
     @test hold.message == "reference-protocol KPIs pass"
@@ -86,36 +86,36 @@ end
     @test :data_residual in miss_fit.failures
     @test :support_recall in miss_fit.failures
     @test !(:support_f1 in miss_fit.failures)
-    @test unique_claim_kpi_failure_symbols_hold(miss_fit.failures)
-    @test unique_claim_kpi_failure_symbols_hold([:support_f1]) == false
+    @test reference_protocol_kpi_failure_symbols_hold(miss_fit.failures)
+    @test reference_protocol_kpi_failure_symbols_hold([:support_f1]) == false
 end
 
-@testset "UniqueClaimProtocolRow joins fingerprint, extras, and named failures" begin
-    row = unique_claim_protocol_row_from_fields()
-    @test row isa UniqueClaimProtocolRow
-    @test unique_claim_fingerprint_is_protocol(row.fingerprint)
+@testset "ReferenceProtocolRow joins fingerprint, extras, and named failures" begin
+    row = reference_protocol_protocol_row_from_fields()
+    @test row isa ReferenceProtocolRow
+    @test reference_protocol_fingerprint_is_protocol(row.fingerprint)
     @test row.extras_label == "1, r"
     @test isempty(row.kpi_failures)
-    @test assert_unique_claim_protocol_row(row) === row
-    @test assert_unique_claim_protocol_row_holds(row) === row
-    named = unique_claim_protocol_row_namedtuple(row)
+    @test assert_reference_protocol_protocol_row(row) === row
+    @test assert_reference_protocol_protocol_row_holds(row) === row
+    named = reference_protocol_protocol_row_namedtuple(row)
     @test named.is_protocol
     @test named.n_ics == 9
     @test named.n_points == 50
     @test named.claim === :recall_plus_data_residual
     @test named.canonical_hill_from_nn == false
-    smoke = unique_claim_protocol_row_from_fields(; smoke = true, extras = nothing)
-    @test unique_claim_fingerprint_is_smoke(smoke.fingerprint)
+    smoke = reference_protocol_protocol_row_from_fields(; smoke = true, extras = nothing)
+    @test reference_protocol_fingerprint_is_smoke(smoke.fingerprint)
     @test smoke.extras_label == "NA"
-    @test assert_unique_claim_protocol_row(smoke) === smoke
-    @test_throws ErrorException assert_unique_claim_protocol_row_holds(smoke)
-    miss = unique_claim_protocol_row_from_fields(;
+    @test assert_reference_protocol_protocol_row(smoke) === smoke
+    @test_throws ErrorException assert_reference_protocol_protocol_row_holds(smoke)
+    miss = reference_protocol_protocol_row_from_fields(;
         unidentifiable_edge = false, data_residual = 0.31)
     @test :unidentifiable_edge in miss.kpi_failures
     @test :data_residual in miss.kpi_failures
-    @test assert_unique_claim_protocol_row(miss) === miss
-    @test_throws ErrorException assert_unique_claim_protocol_row_holds(miss)
-    empty_extras = unique_claim_protocol_row_from_fields(; extras = String[])
+    @test assert_reference_protocol_protocol_row(miss) === miss
+    @test_throws ErrorException assert_reference_protocol_protocol_row_holds(miss)
+    empty_extras = reference_protocol_protocol_row_from_fields(; extras = String[])
     @test empty_extras.extras_label == "(none)"
     @test occursin("extras: (none)", empty_extras.text)
     @test format_protocol_result_field_order_holds(row.text)
@@ -124,10 +124,10 @@ end
 end
 
 @testset "example and docs name the joint admission and datagen contracts" begin
-    @test unique_claim_example_uses_experiment_set()
-    src = read(unique_claim_example_path(), String)
-    @test occursin("unique_claim_experiment_set", src)
-    @test occursin("unique_claim_fingerprint", src)
+    @test reference_protocol_example_uses_experiment_set()
+    src = read(reference_protocol_example_path(), String)
+    @test occursin("reference_protocol_experiment_set", src)
+    @test occursin("reference_protocol_fingerprint", src)
 end
 
 @testset "admission matrix covers every suite section" begin

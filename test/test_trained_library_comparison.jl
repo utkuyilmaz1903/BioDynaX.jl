@@ -1,4 +1,4 @@
-# M4-B PR smoke and adversarial coverage.
+# PR smoke and adversarial coverage.
 # PR smoke is not trained-UDE scientific acceptance.
 
 using Test
@@ -8,12 +8,12 @@ if !@isdefined(evaluate_trained_graph_local)
     include(joinpath(@__DIR__, "internals.jl"))
 end
 if !@isdefined(_b4_run)
-    include(joinpath(@__DIR__, "m4_b_helpers.jl"))
+    include(joinpath(@__DIR__, "trained_library_comparison_helpers.jl"))
 end
 
 const _B4_SMOKE_BUNDLE = _b4_run(; kind = :smoke, inject = _b4_inject_p0)
 
-@testset "T-B4-API M4-B helpers stay unexported and fields stay exact" begin
+@testset "T-B4-API helpers stay unexported and fields stay exact" begin
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test RECOVERY_THRESHOLDS.support_f1_ude == 0.50
@@ -25,9 +25,9 @@ const _B4_SMOKE_BUNDLE = _b4_run(; kind = :smoke, inject = _b4_inject_p0)
         d_disagree_scale_norm_rel_rmse = 0.20)
     @test :evaluate_trained_graph_local ∉ names(BioDynaX)
     @test :TrainedGraphLocalEvidence ∉ names(BioDynaX)
-    @test :M4B_PROTOCOL ∉ names(BioDynaX)
-    @test :M4B_SMOKE ∉ names(BioDynaX)
-    @test :M4B_SCOPE_PLAN ∉ names(BioDynaX)
+    @test :TRAINED_LIBRARY_COMPARISON ∉ names(BioDynaX)
+    @test :TRAINED_LIBRARY_COMPARISON_SMOKE ∉ names(BioDynaX)
+    @test :TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN ∉ names(BioDynaX)
     @test :training_call ∉ names(BioDynaX)
     @test fieldnames(TrainedGraphLocalEvidence) === (
         :kind, :training, :model, :term, :params_nn_fingerprint,
@@ -92,8 +92,8 @@ end
 end
 
 @testset "T-B4-CTRL analytic library-membership control stays separate" begin
-    row = three_state_discovery_gate_row()
-    wrong = wrong_graph_discovery_gate_row()
+    row = three_state_discovery_check_row()
+    wrong = wrong_graph_discovery_check_row()
     @test row.holds
     @test wrong.holds
     label = :analytic_library_membership_control
@@ -109,9 +109,9 @@ end
     bundle = _B4_SMOKE_BUNDLE
     @test length(bundle.logs.entry) == 1
     entry = bundle.logs.entry[1]
-    @test entry.adam == M4B_SMOKE.adam_iterations
-    @test entry.bfgs == M4B_SMOKE.bfgs_iterations
-    @test entry.fit_set_length == M4B_SMOKE.n_ics
+    @test entry.adam == TRAINED_LIBRARY_COMPARISON_SMOKE.adam_iterations
+    @test entry.bfgs == TRAINED_LIBRARY_COMPARISON_SMOKE.bfgs_iterations
+    @test entry.fit_set_length == TRAINED_LIBRARY_COMPARISON_SMOKE.n_ics
     @test length(bundle.logs.fit_set) == 1
     @test bundle.logs.fit_set[1] === entry.fit_set
     @test entry.fit_experiments_identity === entry.fit_set.experiments
@@ -120,7 +120,7 @@ end
     @test bundle.capture.count[] == 1
     @test bundle.capture.result[] isa TrainingResult
     @test bundle.capture.constructed[] == false
-    expected = m4b_initial_conditions(:smoke)
+    expected = trained_library_comparison_initial_conditions(:smoke)
     @test [exp.u0 for exp in entry.fit_set] == expected
 end
 
@@ -213,9 +213,9 @@ end
 end
 
 @testset "T-B4-SMOKE-SCOPE a priori scope plan runs all three scopes" begin
-    @test M4B_SCOPE_PLAN[1].name === :graph
-    @test M4B_SCOPE_PLAN[2].name === :global
-    @test M4B_SCOPE_PLAN[3].name === :wrong_graph
+    @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[1].name === :graph
+    @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[2].name === :global
+    @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[3].name === :wrong_graph
     bundle = _B4_SMOKE_BUNDLE
     @test length(bundle.logs.discover) == 3
     @test length(bundle.logs.holdout) == 0
@@ -235,7 +235,7 @@ end
     @test !occursin("retry", lowercase(src))
 end
 
-@testset "T-B4-SMOKE-SEP holdout/composer/occupancy/Q4 ownership stays zero" begin
+@testset "T-B4-SMOKE-SEP holdout/composer/occupancy/functional-identifiability ownership stays zero" begin
     bundle = _B4_SMOKE_BUNDLE
     @test length(bundle.logs.holdout) == 0
     @test length(bundle.logs.grid) == 0
@@ -314,9 +314,9 @@ end
         @test replay_cand === nothing ||
               hand.specification.variables != replay_cand.specification.variables ||
               hand.numerator_coefficients != replay_cand.numerator_coefficients
-        @test local_has_true_parent_gate(hand; variable = 2) !==
+        @test local_has_true_parent_check(hand; variable = 2) !==
               (replay_cand === nothing ? false :
-               local_has_true_parent_gate(replay_cand; variable = 2)) ||
+               local_has_true_parent_check(replay_cand; variable = 2)) ||
               replay_cand === nothing ||
               hand !== replay_cand
     end
@@ -324,9 +324,9 @@ end
     @testset "G hardcoded support Booleans are not evidence" begin
         graph_true_in_support = true
         replay_cand = _b4_first_candidate(bundle.replays.graph)
-        derived = local_has_true_parent_gate(replay_cand; variable = 2)
+        derived = local_has_true_parent_check(replay_cand; variable = 2)
         @test !_b4_accepts_hardcoded_support(graph_true_in_support)
-        @test derived === local_has_true_parent_gate(replay_cand; variable = 2)
+        @test derived === local_has_true_parent_check(replay_cand; variable = 2)
     end
 
     @testset "H skipped global is RED" begin
@@ -370,7 +370,7 @@ end
         best_scope = :graph
         @test length(bundle.logs.discover) == 3
         @test length(bundle.logs.holdout) == 0
-        @test M4B_SCOPE_PLAN[1].name === :graph
+        @test TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN[1].name === :graph
         @test best_scope !== :holdout_winner
     end
 
@@ -403,9 +403,9 @@ end
         @test bundle.evidence.kind !== attack_kind
     end
 
-    @testset "Q M2 semantics stay locked" begin
-        @test UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
-        @test UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    @testset "Q holdout semantics stay locked" begin
+        @test REFERENCE_PROTOCOL_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+        @test REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
         @test fieldnames(HoldoutEvidence) === (
             :data_residual_train, :data_residual_holdout,
             :d_rmse_holdout, :d_rmse_holdout_domain)
@@ -413,7 +413,7 @@ end
         @test :occupancy ∉ fieldnames(HoldoutEvidence)
     end
 
-    @testset "R M3 semantics stay locked" begin
+    @testset "R functional-identifiability semantics stay locked" begin
         @test FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
         @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
             min_successful_restarts = 3,
@@ -430,7 +430,7 @@ end
     @testset "S A1/A2 IDs stay present" begin
         a1 = read(joinpath(pkgdir(BioDynaX), "test", "test_trajectory_occupancy.jl"),
             String)
-        a2 = read(joinpath(pkgdir(BioDynaX), "test", "test_m4_a2_separation.jl"),
+        a2 = read(joinpath(pkgdir(BioDynaX), "test", "test_occupancy_separation.jl"),
             String)
         for id in _B4_A1_IDS
             @test occursin(id, a1)
@@ -441,7 +441,7 @@ end
     end
 
     @testset "T analytic control labeled trained-UDE is RED" begin
-        row = three_state_discovery_gate_row()
+        row = three_state_discovery_check_row()
         @test !_b4_analytic_is_trained_ude(row)
         @test _b4_analytic_is_trained_ude((; kind = :protocol))
     end
@@ -511,9 +511,9 @@ end
     end
 end
 
-@testset "T-B4-REG-M2 M2 lock remains 7/2 train-only holdout D" begin
-    @test UNIQUE_CLAIM_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
-    @test UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+@testset "T-B4-REG-HOLDOUT holdout lock remains 7/2 train-only holdout D" begin
+    @test REFERENCE_PROTOCOL_TRAIN_INDICES === (1, 2, 3, 4, 5, 6, 7)
+    @test REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     @test fieldnames(HoldoutEvidence) === (
         :data_residual_train, :data_residual_holdout,
         :d_rmse_holdout, :d_rmse_holdout_domain)
@@ -526,12 +526,12 @@ end
     @test occursin("struct HoldoutEvidence", holdout_src)
     @test isfile(joinpath(pkgdir(BioDynaX), "test", "test_holdout.jl"))
     @test !occursin("evaluate_holdout", _b4_source_code())
-    @test UNIQUE_CLAIM_PROTOCOL.n_ics == 9
-    @test length(UNIQUE_CLAIM_TRAIN_INDICES) == 7
-    @test length(UNIQUE_CLAIM_HOLDOUT_INDICES) == 2
+    @test REFERENCE_PROTOCOL.n_ics == 9
+    @test length(REFERENCE_PROTOCOL_TRAIN_INDICES) == 7
+    @test length(REFERENCE_PROTOCOL_HOLDOUT_INDICES) == 2
 end
 
-@testset "T-B4-REG-M3 M3 domain, seeds, cutoffs, and status stay locked" begin
+@testset "T-B4-REG-DOMAIN functional-identifiability domain, seeds, cutoffs, and status stay locked" begin
     @test FUNCTIONAL_ID_RESTART_SEEDS === (201, 202, 203, 204, 205)
     @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
         min_successful_restarts = 3,
@@ -553,7 +553,7 @@ end
 
 @testset "T-B4-REG-A A1/A2 files and occupancy separations stay intact" begin
     a1_path = joinpath(pkgdir(BioDynaX), "test", "test_trajectory_occupancy.jl")
-    a2_path = joinpath(pkgdir(BioDynaX), "test", "test_m4_a2_separation.jl")
+    a2_path = joinpath(pkgdir(BioDynaX), "test", "test_occupancy_separation.jl")
     @test isfile(a1_path)
     @test isfile(a2_path)
     a1 = read(a1_path, String)
@@ -565,7 +565,7 @@ end
         @test occursin(id, a2)
     end
     @test occursin("occupancy.X", a1)
-    @test occursin("Q4 must NOT use occupancy.X", a2)
+    @test occursin("functional-identifiability must NOT use occupancy.X", a2)
     @test :occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
     @test !occursin("sample_destruction_occupancy", _b4_source())
 end

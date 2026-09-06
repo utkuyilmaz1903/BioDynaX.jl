@@ -108,13 +108,6 @@ function compile_mechanism_reindexes_source()
            !any(occursin(needle, src) for needle in COMPILER_REINDEX_MUST_NOT_CONTAIN)
 end
 
-function compile_mechanism_source_violations()
-    src = read(compile_mechanism_source_path(), String)
-    missing = [s for s in COMPILER_REINDEX_MUST_CONTAIN if !occursin(s, src)]
-    forbidden = [s for s in COMPILER_REINDEX_MUST_NOT_CONTAIN if occursin(s, src)]
-    return (; missing, forbidden)
-end
-
 """
     evaluate_compiled_rhs(model, params, x) -> NamedTuple
 

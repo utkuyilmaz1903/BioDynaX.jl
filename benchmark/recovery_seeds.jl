@@ -60,8 +60,8 @@ function ude_hill(seed::Int)
         unidentifiable_edge = u.identifiability.unidentifiable_edge,
         extras,
         extras_label = BioDynaX.extras_print_label(extras),
-        n_ics = BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics,
-        is_protocol = seed == BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
+        n_ics = BioDynaX.REFERENCE_PROTOCOL.n_ics,
+        is_protocol = seed == BioDynaX.REFERENCE_PROTOCOL.seed,
         gate = u.nn_rate_rmse ≤ RECOVERY_THRESHOLDS.nn_rate_rmse &&
                u.support_recall ≥ RECOVERY_THRESHOLDS.support_recall &&
                u.support_f1 ≥ RECOVERY_THRESHOLDS.support_f1_ude &&
@@ -103,7 +103,7 @@ function main(args = ARGS)
         (:f1, :recall))
     if "--ude" in args
         ude_rows = [ude_hill(seed) for seed in SEEDS]
-        _summarize("UDE Hill ($(BioDynaX.UNIQUE_CLAIM_PROTOCOL.n_ics) ICs; not a CI job)",
+        _summarize("UDE Hill ($(BioDynaX.REFERENCE_PROTOCOL.n_ics) ICs; not a CI job)",
             ude_rows,
             (:nn_rate_rmse, :support_recall, :support_f1,
                 :data_residual))

@@ -34,9 +34,9 @@ end
     @test snap.schema.nn_heads == 2
     @test snap.model.nn isa MultiHeadNetwork
     @test length(snap.model.nn.heads) == 2
-    @test unique_claim_recovery_admits(snap.network) == false
-    @test unique_claim_compiler_stays_open(snap.network)
-    @test_throws ErrorException assert_unique_claim_recovery_network(snap.network)
+    @test reference_protocol_recovery_admits(snap.network) == false
+    @test reference_protocol_compiler_stays_open(snap.network)
+    @test_throws ErrorException assert_reference_protocol_recovery_network(snap.network)
 end
 
 @testset "skipped middle unknown keeps slots 1:2 not 1 and 3" begin
@@ -53,7 +53,7 @@ end
     cache = allocate_cache(snap.model, Float64)
     @test size(cache.nn_inputs, 2) == 3
     @test neural_cache_matches_heads(snap.model, cache)
-    @test unique_claim_recovery_admits(snap.network) == false
+    @test reference_protocol_recovery_admits(snap.network) == false
     @test count_unknown_destructions(snap.network) == 3
 end
 
@@ -90,16 +90,16 @@ end
         tspan = (0.0, 1.0), n_points = 8, noise_σ = 0.0)
     @test length(set.experiments) == 1
     @test all(isfinite, first(set.experiments).observations)
-    @test unique_claim_recovery_admits(net)
-    @test assert_unique_claim_recovery_network(net) === net
+    @test reference_protocol_recovery_admits(net)
+    @test assert_reference_protocol_recovery_network(net) === net
 end
 
 @testset "dual-unknown and zero-hole stay legal at compile" begin
     rng = MersenneTwister(0)
     zero_net = build_zero_unknown_linear_network()
     two_net = build_dual_unknown_network()
-    zero_adm = unique_claim_recovery_admission(zero_net)
-    two_adm = unique_claim_recovery_admission(two_net)
+    zero_adm = reference_protocol_recovery_admission(zero_net)
+    two_adm = reference_protocol_recovery_admission(two_net)
     @test zero_adm.unknown_holes == 0
     @test two_adm.unknown_holes == 2
     @test zero_adm.validate_open
@@ -108,16 +108,16 @@ end
     @test two_adm.recovery_admits == false
     @test zero_adm.single_hole_in_validate_network == false
     @test two_adm.single_hole_in_validate_network == false
-    @test unique_claim_compiler_stays_open(zero_net)
-    @test unique_claim_compiler_stays_open(two_net)
+    @test reference_protocol_compiler_stays_open(zero_net)
+    @test reference_protocol_compiler_stays_open(two_net)
     zero_model, zero_p = build_ude_model(rng, zero_net)
     two_model, two_p = build_ude_model(rng, two_net)
     @test neural_index_is_dense(zero_model)
     @test neural_index_is_dense(two_model)
     @test evaluate_compiled_rhs(zero_model, zero_p, [0.2, 0.1]).finite
     @test evaluate_compiled_rhs(two_model, two_p, [0.2, 0.3, 0.4]).finite
-    @test_throws ErrorException assert_unique_claim_recovery_network(zero_net)
-    @test_throws ErrorException assert_unique_claim_recovery_network(two_net)
+    @test_throws ErrorException assert_reference_protocol_recovery_network(zero_net)
+    @test_throws ErrorException assert_reference_protocol_recovery_network(two_net)
     gapped = BioDynaX.CompiledMechanism(
         1, [1], Dict(1 => 1),
         (BioDynaX.InputProductionTerm(1, :k, :s, 1.0),),

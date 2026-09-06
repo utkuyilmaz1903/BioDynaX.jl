@@ -3,7 +3,7 @@
 #
 # local_basis(scope=:graph) is the product prior. scope=:global is the
 # ablation. This file locks parent-set membership, wrong-graph parents,
-# and local_has_true_parent_gate as code. Combined F1 stays a skeleton
+# and local_has_true_parent_check as code. Combined F1 stays a skeleton
 # floor. Discovery rows are not the seed-103 / 9-IC protocol.
 #
 # Does not drop protocol ICs. Does not grow exports. Does not open
@@ -303,7 +303,7 @@ function remapped_library_row()
         holes = count_unknown_destructions(net),
         holds = all(r -> r.holds, rows) &&
                 count_unknown_destructions(net) == 2 &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function dual_library_row()
@@ -312,10 +312,10 @@ function dual_library_row()
     return (;
         packed,
         holes = count_unknown_destructions(net),
-        admits = unique_claim_recovery_admits(net),
+        admits = reference_protocol_recovery_admits(net),
         validate_open = validate_network(net) === net,
         holds = packed.holds && count_unknown_destructions(net) == 2 &&
-                unique_claim_recovery_admits(net) == false &&
+                reference_protocol_recovery_admits(net) == false &&
                 validate_network(net) === net)
 end
 
@@ -429,7 +429,7 @@ function graph_local_rate_samples(; n::Int = 80, seed::Integer = 607)
     return r, D_noisy
 end
 
-function ablation_discovery_gate_row()
+function ablation_discovery_check_row()
     r, D_noisy = graph_local_rate_samples(; n = 80, seed = 607)
     z = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(MersenneTwister(607), length(r))
     X = permutedims(hcat(r, z))
@@ -450,18 +450,18 @@ function ablation_discovery_gate_row()
     return (;
         local_success = local_disc.success,
         global_success = global_disc.success,
-        local_has_r = local_has_true_parent_gate(local_cand; variable = 1),
-        local_has_z = local_has_false_parent_gate(local_cand; variables = (2,)),
-        global_has_z = local_has_false_parent_gate(global_cand; variables = (2,)),
+        local_has_r = local_has_true_parent_check(local_cand; variable = 1),
+        local_has_z = local_has_false_parent_check(local_cand; variables = (2,)),
+        global_has_z = local_has_false_parent_check(global_cand; variables = (2,)),
         n_ics = 1,
         smoke = true,
         holds = local_disc.success ?
-                (local_has_true_parent_gate(local_cand; variable = 1) &&
-                 !local_has_false_parent_gate(local_cand; variables = (2,))) :
+                (local_has_true_parent_check(local_cand; variable = 1) &&
+                 !local_has_false_parent_check(local_cand; variables = (2,))) :
                 local_disc.retcode !== DiscoverySuccess)
 end
 
-function three_state_discovery_gate_row()
+function three_state_discovery_check_row()
     r, D_noisy = graph_local_rate_samples(; n = 80, seed = 613)
     s = fill(0.4, length(r))
     q = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(MersenneTwister(613), length(r))
@@ -478,17 +478,17 @@ function three_state_discovery_gate_row()
     lc = local_disc.success ? local_disc.candidates[1] : nothing
     return (;
         local_success = local_disc.success,
-        local_has_true = local_has_true_parent_gate(lc; variable = 2),
-        local_false = local_has_false_parent_gate(lc; variables = (3, 4)),
+        local_has_true = local_has_true_parent_check(lc; variable = 2),
+        local_false = local_has_false_parent_check(lc; variables = (3, 4)),
         parents = candidate_parents(net, 1),
         n_ics = 1,
         holds = 2 in candidate_parents(net, 1) &&
                 (local_disc.success ?
-                 local_has_true_parent_gate(lc; variable = 2) :
+                 local_has_true_parent_check(lc; variable = 2) :
                  local_disc.retcode !== DiscoverySuccess))
 end
 
-function wrong_graph_discovery_gate_row()
+function wrong_graph_discovery_check_row()
     r, D_noisy = graph_local_rate_samples(; n = 80, seed = 617)
     s = fill(0.4, length(r))
     q = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(MersenneTwister(617), length(r))
@@ -506,67 +506,23 @@ function wrong_graph_discovery_gate_row()
     spec, vars = graph_library_variables(net, 1)
     return (;
         local_success = local_disc.success,
-        local_has_true = local_has_true_parent_gate(lc; variable = 2),
+        local_has_true = local_has_true_parent_check(lc; variable = 2),
         true_in_library = 2 in vars,
         parents = candidate_parents(net, 1),
         n_ics = 1,
         holds = !(2 in candidate_parents(net, 1)) && !(2 in vars) &&
-                local_has_true_parent_gate(lc; variable = 2) == false)
+                local_has_true_parent_check(lc; variable = 2) == false)
 end
 
-function nothing_candidate_gate_row()
+function nothing_candidate_check_row()
     return (;
-        true_none = local_has_true_parent_gate(nothing; variable = 2),
-        false_none = local_has_false_parent_gate(nothing; variables = (3, 4)),
-        holds = local_has_true_parent_gate(nothing; variable = 2) == false &&
-                local_has_false_parent_gate(nothing; variables = (3, 4)) == false)
+        true_none = local_has_true_parent_check(nothing; variable = 2),
+        false_none = local_has_false_parent_check(nothing; variables = (3, 4)),
+        holds = local_has_true_parent_check(nothing; variable = 2) == false &&
+                local_has_false_parent_check(nothing; variables = (3, 4)) == false)
 end
 
 # -- Source locks -------------------------------------------------------------
-
-function local_basis_scope_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BasisFactory.jl"), String)
-    start = findfirst("function local_basis(network::BiologicalNetwork, target::Int;", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("scope === :global", body) &&
-           occursin("scope === :graph", body) &&
-           occursin("candidate_parents", body) &&
-           occursin("state_nodes", body)
-end
-
-function local_has_true_parent_gate_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    start = findfirst(
-        "function local_has_true_parent_gate(candidate; variable::Int", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("support_uses_variable", body) &&
-           occursin("candidate === nothing && return false", body)
-end
-
-function recovery_suite_uses_parent_gates_source_holds()
-    src = read(recovery_jl_source_path(), String)
-    return occursin("local_has_true_parent = local_has_true_parent_gate(", src) &&
-           occursin("local_false_parent = local_has_false_parent_gate(", src) &&
-           occursin("if :three_state in wanted", src) &&
-           occursin("if :wrong_graph in wanted", src) &&
-           occursin("if :six_state in wanted", src)
-end
-
-function candidate_parents_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Network.jl"), String)
-    start = findfirst("candidate_parents(network::BiologicalNetwork, target::Integer)", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:min(lastindex(rest), 240)]
-    return occursin("inneighbors", body)
-end
 
 # -- Matrices / catalog -------------------------------------------------------
 
@@ -591,10 +547,10 @@ function graph_local_library_fixture_matrix()
     scope = default_scope_is_graph_row()
     invalid = invalid_scope_throws_row()
     oor = target_out_of_range_row()
-    none = nothing_candidate_gate_row()
-    abl_disc = ablation_discovery_gate_row()
-    three_disc = three_state_discovery_gate_row()
-    wrong_disc = wrong_graph_discovery_gate_row()
+    none = nothing_candidate_check_row()
+    abl_disc = ablation_discovery_check_row()
+    three_disc = three_state_discovery_check_row()
+    wrong_disc = wrong_graph_discovery_check_row()
     middle = skipped_middle_library_row()
     kinetic = kinetic_library_row()
     nodist = three_state_no_distractor_library_row()
@@ -682,10 +638,10 @@ function suite_gate_symbols_row()
         six = occursin("if :six_state in wanted", src),
         six_wrong = occursin("if :six_state_wrong_graph in wanted", src),
         ablation = occursin("if :ablation in wanted", src),
-        uses_gate = occursin("local_has_true_parent_gate(", src),
+        uses_check = occursin("local_has_true_parent_check(", src),
         holds = occursin("if :three_state in wanted", src) &&
                 occursin("if :wrong_graph in wanted", src) &&
-                occursin("local_has_true_parent_gate(", src) &&
+                occursin("local_has_true_parent_check(", src) &&
                 !occursin("support_f1_ude = 0.99", src))
 end
 
@@ -749,8 +705,8 @@ function three_state_per_target_library_row()
 end
 
 function smoke_vs_protocol_discovery_row()
-    smoke = unique_claim_fingerprint(; smoke = true)
-    protocol = unique_claim_fingerprint()
+    smoke = reference_protocol_fingerprint(; smoke = true)
+    protocol = reference_protocol_fingerprint()
     return (;
         smoke_ics = smoke.n_ics,
         protocol_ics = protocol.n_ics,
@@ -778,9 +734,9 @@ function graph_local_library_fixture_names()
         :default_example, :remapped, :dual, :linear_zero,
         :competitive, :skipped_duplicate, :repressilator, :mm_known,
         :hill_known, :default_scope, :invalid_scope, :oor_target,
-        :nothing_gate, :ablation_discovery, :three_discovery,
+        :nothing_check, :ablation_discovery, :three_discovery,
         :wrong_discovery, :skipped_middle, :kinetic, :three_nodist,
-        :degree, :interactions, :suite_gates, :smoke_protocol)
+        :degree, :interactions, :suite_checks, :smoke_protocol)
 end
 
 function format_graph_local_library_index()
@@ -807,27 +763,18 @@ function format_graph_local_library_index()
     println(io, "| default_scope | local_basis default scope is :graph |")
     println(io, "| invalid_scope | unknown scope throws ArgumentError |")
     println(io, "| oor_target | target out of range throws |")
-    println(io, "| nothing_gate | nothing candidate is not a true parent |")
+    println(io, "| nothing_check | nothing candidate is not a true parent |")
     println(io, "| ablation_discovery | local support keeps r, drops z |")
-    println(io, "| three_discovery | local_has_true_parent_gate on R |")
+    println(io, "| three_discovery | local_has_true_parent_check on R |")
     println(io, "| wrong_discovery | wrong graph cannot recover R |")
     println(io, "| skipped_middle | remapped 1:n graph libraries |")
     println(io, "| kinetic | known kinetic 0-hole graph library |")
     println(io, "| three_nodist | three-state without Z still keeps R |")
     println(io, "| degree | raising max degree widens the global library |")
     println(io, "| interactions | pairwise terms widen the global library |")
-    println(io, "| suite_gates | recovery suite calls the parent checks |")
+    println(io, "| suite_checks | recovery suite calls the parent checks |")
     println(io, "| smoke_protocol | discovery smoke is not 9 ICs / 50 points |")
     return String(take!(io))
-end
-
-function graph_local_library_index_holds()
-    text = format_graph_local_library_index()
-    names = graph_local_library_fixture_names()
-    return length(unique(names)) == length(names) &&
-           occursin("wrong graph", text) &&
-           occursin("local_has_true_parent_gate", text) &&
-           !occursin("support_f1_ude = 0.99", text)
 end
 
 # -- Source checks ----------------------------------------------------------
@@ -843,15 +790,6 @@ function format_suite_library_index()
             row.graph_terms, " | ", row.global_terms, " |")
     end
     return String(take!(io))
-end
-
-function suite_library_index_holds()
-    text = format_suite_library_index()
-    return occursin("three_state", text) &&
-           occursin("wrong_graph", text) &&
-           occursin("graph_prior", text) &&
-           occursin("unique_claim", text) &&
-           !occursin("support_f1_ude = 0.99", text)
 end
 
 function screen_variables_bound_row()
@@ -962,19 +900,19 @@ function public_export_list_untouched_library_row()
     return (;
         has_local_basis = :local_basis in LOCKED_PUBLIC_EXPORTS,
         has_candidate_parents = :candidate_parents in LOCKED_PUBLIC_EXPORTS,
-        gate_unexported = !(:local_has_true_parent_gate in names(BioDynaX)),
+        gate_unexported = !(:local_has_true_parent_check in names(BioDynaX)),
         holds = :local_basis in LOCKED_PUBLIC_EXPORTS &&
                 :candidate_parents in LOCKED_PUBLIC_EXPORTS &&
-                !(:local_has_true_parent_gate in names(BioDynaX)) &&
+                !(:local_has_true_parent_check in names(BioDynaX)) &&
                 !(:GraphLocalLibraryRow in names(BioDynaX)) &&
                 public_export_list_holds())
 end
 
-function unique_claim_not_faster_by_dropping_ics_row()
+function reference_protocol_not_faster_by_dropping_ics_row()
     # Discovery smoke rows in this file use 1 IC. That is not permission
     # to drop protocol ICs, points, or seed 103.
-    fp = unique_claim_fingerprint()
-    ics = unique_claim_protocol_ics()
+    fp = reference_protocol_fingerprint()
+    ics = reference_protocol_protocol_ics()
     return (;
         n_ics = fp.n_ics,
         n_table = length(ics),

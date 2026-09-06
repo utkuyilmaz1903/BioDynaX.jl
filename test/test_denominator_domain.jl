@@ -10,15 +10,15 @@
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.denominator_violation_count_source_holds()
-    @test BioDynaX.denominator_split_counts_source_holds()
-    @test BioDynaX.ude_extras_denominator_source_holds()
-    @test BioDynaX.extras_path_calls_split_source_holds()
-    @test BioDynaX.implicit_discovery_uses_domain_grid_source_holds()
-    @test BioDynaX.explicit_path_skips_domain_grid_source_holds()
-    @test BioDynaX.domain_grid_clips_source_holds()
-    @test BioDynaX.denominator_domain_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test denominator_violation_count_source_holds()
+    @test denominator_split_counts_source_holds()
+    @test ude_extras_denominator_source_holds()
+    @test extras_path_calls_split_source_holds()
+    @test implicit_discovery_uses_domain_grid_source_holds()
+    @test explicit_path_skips_domain_grid_source_holds()
+    @test domain_grid_clips_source_holds()
+    @test denominator_domain_index_holds()
 end
 
 @testset "split counts distinguish safe, unsafe, and explicit" begin
@@ -100,7 +100,7 @@ end
     catalog = BioDynaX.suite_section_denominator_catalog()
     @test catalog.holds
     @test BioDynaX.suite_denominator_catalog_holds()
-    ics = BioDynaX.unique_claim_not_faster_by_dropping_ics_denominator_row()
+    ics = BioDynaX.reference_protocol_not_faster_by_dropping_ics_denominator_row()
     @test ics.holds
     @test ics.n_ics == 9
     @test BioDynaX.discovery_config_domain_samples_row().holds

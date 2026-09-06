@@ -10,12 +10,12 @@
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.production_destruction_tradeoff_source_holds()
-    @test BioDynaX.format_production_destruction_warning_source_holds()
-    @test BioDynaX.format_protocol_result_collinearity_source_holds()
-    @test BioDynaX.coefficients_are_biological_constants_source_holds()
-    @test BioDynaX.identifiability_product_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test production_destruction_tradeoff_source_holds()
+    @test format_production_destruction_warning_source_holds()
+    @test format_protocol_result_collinearity_source_holds()
+    @test coefficients_are_biological_constants_source_holds()
+    @test identifiability_product_index_holds()
 end
 
 @testset "coefficients follow unidentifiable_edge" begin
@@ -23,8 +23,8 @@ end
     @test coeff.holds
     @test coeff.true_coeff == false
     @test coeff.false_coeff == true
-    hill_closed = BioDynaX.protocol_row_rejects_hill_from_nn_row()
-    @test hill_closed.holds
+    hill_not_attempted = BioDynaX.protocol_row_rejects_hill_from_nn_row()
+    @test hill_not_attempted.holds
     extras = BioDynaX.extras_not_invented_on_join_row()
     @test extras.holds
     kpi = BioDynaX.kpi_f1_not_a_failure_on_join_row()
@@ -32,7 +32,7 @@ end
     @test :support_f1 ∉ kpi.failures
 end
 
-@testset "collinearity print and warning stay honest" begin
+@testset "collinearity print and warning stay consistent" begin
     col = BioDynaX.format_protocol_collinearity_row()
     @test col.holds
     @test col.prints_finite
@@ -47,7 +47,7 @@ end
     @test smoke.smoke_ics
 end
 
-@testset "live tradeoff joins UniqueClaimProtocolRow" begin
+@testset "live tradeoff joins ReferenceProtocolRow" begin
     known = BioDynaX.hill_known_tradeoff_path()
     @test known.holds
     @test known.collinearity_nan
@@ -66,7 +66,7 @@ end
     @test default.holds
 end
 
-@testset "multi-head and honesty tradeoff rows" begin
+@testset "multi-head and consistency tradeoff rows" begin
     remap = BioDynaX.remapped_tradeoff_path()
     @test remap.holds
     @test remap.admits == false
@@ -101,7 +101,7 @@ end
     matched = BioDynaX.format_matches_joined_protocol_row()
     @test matched.holds
     @test matched.n_ics == 9
-    blocks = BioDynaX.unique_claim_product_blocks_hold_on_join()
+    blocks = BioDynaX.reference_protocol_product_blocks_hold_on_join()
     @test blocks.holds
     untouched = BioDynaX.recovery_thresholds_untouched_row()
     @test untouched.holds

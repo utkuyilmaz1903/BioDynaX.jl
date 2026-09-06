@@ -7,14 +7,14 @@
 end
 
 @testset "typed fingerprint is not smoke and is not exported" begin
-    fp = unique_claim_fingerprint()
-    @test unique_claim_fingerprint_holds(fp)
-    @test unique_claim_fingerprint_is_protocol(fp)
-    @test !(:UniqueClaimFingerprint in names(BioDynaX))
-    @test !(:UNIQUE_CLAIM_F1_ATTEMPT in names(BioDynaX))
-    @test !(:UniqueClaimProtocolRow in names(BioDynaX))
+    fp = reference_protocol_fingerprint()
+    @test reference_protocol_fingerprint_holds(fp)
+    @test reference_protocol_fingerprint_is_protocol(fp)
+    @test !(:ReferenceProtocolFingerprint in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL_F1_ATTEMPT in names(BioDynaX))
+    @test !(:ReferenceProtocolRow in names(BioDynaX))
     @test !(:admit_recovery_suite_network in names(BioDynaX))
-    @test unique_claim_f1_attempt_contract().is_protocol == false
+    @test reference_protocol_f1_attempt_spec().is_protocol == false
 end
 
 @testset "locked UDE KPI names" begin
@@ -31,7 +31,7 @@ end
     @test kpis.unidentifiable_edge
 end
 
-@testset "protocol result field order is the unique-claim product" begin
+@testset "protocol result field order is the reference protocol product" begin
     ude = (;
         data_residual = 0.003,
         support_recall = 1.0,
@@ -64,31 +64,31 @@ end
     @test !(:build_protocol_result in names(BioDynaX))
 end
 
-@testset "unique-claim KPI helpers encode the locked gates" begin
-    hold = locked_ude_kpis((;
+@testset "reference protocol KPI helpers encode the locked thresholds" begin
+    passing = locked_ude_kpis((;
         data_residual = 0.003,
         support_recall = 1.0,
         identifiability = (; unidentifiable_edge = true)))
-    @test unique_claim_kpis_hold(hold)
-    @test assert_unique_claim_residual(0.003) == 0.003
+    @test reference_protocol_kpis_hold(passing)
+    @test assert_reference_protocol_residual(0.003) == 0.003
     miss_edge = locked_ude_kpis((;
         data_residual = 0.003,
         support_recall = 1.0,
         identifiability = (; unidentifiable_edge = false)))
-    @test unique_claim_kpis_hold(miss_edge) == false
+    @test reference_protocol_kpis_hold(miss_edge) == false
     miss_residual = locked_ude_kpis((;
         data_residual = 0.31,
         support_recall = 1.0,
         identifiability = (; unidentifiable_edge = true)))
-    @test unique_claim_kpis_hold(miss_residual) == false
+    @test reference_protocol_kpis_hold(miss_residual) == false
     miss_recall = locked_ude_kpis((;
         data_residual = 0.003,
         support_recall = 0.5,
         identifiability = (; unidentifiable_edge = true)))
-    @test unique_claim_kpis_hold(miss_recall) == false
-    @test_throws ErrorException assert_unique_claim_residual(0.31)
-    @test !(:unique_claim_kpis_hold in names(BioDynaX))
-    @test !(:assert_unique_claim_residual in names(BioDynaX))
+    @test reference_protocol_kpis_hold(miss_recall) == false
+    @test_throws ErrorException assert_reference_protocol_residual(0.31)
+    @test !(:reference_protocol_kpis_hold in names(BioDynaX))
+    @test !(:assert_reference_protocol_residual in names(BioDynaX))
 end
 
 @testset "locked UDE KPIs survive early-fail rows" begin

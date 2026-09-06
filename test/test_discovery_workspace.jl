@@ -162,7 +162,7 @@ end
     @test ws.resize_count == 1
 end
 
-@testset "backend chunk_size helper is honest" begin
+@testset "backend chunk_size helper is consistent" begin
     implicit = ImplicitSINDyPI(chunk_size = 48)
     @test BioDynaX._backend_chunk_size(implicit) == 48
     @test BioDynaX._backend_chunk_size(ExplicitSTLSQ()) == 256
@@ -237,7 +237,7 @@ end
     @test !isempty(result.candidates)
 end
 
-@testset "streaming contract source and docs hold" begin
+@testset "streaming interface source and docs hold" begin
     @test BioDynaX.discovery_jl_uses_workspace()
     @test BioDynaX.basis_factory_evaluates_in_place()
 end
@@ -258,6 +258,6 @@ end
     @test validate_network(two) === two
     @test count_unknown_destructions(zero) == 0
     @test count_unknown_destructions(two) == 2
-    @test unique_claim_recovery_admits(zero) == false
-    @test unique_claim_recovery_admits(two) == false
+    @test reference_protocol_recovery_admits(zero) == false
+    @test reference_protocol_recovery_admits(two) == false
 end

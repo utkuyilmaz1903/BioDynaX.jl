@@ -10,13 +10,13 @@
     @test validate_network_stays_open_source()
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.experiment_fingerprint_source_holds()
-    @test BioDynaX.experiment_batches_source_holds()
-    @test BioDynaX.resume_source_holds()
-    @test BioDynaX.save_checkpoint_source_holds()
-    @test BioDynaX.load_checkpoint_source_holds()
-    @test BioDynaX.experiment_checkpoint_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test experiment_fingerprint_source_holds()
+    @test experiment_batches_source_holds()
+    @test resume_source_holds()
+    @test save_checkpoint_source_holds()
+    @test load_checkpoint_source_holds()
+    @test experiment_checkpoint_index_holds()
     meta = BioDynaX.checkpoint_metadata_source_row()
     @test meta.holds
 end
@@ -46,19 +46,19 @@ end
     @test row.other_ic
     noise = BioDynaX.noise_fingerprint_row()
     @test noise.holds
-    uniqueness = BioDynaX.unique_claim_ic_fingerprint_uniqueness_row()
+    uniqueness = BioDynaX.reference_protocol_ic_fingerprint_uniqueness_row()
     @test uniqueness.holds
     csv = BioDynaX.csv_experiment_fingerprint_row()
     @test csv.holds
 end
 
-@testset "unique-claim smoke set fingerprints from a stored model" begin
-    compiled = BioDynaX.unique_claim_from_compiled_fingerprint_row()
+@testset "reference protocol smoke set fingerprints from a stored model" begin
+    compiled = BioDynaX.reference_protocol_from_compiled_fingerprint_row()
     @test compiled.holds
     @test compiled.compiles == 0
     @test compiled.n_ics == 1
     @test compiled.n_points == 8
-    claim = BioDynaX.unique_claim_fingerprint_set_row()
+    claim = BioDynaX.reference_protocol_fingerprint_set_row()
     @test claim.holds
     @test claim.compiled_once
     @test claim.n_ics == 1
@@ -81,7 +81,7 @@ end
     @test shuffle.holds
     weights = BioDynaX.experiment_weight_row(set)
     @test weights.holds
-    claim_batch = BioDynaX.unique_claim_batch_row()
+    claim_batch = BioDynaX.reference_protocol_batch_row()
     @test claim_batch.holds
 end
 

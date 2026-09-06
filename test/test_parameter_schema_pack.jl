@@ -13,13 +13,13 @@
     @test :positive_parameter in names(BioDynaX)
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.custom_kinetic_schema_source_holds()
-    @test BioDynaX.unpack_parameters_source_holds()
-    @test BioDynaX.pack_parameters_source_holds()
-    @test BioDynaX.frozen_phys_source_holds()
-    @test BioDynaX.default_phys_includes_custom_source_holds()
-    @test BioDynaX.parameter_schema_pack_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test custom_kinetic_schema_source_holds()
+    @test unpack_parameters_source_holds()
+    @test pack_parameters_source_holds()
+    @test frozen_phys_source_holds()
+    @test default_phys_includes_custom_source_holds()
+    @test parameter_schema_pack_index_holds()
 end
 
 @testset "pack/unpack and :k_custom schema" begin
@@ -80,7 +80,7 @@ end
     @test smoke.proto_ics == 9
     @test BioDynaX.suite_schema_catalog_holds()
     @test BioDynaX.kinetic_known_tradeoff_now_predicts_row().holds
-    ics = BioDynaX.unique_claim_not_faster_by_dropping_ics_schema_row()
+    ics = BioDynaX.reference_protocol_not_faster_by_dropping_ics_schema_row()
     @test ics.holds
     @test ics.n_ics == 9
     @test BioDynaX.bounded_parameter_row().holds

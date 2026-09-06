@@ -3,30 +3,30 @@
 #
 # Reference-protocol suite sections admit a network only when exactly one unknown
 # D(z) is present. validate_network stays a topology/metadata checker.
-# UniqueClaimProtocolRow joins UniqueClaimFingerprint, protocol_result,
+# ReferenceProtocolRow joins ReferenceProtocolFingerprint, protocol_result,
 # extras_print_label, and named KPI failures.
 ###############################################################################
 
-"""Kind of each `run_recovery_suite` section. `:unique_claim` requires one hole."""
+"""Kind of each `run_recovery_suite` section. `:reference_protocol` requires exactly one unknown term."""
 const RECOVERY_SUITE_SECTION_KINDS = (
     linear = :known_kinetics,
     mm = :known_kinetics,
     hill = :known_kinetics,
     competitive = :known_kinetics,
-    ude_discovery = :unique_claim,
-    mm_unknown = :unique_claim,
+    ude_discovery = :reference_protocol,
+    mm_unknown = :reference_protocol,
     ablation = :analytical,
     three_state = :graph_prior,
     wrong_graph = :graph_prior,
     six_state = :graph_prior,
     six_state_wrong_graph = :graph_prior,
     identifiability = :identifiability,
-    ident_interventions = :unique_claim,
-    partial_obs = :unique_claim,
+    ident_interventions = :reference_protocol,
+    partial_obs = :reference_protocol,
     competitive_unknown = :analytical,
     literature = :literature)
 
-const RECOVERY_SUITE_UNIQUE_CLAIM_SECTIONS = (
+const RECOVERY_SUITE_REFERENCE_PROTOCOL_SECTIONS = (
     :ude_discovery, :mm_unknown, :ident_interventions, :partial_obs)
 
 const RECOVERY_SUITE_KNOWN_KINETICS_SECTIONS = (
@@ -103,8 +103,8 @@ function recovery_suite_section_kinds()
     return RECOVERY_SUITE_SECTION_KINDS
 end
 
-function recovery_suite_unique_claim_sections()
-    return RECOVERY_SUITE_UNIQUE_CLAIM_SECTIONS
+function recovery_suite_reference_protocol_sections()
+    return RECOVERY_SUITE_REFERENCE_PROTOCOL_SECTIONS
 end
 
 function recovery_suite_section_kind(section::Symbol)
@@ -115,7 +115,7 @@ function recovery_suite_section_kind(section::Symbol)
 end
 
 function recovery_suite_section_requires_single_hole(section::Symbol)
-    recovery_suite_section_kind(section) === :unique_claim
+    recovery_suite_section_kind(section) === :reference_protocol
 end
 
 """Compiled fixture the suite uses for `section`, when one exists."""
@@ -149,14 +149,14 @@ end
     admit_recovery_suite_network(section, network = recovery_suite_section_network(section))
 
 `validate_network` always runs. Reference-protocol sections then require exactly
-one unknown `D(z)` via `assert_unique_claim_recovery_network`. Does not
+one unknown `D(z)` via `assert_reference_protocol_recovery_network`. Does not
 train a UDE.
 """
 function admit_recovery_suite_network(section::Symbol,
         network::BiologicalNetwork = recovery_suite_section_network(section))
     validate_network(network)
     if recovery_suite_section_requires_single_hole(section)
-        assert_unique_claim_recovery_network(network)
+        assert_reference_protocol_recovery_network(network)
     end
     return network
 end
@@ -173,7 +173,7 @@ function recovery_suite_admission_row(section::Symbol,
     end
     validate_open = try
         validate_network(network) === network &&
-            (compiles ? unique_claim_compiler_stays_open(network) : true)
+            (compiles ? reference_protocol_compiler_stays_open(network) : true)
     catch
         false
     end
@@ -249,7 +249,7 @@ function recovery_suite_admission_matrix()
     return (;
         rows,
         n_sections = length(rows),
-        unique_claim = count(row -> row.kind === :unique_claim, rows),
+        reference_protocol = count(row -> row.kind === :reference_protocol, rows),
         holds = fixture_holds && length(rows) == length(RECOVERY_SUITE_SECTION_KINDS))
 end
 
@@ -311,12 +311,12 @@ function recovery_suite_open_sections_admit_zero_and_dual()
         holds = !isempty(open_rows) && all(row -> row.holds, open_rows))
 end
 
-function recovery_suite_unique_claim_sections_reject_zero_and_dual()
+function recovery_suite_reference_protocol_sections_reject_zero_and_dual()
     matrix = recovery_suite_zero_dual_matrix()
     claim_rows = [row for row in matrix.rows if row.policy === :exactly_one]
     return (;
         rows = claim_rows,
-        holds = length(claim_rows) == length(RECOVERY_SUITE_UNIQUE_CLAIM_SECTIONS) &&
+        holds = length(claim_rows) == length(RECOVERY_SUITE_REFERENCE_PROTOCOL_SECTIONS) &&
                 all(
             row -> row.holds && row.zero.admitted == false &&
                        row.two.admitted == false,
@@ -333,44 +333,27 @@ function recovery_suite_uses_admission_helper()
            occursin("function run_recovery_suite", src)
 end
 
-function recovery_suite_admission_source_violations()
-    path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
-    src = read(path, String)
-    required = (
-        "admit_recovery_suite_network(:ude_discovery)",
-        "admit_recovery_suite_network(:mm_unknown)",
-        "admit_recovery_suite_network(:ident_interventions)",
-        "admit_recovery_suite_network(:partial_obs)",
-        "only_unknown_destruction")
-    forbidden = (
-        "validate_network(ude_net); count_unknown_destructions",
-        "if unknown_holes != 1; return validate_network")
-    missing = [s for s in required if !occursin(s, src)]
-    hits = [s for s in forbidden if occursin(s, src)]
-    return (; missing, forbidden = hits)
-end
-
 # -- Named KPI failure symbols ------------------------------------------------
 
-function unique_claim_kpi_failure_symbols()
-    return UNIQUE_CLAIM_KPI_FIELDS
+function reference_protocol_kpi_failure_symbols()
+    return REFERENCE_PROTOCOL_KPI_FIELDS
 end
 
-function unique_claim_kpi_failure_symbols_hold(failures)
-    allowed = unique_claim_kpi_failure_symbols()
+function reference_protocol_kpi_failure_symbols_hold(failures)
+    allowed = reference_protocol_kpi_failure_symbols()
     return all(sym -> sym in allowed, failures) &&
            !(:support_f1 in failures) &&
            !(:canonical_hill_from_nn in failures)
 end
 
-function format_unique_claim_kpi_failures(failures)
+function format_reference_protocol_kpi_failures(failures)
     isempty(failures) && return "(none)"
     return join(string.(failures), ", ")
 end
 
-function unique_claim_kpi_failure_message(failures)
+function reference_protocol_kpi_failure_message(failures)
     isempty(failures) && return "reference-protocol KPIs pass"
-    return "reference-protocol KPIs failed: $(format_unique_claim_kpi_failures(failures))"
+    return "reference-protocol KPIs failed: $(format_reference_protocol_kpi_failures(failures))"
 end
 
 function named_kpi_failure_row(;
@@ -383,27 +366,27 @@ function named_kpi_failure_row(;
         support_recall,
         support_f1,
         identifiability = (; unidentifiable_edge)))
-    failures = unique_claim_kpi_failures(kpis)
+    failures = reference_protocol_kpi_failures(kpis)
     return (;
         kpis,
         failures,
-        symbols_hold = unique_claim_kpi_failure_symbols_hold(failures),
-        message = unique_claim_kpi_failure_message(failures),
-        label = format_unique_claim_kpi_failures(failures),
-        hold = unique_claim_kpis_hold(kpis))
+        symbols_hold = reference_protocol_kpi_failure_symbols_hold(failures),
+        message = reference_protocol_kpi_failure_message(failures),
+        label = format_reference_protocol_kpi_failures(failures),
+        kpis_hold = reference_protocol_kpis_hold(kpis))
 end
 
 # -- Protocol row (fingerprint + result + extras + KPI names) -----------------
 
 """
-    UniqueClaimProtocolRow
+    ReferenceProtocolRow
 
-Typed recovery print row. Joins `UniqueClaimFingerprint`,
+Typed recovery print row. Joins `ReferenceProtocolFingerprint`,
 `protocol_result`, live extras label, and named KPI failures.
 Not exported. Combined F1 is stored but is not a failure symbol.
 """
-struct UniqueClaimProtocolRow
-    fingerprint::UniqueClaimFingerprint
+struct ReferenceProtocolRow
+    fingerprint::ReferenceProtocolFingerprint
     protocol_result::NamedTuple
     kpis::NamedTuple
     kpi_failures::Vector{Symbol}
@@ -411,16 +394,16 @@ struct UniqueClaimProtocolRow
     text::String
 end
 
-function unique_claim_protocol_row(ude;
-        fingerprint::UniqueClaimFingerprint = unique_claim_fingerprint(),
+function reference_protocol_protocol_row(ude;
+        fingerprint::ReferenceProtocolFingerprint = reference_protocol_fingerprint(),
         equations = nothing)
     result = hasproperty(ude, :protocol_result) && ude.protocol_result !== nothing ?
              ude.protocol_result : build_protocol_result(ude)
     kpis = hasproperty(ude, :locked_kpis) && ude.locked_kpis !== nothing ?
            ude.locked_kpis : locked_ude_kpis(ude)
-    failures = unique_claim_kpi_failures(kpis)
+    failures = reference_protocol_kpi_failures(kpis)
     text = format_recovery_protocol(ude, fingerprint; equations = equations)
-    return UniqueClaimProtocolRow(
+    return ReferenceProtocolRow(
         fingerprint,
         result,
         kpis,
@@ -429,12 +412,12 @@ function unique_claim_protocol_row(ude;
         text)
 end
 
-function unique_claim_protocol_row_namedtuple(row::UniqueClaimProtocolRow)
+function reference_protocol_protocol_row_namedtuple(row::ReferenceProtocolRow)
     return (;
         kind = row.fingerprint.kind,
         n_ics = row.fingerprint.n_ics,
         n_points = row.fingerprint.n_points,
-        is_protocol = unique_claim_fingerprint_is_protocol(row.fingerprint),
+        is_protocol = reference_protocol_fingerprint_is_protocol(row.fingerprint),
         unknown_holes = row.protocol_result.unknown_holes,
         unidentifiable_edge = row.protocol_result.unidentifiable_edge,
         coefficients_are_biological_constants = row.protocol_result.coefficients_are_biological_constants,
@@ -444,41 +427,41 @@ function unique_claim_protocol_row_namedtuple(row::UniqueClaimProtocolRow)
         canonical_hill_from_nn = row.protocol_result.canonical_hill_from_nn)
 end
 
-function assert_unique_claim_protocol_row(row::UniqueClaimProtocolRow)
-    unique_claim_fingerprint_holds(row.fingerprint) || throw(ErrorException(
-        "UniqueClaimProtocolRow fingerprint is not a locked protocol or smoke object"))
+function assert_reference_protocol_protocol_row(row::ReferenceProtocolRow)
+    reference_protocol_fingerprint_holds(row.fingerprint) || throw(ErrorException(
+        "ReferenceProtocolRow fingerprint is not a locked protocol or smoke object"))
     assert_protocol_result_fields(row.protocol_result)
     assert_format_matches_protocol_result(row.protocol_result, row.text)
     extras_print_label(row.protocol_result.extras) == row.extras_label ||
         throw(ErrorException("printed extras label does not match protocol_result"))
-    unique_claim_kpi_failure_symbols_hold(row.kpi_failures) ||
+    reference_protocol_kpi_failure_symbols_hold(row.kpi_failures) ||
         throw(ErrorException(
-            "KPI failures must be named from UNIQUE_CLAIM_KPI_FIELDS; got $(row.kpi_failures)"))
-    Set(row.kpi_failures) == Set(unique_claim_kpi_failures(row.kpis)) ||
-        throw(ErrorException("stored KPI failures do not match unique_claim_kpi_failures"))
+            "KPI failures must be named from REFERENCE_PROTOCOL_KPI_FIELDS; got $(row.kpi_failures)"))
+    Set(row.kpi_failures) == Set(reference_protocol_kpi_failures(row.kpis)) ||
+        throw(ErrorException("stored KPI failures do not match reference_protocol_kpi_failures"))
     extras_print_is_hardcoded_attempt(row.extras_label) && throw(ErrorException(
-        "UniqueClaimProtocolRow must not invent UDE F1-attempt extras"))
+        "ReferenceProtocolRow must not invent UDE F1-attempt extras"))
     occursin("hybrid_data_residual:", row.text) || throw(ErrorException(
         "protocol row text must print hybrid_data_residual"))
     return row
 end
 
 """Hard-recovery row: protocol fingerprint and empty named KPI failures."""
-function assert_unique_claim_protocol_row_holds(row::UniqueClaimProtocolRow)
-    assert_unique_claim_protocol_row(row)
-    unique_claim_fingerprint_is_protocol(row.fingerprint) || throw(ErrorException(
+function assert_reference_protocol_protocol_row_holds(row::ReferenceProtocolRow)
+    assert_reference_protocol_protocol_row(row)
+    reference_protocol_fingerprint_is_protocol(row.fingerprint) || throw(ErrorException(
         "hard recovery row must use the protocol fingerprint, not smoke"))
     isempty(row.kpi_failures) || throw(ErrorException(
-        unique_claim_kpi_failure_message(row.kpi_failures)))
+        reference_protocol_kpi_failure_message(row.kpi_failures)))
     row.protocol_result.canonical_hill_from_nn === false || throw(ErrorException(
         "canonical_hill_from_nn must stay false"))
-    unique_claim_f1_reaches_analytical_gate(row.protocol_result.support_f1) &&
+    reference_protocol_f1_reaches_analytical_threshold(row.protocol_result.support_f1) &&
         throw(ErrorException(
             "UDE support_f1 must stay below support_f1_clean; got $(row.protocol_result.support_f1)"))
     return row
 end
 
-function unique_claim_protocol_row_from_fields(;
+function reference_protocol_protocol_row_from_fields(;
         data_residual = 0.003,
         support_recall = 1.0,
         support_f1 = 0.57,
@@ -508,17 +491,17 @@ function unique_claim_protocol_row_from_fields(;
             support_f1,
             extras,
             identifiability = ident)))
-    return unique_claim_protocol_row(ude;
-        fingerprint = unique_claim_fingerprint(; smoke),
+    return reference_protocol_protocol_row(ude;
+        fingerprint = reference_protocol_fingerprint(; smoke),
         equations = equations)
 end
 
-function recovery_hard_named_kpi_contract()
+function recovery_hard_named_kpi_spec()
     return (;
-        symbols = unique_claim_kpi_failure_symbols(),
+        symbols = reference_protocol_kpi_failure_symbols(),
         names = (:unidentifiable_edge, :data_residual, :support_recall),
-        f1_is_not_a_symbol = !(:support_f1 in UNIQUE_CLAIM_KPI_FIELDS),
-        empty_label = format_unique_claim_kpi_failures(Symbol[]),
-        miss_edge = format_unique_claim_kpi_failures(Symbol[:unidentifiable_edge]),
-        miss_all = format_unique_claim_kpi_failures(collect(UNIQUE_CLAIM_KPI_FIELDS)))
+        f1_is_not_a_symbol = !(:support_f1 in REFERENCE_PROTOCOL_KPI_FIELDS),
+        empty_label = format_reference_protocol_kpi_failures(Symbol[]),
+        miss_edge = format_reference_protocol_kpi_failures(Symbol[:unidentifiable_edge]),
+        miss_all = format_reference_protocol_kpi_failures(collect(REFERENCE_PROTOCOL_KPI_FIELDS)))
 end

@@ -170,25 +170,25 @@ function build_protocol_result(ude; unknown_holes::Integer = 1)
 end
 
 """
-    unique_claim_kpis_hold(kpis) -> Bool
+    reference_protocol_kpis_hold(kpis) -> Bool
 
 True when the locked UDE claim holds: `unidentifiable_edge`, hybrid residual
 versus data, and true-monomial recall. Combined F1 is not an acceptance criterion.
 Not exported.
 """
-function unique_claim_kpis_hold(kpis)
+function reference_protocol_kpis_hold(kpis)
     return kpis.unidentifiable_edge === true &&
            kpis.data_residual ≤ RECOVERY_THRESHOLDS.data_residual &&
            kpis.support_recall ≥ RECOVERY_THRESHOLDS.support_recall
 end
 
 """
-    assert_unique_claim_residual(residual)
+    assert_reference_protocol_residual(residual)
 
 Reference-example residual threshold. Same number as `RECOVERY_THRESHOLDS.data_residual`.
 Not exported.
 """
-function assert_unique_claim_residual(residual)
+function assert_reference_protocol_residual(residual)
     residual ≤ RECOVERY_THRESHOLDS.data_residual ||
         throw(ErrorException(
             "hybrid residual $(residual) exceeds RECOVERY_THRESHOLDS.data_residual"))
@@ -216,7 +216,7 @@ const RECOVERY_THRESHOLDS = (
 )
 
 """
-    UNIQUE_CLAIM_PROTOCOL
+    REFERENCE_PROTOCOL
 
 Hyperparameters shared by `examples/unknown_inhibition.jl` and the UDE
 recovery job. Not a threshold table. Not exported.
@@ -225,7 +225,7 @@ Reproduction fingerprint: seed 103, `n_ics = 9`, `n_points = 50`.
 Smoke is a different object (`smoke_n_ics = 1`, `smoke_n_points = 8`)
 and is not this protocol.
 """
-const UNIQUE_CLAIM_PROTOCOL = (
+const REFERENCE_PROTOCOL = (
     seed = 103,
     adam_iterations = 100,
     bfgs_iterations = 50,
@@ -372,13 +372,13 @@ function support_uses_variable(candidate; variable::Int, atol::Real = 1e-8)
 end
 
 """True when a discovered candidate support contains `variable`."""
-function local_has_true_parent_gate(candidate; variable::Int, atol::Real = 1e-8)
+function local_has_true_parent_check(candidate; variable::Int, atol::Real = 1e-8)
     candidate === nothing && return false
     return support_uses_variable(candidate; variable = variable, atol = atol)
 end
 
 """True when a discovered candidate support contains any of `variables`."""
-function local_has_false_parent_gate(candidate; variables, atol::Real = 1e-8)
+function local_has_false_parent_check(candidate; variables, atol::Real = 1e-8)
     candidate === nothing && return false
     return any(v -> support_uses_variable(candidate; variable = Int(v), atol = atol),
         variables)
@@ -496,17 +496,17 @@ build_rate_discovery_network() = BiologicalNetwork([NodeSpec(name = :r)], EdgeSp
 build_rate_ablation_network() = BiologicalNetwork(
     [NodeSpec(name = :r), NodeSpec(name = :z)], EdgeSpec[])
 
-function unique_claim_discovery_config(; kwargs...)
+function reference_protocol_discovery_config(; kwargs...)
     return rate_discovery_config(;
-        bootstrap = UNIQUE_CLAIM_PROTOCOL.bootstrap,
-        seed = UNIQUE_CLAIM_PROTOCOL.discovery_seed,
+        bootstrap = REFERENCE_PROTOCOL.bootstrap,
+        seed = REFERENCE_PROTOCOL.discovery_seed,
         kwargs...)
 end
 
 function rate_discovery_config(; threshold = 1e-3, degree = 2,
-        bootstrap = UNIQUE_CLAIM_PROTOCOL.bootstrap,
+        bootstrap = REFERENCE_PROTOCOL.bootstrap,
         scope::Symbol = :graph,
-        seed = UNIQUE_CLAIM_PROTOCOL.discovery_seed)
+        seed = REFERENCE_PROTOCOL.discovery_seed)
     return DiscoveryConfig(
         backend = ImplicitSINDyPI(
             threshold = threshold, max_degree = degree, max_hill_degree = degree,
@@ -635,8 +635,8 @@ function _unknown_edge_ics()
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]
     ]
-    length(ics) == UNIQUE_CLAIM_PROTOCOL.n_ics || throw(ErrorException(
-        "reference-protocol IC table must have $(UNIQUE_CLAIM_PROTOCOL.n_ics) rows; got $(length(ics))"))
+    length(ics) == REFERENCE_PROTOCOL.n_ics || throw(ErrorException(
+        "reference-protocol IC table must have $(REFERENCE_PROTOCOL.n_ics) rows; got $(length(ics))"))
     return ics
 end
 
@@ -648,7 +648,7 @@ function _train_unknown_edge(rng, ude_model, ude_p0, truth_net, truth_params;
     set = generate_recovery_experiments(
         rng, truth_net, truth_params;
         tspan = tspan, n_points = n_points, noise_σ = noise_σ)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     fit = fit_unknown_destruction(
         ude_model, ude_p0, split.train;
         adam = adam, bfgs = bfgs,
@@ -667,17 +667,17 @@ function _regulator_grid(set::ExperimentSet, term; npoints::Int = 80)
 end
 
 """
-    _unique_claim_rate_recovery(ude_model, ude_params, term, truth_rate, set;
+    _reference_protocol_rate_recovery(ude_model, ude_params, term, truth_rate, set;
                                order, family, noise_σ, data_residual_fn)
 
 Reference-protocol production domain + composer step. The discovery domain is
 exactly `_regulator_grid(split.train, term)`. The composer signature is
 unchanged and does not receive `split` or `holdout`. Not exported.
 """
-function _unique_claim_rate_recovery(ude_model, ude_params, term, truth_rate, set;
+function _reference_protocol_rate_recovery(ude_model, ude_params, term, truth_rate, set;
         order, family::Symbol, noise_σ,
         data_residual_fn)
-    split = unique_claim_experiment_split(set)
+    split = reference_protocol_experiment_split(set)
     return _evaluate_unknown_rate_recovery(
         ude_model, ude_params, term, truth_rate;
         order = order, family = family, noise_σ = noise_σ,
@@ -722,12 +722,12 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     truth_support = family === :hill ? hill_rate_support(order) : mm_rate_support()
     discovery = discover_unknown_rate(
         R_grid, times, D_nn;
-        config = unique_claim_discovery_config(),
+        config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
     D_norm, _ = normalize_destruction_samples(D_nn)
     discovery_norm = discover_unknown_rate(
         R_grid, times, reshape(vec(D_norm), size(D_nn));
-        config = unique_claim_discovery_config(),
+        config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
     metrics = evaluate_recovery(
         R_grid, D_nn, discovery, discovery_norm, truth_rate, truth_support,
@@ -997,8 +997,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         linear_bfgs::Int = 20,
         mm_adam::Int = 50,
         mm_bfgs::Int = 25,
-        ude_adam::Int = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-        ude_bfgs::Int = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+        ude_adam::Int = REFERENCE_PROTOCOL.adam_iterations,
+        ude_bfgs::Int = REFERENCE_PROTOCOL.bfgs_iterations,
         hill_adam::Int = 40,
         hill_bfgs::Int = 20,
         competitive_adam::Int = 40,
@@ -1099,11 +1099,11 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_fit, ude_set = _train_unknown_edge(
             rng, ude_model, ude_p0, truth_net, hill_truth;
             adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
-            tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
-            n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
+            tspan = REFERENCE_PROTOCOL.tspan,
+            n_points = REFERENCE_PROTOCOL.n_points)
         term = only_unknown_destruction(ude_model)
         ref_exp = first(ude_set.experiments)
-        split = unique_claim_experiment_split(ude_set)
+        split = reference_protocol_experiment_split(ude_set)
         truth_rate = r -> hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2)
         evaled = _evaluate_unknown_rate_recovery(
             ude_model, ude_fit.params, term, truth_rate;
@@ -1138,11 +1138,11 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         ude_fit, ude_set = _train_unknown_edge(
             rng, ude_model, ude_p0, truth_net, mm_truth;
             adam = ude_adam, bfgs = ude_bfgs, noise_σ = ude_noise_σ,
-            tspan = UNIQUE_CLAIM_PROTOCOL.tspan,
-            n_points = UNIQUE_CLAIM_PROTOCOL.n_points)
+            tspan = REFERENCE_PROTOCOL.tspan,
+            n_points = REFERENCE_PROTOCOL.n_points)
         term = only_unknown_destruction(ude_model)
         ref_exp = first(ude_set.experiments)
-        split = unique_claim_experiment_split(ude_set)
+        split = reference_protocol_experiment_split(ude_set)
         truth_rate = r -> mm_rate_truth(r; vmax = 1.6, km = 0.45)
         evaled = _evaluate_unknown_rate_recovery(
             ude_model, ude_fit.params, term, truth_rate;
@@ -1276,9 +1276,9 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
                        support_f1(lc, truth3.numerator, truth3.denominator).combined.f1,
             global_f1 = gc === nothing ? 0.0 :
                         support_f1(gc, truth3.numerator, truth3.denominator).combined.f1,
-            local_has_true_parent = local_has_true_parent_gate(lc; variable = 2),
-            local_false_parent = local_has_false_parent_gate(lc; variables = (3, 4)),
-            global_false_parent = local_has_false_parent_gate(gc; variables = (3, 4)))
+            local_has_true_parent = local_has_true_parent_check(lc; variable = 2),
+            local_false_parent = local_has_false_parent_check(lc; variables = (3, 4)),
+            global_false_parent = local_has_false_parent_check(gc; variables = (3, 4)))
     end
 
     if :wrong_graph in wanted
@@ -1307,8 +1307,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             local_success = local_w.success,
             local_f1 = lcw === nothing ? 0.0 :
                        support_f1(lcw, truth_w.numerator, truth_w.denominator).combined.f1,
-            local_has_true_parent = local_has_true_parent_gate(lcw; variable = 2),
-            local_false_parent = local_has_false_parent_gate(lcw; variables = (3, 4)))
+            local_has_true_parent = local_has_true_parent_check(lcw; variable = 2),
+            local_false_parent = local_has_false_parent_check(lcw; variables = (3, 4)))
     end
 
     if :identifiability in wanted
@@ -1534,9 +1534,10 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
                        support_f1(lc6, truth6.numerator, truth6.denominator).combined.f1,
             global_f1 = gc6 === nothing ? 0.0 :
                         support_f1(gc6, truth6.numerator, truth6.denominator).combined.f1,
-            local_has_true_parent = local_has_true_parent_gate(lc6; variable = 2),
-            local_false_parent = local_has_false_parent_gate(lc6; variables = (3, 4, 5, 6)),
-            global_false_parent = local_has_false_parent_gate(
+            local_has_true_parent = local_has_true_parent_check(lc6; variable = 2),
+            local_false_parent = local_has_false_parent_check(
+                lc6; variables = (3, 4, 5, 6)),
+            global_false_parent = local_has_false_parent_check(
                 gc6; variables = (3, 4, 5, 6)),
             distractor_in_local = 6 ∈ local_spec6.variables,
             distractor_in_global = 6 ∈ global_spec6.variables,
@@ -1574,8 +1575,8 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
             local_f1 = lc6w === nothing ? 0.0 :
                        support_f1(
                 lc6w, truth_6w.numerator, truth_6w.denominator).combined.f1,
-            local_has_true_parent = local_has_true_parent_gate(lc6w; variable = 2),
-            local_false_parent = local_has_false_parent_gate(
+            local_has_true_parent = local_has_true_parent_check(lc6w; variable = 2),
+            local_false_parent = local_has_false_parent_check(
                 lc6w; variables = (3, 4, 5, 6)))
     end
 
@@ -1592,7 +1593,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         report[:literature] = (;
             source = "Elowitz & Leibler, Nature 403:335–338 (2000)",
             experimental_csv = false,
-            unique_claim_protocol = false,
+            reference_protocol_protocol = false,
             licensed_experimental_series = false,
             nstates = size(clean, 1),
             finite_trajectory = all(isfinite, clean),

@@ -30,7 +30,7 @@ using BioDynaX, Random
 
 rng = MersenneTwister(103)
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-set = BioDynaX.unique_claim_experiment_set(rng, unknown_inhibition_network(known = true);
+set = BioDynaX.reference_protocol_experiment_set(rng, unknown_inhibition_network(known = true);
     truth_params = truth)                      # nine experiments, 50 points each
 result = discover_unknown_term(unknown_inhibition_network(known = false), set;
     rng = rng, known_support = BioDynaX.hill_rate_support(2), seed = 103)
@@ -146,7 +146,7 @@ here:
 
 ```@example tut
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-set = BioDynaX.unique_claim_experiment_set(
+set = BioDynaX.reference_protocol_experiment_set(
     MersenneTwister(103), truth_net; smoke = true, truth_params = truth)
 (length(set.experiments), size(first(set.experiments).observations))
 ```
@@ -206,7 +206,7 @@ r_range = BioDynaX._regulator_grid(set, term)
 R, D, term = BioDynaX.sample_unknown_destruction_grid(model, trained.params, term;
     r_range = r_range)
 discovery = discover_unknown_rate(R, range(0.0, 1.0; length = size(R, 2)), D;
-    config = BioDynaX.unique_claim_discovery_config(), strict = true)
+    config = BioDynaX.reference_protocol_discovery_config(), strict = true)
 ```
 
 `discover_unknown_rate` treats the samples as a function-regression problem

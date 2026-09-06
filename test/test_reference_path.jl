@@ -12,7 +12,7 @@
     rm(path; force = true)
 end
 
-@testset "golden path export_rhs resimulation" begin
+@testset "reference path export_rhs resimulation" begin
     network = BiologicalNetwork([NodeSpec(name = :substrate)], EdgeSpec[])
     x = collect(range(0.2, 2.0; length = 80))
     X = reshape(x, 1, :)

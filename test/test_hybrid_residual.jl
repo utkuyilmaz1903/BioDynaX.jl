@@ -11,12 +11,12 @@
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
 end
 
-@testset "source and landing contracts stay locked" begin
-    @test BioDynaX.hybrid_data_residual_uses_sciml_solve_source_holds()
-    @test BioDynaX.hybrid_residual_sciml_solve_source_holds()
-    @test BioDynaX.hybrid_residual_model_solve_source_holds()
-    @test BioDynaX.predict_ude_uses_odeproblem_source_holds()
-    @test BioDynaX.hybrid_residual_index_holds()
+@testset "source and landing checks stay locked" begin
+    @test hybrid_data_residual_uses_sciml_solve_source_holds()
+    @test hybrid_residual_sciml_solve_source_holds()
+    @test hybrid_residual_model_solve_source_holds()
+    @test predict_ude_uses_odeproblem_source_holds()
+    @test hybrid_residual_index_holds()
 end
 
 @testset "identity residual agrees with SciMLBase.solve and predict_ude" begin

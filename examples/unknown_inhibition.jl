@@ -41,27 +41,27 @@ function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
-function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
-        adam_iters::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-        bfgs_iters::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+function main(; seed::Int = BioDynaX.REFERENCE_PROTOCOL.seed,
+        adam_iters::Int = BioDynaX.REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iters::Int = BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations,
         noise_σ::Float64 = 0.0,
         smoke::Bool = false)
-    protocol = BioDynaX.UNIQUE_CLAIM_PROTOCOL
-    fingerprint = BioDynaX.unique_claim_fingerprint(; smoke)
+    protocol = BioDynaX.REFERENCE_PROTOCOL
+    fingerprint = BioDynaX.reference_protocol_fingerprint(; smoke)
     rng = MersenneTwister(seed)
     truth_net = unknown_inhibition_network(; known = true, hill_order = 2)
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
-    BioDynaX.assert_unique_claim_recovery_network(ude_net)
+    BioDynaX.assert_reference_protocol_recovery_network(ude_net)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     tspan = fingerprint.tspan
-    ics = BioDynaX.unique_claim_protocol_ics(; smoke)
-    n_points = BioDynaX.unique_claim_protocol_n_points(; smoke)
-    set = BioDynaX.unique_claim_experiment_set(
+    ics = BioDynaX.reference_protocol_protocol_ics(; smoke)
+    n_points = BioDynaX.reference_protocol_protocol_n_points(; smoke)
+    set = BioDynaX.reference_protocol_experiment_set(
         rng, truth_net; smoke, truth_params = truth, noise_σ = noise_σ)
     length(set.experiments) == length(ics) ||
-        error("unique_claim_experiment_set IC count must match fingerprint")
+        error("reference_protocol_experiment_set IC count must match fingerprint")
     size(first(set.experiments).observations, 2) == n_points ||
-        error("unique_claim_experiment_set point count must match fingerprint")
+        error("reference_protocol_experiment_set point count must match fingerprint")
 
     # Never overwrite the committed howto fixture.
     data_dir = mktempdir()
@@ -116,7 +116,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
         discovery = discover_unknown_rate(
             R, times_grid, D;
-            config = BioDynaX.unique_claim_discovery_config(),
+            config = BioDynaX.reference_protocol_discovery_config(),
             verbose = true, strict = true)
     end
     ident = BioDynaX.report_production_destruction_tradeoff(
@@ -131,7 +131,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
         residual = hybrid_data_residual(
             model, trained.params, term, rate_fn,
             first_exp.u0, tspan, first_exp.times, first_exp.observations)
-        extras = BioDynaX.unique_claim_discovery_extras(discovery.candidates[1])
+        extras = BioDynaX.reference_protocol_discovery_extras(discovery.candidates[1])
     elseif !smoke
         error("discovery failed ($(discovery.retcode)): $(discovery.message)")
     end
@@ -148,7 +148,7 @@ function main(; seed::Int = BioDynaX.UNIQUE_CLAIM_PROTOCOL.seed,
     println("Hybrid right-hand side constructed: ", rhs === nothing ? "no" : "yes")
     println("CSV (first IC): ", csv_path)
     if !smoke
-        BioDynaX.assert_unique_claim_residual(residual)
+        BioDynaX.assert_reference_protocol_residual(residual)
     end
     return discovery, residual, ident
 end
@@ -157,9 +157,9 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
     smoke = get(ENV, "BIODYNAX_SMOKE", "0") == "1"
     adam = parse(
         Int, get(ENV, "ADAM_ITERS",
-            string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.adam_iterations)))
+            string(BioDynaX.REFERENCE_PROTOCOL.adam_iterations)))
     bfgs = parse(
         Int, get(ENV, "BFGS_ITERS",
-            string(BioDynaX.UNIQUE_CLAIM_PROTOCOL.bfgs_iterations)))
+            string(BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations)))
     main(; adam_iters = adam, bfgs_iters = bfgs, smoke = smoke)
 end

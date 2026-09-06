@@ -9,17 +9,17 @@ const BASELINE_TESTSETS = (
     "implicit rational recovery",
     "Hill and competitive inhibition recovery",
     "graph-local basis scales with indegree",
-    "experiment contracts",
+    "experiment interface",
     "execution backends and generated replicates",
     "versioned checkpoint",
     "compiler kinetic families",
     "general pipeline second topology",
-    "type stability and allocation gates",
+    "type stability and allocation checks",
     "scientific release qualification",
     "multi-topology E2E",
     "README SciML ODE snippet",
-    "SciMLBase ODEProblem contract",
-    "SciML forward and adjoint contracts",
+    "SciMLBase ODEProblem interface",
+    "SciML forward and adjoint interfaces",
     "build_ude_function and SciML solve",
     "typed kinetic metadata",
     "typed metadata compiles p53 network",
@@ -43,7 +43,7 @@ const BASELINE_TESTSETS = (
     "Elowitz repressilator is a synthetic literature fixture",
     "Occam prune recovers sparse Hill on noisy rate samples",
     "CSV experiment roundtrip",
-    "golden path export_rhs resimulation",
+    "reference path export_rhs resimulation",
     "locked UDE KPI names",
     "production-destruction positivity invariant",
     "graph-local library excludes distractor Z",
@@ -53,7 +53,7 @@ const BASELINE_TESTSETS = (
     "golden-path example smoke"
 )
 
-@testset "baseline gate" begin
+@testset "baseline checks" begin
     @test !isempty(BASELINE_TESTSETS)
     @test all(!isempty, BASELINE_TESTSETS)
 end

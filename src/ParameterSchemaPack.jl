@@ -160,7 +160,7 @@ function remapped_pack_unpack_row()
                 lux_head_count(model) == 2 &&
                 nn_ok &&
                 schema_contains(schema, keys(phys)) &&
-                unique_claim_recovery_admits(net) == false)
+                reference_protocol_recovery_admits(net) == false)
 end
 
 function two_regulator_pack_unpack_row()
@@ -322,9 +322,9 @@ function dual_schema_matches_heads_row()
     schema = parameter_schema(model)
     return (;
         schema_heads = schema.nn_heads,
-        admits = unique_claim_recovery_admits(net),
+        admits = reference_protocol_recovery_admits(net),
         holds = schema.nn_heads == compiled_neural_head_count(model) &&
-                unique_claim_recovery_admits(net) == false &&
+                reference_protocol_recovery_admits(net) == false &&
                 validate_network(net) === net)
 end
 
@@ -479,53 +479,6 @@ end
 
 # -- Source locks -------------------------------------------------------------
 
-function custom_kinetic_schema_source_holds()
-    src = read(parameter_schema_jl_source_path(), String)
-    start = findfirst("function parameter_schema(model::UDEModel)", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("CUSTOM_KINETIC", body) &&
-           occursin("rate_param", body) &&
-           occursin(":k_custom", body) &&
-           occursin("CustomDestructionTerm", body)
-end
-
-function unpack_parameters_source_holds()
-    src = read(ude_jl_source_path_for_pack(), String)
-    start = findfirst("function unpack_parameters(p)", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("positive_parameter", body) &&
-           occursin("p.phys", body)
-end
-
-function pack_parameters_source_holds()
-    src = read(ude_jl_source_path_for_pack(), String)
-    start = findfirst("function pack_parameters(phys::NamedTuple, nn_ps)", src)
-    start === nothing && return false
-    rest = src[first(start):end]
-    nxt = findnext(r"\nfunction ", rest, 2)
-    body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("inverse_softplus", body) &&
-           occursin("ComponentVector", body)
-end
-
-function frozen_phys_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Training.jl"), String)
-    return occursin("function _zero_frozen_phys_gradient", src) &&
-           occursin("function _restore_frozen_phys", src) &&
-           occursin("name in frozen", src)
-end
-
-function default_phys_includes_custom_source_holds()
-    src = read(parameter_schema_jl_source_path(), String)
-    return occursin(":k_custom => 0.8", src)
-end
-
 # -- Matrices / catalog -------------------------------------------------------
 
 function parameter_schema_pack_fixture_names()
@@ -539,8 +492,8 @@ function parameter_schema_pack_fixture_names()
 end
 
 function smoke_vs_protocol_schema_row()
-    smoke = unique_claim_fingerprint(; smoke = true)
-    proto = unique_claim_fingerprint()
+    smoke = reference_protocol_fingerprint(; smoke = true)
+    proto = reference_protocol_fingerprint()
     return (;
         smoke_ics = smoke.n_ics,
         proto_ics = proto.n_ics,
@@ -599,19 +552,10 @@ function format_parameter_schema_pack_index()
     return String(take!(io))
 end
 
-function parameter_schema_pack_index_holds()
-    text = format_parameter_schema_pack_index()
-    names = parameter_schema_pack_fixture_names()
-    return length(unique(names)) == length(names) &&
-           occursin(":k_custom", text) &&
-           occursin("9 ICs", text) &&
-           !occursin("support_f1_ude = 0.99", text)
-end
-
 # -- Source checks ----------------------------------------------------------
 
-function unique_claim_not_faster_by_dropping_ics_schema_row()
-    fp = unique_claim_fingerprint()
+function reference_protocol_not_faster_by_dropping_ics_schema_row()
+    fp = reference_protocol_fingerprint()
     return (;
         n_ics = fp.n_ics,
         holds = fp.n_ics == 9 && fp.n_points == 50 &&

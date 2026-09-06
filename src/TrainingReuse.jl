@@ -11,17 +11,6 @@
 ###############################################################################
 
 """Source strings that prove the training reuse path stays wired."""
-const TRAINING_REUSE_MUST_CONTAIN = (
-    "mutable struct TrainingSolveSession",
-    "function lock_training_solver",
-    "function predict_ude_session",
-    "function warmup_first_experiment",
-    "function with_compile_network_counter",
-    "function training_session_matches_generate",
-    "function train_ude_compile_report",
-    "function frozen_phys_warmup_report",
-    "function sensealg_nobs_honesty_row",
-    "optimizer_state")
 
 const TRAINING_REUSE_MUST_NOT_CONTAIN = (
     "support_f1_ude = 0.99",
@@ -132,29 +121,6 @@ function assert_training_sensealg(model::UDEModel, solver::SolverConfig)
     training_sensealg_is_locked(model, solver) || throw(ErrorException(
         "training sensealg $(training_sensealg_kind(solver)) is not locked to recommend_sensealg for this model"))
     return solver
-end
-
-function recommend_sensealg_honesty_row(model::UDEModel;
-        n_observations::Int = 100)
-    zy = recommend_sensealg(model; policy = ZygoteAD(), n_observations = n_observations)
-    prod = recommend_sensealg(
-        model; policy = ProductionAD(), n_observations = n_observations)
-    neural = neural_training_requires_interpolating(model)
-    locked = lock_training_solver(model, SolverConfig())
-    return (;
-        neural,
-        zygote_kind = training_sensealg_kind(zy.sensealg),
-        zygote_name = zy.name,
-        production_kind = training_sensealg_kind(prod.sensealg),
-        production_name = prod.name,
-        locked_kind = training_sensealg_kind(locked),
-        backsolve_forbidden_for_neural = neural,
-        holds = (neural ? zy.name === :interpolating_neural :
-                 zy.name === :backsolve_mechanistic ||
-                 zy.name === :interpolating_default) &&
-                prod.name === :interpolating_production &&
-                training_sensealg_is_locked(model, locked) &&
-                !(neural && training_sensealg_kind(locked) === :backsolve))
 end
 
 # -- Solve session ------------------------------------------------------------
@@ -340,9 +306,9 @@ function train_experiments_with_warmup(p_init, set::ExperimentSet, model::UDEMod
         session = session)
 end
 
-function unique_claim_training_config(;
-        adam_iterations = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-        bfgs_iterations = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+function reference_protocol_training_config(;
+        adam_iterations = REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iterations = REFERENCE_PROTOCOL.bfgs_iterations,
         frozen_phys::Vector{Symbol} = Symbol[],
         model::Union{Nothing, UDEModel} = nothing)
     base = TrainingConfig(
@@ -496,154 +462,6 @@ function train_unknown_edge_reuses_warmup_source()
 end
 
 # -- Linear / neural fixtures for sensealg checks ----------------------------
-
-function linear_sensealg_honesty()
-    rng = MersenneTwister(7)
-    model, _ = build_ude_model(rng, build_linear_test_network())
-    return recommend_sensealg_honesty_row(model)
-end
-
-function hill_ude_sensealg_honesty()
-    rng = MersenneTwister(11)
-    model, _ = build_ude_model(
-        rng, build_hill_recovery_network(; known = false, hill_order = 2))
-    return recommend_sensealg_honesty_row(model)
-end
-
-function remapped_sensealg_honesty()
-    rng = MersenneTwister(13)
-    model, _ = build_ude_model(rng, build_remapped_two_regulator_network())
-    return recommend_sensealg_honesty_row(model)
-end
-
-function two_regulator_sensealg_honesty()
-    rng = MersenneTwister(19)
-    model, _ = build_ude_model(rng, build_two_regulator_unknown_network())
-    return recommend_sensealg_honesty_row(model)
-end
-
-function training_sensealg_honesty_matrix()
-    linear = linear_sensealg_honesty()
-    hill = hill_ude_sensealg_honesty()
-    remap = remapped_sensealg_honesty()
-    two = two_regulator_sensealg_honesty()
-    return (;
-        linear,
-        hill,
-        remap,
-        two,
-        holds = linear.holds && hill.holds && remap.holds && two.holds &&
-                linear.neural == false &&
-                hill.neural && hill.zygote_kind === :interpolating &&
-                remap.neural && two.neural)
-end
-
-function unique_claim_warmup_compile_path(; smoke::Bool = true)
-    net = build_hill_recovery_network(; known = false, hill_order = 2)
-    truth = build_hill_recovery_network(; known = true, hill_order = 2)
-    rng = MersenneTwister(103)
-    model, p0 = build_ude_model(rng, net)
-    set = unique_claim_experiment_set(
-        MersenneTwister(103), truth;
-        smoke = smoke,
-        truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6))
-    names = Tuple(parameter_schema(model).phys_names)
-    guess = NamedTuple{names}(ntuple(_ -> 0.8, length(names)))
-    p_init = pack_parameters(guess, p0.nn)
-    config = unique_claim_training_config(
-        model = model,
-        adam_iterations = 1,
-        bfgs_iterations = 0)
-    n = with_compile_network_counter() do counter
-        warmup_first_experiment(
-            p_init, set, model; config = config, verbose = false)
-        counter[]
-    end
-    rec = recommend_sensealg_honesty_row(model)
-    return (;
-        n_ics = length(set.experiments),
-        compiles = n,
-        sensealg = rec,
-        compiled_once = experiment_set_is_compiled_once(set),
-        holds = n == 0 && rec.holds && rec.neural &&
-                experiment_set_is_compiled_once(set))
-end
-
-function dual_unknown_session_path()
-    net = build_dual_unknown_network()
-    rng = MersenneTwister(21)
-    model, params = build_ude_model(rng, net)
-    packed = pack_parameters((k_ca = 0.8, k_cb = 0.9, k_c = 0.5), params.nn)
-    set = generate_experiment_set(
-        MersenneTwister(21); network = net,
-        initial_conditions = [[0.22, 0.18, 0.16], [0.30, 0.24, 0.20]],
-        tspan = (0.0, 0.8), n_points = 6, noise_σ = 0.0,
-        truth_params = (k_ca = 0.8, k_cb = 0.9, k_c = 0.5))
-    remake = training_session_multi_ic_agreement(model, packed, set)
-    sense = recommend_sensealg_honesty_row(model)
-    return (;
-        remake,
-        sense,
-        n_heads = neural_head_count(model),
-        recovery_admits = unique_claim_recovery_admits(net),
-        holds = remake.holds && sense.holds && sense.neural &&
-                neural_head_count(model) == 2 &&
-                unique_claim_recovery_admits(net) == false)
-end
-
-function zero_hole_session_path()
-    net = build_zero_unknown_linear_network()
-    rng = MersenneTwister(7)
-    model, params = build_ude_model(rng, net)
-    packed = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), params.nn)
-    report = training_session_remake_agreement(
-        model, packed, [0.22, 0.14]; tspan = (0.0, 0.8), n_points = 6)
-    sense = recommend_sensealg_honesty_row(model)
-    return (;
-        report,
-        sense,
-        n_heads = neural_head_count(model),
-        validate_open = validate_network(net) === net,
-        holds = report.holds && sense.holds && sense.neural == false &&
-                neural_head_count(model) == 0)
-end
-
-function skipped_duplicate_session_path()
-    net = build_skipped_duplicate_unknown_network()
-    rng = MersenneTwister(13)
-    model, params = build_ude_model(rng, net)
-    packed = pack_parameters((k_ca = 0.8, k_b = 0.5, k_c = 0.4), params.nn)
-    report = training_session_remake_agreement(
-        model, packed, [0.2, 0.3, 0.4]; tspan = (0.0, 0.6), n_points = 6)
-    sense = recommend_sensealg_honesty_row(model)
-    return (;
-        report,
-        sense,
-        n_heads = neural_head_count(model),
-        dense = neural_index_is_dense(model),
-        holds = report.holds && sense.holds && sense.neural &&
-                neural_index_is_dense(model))
-end
-
-function training_reuse_fixture_matrix()
-    linear = training_session_remake_agreement(
-        build_ude_model(MersenneTwister(7), build_linear_test_network())...,
-        [0.22, 0.14])
-    dual = dual_unknown_session_path()
-    zero = zero_hole_session_path()
-    skipped = skipped_duplicate_session_path()
-    claim = unique_claim_warmup_compile_path()
-    sense = training_sensealg_honesty_matrix()
-    return (;
-        linear,
-        dual,
-        zero,
-        skipped,
-        claim,
-        sense,
-        holds = linear.holds && dual.holds && zero.holds && skipped.holds &&
-                claim.holds && sense.holds)
-end
 
 function train_ude_optimizer_state_is_recorded(p_init, data, times, u0, tspan,
         model; adam_iterations::Int = 2)
@@ -816,115 +634,6 @@ function masked_experiment_compile_report(p_init, set::ExperimentSet,
         holds = n == 0)
 end
 
-"""
-    sensealg_nobs_honesty_row(model)
-
-`recommend_sensealg` at 20 observations versus the training lock, which
-asks for 100. Mechanistic models may prefer `BacksolveAdjoint` on a short
-horizon; the training lock still writes the 100-observation adjoint.
-Neural holes stay interpolating at both widths.
-"""
-function sensealg_nobs_honesty_row(model::UDEModel)
-    small = recommend_sensealg(model; n_observations = 20)
-    large = recommend_sensealg(model; n_observations = 100)
-    locked = lock_training_solver(model, SolverConfig())
-    neural = neural_training_requires_interpolating(model)
-    return (;
-        neural,
-        small_name = small.name,
-        large_name = large.name,
-        locked_kind = training_sensealg_kind(locked),
-        lock_follows_nobs_100 = training_sensealg_kind(large.sensealg) ===
-                                training_sensealg_kind(locked),
-        holds = training_sensealg_kind(large.sensealg) ===
-                training_sensealg_kind(locked) &&
-                (neural ?
-                 small.name === :interpolating_neural &&
-                 large.name === :interpolating_neural :
-                 small.name === :backsolve_mechanistic &&
-                 large.name === :interpolating_default))
-end
-
-function sensealg_nobs_honesty_matrix()
-    linear = sensealg_nobs_honesty_row(
-        build_ude_model(MersenneTwister(7), build_linear_test_network())[1])
-    hill = sensealg_nobs_honesty_row(
-        build_ude_model(MersenneTwister(11),
-        build_hill_recovery_network(; known = false, hill_order = 2))[1])
-    remap = sensealg_nobs_honesty_row(
-        build_ude_model(MersenneTwister(13),
-        build_remapped_two_regulator_network())[1])
-    return (;
-        linear,
-        hill,
-        remap,
-        holds = linear.holds && hill.holds && remap.holds &&
-                linear.neural == false && hill.neural && remap.neural)
-end
-
-function six_state_session_path()
-    net = build_six_state_unknown_network(; known = false)
-    rng = MersenneTwister(41)
-    model, params = build_ude_model(rng, net)
-    u0 = [0.22, 0.18, 0.16, 0.14, 0.12, 0.10]
-    remake = training_session_remake_agreement(
-        model, params, u0; tspan = (0.0, 0.5), n_points = 6)
-    generate = training_session_matches_generate(
-        model, params, u0; tspan = (0.0, 0.5), n_points = 6)
-    sense = recommend_sensealg_honesty_row(model)
-    nobs = sensealg_nobs_honesty_row(model)
-    return (;
-        remake,
-        generate,
-        sense,
-        nobs,
-        n_heads = neural_head_count(model),
-        nstates = model.compiled.nstates,
-        holds = remake.holds && generate.holds && sense.holds && nobs.holds &&
-                neural_head_count(model) == 1 &&
-                model.compiled.nstates == 6)
-end
-
-function mm_unknown_session_path()
-    net = build_mm_recovery_network(; known = false)
-    rng = MersenneTwister(43)
-    model, params = build_ude_model(rng, net)
-    packed = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), params.nn)
-    remake = training_session_remake_agreement(
-        model, packed, [0.30, 0.25]; tspan = (0.0, 0.6), n_points = 6)
-    sense = recommend_sensealg_honesty_row(model)
-    return (;
-        remake,
-        sense,
-        n_heads = neural_head_count(model),
-        recovery_admits = unique_claim_recovery_admits(net),
-        holds = remake.holds && sense.holds && sense.neural &&
-                neural_head_count(model) == 1 &&
-                unique_claim_recovery_admits(net))
-end
-
-function competitive_session_path()
-    net = build_competitive_test_network(; known = true)
-    rng = MersenneTwister(47)
-    model, params = build_ude_model(rng, net)
-    packed = pack_parameters(
-        (k_in = 0.9, vmax = 1.5, km = 0.4, ki = 0.6, k_s = 0.8, k_i = 0.5),
-        params.nn)
-    remake = training_session_remake_agreement(
-        model, packed, [0.25, 0.45, 0.20]; tspan = (0.0, 0.6), n_points = 6)
-    generate = training_session_matches_generate(
-        model, packed, [0.25, 0.45, 0.20]; tspan = (0.0, 0.6), n_points = 6)
-    sense = recommend_sensealg_honesty_row(model)
-    return (;
-        remake,
-        generate,
-        sense,
-        n_heads = neural_head_count(model),
-        validate_open = validate_network(net) === net,
-        holds = remake.holds && generate.holds && sense.holds &&
-                sense.neural == false && neural_head_count(model) == 0)
-end
-
 function horizon_curriculum_session_report(p_init, data, times, u0, tspan,
         model; adam_iterations::Int = 1)
     curriculum = HorizonCurriculum(
@@ -1006,47 +715,6 @@ function linear_training_fixture()
     return (;
         net, model, p0, set, init, exp, tspan,
         data = exp.observations, times = exp.times, u0 = exp.u0)
-end
-
-function training_reuse_extended_matrix()
-    fixture = linear_training_fixture()
-    generate = training_session_matches_generate(
-        fixture.model, fixture.init, fixture.u0;
-        tspan = fixture.tspan, n_points = length(fixture.times))
-    ude = train_ude_compile_report(
-        fixture.init, fixture.data, fixture.times, fixture.u0,
-        fixture.tspan, fixture.model)
-    frozen = frozen_phys_warmup_report(
-        fixture.init, fixture.set, fixture.model)
-    masked = masked_experiment_compile_report(
-        fixture.init, fixture.set, fixture.model)
-    nobs = sensealg_nobs_honesty_matrix()
-    six = six_state_session_path()
-    mm = mm_unknown_session_path()
-    competitive = competitive_session_path()
-    horizon = horizon_curriculum_session_report(
-        fixture.init, fixture.data, fixture.times, fixture.u0,
-        fixture.tspan, fixture.model)
-    roundtrip = optimizer_state_roundtrip_report(
-        fixture.init, fixture.set, fixture.model)
-    resume = resume_from_diagnostics_report(
-        fixture.init, fixture.data, fixture.times, fixture.u0,
-        fixture.tspan, fixture.model)
-    return (;
-        generate,
-        ude,
-        frozen,
-        masked,
-        nobs,
-        six,
-        mm,
-        competitive,
-        horizon,
-        roundtrip,
-        resume,
-        holds = generate.holds && ude.holds && frozen.holds && masked.holds &&
-                nobs.holds && six.holds && mm.holds && competitive.holds &&
-                horizon.holds && roundtrip.holds && resume.holds)
 end
 
 # -- Docs / source locks ------------------------------------------------------

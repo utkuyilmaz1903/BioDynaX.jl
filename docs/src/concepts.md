@@ -205,7 +205,7 @@ page reports what it does on the library comparison study.
 ## The reference protocol
 
 The recovery benchmarks and the example share one protocol, stored in
-`BioDynaX.UNIQUE_CLAIM_PROTOCOL`:
+`BioDynaX.REFERENCE_PROTOCOL`:
 
 | Setting | Value |
 |---|---|
@@ -254,7 +254,7 @@ unexported.
   library, and a library from a deliberately wrong graph. The graph-local
   run must keep the true regulator; the wrong-graph run must miss it. A fast
   version runs in the default tests; the full version is
-  `test/run_m4_b_protocol.jl`.
+  `test/run_trained_library_comparison.jl`.
 - `BioDynaX.TrajectoryOccupancy` collects the observed states of the training
   or held-out experiments as an alternative sampling context for the learned
   rate. It is not used by the functional-identifiability diagnostic or by the

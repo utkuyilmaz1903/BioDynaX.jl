@@ -145,8 +145,8 @@ const FUNCTIONAL_ID_RESTART_SEEDS = (201, 202, 203, 204, 205)
 
 """Restart training configuration fixed in advance. Not selected from holdout."""
 const FUNCTIONAL_ID_TRAINING_CONFIG = (
-    adam = UNIQUE_CLAIM_PROTOCOL.adam_iterations,
-    bfgs = UNIQUE_CLAIM_PROTOCOL.bfgs_iterations,
+    adam = REFERENCE_PROTOCOL.adam_iterations,
+    bfgs = REFERENCE_PROTOCOL.bfgs_iterations,
     frozen_phys = Symbol[],
     phys_init = nothing)
 
@@ -925,7 +925,7 @@ function format_functional_identifiability_diagnostic(
     return String(take!(io))
 end
 
-function _format_q3_scale_warning(ident)
+function _format_scale_warning(ident)
     io = IOBuffer()
     println(io, "SCALE WARNING")
     println(io, "  layer: scale")
@@ -951,18 +951,18 @@ function _format_q3_scale_warning(ident)
 end
 
 """
-    format_q3_q4_side_by_side(ident, diag) -> String
+    format_diagnostics_side_by_side(ident, diag) -> String
 
 Print the scale warning and the functional-identifiability
 diagnostic as separate layers. Does not map `unidentifiable_edge` to
 `function_disagree` or the reverse.
 """
-function format_q3_q4_side_by_side(
+function format_diagnostics_side_by_side(
         ident, diag::FunctionalIdentifiabilityDiagnostic)
     hasproperty(ident, :unidentifiable_edge) || throw(ArgumentError(
         "scale-warning ident must expose unidentifiable_edge"))
     return string(
-        _format_q3_scale_warning(ident),
+        _format_scale_warning(ident),
         "\n",
         "FUNCTIONAL DIAGNOSTIC\n",
         "  layer: functional\n",

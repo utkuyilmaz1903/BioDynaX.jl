@@ -1,29 +1,29 @@
-# M4-A2 live separation/contract tests.
-# A1 T-A-Q4SEP means occupancy sampling uses occupancy.X.
-# A2 T-A2-Q4SEP means Q4 must NOT use occupancy.X.
+# Live separation tests: occupancy sampling and the functional-identifiability domain.
+# A1 T-A-DOMAIN-SEP means occupancy sampling uses occupancy.X.
+# A2 T-A2-DOMAIN-SEP means functional-identifiability must NOT use occupancy.X.
 # These IDs are intentionally opposite and must coexist.
 
 using Test
 using Random
 using BioDynaX
-if !@isdefined(_unique_claim_rate_recovery)
+if !@isdefined(_reference_protocol_rate_recovery)
     include(joinpath(@__DIR__, "internals.jl"))
 end
 
-const _A2_N_ICS = UNIQUE_CLAIM_PROTOCOL.n_ics
-const _A2_N_POINTS = UNIQUE_CLAIM_PROTOCOL.n_points
-const _A2_N_TRAIN = length(UNIQUE_CLAIM_TRAIN_INDICES)
-const _A2_N_HOLD = length(UNIQUE_CLAIM_HOLDOUT_INDICES)
+const _A2_N_ICS = REFERENCE_PROTOCOL.n_ics
+const _A2_N_POINTS = REFERENCE_PROTOCOL.n_points
+const _A2_N_TRAIN = length(REFERENCE_PROTOCOL_TRAIN_INDICES)
+const _A2_N_HOLD = length(REFERENCE_PROTOCOL_HOLDOUT_INDICES)
 const _A2_TRAIN_COLS = _A2_N_TRAIN * _A2_N_POINTS
 const _A2_HOLD_COLS = _A2_N_HOLD * _A2_N_POINTS
-const _A2_Q4_LEN = (_A2_N_TRAIN + _A2_N_HOLD) * _A2_N_POINTS
+const _A2_DOMAIN_LEN = (_A2_N_TRAIN + _A2_N_HOLD) * _A2_N_POINTS
 const _A2_FIXED_R = collect(range(0.05, 2.0; length = 80))
-const _A2_Q4_SEED = first(FUNCTIONAL_ID_RESTART_SEEDS)
+const _A2_DOMAIN_SEED = first(FUNCTIONAL_ID_RESTART_SEEDS)
 
 function _a2_protocol_set()
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    proto = UNIQUE_CLAIM_PROTOCOL
+    proto = REFERENCE_PROTOCOL
     return generate_recovery_experiments(
         MersenneTwister(proto.seed), truth_net, truth;
         tspan = proto.tspan, n_points = proto.n_points,
@@ -178,7 +178,7 @@ end
 function _a2_live_m1(model, params, term, set, truth_rate)
     logs = _a2_new_logs()
     evaled = _a2_with_live_observers(logs) do
-        _unique_claim_rate_recovery(
+        _reference_protocol_rate_recovery(
             model, params, term, truth_rate, set;
             order = 2, family = :hill, noise_σ = 0.0,
             data_residual_fn = _ -> 0.0)
@@ -186,7 +186,7 @@ function _a2_live_m1(model, params, term, set, truth_rate)
     return evaled, logs
 end
 
-function _a2_live_q4(split, ude_net, domain; seed = _A2_Q4_SEED)
+function _a2_live_domain(split, ude_net, domain; seed = _A2_DOMAIN_SEED)
     logs = _a2_new_logs()
     captured_p0 = Ref{Any}()
     restart = _a2_with_live_observers(logs) do
@@ -226,19 +226,19 @@ function _a2_apply_occupancy_sentinel!(train_occ, hold_occ, term)
 end
 
 const _A2_SET = _a2_protocol_set()
-const _A2_SPLIT = unique_claim_experiment_split(_A2_SET)
+const _A2_SPLIT = reference_protocol_experiment_split(_A2_SET)
 
-@testset "T-A2-M1 live composer uses _regulator_grid, not occupancy" begin
+@testset "T-A2-COMPOSER live composer uses _regulator_grid, not occupancy" begin
     @test _A2_N_ICS == 9
     @test _A2_N_POINTS == 50
     @test _A2_N_TRAIN == 7
     @test _A2_N_HOLD == 2
-    @test _A2_Q4_LEN == 450
-    @test length(_A2_SET) == UNIQUE_CLAIM_PROTOCOL.n_ics == 9
-    @test UNIQUE_CLAIM_PROTOCOL.seed == 103
-    @test _A2_SPLIT.train_indices === UNIQUE_CLAIM_TRAIN_INDICES ===
+    @test _A2_DOMAIN_LEN == 450
+    @test length(_A2_SET) == REFERENCE_PROTOCOL.n_ics == 9
+    @test REFERENCE_PROTOCOL.seed == 103
+    @test _A2_SPLIT.train_indices === REFERENCE_PROTOCOL_TRAIN_INDICES ===
           (1, 2, 3, 4, 5, 6, 7)
-    @test _A2_SPLIT.holdout_indices === UNIQUE_CLAIM_HOLDOUT_INDICES === (8, 9)
+    @test _A2_SPLIT.holdout_indices === REFERENCE_PROTOCOL_HOLDOUT_INDICES === (8, 9)
     @test all(size(exp.observations, 2) == _A2_N_POINTS
     for exp in _A2_SET.experiments)
     model, params, term, _ = _a2_probe_models()
@@ -276,7 +276,7 @@ const _A2_SPLIT = unique_claim_experiment_split(_A2_SET)
     @test evaled.term === term
 end
 
-@testset "T-A2-M1-TIME live M1 discovery still receives dummy time" begin
+@testset "T-A2-COMPOSER-TIME live composer discovery still receives dummy time" begin
     model, params, term, _ = _a2_probe_models()
     expected_r = collect(_regulator_grid(_A2_SPLIT.train, term))
     dummy = collect(range(0.0, 1.0; length = length(expected_r)))
@@ -302,7 +302,7 @@ end
         train_occ, hold_occ, domain)
 end
 
-@testset "T-A2-Q4 live Q4 domain is train-then-holdout z, not occupancy" begin
+@testset "T-A2-DOMAIN live functional-identifiability domain is train-then-holdout z, not occupancy" begin
     model, params, term, ude_net = _a2_probe_models()
     reg = term.regulator
     z_expected = _a2_independent_z(_A2_SPLIT, reg)
@@ -320,7 +320,7 @@ end
     @test size(hold_occ.X, 1) > 1
     @test train_occ.X != reshape(domain.z, 1, :)
     @test hold_occ.X != reshape(domain.z, 1, :)
-    restart, logs = _a2_live_q4(_A2_SPLIT, ude_net, domain)
+    restart, logs = _a2_live_domain(_A2_SPLIT, ude_net, domain)
     @test length(logs.grid) >= 1
     captured_r = logs.grid[1]
     @test collect(captured_r) == z_expected
@@ -336,7 +336,7 @@ end
     @test restart !== nothing
 end
 
-@testset "T-A2-Q4SEP Q4 does not read occupancy after sentinel mutation" begin
+@testset "T-A2-DOMAIN-SEP functional-identifiability does not read occupancy after sentinel mutation" begin
     model, params, term, ude_net = _a2_probe_models()
     reg = term.regulator
     z_expected = _a2_independent_z(_A2_SPLIT, reg)
@@ -346,7 +346,7 @@ end
     hold_occ = collect_observed_occupancy(
         _A2_SPLIT, :holdout_observed_states)
     @test domain.z == z_expected
-    restart, logs = _a2_live_q4(_A2_SPLIT, ude_net, domain)
+    restart, logs = _a2_live_domain(_A2_SPLIT, ude_net, domain)
     @test collect(logs.grid[1]) == z_expected
     @test length(logs.grid[1]) == 450
     @test _a2_occupancy_classified_sample_calls(logs, train_occ, hold_occ) == 0
@@ -356,7 +356,7 @@ end
     _a2_apply_occupancy_sentinel!(train_occ, hold_occ, term)
     @test all(==(777.777), train_occ.X[term.regulator, :])
     @test all(==(666.666), hold_occ.X[term.regulator, :])
-    restart2, logs2 = _a2_live_q4(_A2_SPLIT, ude_net, domain)
+    restart2, logs2 = _a2_live_domain(_A2_SPLIT, ude_net, domain)
     @test collect(logs2.grid[1]) == z_expected
     @test collect(logs2.grid[1]) == domain.z
     @test length(logs2.grid[1]) == 450
@@ -379,7 +379,7 @@ end
     @test restart2 !== nothing
 end
 
-@testset "T-A2-M2 T-A2-M2-D live holdout grids are fill-grids; two D oracles" begin
+@testset "T-A2-HOLDOUT T-A2-HOLDOUT-D live holdout grids are fill-grids; two D oracles" begin
     @test fieldnames(HoldoutEvidence) == (
         :data_residual_train,
         :data_residual_holdout,
@@ -392,7 +392,7 @@ end
     truth_rate = _a2_hill_truth()
     r_holdout_expected = _a2_independent_holdout_r(_A2_SPLIT, term)
     r_band_expected = collect(
-        _unique_claim_external_regulator_band(_A2_SPLIT.train, term))
+        _reference_protocol_external_regulator_band(_A2_SPLIT.train, term))
     domain = functional_identifiability_domain(_A2_SPLIT, term.regulator)
     train_occ = collect_observed_occupancy(
         _A2_SPLIT, :train_observed_states)
