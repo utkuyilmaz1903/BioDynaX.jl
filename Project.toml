@@ -1,6 +1,6 @@
 name = "BioDynaX"
 uuid = "b10d7a4f-3e2d-4b1d-9d2e-9c7e8c5f1a6b"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Utku Yılmaz"]
 description = "Hybrid models of biochemical networks: compiled known kinetics plus one neural destruction term, recovered symbolically"
 
