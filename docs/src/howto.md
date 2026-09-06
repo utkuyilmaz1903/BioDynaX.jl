@@ -26,6 +26,72 @@ report_unknown_term(result)   # the report as a string
 `phys_init` change the individual steps; the [Tutorial](tutorial.md) shows
 the call on the reference protocol and then the steps one by one.
 
+## Starting from a Catalyst model
+
+A Catalyst `ReactionSystem` converts to a `BiologicalNetwork` with
+`network_from_reactionsystem`. Every reaction Catalyst can express as a
+parameter, `k * Y`, `hill(Y, v, K, n)`, or `mm(Y, v, K)` rate on one species
+compiles to the matching known term; the reaction named by `unknown` (its
+index or its `description` metadata) becomes the unknown destruction term;
+anything else raises an error that names the reaction and its rate. The
+tutorial network in Catalyst:
+
+```@example catalyst
+using BioDynaX, Catalyst, ModelingToolkit, Symbolics, Random
+
+tutorial = @reaction_network tutorial begin
+    k_prod * R, 0 --> S
+    hill(R, vmax, K, 2), S --> 0, [description = "unknown"]
+    k_rs * S, 0 --> R
+    k_r, R --> 0
+end
+
+net = network_from_reactionsystem(tutorial; unknown = "unknown")
+[node.name for node in net.nodes], length(net.reactions), BioDynaX.count_unknown_destructions(net)
+```
+
+`unknown = nothing` compiles every reaction as known kinetics, which is how
+a ground-truth model for synthetic data is built from the same system:
+
+```@example catalyst
+truth = network_from_reactionsystem(tutorial; unknown = nothing)
+truth_params = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
+set = generate_experiment_set(MersenneTwister(103); network = truth,
+    initial_conditions = [[0.25, 0.20], [0.80, 0.35], [0.40, 1.10]],
+    tspan = (0.0, 8.0), n_points = 8, noise_σ = 0.0, truth_params = truth_params)
+length(set.experiments), set.state_names
+```
+
+From here the workflow is the usual one; a two-step training keeps this
+example short (the reference settings are Adam 100 and BFGS 50):
+
+```@example catalyst
+result = discover_unknown_term(net, set;
+    training = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0, log_every = 10^6),
+    holdout = 0, rng = MersenneTwister(7), verbose = false)
+result.discovery.success, result.discovery.equations
+```
+
+The discovered rate is available as a `Symbolics` expression in the
+network's state names, and the completed model as a ModelingToolkit system
+whose states carry the same names, ready for `ODEProblem`:
+
+```@example catalyst
+if result.discovery.success
+    rate = symbolic(result)
+    completed = BioDynaX.export_mtk_system(result.model; discovered = result)
+    rate, ModelingToolkit.unknowns(completed), ModelingToolkit.equations(completed)
+end
+```
+
+The states of the exported system are `S(t)` and `R(t)`, its parameters are
+the Catalyst parameters of the known reactions, and its right-hand side
+equals Catalyst's own ODE system for the known reactions
+(`Catalyst.ode_model(tutorial)`, or `convert(ODESystem, tutorial)` before Catalyst 16); the test suite checks both. Rates the
+converter does not compile: bimolecular mass action (two substrates), a
+substrate of stoichiometry above 1, `hillr`, `mmr`, `hillar`, and any rate
+law written as a full rate with `=>`.
+
 ## Load an experiment from CSV
 
 `experiment_from_csv` reads a table whose first column is time and whose

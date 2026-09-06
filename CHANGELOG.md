@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.14.0] - 2026-09-06
+
+### Added
+
+- Catalyst input: `network_from_reactionsystem(rs; unknown)` (extension
+  `BioDynaXCatalystExt`, loaded with `using Catalyst`) converts a
+  `ReactionSystem` into a `BiologicalNetwork` with the same species, the
+  known rate laws compiled to the matching terms (a parameter, `k * Y`,
+  `hill(Y, v, K, n)`, `mm(Y, v, K)`), and the reaction named by `unknown`
+  (index or `description` metadata) as the one unknown destruction term;
+  other rates raise an error naming the reaction. The tutorial network
+  converted from Catalyst simulates and discovers exactly as the fixture
+  written by hand, and its ModelingToolkit export equals Catalyst's own ODE
+  system (tests). How-to section "Starting from a Catalyst model".
+- Symbolic output: `symbolic(candidate, names)`, `symbolic(result, names)`,
+  and `symbolic(result::UnknownTermResult)` (extension
+  `BioDynaXSymbolicsExt`, `using Symbolics`) return the discovered rational
+  rate as a `Symbolics.Num`; with `using Latexify`, `latexify` of a result
+  or candidate renders it (extension `BioDynaXLatexifyExt`).
+- `BioDynaX.export_mtk_system(model; discovered)` replaces the placeholder
+  of the unknown term with the discovered rate, so the completed model can
+  be handed to ModelingToolkit and OrdinaryDiffEq.
+- Documentation for SciML readers: a "Where BioDynaX fits" page comparing
+  the package with a plain universal differential equation,
+  DataDrivenDiffEq with DataDrivenSparse, and Catalyst alone; the
+  getting-started page starts from a Catalyst model; ColPrac adopted in
+  CONTRIBUTING.md with the ColPrac and SciML Style badges.
+
+### Changed
+
+- The states of the `ODESystem` returned by `BioDynaX.export_mtk_system`
+  are named after the network's nodes (`S(t)`, `R(t)`) instead of `x1(t)`,
+  `x2(t)`.
+- `Symbolics` and `Latexify` are weak dependencies; Catalyst,
+  ModelingToolkit, Symbolics, and Latexify are test dependencies.
+
+### Removed
+
+- The names deprecated in 0.12: `BioDynaX.UNIQUE_CLAIM_PROTOCOL`,
+  `BioDynaX.unique_claim_experiment_set`, and
+  `BioDynaX.unique_claim_discovery_config`. Use `REFERENCE_PROTOCOL`,
+  `reference_protocol_experiment_set`, and
+  `reference_protocol_discovery_config`. (`report` was renamed to
+  `report_unknown_term` before 0.11.0 shipped and never had an alias.)
+
 ## [0.13.0] - 2026-09-06
 
 ### Added
@@ -461,7 +506,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.10.0...v0.11.0

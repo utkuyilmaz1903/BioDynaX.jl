@@ -7,6 +7,14 @@ term. Please read the "Scope and limitations" section of the README before
 proposing a feature. Community norms are in
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
+This repository follows the [ColPrac](https://github.com/SciML/ColPrac)
+guide on collaborative practices for community packages: open an issue
+before a large change, keep pull requests focused, add tests and a
+changelog entry with every change, and expect review before a merge. Code
+is formatted with JuliaFormatter in the
+[SciML style](https://github.com/SciML/SciMLStyle); CI checks that the tree
+is formatted.
+
 ## Setting up
 
 ```bash

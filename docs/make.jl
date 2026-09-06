@@ -24,6 +24,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
+        "Where BioDynaX fits" => "where-it-fits.md",
         "Tutorial" => "tutorial.md",
         "Concepts" => "concepts.md",
         "How-to recipes" => "howto.md",
