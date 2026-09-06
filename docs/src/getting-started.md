@@ -2,8 +2,15 @@
 
 ## Installation
 
-BioDynaX requires Julia 1.10 or newer. It is not yet in the General
-registry, so install it from GitHub:
+BioDynaX requires Julia 1.10 or newer. Once it is in the General registry
+it installs with
+
+```julia
+using Pkg
+Pkg.add("BioDynaX")
+```
+
+Until then, install it from GitHub:
 
 ```julia
 using Pkg
@@ -22,19 +29,49 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 The first `using BioDynaX` precompiles the SciML dependencies and can take
 several minutes.
 
-## A first model
+## A first model, from Catalyst
 
-A network is a list of nodes plus either reactions (with stoichiometry and
-regulators) or edges. Each reaction carries typed kinetic metadata that names
-its rate parameters. The example below is the network used throughout the
-documentation: `S` is produced in proportion to `R` and degraded by a
-Hill-type mechanism driven by `R`; `R` is produced from `S` and decays
-linearly. Passing `known = false` marks the Hill degradation as the one
-unknown term.
+If you already have a Catalyst `ReactionSystem`, that is the input. The
+example below is the network used throughout the documentation: `S` is
+produced in proportion to `R` and degraded by a Hill-type mechanism driven
+by `R`; `R` is produced from `S` and decays linearly. The reaction whose
+rate law is to be discovered is named by its `description` metadata (or by
+its index), and `network_from_reactionsystem` marks it as the one unknown
+destruction term; the other rate laws compile to the matching known terms.
 
 ```@example gs
-using BioDynaX, Random
+using BioDynaX, Catalyst, Random
 
+tutorial = @reaction_network tutorial begin
+    k_prod * R, 0 --> S
+    hill(R, vmax, K, 2), S --> 0, [description = "unknown"]
+    k_rs * S, 0 --> R
+    k_r, R --> 0
+end
+
+net = network_from_reactionsystem(tutorial; unknown = "unknown")
+model, p0 = build_ude_model(MersenneTwister(1), net)
+parameter_schema(model).phys_names
+```
+
+The compiled model has three physical parameters (the Hill parameters `vmax`
+and `K` belong to the unknown term and are replaced by network weights in
+`p0.nn`). The model is an ordinary `ODEProblem` and can be solved with any
+OrdinaryDiffEq solver:
+
+```@example gs
+using SciMLBase, OrdinaryDiffEq
+p = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), p0.nn)
+prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)
+sol = solve(prob, Tsit5(); saveat = 0:2.0:10.0)
+round.(Array(sol); digits = 3)
+```
+
+The same network written directly, without Catalyst, is a list of nodes and
+reactions with typed kinetic metadata; `known = false` marks the unknown
+term. This is what the converter builds:
+
+```@example gs
 function network(; known::Bool)
     nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
     reactions = [
@@ -50,21 +87,8 @@ function network(; known::Bool)
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
-model, p0 = build_ude_model(MersenneTwister(1), network(known = false))
-parameter_schema(model).phys_names
-```
-
-The compiled model has three physical parameters (the Hill parameters `vmax`
-and `K` belong to the unknown term and are replaced by network weights in
-`p0.nn`). The model is an ordinary `ODEProblem` and can be solved with any
-OrdinaryDiffEq solver:
-
-```@example gs
-using SciMLBase, OrdinaryDiffEq
-p = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), p0.nn)
-prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)
-sol = solve(prob, Tsit5(); saveat = 0:2.0:10.0)
-round.(Array(sol); digits = 3)
+same, _ = build_ude_model(MersenneTwister(1), network(known = false))
+parameter_schema(same).phys_names == parameter_schema(model).phys_names
 ```
 
 ## A complete fit
@@ -106,11 +130,14 @@ dx[1]/dt = (0.27827*1 + -0.71365*x[1] + 2.3223*x[1]^2) / (1 + -1.5762*x[1] + 1.9
 ```
 
 where `x[1]` is the regulator `R`. The `x^2 / (K + x^2)` structure of the Hill
-term is present; the constant and linear terms are nuisance terms that the
-sparse regression did not remove. The [Concepts](concepts.md) page explains
-why the coefficients are not biological constants, and the
-[Tutorial](tutorial.md) runs the reference protocol with nine initial
-conditions.
+term is present; the constant and linear terms are extra terms that the
+sparse regression did not remove. With `using Symbolics`, `symbolic(found, [:R])`
+returns this rate as a `Symbolics` expression, and with `using ModelingToolkit`,
+`BioDynaX.export_mtk_system(model; discovered = found)` returns the completed
+model as an `ODESystem` whose states are `S(t)` and `R(t)`. The
+[Concepts](concepts.md) page explains why the coefficients are not
+biological constants, and the [Tutorial](tutorial.md) runs the reference
+protocol with nine initial conditions.
 
 ## Next steps
 
