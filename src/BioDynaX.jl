@@ -6,7 +6,7 @@
 ###############################################################################
 module BioDynaX
 
-const PACKAGE_VERSION = v"0.13.0"
+const PACKAGE_VERSION = v"0.14.0"
 
 # -- External dependencies ----------------------------------------------------
 using Dates

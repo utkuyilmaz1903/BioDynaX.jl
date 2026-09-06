@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.14.0] - 2026-09-06
+
 ### Added
 
 - Catalyst input: `network_from_reactionsystem(rs; unknown)` (extension
@@ -502,7 +506,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.10.0...v0.11.0
