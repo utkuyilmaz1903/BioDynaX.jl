@@ -266,9 +266,9 @@ function _library_study_train_four_state(seed, noise_σ, kind, training_call,
     budget = m4b_budget(kind)
     train_time = Ref(NaN)
     timed_call = function (args...; kwargs...)
-        started = time()
+        train_started = time()
         result = training_call(args...; kwargs...)
-        train_time[] = time() - started
+        train_time[] = time() - train_started
         return result
     end
     started = time()
