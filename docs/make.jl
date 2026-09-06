@@ -29,6 +29,7 @@ makedocs(
         "How-to recipes" => "howto.md",
         "Benchmarks" => "benchmarks.md",
         "Case study: measured data" => "case-study-laccase.md",
+        "Case study: p53–Mdm2" => "case-study-p53.md",
         "API reference" => "api.md",
         "Extensions" => "extensions.md",
         "Scope and limitations" => "limitations.md",

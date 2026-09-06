@@ -186,18 +186,71 @@ rather than reported, and the failure is stated as such in the report. It
 does not show mechanism recovery on measured data, and it does not test the
 package's central claim (recovering a regulated destruction term from a
 partner state) because the accessible dataset has one observed state and no
-regulator. What it points to is the next step: a two-state model with the
-enzyme as a latent state (initial value known, 0.93 µmol/l, decaying with a
-fitted inactivation rate) and the unknown destruction regulated by ABTS and
-the enzyme, which the compiler supports but the one-call workflow, which is
-built for one regulator, does not; and the p53–Mdm2 study below when its data
-are at hand. Nothing here was tuned: the run uses the reference defaults, and
+regulator. The two-state variants of the next section (0.13) take the next step,
+a latent enzyme state or a product dependence; the p53–Mdm2 study is on its
+own page. Nothing here was tuned: the run uses the reference defaults, and
 the only choices (units, held-out curves, the frozen production) were fixed
 before the first run and are listed above.
 
-## The p53–Mdm2 protocol, for when the data are accessible
+## Two model variants (0.13)
 
-Two states, p53 (P) and Mdm2 (M). Known: production of M activated by P as
+The one-state result above is consistent with a missing state: enzyme
+inactivation, which the source document models, or product inhibition. Two
+variants were run on the same data, split, budget, and discovery
+configuration, one run each, nothing tuned per curve, no default changed
+(`examples/laccase_abts/run_model_variants.jl`, 2026-09-06, Julia 1.10.12,
+OrdinaryDiffEq 7.8.1, SciMLSensitivity 7.119.2, Lux 1.31.4, Optimization
+5.9.0, Zygote 0.7.13, SciMLBase 3.50.2, 4 cores, with the p53 case study
+training alongside). Both have two regulators, so they run the same steps as
+the one-call workflow (warm-up on the first training curve, Adam 100 then
+BFGS 50, samples of the learned rate, the reference discovery configuration,
+hybrid residuals on the training and held-out curves) rather than the
+one-regulator entry point.
+
+- **(a) Product inhibition.** States ABTS and C, the curve's initial
+  concentration, a state with no reactions (dC/dt = 0), so that the product
+  Q = C − ABTS is a function of the two; the unknown destruction of ABTS
+  reads ABTS and C (the graph edges are derived from the reaction). The
+  rate is sampled on a design over (ABTS, C): for each of the nine initial
+  concentrations, 10 values of ABTS from that curve's last measured value
+  to its first (90 points per replicate set, 210 points). Training: 261 s,
+  final loss 0.00050; trained-model RMSE 1.9 µmol/l over the training
+  curves and 2.7 µmol/l over the held-out curves (the one-state model: 3.8
+  and 4.9). Discovery accepted a rational rate,
+  `D = (1.54 + 2.56 S) / (1 + 0.503 S²)` (S = ABTS per 100 µmol/l, rate per
+  1000 s), whose numerator and denominator use ABTS only: no term in C
+  survived thresholding, so the accepted form does not use the product. Its
+  hybrid-model RMSE is 3.3 µmol/l over the training curves and 2.7 µmol/l
+  over the held-out curves. The form rises with ABTS at low concentration
+  and falls at high concentration, which is not Michaelis–Menten depletion
+  either; it is a description of the learned rate that the safety check
+  accepts, with no product dependence.
+- **(b) Enzyme inactivation.** States ABTS and E, the active enzyme
+  (unobserved, µmol/l, E(0) = 0.93 as in the source document), with
+  first-order inactivation `k_inact` fitted; the unknown destruction of ABTS
+  reads ABTS and E. The rate is sampled along the trained model's
+  trajectories of the training curves (every second point, 231 points).
+  Training: 202 s, final loss 0.00071; fitted `k_inact` = 1.51 per 1000 s
+  (an activity half-life of about 460 s); trained-model RMSE 2.5 µmol/l
+  over the training curves and 4.1 µmol/l over the held-out curves.
+  Discovery returned `DenominatorUnsafe` again: the selected denominator
+  changes sign on the sample domain, and the safety check refused the
+  candidate. No accepted rate.
+
+What this adds: both variants fit the curves better than the one-state
+model, the product-inhibition variant the most, and one of them yields an
+accepted rational rate, but that rate uses the substrate alone and is not
+the literature form. The enzyme-inactivation variant fits a plausible
+inactivation rate and still gives no accepted rational rate in two
+variables. A dataset with the enzyme activity or the product measured would
+be needed to separate the two mechanisms; with ABTS alone, the data do not
+decide.
+
+## The p53–Mdm2 protocol
+
+Run in 0.13 on measured p53 traces with Mdm2 unobserved; see
+[Case study: the p53–Mdm2 loop](case-study-p53.md). The protocol as planned:
+two states, p53 (P) and Mdm2 (M). Known: production of M activated by P as
 a mass-action term (the simplest form consistent with the delayed
 transcriptional activation of the 2006 model; a Hill form is the
 alternative), linear degradation of M, constant production of P. Unknown: the

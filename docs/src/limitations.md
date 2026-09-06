@@ -15,15 +15,18 @@ destruction term. This page collects every caveat in one place.
 - **Small networks.** The benchmarks cover two-, three-, and six-state
   networks. Larger known graphs use the same machinery, but there is no
   evidence in the repository for them.
-- **Validation on synthetic data; one measured dataset.** The benchmarks and
+- **Validation on synthetic data; two measured datasets.** The benchmarks and
   the tests use data generated from the compiled ground-truth mechanism; the
   CSV in `examples/data/` is synthetic, and the repressilator fixture with
-  published dimensionless parameters is an ODE, not a measured series. One
-  case study on measured data exists, the laccase/ABTS progress curves of
-  the [case study](case-study-laccase.md): nine substrate-depletion curves
-  with one observed state, downloaded by a script with a checksum (the data
-  do not ship with the package), run outside the tests and CI. It exercises
-  the workflow on real measurements; it is one enzyme and one dataset.
+  published dimensionless parameters is an ODE, not a measured series. Two
+  case studies on measured data exist: the laccase/ABTS progress curves of
+  the [enzyme case study](case-study-laccase.md), nine substrate-depletion
+  curves with one observed state, and the single-cell p53 traces of the
+  [p53–Mdm2 case study](case-study-p53.md), 40 MCF7 cells with p53 observed
+  and Mdm2 an unobserved state. Both are downloaded by scripts with
+  checksums (the data do not ship with the package) and run outside the
+  tests and CI. They exercise the workflow on real measurements; neither
+  has both states of a regulated destruction term measured.
 
 ## What the diagnostics do and do not establish
 
