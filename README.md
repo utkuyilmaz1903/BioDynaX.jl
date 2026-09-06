@@ -88,7 +88,7 @@ result = discover_unknown_term(network(known = false), data; rng = rng, holdout 
 `discover_unknown_term` prints a four-section report (identifiability, fit,
 discovery, reproduction) and returns an `UnknownTermResult` that holds the
 trained model, the identifiability diagnostic, the discovery, and the
-residuals; `report(result)` returns the report as a string. The lines that
+residuals; `report_unknown_term(result)` returns the report as a string. The lines that
 matter most, from a run in September 2026:
 
 ```text

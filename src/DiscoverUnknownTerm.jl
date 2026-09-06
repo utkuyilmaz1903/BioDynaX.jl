@@ -6,7 +6,8 @@
 # model, warm up on the first experiment, train jointly, sample the learned
 # rate on the regulator grid of the training experiments, discover a rational
 # rate, compute the identifiability diagnostic and the hybrid residuals, and
-# bundle everything in one result whose `report` is the four-section report.
+# bundle everything in one result whose `report_unknown_term` is the four-section
+# report.
 ###############################################################################
 
 """
@@ -32,8 +33,8 @@ Everything `discover_unknown_term` computes:
   when no truth was given;
 - `settings`: the values printed in the reproduction section of the report.
 
-`report(result)` returns the four-section report as a string and `show`
-prints it.
+`report_unknown_term(result)` returns the four-section report as a string
+and `show` prints it.
 """
 struct UnknownTermResult{M, P, T, I, D, S}
     network::BiologicalNetwork
@@ -53,14 +54,14 @@ struct UnknownTermResult{M, P, T, I, D, S}
 end
 
 """
-    report(result::UnknownTermResult) -> String
+    report_unknown_term(result::UnknownTermResult) -> String
 
 The four-section report (identifiability, fit, discovery, reproduction) of a
 `discover_unknown_term` result, as printed by the reference example. The fit
 section also lists the mean residual over the training experiments and, when
 experiments were held out, the mean residual over them.
 """
-function report(result::UnknownTermResult)
+function report_unknown_term(result::UnknownTermResult)
     settings = result.settings
     residuals = result.residuals
     holdout = isempty(result.holdout_indices) ? nothing : residuals.data_residual_holdout
@@ -81,7 +82,7 @@ function report(result::UnknownTermResult)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", result::UnknownTermResult)
-    print(io, report(result))
+    print(io, report_unknown_term(result))
 end
 
 function Base.show(io::IO, result::UnknownTermResult)
@@ -241,6 +242,6 @@ function discover_unknown_term(network::BiologicalNetwork, experiments::Experime
             data_residual_train = Float64(residual_train),
             data_residual_holdout = Float64(residual_holdout)),
         training_indices, holdout_indices, extras, settings)
-    verbose && println(report(result))
+    verbose && println(report_unknown_term(result))
     return result
 end

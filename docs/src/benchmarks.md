@@ -152,72 +152,81 @@ distractor Z; the unknown term is the Hill degradation of S with regulator
 R, `D(R) = 1.7 R^2 / (0.36 + R^2)`. For each seed and noise level one model
 is trained on three initial conditions with 40 points each (Adam 100, then
 BFGS 50), its learned rate is sampled once on 80 designed coordinates, and
-discovery runs three times on those samples: with the graph-local library
-(monomials of S and R up to degree 2), with the global library (monomials
-of all four states), and with the library of a deliberately wrong graph (Q
-as the parent of S instead of R). The first candidate of each discovery is
-scored against the true implicit support, `R^2` in the numerator and `R^2`
-in the denominator. Two held-out initial conditions, never used for
+discovery runs three times on those samples with the reference protocol's
+configuration (`discover_unknown_rate` with `rate_discovery_config()`:
+bootstrap 8, consensus refit, samples permuted before the validation
+split): with the graph-local library, monomials up to degree 2 of the
+parent of S in the graph (R); with the global library, monomials of every
+other state (R, Q, Z); and with the library of a deliberately wrong graph
+(Q as the parent of S instead of R). The first candidate of each discovery
+is scored against the true implicit support, `R^2` in the numerator and
+`R^2` in the denominator. Two held-out initial conditions, never used for
 training, give the held-out residual of the hybrid model that uses the
 discovered rate.
 
 The default study is seeds 103, 107, 111, 113, and 127, observation noise
 0, 0.02, and 0.05 (standard deviation of additive Gaussian noise on the
-observations), and the three libraries: 15 trainings and 45 rows.
-`benchmark/library_comparison_study.jl` ran it in 28 minutes on 4 cores
-(median training 107 s) and `benchmark/plot_library_comparison.jl` drew the
-figure.
+observations), and the three libraries: 15 trainings and 45 rows per
+discovery configuration. `benchmark/library_comparison_study.jl --variants
+all` trained the 15 models in 33 minutes on 4 cores (median training 119 s,
+with three other studies running on the same machine) and scored four
+discovery configurations on each; the table below is the reference
+configuration (the `reference` variant), and
+`benchmark/plot_library_comparison.jl` drew the figure from the same rows.
 
 ![Support F1 against observation noise, one line per library, median over five seeds with the interquartile band; left the four-state network, right the two-state network](assets/library_comparison.png)
 
-The left panel is the four-state network of this section; the right panel
-is the two-state reference network described below, where the graph-local
-and global libraries coincide and their lines overlap.
+The left panel is the four-state network of this section with the
+reference configuration; the right panel is the two-state reference network
+described below, where the graph-local and global libraries coincide and
+their lines overlap.
 
-Four-state network, median over the five seeds, with the first and third
-quartile in brackets:
+Four-state network, reference configuration, median over the five seeds,
+with the first and third quartile in brackets:
 
 | library | noise | support F1 | support recall | extra terms | held-out residual | neural-rate error |
 |---|---|---|---|---|---|---|
-| graph-local | 0 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.041 [0.024, 0.044] | 0.073 |
-| graph-local | 0.02 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.032 [0.030, 0.056] | 0.075 |
-| graph-local | 0.05 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.057 [0.054, 0.057] | 0.048 |
-| global | 0 | 0.33 [0.00, 0.33] | 0.5 [0.0, 0.5] | 3 [3, 5] | 0.127 [0.125, 0.127] | 0.073 |
-| global | 0.02 | 0.00 [0.00, 0.33] | 0.0 [0.0, 0.5] | 5 [3, 5] | 0.154 [0.139, 0.154] | 0.075 |
-| global | 0.05 | 0.00 [0.00, 0.33] | 0.0 [0.0, 0.5] | 5 [3, 5] | 0.161 [0.114, 0.208] | 0.048 |
-| wrong graph | 0 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.252 [0.251, 0.257] | 0.073 |
-| wrong graph | 0.02 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.265 [0.249, 0.335] | 0.075 |
-| wrong graph | 0.05 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.266 [0.247, 0.342] | 0.048 |
+| graph-local | 0 | 0.57 [0.57, 0.57] | 1.0 [1.0, 1.0] | 2 [2, 2] | 0.004 [0.003, 0.005] | 0.073 |
+| graph-local | 0.02 | 0.57 [0.57, 0.57] | 1.0 [1.0, 1.0] | 2 [2, 2] | 0.020 [0.020, 0.021] | 0.075 |
+| graph-local | 0.05 | 0.67 [0.67, 0.67] | 1.0 [1.0, 1.0] | 2 [2, 2] | 0.050 [0.048, 0.053] | 0.048 |
+| global | 0 | 0.36 [0.36, 0.36] | 1.0 [1.0, 1.0] | 5 [5, 5] | 0.045 [0.023, 0.129] | 0.073 |
+| global | 0.02 | 0.36 [0.36, 0.44] | 1.0 [1.0, 1.0] | 5 [3, 5] | 0.141 [0.049, 0.185] | 0.075 |
+| global | 0.05 | 0.36 [0.36, 0.36] | 1.0 [1.0, 1.0] | 5 [5, 5] | 0.200 [0.146, 0.259] | 0.048 |
+| wrong graph | 0 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 3 [3, 3] | 0.254 [0.254, 0.257] | 0.073 |
+| wrong graph | 0.02 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 3 [3, 3] | 0.253 [0.251, 0.258] | 0.075 |
+| wrong graph | 0.05 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 3 [2, 3] | 0.259 [0.253, 0.307] | 0.048 |
 
 The neural-rate error is a property of the trained model, so it is the same
-for the three libraries of a run. Three of the 45 rows (graph-local at
-seeds 103 and 111 and global at seed 103, all at noise 0.05) have no finite
-residual because the hybrid model with the discovered rate diverged; the
-residual medians are over the finite values.
+for the three libraries of a run. Two of the 45 discoveries failed (global
+and wrong graph at seed 111, noise 0.05); they count as recall 0 and have
+no residual, and the residual medians are over the finite values. The
+graph-local extra terms are the constant and the linear term in all 15
+runs; the global extra terms are the constant, Q, Q^2, Z, and Z^2.
 
 Environment of the run: Julia 1.10.12, OrdinaryDiffEq 7.8.1,
 SciMLSensitivity 7.119.2, Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13
 (SciMLBase 3.50.2), 2026-09-05. No Manifest is committed, so a rerun with
 other dependency versions can give other values.
 
-What the numbers show. The graph-local library has the highest support F1
-at every noise level and a held-out residual three to five times smaller
-than the global library's; the wrong-graph library recovers no true term in
-any of its 15 runs and has the largest residual. No library recovers the
-full true support: the graph-local recall is 0.5 in all 15 runs because
-every graph-local candidate is a polynomial in R (`R^2` in the numerator
-with `R` in all 15 runs and `1` in 7 of them, for example
-`2.05 R - 0.62 R^2` at seed 103 without noise) and no denominator term is
-selected, so the rational form of the Hill rate is not recovered.
-The global library recovers `R^2` in 7 of 15 runs and adds `Q^2` and `Z^2`
-in 14 of 15; its median F1 falls from 0.33 without noise to 0 at noise 0.02
-and 0.05. Within this noise range the graph-local scores do not change, and
-the neural-rate error varies more across seeds (0.035 to 0.19) than across
-noise levels. The study therefore supports the ordering graph-local, then
-global, then wrong graph on this network; it does not show recovery of the
-exact mechanism, and it is five seeds on one network. The two subsections
-below run the same study on the two-state reference network and trace the
-recall of 0.5 to the library construction.
+What the numbers show. With the reference configuration all three
+libraries are compared on the same trained models and the same learned-rate
+samples. The graph-local library recovers the true support in all 15 runs
+(recall 1.0) with the fewest extra terms (two, the constant and the linear
+term of the reference protocol) and the lowest held-out residual. The
+global library also recovers the true support (recall 1.0 in 14 of 15
+runs) but with about five extra terms and a held-out residual four to
+eleven times larger at each noise level (seven times pooled over the noise
+levels). The wrong-graph library never recovers the true support and has
+the largest residual. The neural-rate error varies more across seeds
+(0.035 to 0.19) than across noise levels, and the graph-local recall does
+not change within this noise range. The claim the study supports is
+therefore the ordering graph-local, then global, then wrong graph, with
+the graph-local prior removing the extra terms that the global library
+admits; it does not show recovery of the exact Hill form, since two
+nuisance terms remain, and it is five seeds on one network. The next
+subsection runs the same study on the two-state reference network; the
+one after it shows the original library-check configuration, whose
+recall is 0.5, and why.
 
 ### Two-state network
 
@@ -228,11 +237,13 @@ and noise level: nine initial conditions with 50 points each, experiments
 parameters `k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6`. The
 learned rate is sampled on the regulator grid of the training experiments
 (80 points, as in the reference protocol) with S spread over its observed
-range in a fixed shuffled order, and discovery runs with the same three
-libraries. On a two-state network the graph-local library (S and its
-parent R) and the global library (S and the only other state, R) are the
-same library, so their rows coincide; the wrong graph makes S its own
-parent and its library is S alone. `benchmark/library_comparison_study.jl
+range in a fixed shuffled order, and discovery runs with the libraries of
+the original library-check configuration (the `study` variant of the next
+subsection: libraries built by `local_basis`, which include the target
+state, no bootstrap). On a two-state network the graph-local library (S
+and its parent R) and the global library (S and the only other state, R)
+are the same library, so their rows coincide; the wrong graph makes S its
+own parent and its library is S alone. `benchmark/library_comparison_study.jl
 --fixture two_state --variants all` ran the 15 trainings in 39 minutes
 (median training 128 s, four studies sharing 4 cores). Median over the
 five seeds:
@@ -258,23 +269,47 @@ more than a hundred times larger; one of its 15 discoveries failed
 
 ### Why the four-state recall is 0.5
 
-The four-state study and the reference protocol use the same discovery
-thresholds and degrees but differ in the library (the study's library is
-built by `local_basis`, which always includes the target state S, and on the
-designed sample coordinates S is fixed at 0.4, so its column is a multiple
-of the constant term), in the bootstrap (the study uses none; the reference
-protocol uses a block bootstrap of 8 with a consensus refit and nested
-pruning), and in the sample order (the reference protocol permutes the
-samples before the validation split). The denominator candidates are the
+The trained-model library check (`evaluate_trained_graph_local`, the
+`study` variant) uses its own discovery configuration: libraries built by
+`local_basis` (graph-local: S and R; global: all four states; wrong graph:
+S and Q), no bootstrap, and the samples in their generated order. On the
+same 15 trained models it gives, median over the five seeds:
+
+| library | noise | support F1 | support recall | extra terms | held-out residual |
+|---|---|---|---|---|---|
+| graph-local | 0 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.041 [0.024, 0.044] |
+| graph-local | 0.02 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.032 [0.030, 0.056] |
+| graph-local | 0.05 | 0.40 [0.40, 0.50] | 0.5 [0.5, 0.5] | 2 [1, 2] | 0.057 [0.054, 0.057] |
+| global | 0 | 0.33 [0.00, 0.33] | 0.5 [0.0, 0.5] | 3 [3, 5] | 0.127 [0.125, 0.127] |
+| global | 0.02 | 0.00 [0.00, 0.33] | 0.0 [0.0, 0.5] | 5 [3, 5] | 0.154 [0.139, 0.154] |
+| global | 0.05 | 0.00 [0.00, 0.33] | 0.0 [0.0, 0.5] | 5 [3, 5] | 0.161 [0.114, 0.208] |
+| wrong graph | 0 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.252 [0.251, 0.257] |
+| wrong graph | 0.02 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.265 [0.249, 0.335] |
+| wrong graph | 0.05 | 0.00 [0.00, 0.00] | 0.0 [0.0, 0.0] | 2 [2, 2] | 0.266 [0.247, 0.342] |
+
+Three of these 45 rows (graph-local at seeds 103 and 111 and global at
+seed 103, all at noise 0.05) have no finite residual because the hybrid
+model with the discovered rate diverged. No library recovers the full
+true support here: every graph-local candidate is a polynomial in R (`R^2`
+in the numerator with `R` in all 15 runs and `1` in 7 of them, for example
+`2.05 R - 0.62 R^2` at seed 103 without noise) and no denominator term is
+selected. This configuration and the reference protocol use the same
+discovery thresholds and degrees but differ in the library (`local_basis`
+always includes the target state S, and on the designed sample
+coordinates S is fixed at 0.4, so its column is a multiple of the constant
+term), in the bootstrap (none here; the reference protocol uses a block
+bootstrap of 8 with a consensus refit and nested pruning), and in the
+sample order (the reference protocol permutes the samples before the
+validation split). The denominator candidates are the
 same in both: every non-constant monomial, including `R^2`. To find which
-difference matters, the study reran discovery on the same learned-rate
-samples of the same 15 trained models in four variants: `study` (as
-above), `bootstrap` (the study's libraries with the reference bootstrap),
-`parents` (libraries over the parent states only, no bootstrap), and
-`reference` (parent-only libraries with the reference bootstrap, seed, and
-permutation; for the graph-local library this is exactly
-`discover_unknown_rate` with `rate_discovery_config()`). Pooled over the 15
-runs of each library:
+difference matters, the study ran discovery on the same learned-rate
+samples of the same 15 trained models in four variants: `study` (the
+table above), `bootstrap` (the study's libraries with the reference
+bootstrap), `parents` (libraries over the parent states only, no
+bootstrap), and `reference` (parent-only libraries with the reference
+bootstrap, seed, and permutation; for the graph-local library this is
+exactly `discover_unknown_rate` with `rate_discovery_config()`; this is the
+headline table of this section). Pooled over the 15 runs of each library:
 
 | variant | library | runs with recall 1.0 | support F1 | extra terms | held-out residual | extra-term labels (runs) |
 |---|---|---|---|---|---|---|
@@ -292,10 +327,11 @@ runs of each library:
 | reference | wrong graph | 0 of 15 | 0.00 | 3 [3, 3] | 0.255 [0.252, 0.258] | 1 14, Q^2 14, Q 13 |
 
 Two discoveries failed (reference variant, global and wrong-graph
-libraries, seed 111, noise 0.05); they count as recall 0. The runs took
-33 minutes (`benchmark/library_comparison_study.jl --variants all`, median
-training 119 s, four studies sharing 4 cores) and their `study` rows are
-identical to the table above, row for row.
+libraries, seed 111, noise 0.05); they count as recall 0. The `study` rows
+of this run are identical, row for row, to an earlier run of
+`benchmark/library_comparison_study.jl` with the `study` variant alone
+(28 minutes on 4 cores, median training 107 s), so retraining is
+reproducible on this machine.
 
 What the numbers show. The bootstrap removes the extra constant term but
 leaves recall at 0.5 in every run. Leaving the target state S out of the
@@ -312,10 +348,10 @@ four-state run with S varying on the designed coordinates was not part of
 this study. The ordering graph-local, then global, then wrong graph holds
 in all four variants: with parent-only libraries the global library also
 recovers the true support but keeps five extra terms and has a residual
-five to eight times larger than the graph-local library's. The `study`
-variant remains the default of the study and of
-`evaluate_trained_graph_local`; the other variants are available through
-the `variants` keyword.
+five to eight times larger than the graph-local library's (pooled over
+the noise levels). The `study` variant remains the default of the study
+and of `evaluate_trained_graph_local`; the other variants are available
+through the `variants` keyword.
 
 ### Stability selection on the library comparison study
 

@@ -106,7 +106,7 @@ AugmentedLagrangianConfig
 ```@docs
 discover_unknown_term
 UnknownTermResult
-report
+report_unknown_term
 ```
 
 ## Symbolic discovery

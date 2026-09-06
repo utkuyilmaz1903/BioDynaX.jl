@@ -19,7 +19,7 @@ Nothing yet.
   regulator grid of the training experiments, discovers a rational rate,
   computes the identifiability diagnostic and the residuals on the first,
   the training, and the held-out experiments (`holdout = 2` by default), and
-  returns an `UnknownTermResult`; `report(result)` gives the four-section
+  returns an `UnknownTermResult`; `report_unknown_term(result)` gives the four-section
   report and `show` prints it. It calls the same functions as the reference
   example, in the same order, with the same defaults, and a test checks
   that its result matches the chained calls field by field.

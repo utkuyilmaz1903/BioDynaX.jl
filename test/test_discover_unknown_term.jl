@@ -96,7 +96,7 @@ end
     @testset "report and show" begin
         result = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
             holdout = 1, rng = MersenneTwister(7), verbose = false, seed = 103)
-        text = report(result)
+        text = report_unknown_term(result)
         for section in ("IDENTIFIABILITY", "FIT", "DISCOVERY", "REPRODUCTION")
             @test occursin("\n" * section * "\n", "\n" * text)
         end

@@ -2284,7 +2284,7 @@ const _M2G1_LOCKED_PUBLIC_EXPORTS = (
     :parameter_schema,
     :positive_parameter,
     :predict_ude,
-    :report,
+    :report_unknown_term,
     :sample_unknown_destruction,
     :stability_selection_report,
     :state_nodes,
