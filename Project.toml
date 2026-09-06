@@ -76,7 +76,7 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [extensions]
 BioDynaXCUDAExt = "CUDA"
-BioDynaXCatalystExt = ["Catalyst", "ModelingToolkit", "Symbolics"]
+BioDynaXCatalystExt = ["Catalyst", "Symbolics"]
 BioDynaXDataDrivenSparseExt = "DataDrivenSparse"
 BioDynaXLatexifyExt = ["Latexify", "Symbolics"]
 BioDynaXModelingToolkitExt = "ModelingToolkit"

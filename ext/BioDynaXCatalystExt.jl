@@ -2,10 +2,13 @@ module BioDynaXCatalystExt
 
 using BioDynaX
 using Catalyst
-using ModelingToolkit
 using Symbolics
 
-const _MTK = ModelingToolkit
+# Catalyst 16 builds on ModelingToolkitBase and no longer loads ModelingToolkit,
+# so `using BioDynaX, Catalyst` must be enough to load this extension: the
+# symbolic helpers come from whichever of the two Catalyst itself uses.
+const _MTK = isdefined(Catalyst, :ModelingToolkitBase) ? Catalyst.ModelingToolkitBase :
+             Catalyst.ModelingToolkit
 
 """
     network_from_reactionsystem(rs::ReactionSystem; unknown) -> BiologicalNetwork

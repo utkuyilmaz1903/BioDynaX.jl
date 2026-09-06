@@ -140,6 +140,17 @@ stability_selection_report
 format_stability_selection
 ```
 
+## Catalyst input and symbolic output
+
+Exported wrappers whose implementations live in the extensions
+`BioDynaXCatalystExt` (`using Catalyst`) and `BioDynaXSymbolicsExt`
+(`using Symbolics`); see the [Extensions](extensions.md) page.
+
+```@docs
+network_from_reactionsystem
+symbolic
+```
+
 ## Benchmark thresholds
 
 ```@docs
