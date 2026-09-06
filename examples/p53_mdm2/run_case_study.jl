@@ -121,12 +121,13 @@ function cell_rows(result, set)
         pred = simulate(ude, e.u0, e.times)
         hyb = hybrid === nothing ? fill(NaN, size(pred)) : simulate(hybrid, e.u0, e.times)
         data = vec(e.observations[1, :])
-        push!(rows, (; index = i, name = e.name, held_out = i in result.holdout_indices,
-            peaks = e.metadata[:peaks],
-            ude_rmse = sqrt(mean(abs2, vec(pred[1, :]) .- data)),
-            hybrid_rmse = sqrt(mean(abs2, vec(hyb[1, :]) .- data)),
-            times = e.times, data, model_p = vec(pred[1, :]), model_m = vec(pred[2, :]),
-            hybrid_p = vec(hyb[1, :]), hybrid_m = vec(hyb[2, :])))
+        push!(rows,
+            (; index = i, name = e.name, held_out = i in result.holdout_indices,
+                peaks = e.metadata[:peaks],
+                ude_rmse = sqrt(mean(abs2, vec(pred[1, :]) .- data)),
+                hybrid_rmse = sqrt(mean(abs2, vec(hyb[1, :]) .- data)),
+                times = e.times, data, model_p = vec(pred[1, :]), model_m = vec(pred[2, :]),
+                hybrid_p = vec(hyb[1, :]), hybrid_m = vec(hyb[2, :])))
     end
     return rows
 end
@@ -180,7 +181,8 @@ function main()
         println(io, "mdm2_model_units,learned_rate_per_h,discovered_rate_per_h,",
             "discovered_stable_rate_per_h")
         for (r, d) in zip(R, D)
-            println(io, r, ",", d, ",", fn_default === nothing ? NaN : fn_default([r]), ",",
+            println(
+                io, r, ",", d, ",", fn_default === nothing ? NaN : fn_default([r]), ",",
                 fn_stable === nothing ? NaN : fn_stable([r]))
         end
     end
@@ -190,7 +192,8 @@ function main()
         println(io, "cell,held_out,peaks,time_h,p53_normalised,model_p53,model_mdm2,",
             "hybrid_p53,hybrid_mdm2")
         for row in rows, j in eachindex(row.times)
-            println(io, row.name, ",", row.held_out, ",", row.peaks, ",", row.times[j], ",",
+            println(
+                io, row.name, ",", row.held_out, ",", row.peaks, ",", row.times[j], ",",
                 row.data[j], ",", row.model_p[j], ",", row.model_m[j], ",",
                 row.hybrid_p[j], ",", row.hybrid_m[j])
         end
@@ -211,13 +214,16 @@ function main()
             println(io, "\n[", label, "]")
             println(io, "discovery success: ", result.discovery.success, " (",
                 result.discovery.retcode, "): ", result.discovery.message)
-            println(io, "equation (P and M in fractions of the cell's maximum p53; rates per hour): ",
+            println(io,
+                "equation (P and M in fractions of the cell's maximum p53; rates per hour): ",
                 result.discovery.equations)
             println(io, "training final loss: ", result.training.final_loss)
             names = parameter_schema(result.model).phys_names
             println(io, "physical parameters after training: ",
-                join((string(n, " = ", round(BioDynaX.positive_parameter(v); sigdigits = 4))
-                for (n, v) in zip(names, collect(result.params.phys))), ", "))
+                join(
+                    (string(n, " = ", round(BioDynaX.positive_parameter(v); sigdigits = 4))
+                    for (n, v) in zip(names, collect(result.params.phys))),
+                    ", "))
             println(io, "hybrid residual, first training cell: ",
                 result.residuals.data_residual)
             println(io, "hybrid residual, mean over training cells: ",
@@ -254,8 +260,10 @@ function main()
         hheld = [r.hybrid_rmse for r in rows if r.held_out]
         println(io, "hybrid RMSE mean: training ", mean(htrain), ", held out ", mean(hheld))
         println(io, "learned rate on the grid (M, D per hour): ",
-            join((string(round(r; digits = 3), " ", round(d; digits = 4))
-            for (r, d) in zip(R[1:10:end], D[1:10:end])), "; "))
+            join(
+                (string(round(r; digits = 3), " ", round(d; digits = 4))
+                for (r, d) in zip(R[1:10:end], D[1:10:end])),
+                "; "))
     end
     println("\nwrote ", RESULTS_DIR)
     print(read(joinpath(RESULTS_DIR, "summary.txt"), String))

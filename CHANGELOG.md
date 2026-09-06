@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- A second case study on measured data, the p53–Mdm2 loop in single MCF7
+  cells after 4 Gy of ionizing radiation (`examples/p53_mdm2/`:
+  `download_data.jl` with SHA-256 checks, `preprocess.jl`,
+  `run_case_study.jl`, `plot_case_study.jl`; the "Case study: p53–Mdm2"
+  page). The traces (Stewart-Ornstein and Lahav 2017, from the CC BY 4.0
+  CODEX deposit on Mendeley Data) carry p53 only, so Mdm2 is an unobserved
+  state and the case study is partially observed; the page records every
+  data source tried, in order. The data are downloaded by the script and
+  do not ship with the package; nothing runs in the tests or CI.
+- `discover_unknown_term(...; regulator_grid = ...)`: a vector of regulator
+  values, or a function of the trained model called after training, on
+  which the learned rate is sampled; `nothing` (the default) keeps the grid
+  of the observed regulator. This is how a regulator that is never observed
+  is handled.
+- Two model variants for the laccase/ABTS case study
+  (`examples/laccase_abts/run_model_variants.jl`): product inhibition
+  through the curve's initial substrate as a second state, and an
+  unobserved enzyme-activity state with first-order inactivation; their
+  outcome is on the laccase page.
+
+### Fixed
+
+- The residuals and the identifiability diagnostic of `discover_unknown_term`
+  use each experiment's observation mask, so unobserved entries (`NaN`) no
+  longer make them `NaN`; `production_destruction_tradeoff` gains a `mask`
+  keyword (all entries observed by default). Fully observed experiments
+  give the same numbers as before.
 
 ## [0.12.0] - 2026-09-06
 

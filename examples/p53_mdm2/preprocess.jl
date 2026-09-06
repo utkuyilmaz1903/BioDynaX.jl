@@ -133,18 +133,20 @@ function p53_experiment_set(dir::AbstractString; holdout_every = P53_HOLDOUT_EVE
         trace = data.values[i, :]
         p = trace ./ maximum(trace)
         observations = vcat(reshape(p, 1, :), fill(NaN, 1, length(p)))
-        push!(experiments, Experiment(Symbol(data.ids[i]), hours, observations,
-            [p[1], p[1]];
-            metadata = Dict{Symbol, Any}(:cell => data.ids[i],
-                :class => data.class_names[i], :maximum_yfp => maximum(trace),
-                :peaks => count_peaks(trace, data.times), :held_out => i in held)))
+        push!(experiments,
+            Experiment(Symbol(data.ids[i]), hours, observations,
+                [p[1], p[1]];
+                metadata = Dict{Symbol, Any}(:cell => data.ids[i],
+                    :class => data.class_names[i], :maximum_yfp => maximum(trace),
+                    :peaks => count_peaks(trace, data.times), :held_out => i in held)))
     end
     set = ExperimentSet(experiments, [:P, :M]; units = [:fraction_of_maximum, :unobserved],
         metadata = Dict{Symbol, Any}(:time_unit => "h",
             :source => "Mendeley Data 10.17632/4vnndy59fp.2, p53_DoseCellLine"))
     candidates = count(==(string(P53_CELL_LINE, "_", P53_DOSE_GY)), data.class_names)
-    passing = count(i -> data.class_names[i] == string(P53_CELL_LINE, "_", P53_DOSE_GY) &&
-                         count_peaks(view(data.values, i, :), data.times) >= P53_MIN_PEAKS,
+    passing = count(
+        i -> data.class_names[i] == string(P53_CELL_LINE, "_", P53_DOSE_GY) &&
+            count_peaks(view(data.values, i, :), data.times) >= P53_MIN_PEAKS,
         eachindex(data.ids))
     info = (; n_cells_in_class = candidates, n_passing = passing,
         n_selected = length(selected), n_train = length(train), holdout = length(held),
@@ -161,7 +163,8 @@ function write_p53_selected(path::AbstractString, set::ExperimentSet)
         for e in set.experiments, (j, t) in enumerate(e.times)
             p = e.observations[1, j]
             println(io, e.metadata[:cell], ",", e.metadata[:class], ",",
-                e.metadata[:held_out], ",", e.metadata[:peaks], ",", round(t * 60; digits = 3),
+                e.metadata[:held_out], ",", e.metadata[:peaks], ",", round(
+                    t * 60; digits = 3),
                 ",", p * e.metadata[:maximum_yfp], ",", p)
         end
     end

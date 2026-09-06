@@ -172,13 +172,14 @@ Synthetic data for several initial conditions come from
   The combined support F1 threshold in the benchmarks is 0.50; the package does
   not turn the neural term into a canonical Hill expression with named
   parameters.
-- **Validation on synthetic data; one measured dataset.** The benchmarks and
+- **Validation on synthetic data; two measured datasets.** The benchmarks and
   the tests use data generated from the compiled ground-truth mechanism, and
-  the CSV in `examples/data/` is synthetic. One case study on measured data
-  exists, the laccase/ABTS progress curves of `examples/laccase_abts/`
-  (documented on the "Case study: measured data" page); the data are
-  downloaded by a script with a checksum and do not ship with the package,
-  and the run is not part of the tests or CI.
+  the CSV in `examples/data/` is synthetic. Two case studies on measured data
+  exist: the laccase/ABTS progress curves of `examples/laccase_abts/` (one
+  observed state) and the single-cell p53 traces of `examples/p53_mdm2/`
+  (p53 observed, Mdm2 an unobserved state), each documented on its own page;
+  the data are downloaded by scripts with checksums and do not ship with the
+  package, and the runs are not part of the tests or CI.
 - **Held-out validation is reported, not enforced.** The reference protocol
   trains on seven of nine initial conditions and reports the residual and the
   destruction-rate error on the other two. Those numbers are evidence; they are
