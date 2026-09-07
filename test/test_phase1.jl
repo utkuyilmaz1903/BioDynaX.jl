@@ -18,6 +18,13 @@
     @test uncertainty.method == :fisher
     @test length(uncertainty.estimates) == 3
     @test all(uncertainty.lower .<= uncertainty.estimates)
+    hidden_mask = trues(size(clean))
+    hidden_mask[2, :] .= false
+    hidden = assess_identifiability(
+        model, params, clean, times, u0, tspan; mask = hidden_mask)
+    @test size(hidden.fisher_information) == (3, 3)
+    @test hidden.fisher_information != report.fisher_information
+    @test hidden.condition_number != report.condition_number
 end
 
 @testset "training retcode and gradient diagnostics" begin

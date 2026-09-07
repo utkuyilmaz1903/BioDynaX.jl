@@ -247,3 +247,28 @@ end
     @test fit.params.phys.k_ba ≈ raw
     @test fit.params.phys.k_a != init.phys.k_a || isfinite(fit.final_loss)
 end
+
+@testset "train_ude applies observation mask" begin
+    rng = MersenneTwister(11)
+    net = build_linear_test_network()
+    model, p0 = build_ude_model(rng, net)
+    truth = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), p0.nn)
+    u0 = [0.35, 0.25]
+    tspan = (0.0, 4.0)
+    times, data, _, _ = generate_data(
+        rng; network = net, u0 = u0, tspan = tspan, n_points = 20,
+        noise_σ = 0.0, truth_params = truth)
+    init = pack_parameters((k_ba = 1.1, k_a = 0.9, k_b = 0.7), p0.nn)
+    config = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0,
+        log_every = 10^6)
+    hidden = copy(data)
+    hidden[2, :] .= NaN
+    mask = trues(size(data))
+    mask[2, :] .= false
+    fit = train_ude(
+        init, hidden, times, u0, tspan, model;
+        config = config, verbose = false, mask = mask)
+    @test isfinite(fit.final_loss)
+    @test isfinite(fit.initial_loss)
+    @test fit.retcode !== BioDynaX.GradientFailure
+end

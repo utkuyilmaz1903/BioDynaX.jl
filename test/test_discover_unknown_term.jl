@@ -159,10 +159,24 @@ end
         end
         masked_set = ExperimentSet(masked_experiments, set.state_names)
         @test all(!any(e.mask[2, :]) && all(e.mask[1, :]) for e in masked_set.experiments)
+        # One NaN on the observed regulator used to make extrema NaN and the
+        # default grid all NaN. Masked values must be ignored.
+        hole = copy(first(set.experiments).observations)
+        hole[2, 1] = NaN
+        hole_exp = Experiment(first(set.experiments).name,
+            first(set.experiments).times, hole, first(set.experiments).u0)
+        hole_set = ExperimentSet([hole_exp], set.state_names)
+        hole_model, _ = build_ude_model(MersenneTwister(7), ude_net)
+        hole_term = only(BioDynaX.neural_destruction_terms(hole_model))
+        hole_grid = collect(BioDynaX._regulator_grid(hole_set, hole_term))
+        @test all(isfinite, hole_grid)
+        @test_throws ArgumentError BioDynaX._regulator_grid(masked_set, hole_term)
         masked = discover_unknown_term(ude_net, masked_set; training = _DUT_CONFIG,
             holdout = 1, rng = MersenneTwister(7), verbose = false,
             regulator_grid = range(0.2, 1.4; length = 24))
         @test isfinite(masked.training.final_loss)
+        @test isfinite(masked.training.initial_loss)
+        @test masked.training.retcode !== BioDynaX.GradientFailure
         if masked.discovery.success
             @test isfinite(masked.residuals.data_residual)
             @test isfinite(masked.residuals.data_residual_train)

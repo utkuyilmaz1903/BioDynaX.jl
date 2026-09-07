@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- Warm-up of `discover_unknown_term` (and `warmup_first_experiment`) now
+  passes the experiment observation mask into `train_ude`. A `NaN` row for
+  an unobserved state no longer makes the warm-up loss `NaN` and hand a
+  corrupted start to the joint fit; `train_ude` accepts `mask` and applies
+  it on every horizon slice.
+- `fisher_information_matrix` and the production/destruction collinearity
+  cosine drop unobserved Jacobian rows, so the identifiability diagnostic
+  of a partially observed experiment is no longer computed as if the
+  hidden state had been measured.
+- `_regulator_grid` uses only finite, unmasked regulator observations. A
+  single missing sample no longer turns the discovery grid into `NaN`.
 
 ## [0.13.0] - 2026-09-06
 

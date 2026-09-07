@@ -68,7 +68,9 @@ function fisher_information_matrix(model::UDEModel, p, data, t_data, u0, tspan;
     σ² = residual_variance === nothing ?
          max(eps(), sum(abs2, residual) / max(1, count(mask))) :
          float(residual_variance)
-    information = (jacobian' * jacobian) ./ σ²
+    observed = vec(mask)
+    J = jacobian[observed, :]
+    information = (J' * J) ./ σ²
     return information, names, σ²
 end
 
@@ -216,8 +218,11 @@ function production_destruction_tradeoff(
             j_p = jacobian[:, prod_idx]
         end
         if j_d !== nothing && j_p !== nothing
-            denom = norm(j_p) * norm(j_d)
-            collinearity = denom == 0 ? 0.0 : abs(dot(j_p, j_d)) / denom
+            observed = vec(mask)
+            jp = j_p[observed]
+            jd = j_d[observed]
+            denom = norm(jp) * norm(jd)
+            collinearity = denom == 0 ? 0.0 : abs(dot(jp, jd)) / denom
         end
     end
     unidentifiable_edge = unidentifiable_edge_from_fisher(;
