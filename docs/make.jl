@@ -18,8 +18,13 @@ end
 makedocs(
     modules = [HybridKinetics],
     sitename = "HybridKinetics.jl",
+    authors = "Utku Yılmaz",
+    # Pinned rather than taken from the git remote, so the repository links do
+    # not depend on what the local checkout's `origin` happens to be.
+    repo = Documenter.Remotes.GitHub("utkuyilmaz1903", "HybridKinetics.jl"),
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
+        canonical = "https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/",
         edit_link = "main"),
     pages = [
         "Home" => "index.md",
