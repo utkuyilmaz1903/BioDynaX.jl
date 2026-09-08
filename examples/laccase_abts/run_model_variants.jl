@@ -170,7 +170,8 @@ end
 function run_variant(variant, set, info, training, io)
     network = variant === :product ? product_inhibition_network() :
               enzyme_inactivation_network()
-    HybridKinetics.count_unknown_destructions(network) == 1 || error("expected one unknown term")
+    HybridKinetics.count_unknown_destructions(network) == 1 ||
+        error("expected one unknown term")
     vset = two_state_set(set, variant)
     started = time()
     fit = train_variant(network, vset, info.holdout, training)

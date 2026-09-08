@@ -35,7 +35,8 @@ end
     @testset "conversion matches the tutorial fixture" begin
         by_index = network_from_reactionsystem(_CAT_TUTORIAL; unknown = 2)
         by_name = network_from_reactionsystem(_CAT_TUTORIAL; unknown = "unknown")
-        fixture = HybridKinetics.build_hill_recovery_network(; known = false, hill_order = 2)
+        fixture = HybridKinetics.build_hill_recovery_network(;
+            known = false, hill_order = 2)
         for net in (by_index, by_name)
             @test [node.name for node in net.nodes] == [:S, :R]
             @test length(net.reactions) == 4
@@ -89,8 +90,10 @@ end
 
     @testset "discovery output is identical to the fixture" begin
         converted = network_from_reactionsystem(_CAT_TUTORIAL; unknown = "unknown")
-        fixture = HybridKinetics.build_hill_recovery_network(; known = false, hill_order = 2)
-        truth_net = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
+        fixture = HybridKinetics.build_hill_recovery_network(;
+            known = false, hill_order = 2)
+        truth_net = HybridKinetics.build_hill_recovery_network(;
+            known = true, hill_order = 2)
         set = HybridKinetics.reference_protocol_experiment_set(
             MersenneTwister(103), truth_net; smoke = true, truth_params = _CAT_TRUTH,
             initial_conditions = _CAT_ICS)

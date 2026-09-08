@@ -137,7 +137,8 @@ function main()
     dir = download_p53_data()
     set, info = SMOKE ? p53_experiment_set(dir; max_cells = 6) : p53_experiment_set(dir)
     net = p53_mdm2_network()
-    HybridKinetics.count_unknown_destructions(net) == 1 || error("expected one unknown term")
+    HybridKinetics.count_unknown_destructions(net) == 1 ||
+        error("expected one unknown term")
     training = TrainingConfig(
         adam_iterations = SMOKE ? 2 : HybridKinetics.REFERENCE_PROTOCOL.adam_iterations,
         bfgs_iterations = SMOKE ? 0 : HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations,
@@ -221,7 +222,8 @@ function main()
             names = parameter_schema(result.model).phys_names
             println(io, "physical parameters after training: ",
                 join(
-                    (string(n, " = ", round(HybridKinetics.positive_parameter(v); sigdigits = 4))
+                    (string(n, " = ",
+                         round(HybridKinetics.positive_parameter(v); sigdigits = 4))
                     for (n, v) in zip(names, collect(result.params.phys))),
                     ", "))
             println(io, "hybrid residual, first training cell: ",

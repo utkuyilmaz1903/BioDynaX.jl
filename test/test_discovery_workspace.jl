@@ -148,7 +148,8 @@ end
     report = HybridKinetics.library_chunk_agreement(spec.numerator, X; chunk_size = 17)
     @test report.holds
     @test report.matches_full
-    ws = HybridKinetics.allocate_library_chunk_workspace(Float64, 17, length(spec.numerator))
+    ws = HybridKinetics.allocate_library_chunk_workspace(
+        Float64, 17, length(spec.numerator))
     ptr = pointer(ws.buffer)
     nchunks = 0
     for (chunk, sample_range) in HybridKinetics.each_reusable_library_chunk(

@@ -11,10 +11,10 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using HybridKinetics
 using HybridKinetics:
-                run_recovery_suite, discover_equations, DiscoveryConfig,
-                DataDrivenSparseSTLSQ, build_rate_ablation_network, hill_rate_truth,
-                hill_rate_support, support_f1, denominator_violation_count,
-                rate_rel_rmse, equation_to_function, support_uses_variable
+                      run_recovery_suite, discover_equations, DiscoveryConfig,
+                      DataDrivenSparseSTLSQ, build_rate_ablation_network, hill_rate_truth,
+                      hill_rate_support, support_f1, denominator_violation_count,
+                      rate_rel_rmse, equation_to_function, support_uses_variable
 using Printf
 using Random
 

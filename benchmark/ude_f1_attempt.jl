@@ -13,9 +13,10 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using HybridKinetics
 using HybridKinetics:
-                hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
-                discover_unknown_rate, normalize_destruction_samples, RECOVERY_THRESHOLDS,
-                REFERENCE_PROTOCOL, REFERENCE_PROTOCOL_F1_ATTEMPT
+                      hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
+                      discover_unknown_rate, normalize_destruction_samples,
+                      RECOVERY_THRESHOLDS,
+                      REFERENCE_PROTOCOL, REFERENCE_PROTOCOL_F1_ATTEMPT
 using Printf
 
 function discover_f1(D, r; seed = 103)

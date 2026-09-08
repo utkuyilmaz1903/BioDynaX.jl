@@ -13,8 +13,8 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 
 using HybridKinetics
 using HybridKinetics:
-                run_recovery_suite, hill_rate_truth, hill_rate_support, support_f1,
-                rate_discovery_config, discover_unknown_rate, RECOVERY_THRESHOLDS
+                      run_recovery_suite, hill_rate_truth, hill_rate_support, support_f1,
+                      rate_discovery_config, discover_unknown_rate, RECOVERY_THRESHOLDS
 using Printf
 using Random
 using Statistics
@@ -103,7 +103,8 @@ function main(args = ARGS)
         (:f1, :recall))
     if "--ude" in args
         ude_rows = [ude_hill(seed) for seed in SEEDS]
-        _summarize("UDE Hill ($(HybridKinetics.REFERENCE_PROTOCOL.n_ics) ICs; not a CI job)",
+        _summarize(
+            "UDE Hill ($(HybridKinetics.REFERENCE_PROTOCOL.n_ics) ICs; not a CI job)",
             ude_rows,
             (:nn_rate_rmse, :support_recall, :support_f1,
                 :data_residual))

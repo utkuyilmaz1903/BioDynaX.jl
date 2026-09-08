@@ -2,7 +2,7 @@ module HybridKineticsSymbolicsExt
 
 using HybridKinetics
 using HybridKinetics: ImplicitCandidate, ExplicitCandidate, MonomialTerm, DiscoveryResult,
-                UnknownTermResult
+                      UnknownTermResult
 using Symbolics
 
 """

@@ -147,7 +147,8 @@ end
     recovery_src = read(joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl"), String)
     @test occursin("admit_recovery_suite_network", recovery_src)
     @test occursin("only_unknown_destruction", recovery_src)
-    suite_src = read(joinpath(pkgdir(HybridKinetics), "benchmark", "recovery_suite.jl"), String)
+    suite_src = read(
+        joinpath(pkgdir(HybridKinetics), "benchmark", "recovery_suite.jl"), String)
     @test occursin("format_recovery_protocol", suite_src)
     @test occursin("REFERENCE_PROTOCOL.seed", suite_src)
     @test occursin("extras_print_label", suite_src)

@@ -34,7 +34,8 @@ function _dut_chain(ude_net, set; rng_seed = 7)
         verbose = false)
     term = only(HybridKinetics.neural_destruction_terms(model))
     r_range = HybridKinetics._regulator_grid(set, term)
-    R, D, term = HybridKinetics.sample_unknown_destruction_grid(model, trained.params, term;
+    R, D, term = HybridKinetics.sample_unknown_destruction_grid(
+        model, trained.params, term;
         r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
     discovery = discover_unknown_rate(R, times_grid, D;

@@ -87,12 +87,14 @@ const LIBRARIES = PRUNING ? (:graph_local,) : HybridKinetics.LIBRARY_STUDY_LIBRA
 const SELECTION = PRUNING ? StabilitySelection() : nothing
 const SEEDS = TIMED ? (first(HybridKinetics.LIBRARY_STUDY_SEEDS),) :
               Tuple(parse.(
-    Int, split(_option(ARGS_, "--seeds",
+    Int, split(
+        _option(ARGS_, "--seeds",
             join(HybridKinetics.LIBRARY_STUDY_SEEDS, ",")), ",")))
 const NOISE = TIMED ? (first(HybridKinetics.LIBRARY_STUDY_NOISE_LEVELS),) :
               Tuple(parse.(Float64,
     split(_option(ARGS_, "--noise",
-            join(HybridKinetics.LIBRARY_STUDY_NOISE_LEVELS, ",")), ",")))
+            join(HybridKinetics.LIBRARY_STUDY_NOISE_LEVELS, ",")),
+        ",")))
 
 """Versions of the packages that determine the numerical results."""
 function dependency_versions(names = ("OrdinaryDiffEq", "SciMLSensitivity", "Lux",

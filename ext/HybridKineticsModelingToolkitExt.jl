@@ -3,10 +3,11 @@ module HybridKineticsModelingToolkitExt
 using HybridKinetics
 using ModelingToolkit
 using HybridKinetics: UDEModel, InputProductionTerm, MassActionProductionTerm,
-                LinearDestructionTerm, HillDestructionTerm,
-                SaturationDestructionTerm, SaturationProductionTerm,
-                CompetitiveDestructionTerm, NeuralDestructionTerm,
-                ImplicitCandidate, ExplicitCandidate, DiscoveryResult, UnknownTermResult
+                      LinearDestructionTerm, HillDestructionTerm,
+                      SaturationDestructionTerm, SaturationProductionTerm,
+                      CompetitiveDestructionTerm, NeuralDestructionTerm,
+                      ImplicitCandidate, ExplicitCandidate, DiscoveryResult,
+                      UnknownTermResult
 
 """
     export_mtk_system(model::UDEModel; name=:HybridKineticsNetwork, discovered=nothing)
@@ -25,7 +26,8 @@ function export_mtk_system(model::UDEModel; name::Symbol = :HybridKineticsNetwor
     n = cm.nstates
     t = ModelingToolkit.t_nounits
     D = ModelingToolkit.D_nounits
-    state_syms = [model.network.nodes[i].name for i in HybridKinetics.state_nodes(model.network)]
+    state_syms = [model.network.nodes[i].name
+                  for i in HybridKinetics.state_nodes(model.network)]
     length(state_syms) == n || (state_syms = [Symbol("x$i") for i in 1:n])
     sts = [first(@variables($sym(t))) for sym in state_syms]
     state_map = Dict(i => sts[i] for i in 1:n)

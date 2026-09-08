@@ -16,13 +16,13 @@ end
 
 using HybridKinetics
 using HybridKinetics:
-                FUNCTIONAL_ID_RESTART_SEEDS,
-                REFERENCE_PROTOCOL,
-                assess_functional_identifiability,
-                build_hill_recovery_network,
-                format_functional_identifiability_diagnostic,
-                generate_recovery_experiments,
-                reference_protocol_experiment_split
+                      FUNCTIONAL_ID_RESTART_SEEDS,
+                      REFERENCE_PROTOCOL,
+                      assess_functional_identifiability,
+                      build_hill_recovery_network,
+                      format_functional_identifiability_diagnostic,
+                      generate_recovery_experiments,
+                      reference_protocol_experiment_split
 using Random
 
 truth_net = build_hill_recovery_network(; known = true, hill_order = 2)

@@ -161,7 +161,8 @@ const REFERENCE_PROTOCOL_EXAMPLE_MUST_NOT_CONTAIN = (
 locked_public_names() = (:HybridKinetics, LOCKED_PUBLIC_EXPORTS...)
 
 """True when the public export list is exactly the freeze-plus-reference-example set."""
-public_export_list_holds() = issetequal(names(HybridKinetics), collect(locked_public_names()))
+public_export_list_holds() = issetequal(
+    names(HybridKinetics), collect(locked_public_names()))
 
 """Numeric copy of `RECOVERY_THRESHOLDS` used to detect a silent loosen."""
 recovery_thresholds_lock() = (

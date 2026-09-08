@@ -1,7 +1,8 @@
 module HybridKineticsLatexifyExt
 
 using HybridKinetics
-using HybridKinetics: ImplicitCandidate, ExplicitCandidate, DiscoveryResult, UnknownTermResult
+using HybridKinetics: ImplicitCandidate, ExplicitCandidate, DiscoveryResult,
+                      UnknownTermResult
 using Latexify
 using Symbolics
 

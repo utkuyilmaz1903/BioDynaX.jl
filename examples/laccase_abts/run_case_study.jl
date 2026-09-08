@@ -119,7 +119,8 @@ function main()
     dir = download_abts_data()
     set, info = abts_experiment_set(dir)
     net = laccase_abts_network()
-    HybridKinetics.count_unknown_destructions(net) == 1 || error("expected one unknown term")
+    HybridKinetics.count_unknown_destructions(net) == 1 ||
+        error("expected one unknown term")
     training = TrainingConfig(
         adam_iterations = SMOKE ? 2 : HybridKinetics.REFERENCE_PROTOCOL.adam_iterations,
         bfgs_iterations = SMOKE ? 0 : HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations,
