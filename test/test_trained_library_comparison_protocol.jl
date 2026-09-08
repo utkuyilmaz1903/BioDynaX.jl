@@ -4,7 +4,7 @@
 
 using Test
 using Random
-using BioDynaX
+using HybridKinetics
 if !@isdefined(evaluate_trained_graph_local)
     include(joinpath(@__DIR__, "internals.jl"))
 end

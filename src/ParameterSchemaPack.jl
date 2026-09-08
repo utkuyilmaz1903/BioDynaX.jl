@@ -26,11 +26,11 @@ const PARAMETER_SCHEMA_PACK_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function parameter_schema_jl_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "ParameterSchema.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "ParameterSchema.jl")
 end
 
 function ude_jl_source_path_for_pack()
-    joinpath(pkgdir(BioDynaX), "src", "UDE.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "UDE.jl")
 end
 
 # -- Core helpers -------------------------------------------------------------

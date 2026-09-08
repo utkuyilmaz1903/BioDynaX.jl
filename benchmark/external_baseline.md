@@ -17,7 +17,7 @@ benchmark result.
 ## Reproduce
 
 ```bash
-julia --project=. benchmark/probe_datadriven.jl   # isolated resolve check, no BioDynaX
+julia --project=. benchmark/probe_datadriven.jl   # isolated resolve check, no HybridKinetics
 julia --project=. benchmark/sindy_baseline.jl     # the internal comparison
 ```
 

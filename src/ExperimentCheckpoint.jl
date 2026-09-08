@@ -27,11 +27,11 @@ const EXPERIMENT_CHECKPOINT_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function experiment_jl_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "Experiments.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Experiments.jl")
 end
 
 function experiment_checkpoint_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "ExperimentCheckpoint.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "ExperimentCheckpoint.jl")
 end
 
 function training_jl_checkpoint_source()
@@ -204,7 +204,7 @@ end
 # -- Checkpoint / resume ------------------------------------------------------
 
 function checkpoint_schema_row()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Types.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "Types.jl"), String)
     train = read(training_jl_source_path(), String)
     return (;
         version = CHECKPOINT_SCHEMA_VERSION,
@@ -773,7 +773,7 @@ function reference_protocol_ic_fingerprint_uniqueness_row()
 end
 
 function csv_experiment_fingerprint_row()
-    path = joinpath(pkgdir(BioDynaX), "examples", "data", "unknown_inhibition.csv")
+    path = joinpath(pkgdir(HybridKinetics), "examples", "data", "unknown_inhibition.csv")
     isfile(path) || return (; holds = false, reason = :missing_csv)
     exp, names = experiment_from_csv(path)
     set = ExperimentSet([exp], collect(Symbol, names))

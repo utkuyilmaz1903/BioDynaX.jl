@@ -5,7 +5,7 @@
 # measurements ("Oxidation 1" to "Oxidation 9"), each a CSV with a time column
 # (seconds) and three replicate columns of the ABTS concentration (µmol/l),
 # with the initial concentrations and the enzyme concentration declared in
-# experiment.xml. Builds a BioDynaX `ExperimentSet` in which every replicate
+# experiment.xml. Builds a HybridKinetics `ExperimentSet` in which every replicate
 # curve is one experiment.
 #
 # Preprocessing, and nothing else:
@@ -22,7 +22,7 @@
 # Run:  julia --project=. examples/laccase_abts/preprocess.jl
 # writes data/abts_tidy.csv (one row per measurement point) and prints a summary.
 
-using BioDynaX
+using HybridKinetics
 using DelimitedFiles
 using Statistics
 

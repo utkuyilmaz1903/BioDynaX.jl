@@ -14,9 +14,9 @@
     @test recovery_suite_reference_protocol_sections() ==
           (:ude_discovery, :mm_unknown, :ident_interventions, :partial_obs)
     @test_throws ArgumentError recovery_suite_section_kind(:not_a_section)
-    @test !(:admit_recovery_suite_network in names(BioDynaX))
-    @test !(:ReferenceProtocolRow in names(BioDynaX))
-    @test !(:reference_protocol_kpi_failure_symbols in names(BioDynaX))
+    @test !(:admit_recovery_suite_network in names(HybridKinetics))
+    @test !(:ReferenceProtocolRow in names(HybridKinetics))
+    @test !(:reference_protocol_kpi_failure_symbols in names(HybridKinetics))
 end
 
 @testset "admit_recovery_suite_network rejects 0/2 holes without training" begin

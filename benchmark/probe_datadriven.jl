@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
 # Checks whether DataDrivenSparse and DataDrivenDiffEq resolve in an isolated
-# temporary environment (BioDynaX is not loaded). Prints RESOLVED or
+# temporary environment (HybridKinetics is not loaded). Prints RESOLVED or
 # UNAVAILABLE with the resolver error. Runs in CI (job "external-baseline",
 # allowed to fail); a failure documents the dependency conflict and is not a
 # comparison result. Runtime: a few minutes (package resolution only).
@@ -9,7 +9,7 @@
 using Pkg
 
 println("DataDrivenSparse / DataDrivenDiffEq isolated resolve probe")
-println("This environment does not load BioDynaX.")
+println("This environment does not load HybridKinetics.")
 try
     Pkg.activate(; temp = true)
     Pkg.add(["DataDrivenSparse", "DataDrivenDiffEq"])

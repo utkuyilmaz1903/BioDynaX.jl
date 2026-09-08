@@ -821,11 +821,11 @@ function _fit_backend(A, y, backend::DataDrivenSparseSTLSQ; chunk_size::Int = 25
 end
 
 function _datadriven_sparse_fit(A, y, backend::DataDrivenSparseSTLSQ)
-    extension = Base.get_extension(@__MODULE__, :BioDynaXDataDrivenSparseExt)
+    extension = Base.get_extension(@__MODULE__, :HybridKineticsDataDrivenSparseExt)
     extension === nothing &&
         throw(ArgumentError(
             "DataDrivenSparseSTLSQ requires `using DataDrivenSparse` " *
-            "(BioDynaXDataDrivenSparseExt)"))
+            "(HybridKineticsDataDrivenSparseExt)"))
     return extension.sparse_coefficients(A, y, backend)
 end
 

@@ -28,7 +28,7 @@ const HYBRID_RESIDUAL_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function hybrid_residual_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "HybridResidual.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "HybridResidual.jl")
 end
 
 # -- Residual solvers ---------------------------------------------------------

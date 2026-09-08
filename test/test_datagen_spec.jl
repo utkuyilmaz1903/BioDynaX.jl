@@ -13,11 +13,11 @@
     @test occursin("SciMLBase.ODEProblem(model", src)
     @test occursin("build_ude_model", src)
     @test !occursin("Lux.Dense(1 => 1", src)
-    @test !(:generate_from_compiled_model in names(BioDynaX))
-    @test !(:reference_protocol_experiment_set in names(BioDynaX))
-    @test !(:build_remapped_two_regulator_network in names(BioDynaX))
-    @test !(:compile_ground_truth_model in names(BioDynaX))
-    @test !(:generate_experiment_set_from_compiled_model in names(BioDynaX))
+    @test !(:generate_from_compiled_model in names(HybridKinetics))
+    @test !(:reference_protocol_experiment_set in names(HybridKinetics))
+    @test !(:build_remapped_two_regulator_network in names(HybridKinetics))
+    @test !(:compile_ground_truth_model in names(HybridKinetics))
+    @test !(:generate_experiment_set_from_compiled_model in names(HybridKinetics))
 end
 
 @testset "GroundTruthModel integrates the stored compiled model" begin

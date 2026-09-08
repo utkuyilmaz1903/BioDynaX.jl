@@ -22,7 +22,7 @@
     hill_network = BiologicalNetwork(hill_nodes, EdgeSpec[];
         reactions = hill_reactions)
     hill_model = compile_network(hill_network, nn, st)
-    @test any(t -> t isa BioDynaX.HillDestructionTerm,
+    @test any(t -> t isa HybridKinetics.HillDestructionTerm,
         hill_model.compiled.destruction_terms)
 
     comp_nodes = [
@@ -49,7 +49,7 @@
     comp_network = BiologicalNetwork(comp_nodes, EdgeSpec[];
         reactions = comp_reactions)
     comp_model = compile_network(comp_network, nn, st)
-    @test any(t -> t isa BioDynaX.CompetitiveDestructionTerm,
+    @test any(t -> t isa HybridKinetics.CompetitiveDestructionTerm,
         comp_model.compiled.destruction_terms)
 
     hill_params = pack_parameters(

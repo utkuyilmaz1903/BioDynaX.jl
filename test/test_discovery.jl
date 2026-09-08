@@ -7,9 +7,9 @@
     spec = local_basis(
         network, 1; degree = 1, include_interactions = false,
         X, derivative, max_variables = 1)
-    numerator, denominator = BioDynaX._fit_implicit(
+    numerator, denominator = HybridKinetics._fit_implicit(
         spec, X, derivative, collect(eachindex(x)), 1e-7)
-    prediction, denominator_values = BioDynaX._evaluate_candidate(
+    prediction, denominator_values = HybridKinetics._evaluate_candidate(
         spec, numerator, denominator, X)
 
     @test mean(abs2, prediction .- derivative) < 1e-8
@@ -27,9 +27,9 @@ end
     hill_spec = local_basis(
         single, 1; degree = 4, include_interactions = false,
         X, derivative = hill)
-    numerator, denominator = BioDynaX._fit_implicit(
+    numerator, denominator = HybridKinetics._fit_implicit(
         hill_spec, X, hill, collect(eachindex(x)), 1e-7)
-    prediction, denominator_values = BioDynaX._evaluate_candidate(
+    prediction, denominator_values = HybridKinetics._evaluate_candidate(
         hill_spec, numerator, denominator, X)
     @test mean(abs2, prediction .- hill) < 1e-7
     @test minimum(abs, denominator_values) > 0
@@ -47,9 +47,9 @@ end
     spec = local_basis(
         network, 1; degree = 1, include_interactions = false,
         X = states, derivative = rate)
-    num, den = BioDynaX._fit_implicit(
+    num, den = HybridKinetics._fit_implicit(
         spec, states, rate, collect(eachindex(rate)), 1e-7)
-    fitted, denominator_values = BioDynaX._evaluate_candidate(
+    fitted, denominator_values = HybridKinetics._evaluate_candidate(
         spec, num, den, states)
     @test mean(abs2, fitted .- rate) < 1e-7
     @test minimum(abs, denominator_values) > 0

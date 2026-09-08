@@ -95,7 +95,7 @@ end
     extras = proto.extras
     @test extras !== nothing
     @test "1" in extras || "r" in extras || !isempty(extras)
-    @test occursin("collinear", BioDynaX.format_production_destruction_warning(ident))
+    @test occursin("collinear", HybridKinetics.format_production_destruction_warning(ident))
     @test isfinite(ude.normalized_support_f1)
     @test REFERENCE_PROTOCOL.n_ics == 9
     @test REFERENCE_PROTOCOL.seed == 103

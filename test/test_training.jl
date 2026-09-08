@@ -38,9 +38,9 @@ end
         ρ = strategy.initial_ρ
         feasible = [-0.1, -0.05]
         violated = [0.3, 0.1]
-        feasible_term = BioDynaX._augmented_term(
+        feasible_term = HybridKinetics._augmented_term(
             feasible, dual, ρ, strategy.smoothness)
-        violated_term = BioDynaX._augmented_term(
+        violated_term = HybridKinetics._augmented_term(
             violated, dual, ρ, strategy.smoothness)
         @test violated_term > feasible_term
         @test violated_term > zero(violated_term)
@@ -87,7 +87,7 @@ end
     initial_prediction = predict_ude(
         fixture.parameters, fixture.u0, fixture.tspan, fixture.times,
         fixture.nn, fixture.nn_state; solver_config = config.solver)
-    initial_constraints = BioDynaX._constraint_values(
+    initial_constraints = HybridKinetics._constraint_values(
         initial_prediction, strategy)
     initial_residual = maximum(initial_constraints)
 
@@ -99,7 +99,7 @@ end
     final_prediction = predict_ude(
         result.params, fixture.u0, fixture.tspan, fixture.times,
         fixture.nn, fixture.nn_state; solver_config = config.solver)
-    final_constraints = BioDynaX._constraint_values(
+    final_constraints = HybridKinetics._constraint_values(
         final_prediction, strategy)
     reported_primal = max(0.0, maximum(final_constraints))
 

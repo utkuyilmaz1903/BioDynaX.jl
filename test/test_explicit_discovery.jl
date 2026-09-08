@@ -8,7 +8,7 @@
         network, 1; degree = 1, include_interactions = false,
         X, derivative, max_variables = 1)
     library = evaluate_library(spec.numerator, X)
-    coefficients = BioDynaX._stlsq(library, derivative, 1e-7)
+    coefficients = HybridKinetics._stlsq(library, derivative, 1e-7)
     prediction = library * coefficients
     @test mean(abs2, prediction .- derivative) < 1e-8
 

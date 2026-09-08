@@ -1,4 +1,4 @@
-using BioDynaX: ExperimentSplit,
+using HybridKinetics: ExperimentSplit,
                 reference_protocol_experiment_split,
                 REFERENCE_PROTOCOL_TRAIN_INDICES,
                 REFERENCE_PROTOCOL_HOLDOUT_INDICES,
@@ -198,7 +198,7 @@ function _m2b_dummy_training_result(set)
         Float64[], Float64[], 0.0, 0.0,
         RunMetadata(seed = 0),
         (; experiment_count = length(set)),
-        true, BioDynaX.Success)
+        true, HybridKinetics.Success)
 end
 
 function _m2b_mark_holdout!(set)
@@ -517,13 +517,13 @@ end
 end
 
 @testset "L-API names stay unexported" begin
-    @test isdefined(BioDynaX, :ExperimentSplit)
-    @test isdefined(BioDynaX, :reference_protocol_experiment_split)
-    @test isdefined(BioDynaX, :REFERENCE_PROTOCOL_TRAIN_INDICES)
-    @test isdefined(BioDynaX, :REFERENCE_PROTOCOL_HOLDOUT_INDICES)
-    @test !isdefined(BioDynaX, :split_experiments)
+    @test isdefined(HybridKinetics, :ExperimentSplit)
+    @test isdefined(HybridKinetics, :reference_protocol_experiment_split)
+    @test isdefined(HybridKinetics, :REFERENCE_PROTOCOL_TRAIN_INDICES)
+    @test isdefined(HybridKinetics, :REFERENCE_PROTOCOL_HOLDOUT_INDICES)
+    @test !isdefined(HybridKinetics, :split_experiments)
     for name in _M2A_INTERNAL_NAMES
-        @test !(name in names(BioDynaX))
+        @test !(name in names(HybridKinetics))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
     @test public_export_list_holds()
@@ -671,12 +671,12 @@ end
 end
 
 @testset "evaluator exists; suite calls it once after ident" begin
-    @test isdefined(BioDynaX, :HoldoutEvidence)
-    @test isdefined(BioDynaX, :evaluate_holdout)
-    @test isdefined(BioDynaX, :_holdout_observed_regulators)
-    @test isdefined(BioDynaX, :_reference_protocol_external_regulator_band)
-    @test isdefined(BioDynaX, :_finite_rate_rel_rmse)
-    @test isdefined(BioDynaX, :_mean_hybrid_residual)
+    @test isdefined(HybridKinetics, :HoldoutEvidence)
+    @test isdefined(HybridKinetics, :evaluate_holdout)
+    @test isdefined(HybridKinetics, :_holdout_observed_regulators)
+    @test isdefined(HybridKinetics, :_reference_protocol_external_regulator_band)
+    @test isdefined(HybridKinetics, :_finite_rate_rel_rmse)
+    @test isdefined(HybridKinetics, :_mean_hybrid_residual)
     @test :split in fieldnames(MechanismRecoveryResult)
     @test :holdout in fieldnames(MechanismRecoveryResult)
     @test :data_residual_holdout ∉ fieldnames(MechanismRecoveryResult)
@@ -716,11 +716,11 @@ end
 
 @testset "L-API seams stay unexported" begin
     for name in _M2B_INTERNAL_NAMES
-        @test isdefined(BioDynaX, name)
-        @test !(name in names(BioDynaX))
+        @test isdefined(HybridKinetics, name)
+        @test !(name in names(HybridKinetics))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
-    @test !(:_train_unknown_edge in names(BioDynaX))
+    @test !(:_train_unknown_edge in names(HybridKinetics))
     @test public_export_list_holds()
 end
 
@@ -899,12 +899,12 @@ end
 
 @testset "L-API domain seam stays unexported" begin
     for name in _M2C_INTERNAL_NAMES
-        @test isdefined(BioDynaX, name)
-        @test !(name in names(BioDynaX))
+        @test isdefined(HybridKinetics, name)
+        @test !(name in names(HybridKinetics))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
-    @test !(:_regulator_grid in names(BioDynaX))
-    @test !(:_evaluate_unknown_rate_recovery in names(BioDynaX))
+    @test !(:_regulator_grid in names(HybridKinetics))
+    @test !(:_evaluate_unknown_rate_recovery in names(HybridKinetics))
     @test public_export_list_holds()
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
     @test RECOVERY_THRESHOLDS.nn_correlation == 0.90
@@ -1109,8 +1109,8 @@ end
 
 @testset "L-API names stay unexported" begin
     for name in _M2D_INTERNAL_NAMES
-        @test isdefined(BioDynaX, name)
-        @test !(name in names(BioDynaX))
+        @test isdefined(HybridKinetics, name)
+        @test !(name in names(HybridKinetics))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
     @test public_export_list_holds()
@@ -1760,17 +1760,17 @@ end
 end
 
 @testset "TEST 9 public API and thresholds stay locked" begin
-    @test !(:ExperimentSplit in names(BioDynaX))
-    @test !(:HoldoutEvidence in names(BioDynaX))
-    @test !(:evaluate_holdout in names(BioDynaX))
-    @test !(:reference_protocol_experiment_split in names(BioDynaX))
-    @test !(:REFERENCE_PROTOCOL_TRAIN_INDICES in names(BioDynaX))
-    @test !(:REFERENCE_PROTOCOL_HOLDOUT_INDICES in names(BioDynaX))
-    @test !(:_holdout_observed_regulators in names(BioDynaX))
-    @test !(:_reference_protocol_external_regulator_band in names(BioDynaX))
-    @test !(:_finite_rate_rel_rmse in names(BioDynaX))
-    @test !(:_mean_hybrid_residual in names(BioDynaX))
-    @test !(:report_recovery in names(BioDynaX))
+    @test !(:ExperimentSplit in names(HybridKinetics))
+    @test !(:HoldoutEvidence in names(HybridKinetics))
+    @test !(:evaluate_holdout in names(HybridKinetics))
+    @test !(:reference_protocol_experiment_split in names(HybridKinetics))
+    @test !(:REFERENCE_PROTOCOL_TRAIN_INDICES in names(HybridKinetics))
+    @test !(:REFERENCE_PROTOCOL_HOLDOUT_INDICES in names(HybridKinetics))
+    @test !(:_holdout_observed_regulators in names(HybridKinetics))
+    @test !(:_reference_protocol_external_regulator_band in names(HybridKinetics))
+    @test !(:_finite_rate_rel_rmse in names(HybridKinetics))
+    @test !(:_mean_hybrid_residual in names(HybridKinetics))
+    @test !(:report_recovery in names(HybridKinetics))
     @test !(:ExperimentSplit in LOCKED_PUBLIC_EXPORTS)
     @test !(:HoldoutEvidence in LOCKED_PUBLIC_EXPORTS)
     @test !(:evaluate_holdout in LOCKED_PUBLIC_EXPORTS)
@@ -1790,8 +1790,8 @@ end
         @test name ∉ fields
         @test name ∉ keys(result)
     end
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test !isdefined(BioDynaX, :DestructionSamples)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test !isdefined(HybridKinetics, :DestructionSamples)
     @test !hasfield(ExperimentSet, :train)
     @test !hasfield(ExperimentSet, :holdout)
 end
@@ -2165,8 +2165,8 @@ end
 
 @testset "L-API and composer property surface stay locked" begin
     for name in (_M2A_INTERNAL_NAMES..., _M2F_INTERNAL_NAMES...)
-        @test isdefined(BioDynaX, name)
-        @test !(name in names(BioDynaX))
+        @test isdefined(HybridKinetics, name)
+        @test !(name in names(HybridKinetics))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
     @test public_export_list_holds()
@@ -2188,7 +2188,7 @@ end
     @test :q7 ∉ fieldnames(MechanismRecoveryResult)
     @test :q7_success ∉ fieldnames(MechanismRecoveryResult)
     @test :functional_identifiability ∉ fieldnames(MechanismRecoveryResult)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
 end
 
 # =============================================================================
@@ -2991,15 +2991,15 @@ end
     @test :occupancy ∉ fieldnames(HoldoutEvidence)
     @test :uncertainty ∉ fieldnames(HoldoutEvidence)
     @test :hypothesis ∉ fieldnames(HoldoutEvidence)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test !isdefined(BioDynaX, :DestructionSamples)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test !isdefined(HybridKinetics, :DestructionSamples)
     @test !hasfield(ExperimentSet, :train)
     @test !hasfield(ExperimentSet, :holdout)
 end
 
 @testset "ATTACK 15 public API and thresholds stay locked" begin
     @test allunique(LOCKED_PUBLIC_EXPORTS)
-    @test issetequal(names(BioDynaX), (:BioDynaX, LOCKED_PUBLIC_EXPORTS...))
+    @test issetequal(names(HybridKinetics), (:HybridKinetics, LOCKED_PUBLIC_EXPORTS...))
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test RECOVERY_THRESHOLDS == recovery_thresholds_lock()
@@ -3009,12 +3009,12 @@ end
     for name in (_M2A_INTERNAL_NAMES..., _M2F_INTERNAL_NAMES...,
         :_train_unknown_edge, :_regulator_grid,
         :_reference_protocol_rate_recovery)
-        @test !(name in names(BioDynaX))
+        @test !(name in names(HybridKinetics))
         @test !(name in LOCKED_PUBLIC_EXPORTS)
     end
-    @test !(:ExperimentSplit in names(BioDynaX))
-    @test !(:HoldoutEvidence in names(BioDynaX))
-    @test !(:evaluate_holdout in names(BioDynaX))
+    @test !(:ExperimentSplit in names(HybridKinetics))
+    @test !(:HoldoutEvidence in names(HybridKinetics))
+    @test !(:evaluate_holdout in names(HybridKinetics))
 end
 
 @testset "ATTACK 16/17 experiment identity and original set integrity" begin

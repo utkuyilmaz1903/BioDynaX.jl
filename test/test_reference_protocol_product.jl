@@ -25,9 +25,9 @@
     @test reference_protocol_identifiability_holds(missing_flag) == false
     @test identifiability_product(missing_flag).unidentifiable_edge == false
     @test identifiability_product(nothing; unknown_holes = 0).unknown_holes == 0
-    @test !(:identifiability_product in names(BioDynaX))
-    @test !(:coefficients_are_biological_constants in names(BioDynaX))
-    @test !(:assert_reference_protocol_identifiability in names(BioDynaX))
+    @test !(:identifiability_product in names(HybridKinetics))
+    @test !(:coefficients_are_biological_constants in names(HybridKinetics))
+    @test !(:assert_reference_protocol_identifiability in names(HybridKinetics))
 end
 
 @testset "protocol_result field order rejects swapped or extra keys" begin
@@ -146,9 +146,9 @@ end
     @test occursin("data_residual", err.msg)
     @test occursin("support_recall", err.msg)
     @test !occursin("support_f1", err.msg)
-    @test !(:reference_protocol_kpi_failures in names(BioDynaX))
-    @test !(:assert_reference_protocol_kpis in names(BioDynaX))
-    @test !(:assert_reference_protocol_recall in names(BioDynaX))
+    @test !(:reference_protocol_kpi_failures in names(HybridKinetics))
+    @test !(:assert_reference_protocol_kpis in names(HybridKinetics))
+    @test !(:assert_reference_protocol_recall in names(HybridKinetics))
 end
 
 @testset "live extras on dirty Hill do not open Hill-from-NN" begin
@@ -202,8 +202,8 @@ end
         verbose = false, strict = false)
     @test !failed.success
     @test reference_protocol_discovery_extras(failed) == String[]
-    @test !(:reference_protocol_discovery_extras in names(BioDynaX))
-    @test !(:reference_protocol_f1_attempt_verdict in names(BioDynaX))
+    @test !(:reference_protocol_discovery_extras in names(HybridKinetics))
+    @test !(:reference_protocol_f1_attempt_verdict in names(HybridKinetics))
 end
 
 @testset "single-hole instrument does not close validate_network" begin
@@ -239,7 +239,7 @@ end
     known_hill = build_hill_recovery_network(; known = true)
     @test validate_network(known_hill) === known_hill
     @test count_unknown_destructions(known_hill) == 0
-    @test !(:count_unknown_destructions in names(BioDynaX))
+    @test !(:count_unknown_destructions in names(HybridKinetics))
 end
 
 @testset "protocol stdout splits into four product blocks" begin
@@ -307,7 +307,7 @@ end
     @test occursin("extras: 1, r", recovery_txt)
     @test occursin("n_ics: 9", recovery_txt)
     @test occursin("canonical_hill_from_nn: false", recovery_txt)
-    @test !(:format_protocol_sections in names(BioDynaX))
-    @test !(:format_recovery_protocol in names(BioDynaX))
-    @test !(:protocol_block_order_holds in names(BioDynaX))
+    @test !(:format_protocol_sections in names(HybridKinetics))
+    @test !(:format_recovery_protocol in names(HybridKinetics))
+    @test !(:protocol_block_order_holds in names(HybridKinetics))
 end

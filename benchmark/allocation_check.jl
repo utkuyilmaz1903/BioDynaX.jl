@@ -5,12 +5,12 @@
 # zero bytes. Runtime: under a minute after precompilation.
 # Run:  julia --project=. benchmark/allocation_check.jl
 
-using BioDynaX
+using HybridKinetics
 using Random
 
 function allocation_check()
     rng = MersenneTwister(0)
-    network = BioDynaX.build_linear_test_network()
+    network = HybridKinetics.build_linear_test_network()
     model, params = build_ude_model(rng, network)
     parameters = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), params.nn)
     u = [0.2, 0.1]

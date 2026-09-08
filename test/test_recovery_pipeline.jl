@@ -1,4 +1,4 @@
-using BioDynaX: MechanismRecoveryResult,
+using HybridKinetics: MechanismRecoveryResult,
                 ExperimentSplit,
                 generate_recovery_experiments,
                 consume_shared_suite_rng!,
@@ -110,32 +110,32 @@ function _first_needle(text, needles)
 end
 
 @testset "MechanismRecoveryResult stays internal" begin
-    @test !(:MechanismRecoveryResult in names(BioDynaX))
-    @test isdefined(BioDynaX, :MechanismRecoveryResult)
+    @test !(:MechanismRecoveryResult in names(HybridKinetics))
+    @test isdefined(HybridKinetics, :MechanismRecoveryResult)
     @test public_export_list_holds()
-    @test !isdefined(BioDynaX, :DestructionSamples)
-    @test isdefined(BioDynaX, :ExperimentSplit)
-    @test !(:ExperimentSplit in names(BioDynaX))
-    @test !(:reference_protocol_experiment_split in names(BioDynaX))
-    @test isdefined(BioDynaX, :generate_recovery_experiments)
-    @test isdefined(BioDynaX, :consume_shared_suite_rng!)
-    @test isdefined(BioDynaX, :fit_unknown_destruction)
-    @test !(:generate_recovery_experiments in names(BioDynaX))
-    @test !(:consume_shared_suite_rng! in names(BioDynaX))
-    @test !(:fit_unknown_destruction in names(BioDynaX))
-    @test isdefined(BioDynaX, :sample_destruction)
-    @test !(:sample_destruction in names(BioDynaX))
-    @test isdefined(BioDynaX, :evaluate_recovery)
-    @test !(:evaluate_recovery in names(BioDynaX))
-    @test isdefined(BioDynaX, :report_recovery)
-    @test !(:report_recovery in names(BioDynaX))
+    @test !isdefined(HybridKinetics, :DestructionSamples)
+    @test isdefined(HybridKinetics, :ExperimentSplit)
+    @test !(:ExperimentSplit in names(HybridKinetics))
+    @test !(:reference_protocol_experiment_split in names(HybridKinetics))
+    @test isdefined(HybridKinetics, :generate_recovery_experiments)
+    @test isdefined(HybridKinetics, :consume_shared_suite_rng!)
+    @test isdefined(HybridKinetics, :fit_unknown_destruction)
+    @test !(:generate_recovery_experiments in names(HybridKinetics))
+    @test !(:consume_shared_suite_rng! in names(HybridKinetics))
+    @test !(:fit_unknown_destruction in names(HybridKinetics))
+    @test isdefined(HybridKinetics, :sample_destruction)
+    @test !(:sample_destruction in names(HybridKinetics))
+    @test isdefined(HybridKinetics, :evaluate_recovery)
+    @test !(:evaluate_recovery in names(HybridKinetics))
+    @test isdefined(HybridKinetics, :report_recovery)
+    @test !(:report_recovery in names(HybridKinetics))
 end
 
 @testset "generate_recovery_experiments is the 9-IC reference protocol set" begin
     truth_net = build_hill_recovery_network(; known = true, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     proto = REFERENCE_PROTOCOL
-    ics = BioDynaX._unknown_edge_ics()
+    ics = HybridKinetics._unknown_edge_ics()
     set = generate_recovery_experiments(
         MersenneTwister(7), truth_net, truth;
         tspan = proto.tspan, n_points = proto.n_points,
@@ -181,9 +181,9 @@ end
 end
 
 @testset "_train_unknown_edge remains the Recovery.jl compatibility wrapper" begin
-    @test isdefined(BioDynaX, :_train_unknown_edge)
-    @test !(:_train_unknown_edge in names(BioDynaX))
-    @test BioDynaX.train_unknown_edge_reuses_warmup_source()
+    @test isdefined(HybridKinetics, :_train_unknown_edge)
+    @test !(:_train_unknown_edge in names(HybridKinetics))
+    @test HybridKinetics.train_unknown_edge_reuses_warmup_source()
     body = _train_unknown_edge_function_body()
     @test occursin("_note_train_unknown_edge", body)
     @test occursin("generate_recovery_experiments", body)
@@ -287,7 +287,7 @@ end
     model, params = build_ude_model(rng, net)
     term = only_unknown_destruction(model)
     sampled = sample_destruction(model, params, term)
-    expected = BioDynaX.sample_unknown_destruction_grid(model, params, term)
+    expected = HybridKinetics.sample_unknown_destruction_grid(model, params, term)
     @test sampled isa Tuple
     @test length(sampled) == 3
     R, D, chosen = sampled
@@ -302,7 +302,7 @@ end
     r_range = range(0.1, 1.5; length = 11)
     R2, D2, term2 = sample_destruction(
         model, params, term; r_range = r_range, fill_value = 0.7)
-    R2_grid, D2_grid, term2_grid = BioDynaX.sample_unknown_destruction_grid(
+    R2_grid, D2_grid, term2_grid = HybridKinetics.sample_unknown_destruction_grid(
         model, params, term; r_range = r_range, fill_value = 0.7)
     @test R2 == R2_grid
     @test D2 == D2_grid
@@ -335,8 +335,8 @@ function _synthetic_discovery(success::Bool, candidates)
 end
 
 @testset "evaluate_recovery is metric-only and unexported" begin
-    @test isdefined(BioDynaX, :evaluate_recovery)
-    @test !(:evaluate_recovery in names(BioDynaX))
+    @test isdefined(HybridKinetics, :evaluate_recovery)
+    @test !(:evaluate_recovery in names(HybridKinetics))
     @test public_export_list_holds()
     body = _pipeline_function_body("evaluate_recovery")
     @test occursin("extras_denominator = ude_extras_denominator_row(", body)
@@ -355,8 +355,8 @@ end
 end
 
 @testset "evaluate_recovery does not call discovery or own training_ok" begin
-    cand = BioDynaX.synthetic_safe_implicit_candidate()
-    R = BioDynaX.regulator_grid(20)
+    cand = HybridKinetics.synthetic_safe_implicit_candidate()
+    R = HybridKinetics.regulator_grid(20)
     D = ones(size(R))
     truth = hill_rate_support(2)
     truth_rate = r -> hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
@@ -398,9 +398,9 @@ end
 end
 
 @testset "evaluate_recovery keeps current denominator and metric formulas" begin
-    cand = BioDynaX.synthetic_unsafe_implicit_candidate()
-    norm_cand = BioDynaX.synthetic_safe_implicit_candidate()
-    R = BioDynaX.regulator_grid(40)
+    cand = HybridKinetics.synthetic_unsafe_implicit_candidate()
+    norm_cand = HybridKinetics.synthetic_safe_implicit_candidate()
+    R = HybridKinetics.regulator_grid(40)
     D = ones(size(R))
     truth = hill_rate_support(2)
     truth_rate = r -> hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
@@ -569,11 +569,11 @@ end
     @test :d_rmse_holdout ∉ fields
     @test :samples ∉ keys(reported)
     @test :functional_identifiability ∉ keys(reported)
-    @test !isdefined(BioDynaX, :DestructionSamples)
-    @test isdefined(BioDynaX, :ExperimentSplit)
-    @test !(:ExperimentSplit in names(BioDynaX))
-    @test !(:HoldoutEvidence in names(BioDynaX))
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test !isdefined(HybridKinetics, :DestructionSamples)
+    @test isdefined(HybridKinetics, :ExperimentSplit)
+    @test !(:ExperimentSplit in names(HybridKinetics))
+    @test !(:HoldoutEvidence in names(HybridKinetics))
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
     @test public_export_list_holds()
 end
 
@@ -717,10 +717,10 @@ end
         @test proto_row.protocol_result === row.protocol_result
         @test proto_row.kpis === row.locked_kpis
     end
-    @test !isdefined(BioDynaX, :DestructionSamples)
-    @test isdefined(BioDynaX, :ExperimentSplit)
-    @test !(:ExperimentSplit in names(BioDynaX))
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test !isdefined(HybridKinetics, :DestructionSamples)
+    @test isdefined(HybridKinetics, :ExperimentSplit)
+    @test !(:ExperimentSplit in names(HybridKinetics))
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
     @test public_export_list_holds()
 end
 

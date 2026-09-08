@@ -1,7 +1,7 @@
 """
 SciMLBase problem construction for compiled UDE models.
 
-BioDynaX follows the SciML convention: a `UDEModel` is the modeling object,
+HybridKinetics follows the SciML convention: a `UDEModel` is the modeling object,
 and `SciMLBase.ODEProblem(model, u0, tspan, p)` is the canonical integration
 entry point. Out-of-place dynamics are used for Zygote adjoints; in-place
 dynamics with a preallocated cache are used for production forward passes.

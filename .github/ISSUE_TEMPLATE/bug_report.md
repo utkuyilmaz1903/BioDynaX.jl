@@ -17,6 +17,6 @@ Include a minimal script or the command you ran, and the full error output.
 
 ## Environment
 
-- BioDynaX version:
+- HybridKinetics version:
 - Julia version (`julia --version`):
 - Operating system:

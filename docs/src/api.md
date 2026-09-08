@@ -1,8 +1,8 @@
 # API reference
 
 Every exported name is documented here. Unexported helpers mentioned in the
-guide (for example `BioDynaX.report_production_destruction_tradeoff`,
-`BioDynaX.run_recovery_suite`, `BioDynaX.assess_functional_identifiability`)
+guide (for example `HybridKinetics.report_production_destruction_tradeoff`,
+`HybridKinetics.run_recovery_suite`, `HybridKinetics.assess_functional_identifiability`)
 are internal and may change between minor versions.
 
 ## Network specification
@@ -143,7 +143,7 @@ format_stability_selection
 ## Catalyst input and symbolic output
 
 Exported wrappers whose implementations live in the extensions
-`BioDynaXCatalystExt` (`using Catalyst`) and `BioDynaXSymbolicsExt`
+`HybridKineticsCatalystExt` (`using Catalyst`) and `HybridKineticsSymbolicsExt`
 (`using Symbolics`); see the [Extensions](extensions.md) page.
 
 ```@docs
@@ -164,15 +164,15 @@ and wrong-graph discovery libraries described on the
 [Benchmarks](benchmarks.md#Library-comparison-study) page.
 
 ```@docs
-BioDynaX.library_comparison_study
-BioDynaX.library_comparison_run
-BioDynaX.library_comparison_smoke
-BioDynaX.library_study_summary
-BioDynaX.format_library_study_summary
-BioDynaX.append_library_study_row
-BioDynaX.read_library_study_csv
-BioDynaX.library_study_training_set
-BioDynaX.LIBRARY_STUDY_DESIGNS
-BioDynaX.library_study_default_design
-BioDynaX.designed_trained_graph_local_coordinates
+HybridKinetics.library_comparison_study
+HybridKinetics.library_comparison_run
+HybridKinetics.library_comparison_smoke
+HybridKinetics.library_study_summary
+HybridKinetics.format_library_study_summary
+HybridKinetics.append_library_study_row
+HybridKinetics.read_library_study_csv
+HybridKinetics.library_study_training_set
+HybridKinetics.LIBRARY_STUDY_DESIGNS
+HybridKinetics.library_study_default_design
+HybridKinetics.designed_trained_graph_local_coordinates
 ```

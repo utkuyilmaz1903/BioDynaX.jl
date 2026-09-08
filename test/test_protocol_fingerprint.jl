@@ -18,9 +18,9 @@
     @test RECOVERY_THRESHOLDS.support_f1_ude == 0.50
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
     @test RECOVERY_THRESHOLDS.support_f1_ude < RECOVERY_THRESHOLDS.support_f1_clean
-    @test !(:REFERENCE_PROTOCOL in names(BioDynaX))
-    @test !(:reference_protocol_is_protocol in names(BioDynaX))
-    @test !(:reference_protocol_reproduction in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL in names(HybridKinetics))
+    @test !(:reference_protocol_is_protocol in names(HybridKinetics))
+    @test !(:reference_protocol_reproduction in names(HybridKinetics))
 end
 
 @testset "protocol helpers distinguish 9-IC job from 1-IC smoke" begin
@@ -39,7 +39,7 @@ end
     @test protocol_ics == [
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]]
-    @test reference_protocol_protocol_ics() == BioDynaX._unknown_edge_ics()
+    @test reference_protocol_protocol_ics() == HybridKinetics._unknown_edge_ics()
 
     @test reference_protocol_is_protocol()
     @test reference_protocol_is_protocol(; smoke = true) == false
@@ -89,7 +89,7 @@ end
     violations = reference_protocol_example_source_violations()
     @test isempty(violations.missing)
     @test isempty(violations.forbidden)
-    src = read(BioDynaX.reference_protocol_example_path(), String)
+    src = read(HybridKinetics.reference_protocol_example_path(), String)
     @test occursin("reference_protocol_protocol_ics(; smoke)", src)
     @test occursin("reference_protocol_protocol_n_points(; smoke)", src)
     @test occursin("reference_protocol_discovery_extras", src)
@@ -106,21 +106,21 @@ end
 end
 
 @testset "formatter lock stays SciML and does not rewrite the tree" begin
-    @test isfile(BioDynaX.julia_formatter_toml_path())
+    @test isfile(HybridKinetics.julia_formatter_toml_path())
     @test julia_formatter_toml_holds()
-    lock = BioDynaX.julia_formatter_lock()
+    lock = HybridKinetics.julia_formatter_lock()
     @test lock.style == "sciml"
     @test lock.margin == 92
     @test lock.indent == 4
     @test lock.whitespace_in_kwargs
     @test lock.remove_extra_newlines
-    text = read(BioDynaX.julia_formatter_toml_path(), String)
+    text = read(HybridKinetics.julia_formatter_toml_path(), String)
     @test !occursin("overwrite = true", text)
     @test occursin("style = \"sciml\"", text)
 end
 
 @testset "UDE F1 attempt script stays an attempt, not the protocol" begin
-    path = joinpath(pkgdir(BioDynaX), "benchmark", "ude_f1_attempt.jl")
+    path = joinpath(pkgdir(HybridKinetics), "benchmark", "ude_f1_attempt.jl")
     src = read(path, String)
     @test occursin("same library", src)
     @test occursin("No new atoms", src)

@@ -1,6 +1,6 @@
-module BioDynaXSBMLToolkitExt
+module HybridKineticsSBMLToolkitExt
 
-using BioDynaX
+using HybridKinetics
 using SBMLToolkit
 using Catalyst
 using ModelingToolkit

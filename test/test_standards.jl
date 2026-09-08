@@ -81,7 +81,7 @@ end
 
 @testset "public API and recovery locks stay untouched" begin
     @test public_export_list_holds()
-    @test issetequal(names(BioDynaX), collect(locked_public_names()))
+    @test issetequal(names(HybridKinetics), collect(locked_public_names()))
     @test recovery_thresholds_hold()
     @test recovery_thresholds_lock() == RECOVERY_THRESHOLDS
     @test RECOVERY_THRESHOLDS.support_f1_ude == 0.50
@@ -89,18 +89,18 @@ end
     @test RECOVERY_THRESHOLDS.support_recall == 0.99
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
     @test validate_network_stays_open_source()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "SciMLInterface.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "SciMLInterface.jl"), String)
     for solver in STANDARDS_FORBIDDEN_SOLVERS
         @test !occursin(solver, src)
     end
     @test occursin("function recommend_sensealg", src)
-    runtests = read(joinpath(pkgdir(BioDynaX), "test", "runtests.jl"), String)
+    runtests = read(joinpath(pkgdir(HybridKinetics), "test", "runtests.jl"), String)
     @test !occursin("test_standards.jl", runtests)
     @test !occursin("quality.jl", runtests)
 end
 
 @testset "every exported name has a docstring" begin
-    missing = standards_missing_docstrings(BioDynaX)
+    missing = standards_missing_docstrings(HybridKinetics)
     @test isempty(missing)
 end
 
@@ -228,7 +228,7 @@ end
     @test @inferred(ude_rhs!(
         cache.du, u, params, 0.0, model, cache)) === cache.du
     @test @inferred(recommend_sensealg(model; n_observations = 20)) isa
-          BioDynaX.SensealgRecommendation
+          HybridKinetics.SensealgRecommendation
     @test @inferred(build_ude_function(model)) isa SciMLBase.ODEFunction
 end
 

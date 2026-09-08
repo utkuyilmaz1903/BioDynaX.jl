@@ -1,5 +1,5 @@
 @testset "README SciML ODE snippet" begin
-    using BioDynaX, SciMLBase, OrdinaryDiffEq, Random
+    using HybridKinetics, SciMLBase, OrdinaryDiffEq, Random
 
     network = BiologicalNetwork(
         [NodeSpec(name = :A), NodeSpec(name = :B)],
@@ -72,11 +72,11 @@ end
         params, u0, tspan, times, model;
         solver_config = forward_cfg, cache = cache)
     @test synthetic_prod ≈ synthetic
-    @test BioDynaX._forward_inplace(forward_cfg)
+    @test HybridKinetics._forward_inplace(forward_cfg)
 
     adjoint_cfg = default_solver_config(model; ad_policy = ProductionAD())
     @test adjoint_cfg.sensealg isa InterpolatingAdjoint
-    @test !BioDynaX._forward_inplace(adjoint_cfg)
+    @test !HybridKinetics._forward_inplace(adjoint_cfg)
 end
 
 @testset "build_ude_function and SciML solve" begin

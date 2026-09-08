@@ -1,14 +1,14 @@
-module BioDynaXCUDAExt
+module HybridKineticsCUDAExt
 
-using BioDynaX
+using HybridKinetics
 using CUDA
 
 functional() = CUDA.functional()
 to_device(value::AbstractArray) = cu(value)
 to_device(value::Number) = value
 
-function to_device(experiment::BioDynaX.Experiment)
-    return BioDynaX.DeviceExperiment(
+function to_device(experiment::HybridKinetics.Experiment)
+    return HybridKinetics.DeviceExperiment(
         experiment.name,
         cu(experiment.times),
         cu(experiment.observations),
@@ -17,7 +17,7 @@ function to_device(experiment::BioDynaX.Experiment)
         copy(experiment.metadata))
 end
 
-function gpu_execute(f, experiments::BioDynaX.ExperimentSet, config)
+function gpu_execute(f, experiments::HybridKinetics.ExperimentSet, config)
     CUDA.functional() ||
         throw(ErrorException("CUDA is loaded but no functional GPU is available"))
     # Each experiment remains a dense GPU array copy. This is not a batched

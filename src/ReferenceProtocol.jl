@@ -26,7 +26,7 @@ const PROTOCOL_RESULT_FIELDS = (
 const REFERENCE_PROTOCOL_KPI_FIELDS = (
     :unidentifiable_edge, :data_residual, :support_recall)
 
-"""Public `names(BioDynaX)` lock, including the module name. Not an export."""
+"""Public `names(HybridKinetics)` lock, including the module name. Not an export."""
 const LOCKED_PUBLIC_EXPORTS = (
     :ACTIVATION,
     :AbstractADPolicy,
@@ -156,12 +156,12 @@ const REFERENCE_PROTOCOL_EXAMPLE_MUST_NOT_CONTAIN = (
 """
     locked_public_names()
 
-`names(BioDynaX)` lock: module name plus `LOCKED_PUBLIC_EXPORTS`.
+`names(HybridKinetics)` lock: module name plus `LOCKED_PUBLIC_EXPORTS`.
 """
-locked_public_names() = (:BioDynaX, LOCKED_PUBLIC_EXPORTS...)
+locked_public_names() = (:HybridKinetics, LOCKED_PUBLIC_EXPORTS...)
 
 """True when the public export list is exactly the freeze-plus-reference-example set."""
-public_export_list_holds() = issetequal(names(BioDynaX), collect(locked_public_names()))
+public_export_list_holds() = issetequal(names(HybridKinetics), collect(locked_public_names()))
 
 """Numeric copy of `RECOVERY_THRESHOLDS` used to detect a silent loosen."""
 recovery_thresholds_lock() = (
@@ -184,7 +184,7 @@ julia_formatter_lock() = (
     whitespace_in_kwargs = true,
     remove_extra_newlines = true)
 
-julia_formatter_toml_path() = joinpath(pkgdir(BioDynaX), ".JuliaFormatter.toml")
+julia_formatter_toml_path() = joinpath(pkgdir(HybridKinetics), ".JuliaFormatter.toml")
 
 function julia_formatter_toml_holds()
     text = read(julia_formatter_toml_path(), String)
@@ -197,7 +197,7 @@ function julia_formatter_toml_holds()
 end
 
 function reference_protocol_example_path()
-    joinpath(pkgdir(BioDynaX), "examples", "unknown_inhibition.jl")
+    joinpath(pkgdir(HybridKinetics), "examples", "unknown_inhibition.jl")
 end
 
 """
@@ -207,7 +207,7 @@ end
 single-unknown-term workflow lives in `assert_single_unknown_destruction`.
 """
 function validate_network_stays_open_source()
-    path = joinpath(pkgdir(BioDynaX), "src", "Network.jl")
+    path = joinpath(pkgdir(HybridKinetics), "src", "Network.jl")
     src = read(path, String)
     start = findfirst("function validate_network", src)
     start === nothing && return false
@@ -891,7 +891,7 @@ function reference_protocol_recovery_admission(network::BiologicalNetwork)
 end
 
 function recovery_suite_uses_single_hole_instrument()
-    path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    path = joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl")
     src = read(path, String)
     return occursin("only_unknown_destruction", src) &&
            occursin("admit_recovery_suite_network", src) &&
@@ -930,7 +930,7 @@ const REFERENCE_PROTOCOL_F1_ATTEMPT_MUST_NOT_CONTAIN = (
     "train_experiments")
 
 function reference_protocol_f1_attempt_path()
-    joinpath(pkgdir(BioDynaX), REFERENCE_PROTOCOL_F1_ATTEMPT.script)
+    joinpath(pkgdir(HybridKinetics), REFERENCE_PROTOCOL_F1_ATTEMPT.script)
 end
 
 function reference_protocol_f1_attempt_row(; extras, f1)

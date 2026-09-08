@@ -2,8 +2,8 @@
     rng = MersenneTwister(4)
     A = randn(rng, 120, 6)
     y = A * [1.0, 0.0, 0.5, 0.0, -0.25, 0.0] .+ 1e-3 .* randn(rng, 120)
-    dense = BioDynaX._stlsq(A, y, 1e-2)
-    blocked = BioDynaX._stlsq_blocked(A, y, 1e-2; chunk_size = 32)
+    dense = HybridKinetics._stlsq(A, y, 1e-2)
+    blocked = HybridKinetics._stlsq_blocked(A, y, 1e-2; chunk_size = 32)
     @test dense≈blocked atol=5e-3
     X = rand(rng, 2, 80)
     terms = local_basis(build_linear_test_network(), 1).numerator
@@ -38,7 +38,7 @@ end
 
     # Force a singular denominator report via an artificial candidate check.
     spec = local_basis(network, 1; degree = 1, include_interactions = false)
-    @test_throws DomainError BioDynaX._check_denominator_safety(
+    @test_throws DomainError HybridKinetics._check_denominator_safety(
         spec, [0.0, 1.0], [-2.0], X, X[:, 1:10], X, 1e-3)
 end
 
@@ -106,7 +106,7 @@ end
     latex = equation_to_latex(cand)
     @test occursin(r"\\dot\{x\}_1", latex) || occursin("\\dot{x}_{1}", latex)
     f = equation_to_function(cand)
-    pred, _ = BioDynaX._evaluate_candidate(
+    pred, _ = HybridKinetics._evaluate_candidate(
         cand.specification, cand.numerator_coefficients,
         cand.denominator_coefficients, X[:, 1:5])
     for j in 1:5

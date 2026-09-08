@@ -4,7 +4,7 @@
 # Reads `dataset.csv` and `classes.csv` unpacked by download_data.jl: one row
 # per cell, a class (cell line and dose, for example `MCF7_4` is MCF7 at
 # 4 Gy), and 96 p53-YFP values at 15 min intervals from 0 to 1425 min.
-# Builds a BioDynaX `ExperimentSet` with two states, P (p53, observed) and M
+# Builds a HybridKinetics `ExperimentSet` with two states, P (p53, observed) and M
 # (Mdm2, never observed in this dataset), one experiment per cell.
 #
 # Choices, all fixed before the first run:
@@ -35,7 +35,7 @@
 # writes data/p53_selected.csv (the selected cells, normalised) and prints a
 # summary.
 
-using BioDynaX
+using HybridKinetics
 using DelimitedFiles
 using Statistics
 

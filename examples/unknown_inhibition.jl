@@ -7,13 +7,13 @@
 # (identifiability, fit, discovery, reproduction).
 # Run:  julia --project=. examples/unknown_inhibition.jl
 # Fast installation check (1 initial condition, 8 points, 2 Adam steps):
-#   BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
+#   HYBRIDKINETICS_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
 if abspath(PROGRAM_FILE) == abspath(@__FILE__)
     using Pkg
     Pkg.activate(joinpath(@__DIR__, ".."))
 end
 
-using BioDynaX
+using HybridKinetics
 using OrdinaryDiffEq
 using Random
 using SciMLBase
@@ -41,22 +41,22 @@ function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     return BiologicalNetwork(nodes, EdgeSpec[]; reactions = reactions)
 end
 
-function main(; seed::Int = BioDynaX.REFERENCE_PROTOCOL.seed,
-        adam_iters::Int = BioDynaX.REFERENCE_PROTOCOL.adam_iterations,
-        bfgs_iters::Int = BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations,
+function main(; seed::Int = HybridKinetics.REFERENCE_PROTOCOL.seed,
+        adam_iters::Int = HybridKinetics.REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iters::Int = HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations,
         noise_σ::Float64 = 0.0,
         smoke::Bool = false)
-    protocol = BioDynaX.REFERENCE_PROTOCOL
-    fingerprint = BioDynaX.reference_protocol_fingerprint(; smoke)
+    protocol = HybridKinetics.REFERENCE_PROTOCOL
+    fingerprint = HybridKinetics.reference_protocol_fingerprint(; smoke)
     rng = MersenneTwister(seed)
     truth_net = unknown_inhibition_network(; known = true, hill_order = 2)
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
-    BioDynaX.assert_reference_protocol_recovery_network(ude_net)
+    HybridKinetics.assert_reference_protocol_recovery_network(ude_net)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
     tspan = fingerprint.tspan
-    ics = BioDynaX.reference_protocol_protocol_ics(; smoke)
-    n_points = BioDynaX.reference_protocol_protocol_n_points(; smoke)
-    set = BioDynaX.reference_protocol_experiment_set(
+    ics = HybridKinetics.reference_protocol_protocol_ics(; smoke)
+    n_points = HybridKinetics.reference_protocol_protocol_n_points(; smoke)
+    set = HybridKinetics.reference_protocol_experiment_set(
         rng, truth_net; smoke, truth_params = truth, noise_σ = noise_σ)
     length(set.experiments) == length(ics) ||
         error("reference_protocol_experiment_set IC count must match fingerprint")
@@ -74,7 +74,7 @@ function main(; seed::Int = BioDynaX.REFERENCE_PROTOCOL.seed,
     @assert loaded.times ≈ first_exp.times
 
     model, params = build_ude_model(rng, ude_net)
-    BioDynaX.assert_single_unknown_destruction(model)
+    HybridKinetics.assert_single_unknown_destruction(model)
     phys_names = Tuple(parameter_schema(model).phys_names)
     guess = NamedTuple{phys_names}(ntuple(_ -> 0.8, length(phys_names)))
     ude_init = pack_parameters(guess, params.nn)
@@ -109,17 +109,17 @@ function main(; seed::Int = BioDynaX.REFERENCE_PROTOCOL.seed,
         discovery = discover_unknown_rate(
             R, first_exp.times, D; verbose = false, strict = false)
     else
-        term = only(BioDynaX.neural_destruction_terms(model))
-        r_range = BioDynaX._regulator_grid(set, term)
-        R, D, term = BioDynaX.sample_unknown_destruction_grid(
+        term = only(HybridKinetics.neural_destruction_terms(model))
+        r_range = HybridKinetics._regulator_grid(set, term)
+        R, D, term = HybridKinetics.sample_unknown_destruction_grid(
             model, trained.params, term; r_range = r_range)
         times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
         discovery = discover_unknown_rate(
             R, times_grid, D;
-            config = BioDynaX.reference_protocol_discovery_config(),
+            config = HybridKinetics.reference_protocol_discovery_config(),
             verbose = true, strict = true)
     end
-    ident = BioDynaX.report_production_destruction_tradeoff(
+    ident = HybridKinetics.report_production_destruction_tradeoff(
         model, trained.params, first_exp.observations, first_exp.times,
         first_exp.u0, tspan; term = term, verbose = false)
     residual = Inf
@@ -131,15 +131,15 @@ function main(; seed::Int = BioDynaX.REFERENCE_PROTOCOL.seed,
         residual = hybrid_data_residual(
             model, trained.params, term, rate_fn,
             first_exp.u0, tspan, first_exp.times, first_exp.observations)
-        extras = BioDynaX.reference_protocol_discovery_extras(discovery.candidates[1])
+        extras = HybridKinetics.reference_protocol_discovery_extras(discovery.candidates[1])
     elseif !smoke
         error("discovery failed ($(discovery.retcode)): $(discovery.message)")
     end
-    println(BioDynaX.format_protocol_result(ident, fingerprint;
+    println(HybridKinetics.format_protocol_result(ident, fingerprint;
         residual = residual,
         equations = discovery.equations,
         extras = extras,
-        unknown_holes = BioDynaX.count_unknown_destructions(model),
+        unknown_holes = HybridKinetics.count_unknown_destructions(model),
         seed = seed,
         n_ics = length(ics),
         n_points = n_points,
@@ -148,18 +148,18 @@ function main(; seed::Int = BioDynaX.REFERENCE_PROTOCOL.seed,
     println("Hybrid right-hand side constructed: ", rhs === nothing ? "no" : "yes")
     println("CSV (first IC): ", csv_path)
     if !smoke
-        BioDynaX.assert_reference_protocol_residual(residual)
+        HybridKinetics.assert_reference_protocol_residual(residual)
     end
     return discovery, residual, ident
 end
 
 if abspath(PROGRAM_FILE) == abspath(@__FILE__)
-    smoke = get(ENV, "BIODYNAX_SMOKE", "0") == "1"
+    smoke = get(ENV, "HYBRIDKINETICS_SMOKE", "0") == "1"
     adam = parse(
         Int, get(ENV, "ADAM_ITERS",
-            string(BioDynaX.REFERENCE_PROTOCOL.adam_iterations)))
+            string(HybridKinetics.REFERENCE_PROTOCOL.adam_iterations)))
     bfgs = parse(
         Int, get(ENV, "BFGS_ITERS",
-            string(BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations)))
+            string(HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations)))
     main(; adam_iters = adam, bfgs_iters = bfgs, smoke = smoke)
 end

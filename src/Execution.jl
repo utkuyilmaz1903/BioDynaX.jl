@@ -28,7 +28,7 @@ end
 to_device(value, ::Val{:cpu}) = value
 
 function _cuda_extension()
-    extension = Base.get_extension(@__MODULE__, :BioDynaXCUDAExt)
+    extension = Base.get_extension(@__MODULE__, :HybridKineticsCUDAExt)
     extension === nothing &&
         throw(ArgumentError("GPU support requires loading CUDA.jl"))
     return extension

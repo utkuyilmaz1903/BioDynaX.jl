@@ -1,8 +1,8 @@
-name = "BioDynaX"
+name = "HybridKinetics"
 uuid = "b10d7a4f-3e2d-4b1d-9d2e-9c7e8c5f1a6b"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Utku Yılmaz"]
-description = "Hybrid models of biochemical networks: compiled known kinetics plus one neural destruction term, recovered symbolically"
+description = "Hybrid kinetic models for small biochemical networks: learn the one unknown rate law from time-series data, then recover it symbolically"
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -75,15 +75,15 @@ SBMLToolkit = "86080e66-c8ac-44c2-a1a0-9adaadfe4a4e"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [extensions]
-BioDynaXCUDAExt = "CUDA"
-BioDynaXCatalystExt = ["Catalyst", "Symbolics"]
-BioDynaXDataDrivenSparseExt = "DataDrivenSparse"
-BioDynaXLatexifyExt = ["Latexify", "Symbolics"]
-BioDynaXModelingToolkitExt = "ModelingToolkit"
-BioDynaXPlotsExt = "Plots"
-BioDynaXSBMLExt = "SBML"
-BioDynaXSBMLToolkitExt = ["SBMLToolkit", "Catalyst"]
-BioDynaXSymbolicsExt = "Symbolics"
+HybridKineticsCUDAExt = "CUDA"
+HybridKineticsCatalystExt = ["Catalyst", "Symbolics"]
+HybridKineticsDataDrivenSparseExt = "DataDrivenSparse"
+HybridKineticsLatexifyExt = ["Latexify", "Symbolics"]
+HybridKineticsModelingToolkitExt = "ModelingToolkit"
+HybridKineticsPlotsExt = "Plots"
+HybridKineticsSBMLExt = "SBML"
+HybridKineticsSBMLToolkitExt = ["SBMLToolkit", "Catalyst"]
+HybridKineticsSymbolicsExt = "Symbolics"
 
 [extras]
 Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"

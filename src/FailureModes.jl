@@ -1021,7 +1021,7 @@ end
 # -- Formatter / test-file lock -----------------------------------------------
 
 function failure_mode_test_path()
-    joinpath(pkgdir(BioDynaX), "test", "test_failure_modes.jl")
+    joinpath(pkgdir(HybridKinetics), "test", "test_failure_modes.jl")
 end
 
 function failure_mode_test_file_holds()

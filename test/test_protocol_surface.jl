@@ -39,8 +39,8 @@
     @test occursin("is_protocol: true", text)
     @test occursin("n_ics: 9", format_reference_protocol_fingerprint(fp))
     @test occursin("n_ics: 1", format_reference_protocol_fingerprint(sm))
-    @test !(:ReferenceProtocolFingerprint in names(BioDynaX))
-    @test !(:reference_protocol_fingerprint in names(BioDynaX))
+    @test !(:ReferenceProtocolFingerprint in names(HybridKinetics))
+    @test !(:reference_protocol_fingerprint in names(HybridKinetics))
 end
 
 @testset "format_protocol_result consumes the typed fingerprint" begin
@@ -84,7 +84,7 @@ end
     live_txt = format_protocol_result((; unidentifiable_edge = true);
         extras = ["1", "r"])
     @test occursin("extras: 1, r", live_txt)
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl"), String)
     @test occursin("return \"NA\"", src)
     @test occursin("return \"(none)\"", src)
     @test !occursin("1, r remain after the UDE F1 attempt", src)
@@ -144,10 +144,10 @@ end
     model, _ = build_ude_model(rng, one)
     @test reference_protocol_recovery_admits(model)
     @test recovery_suite_uses_single_hole_instrument()
-    recovery_src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
+    recovery_src = read(joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl"), String)
     @test occursin("admit_recovery_suite_network", recovery_src)
     @test occursin("only_unknown_destruction", recovery_src)
-    suite_src = read(joinpath(pkgdir(BioDynaX), "benchmark", "recovery_suite.jl"), String)
+    suite_src = read(joinpath(pkgdir(HybridKinetics), "benchmark", "recovery_suite.jl"), String)
     @test occursin("format_recovery_protocol", suite_src)
     @test occursin("REFERENCE_PROTOCOL.seed", suite_src)
     @test occursin("extras_print_label", suite_src)
@@ -192,8 +192,8 @@ end
     @test row.reaches_clean == false
     @test row.meets_skeleton
     @test row.verdict === :extras_remain_claim_stays_recall_plus_residual
-    @test !(:REFERENCE_PROTOCOL_F1_ATTEMPT in names(BioDynaX))
-    @test !(:reference_protocol_f1_attempt_spec in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL_F1_ATTEMPT in names(HybridKinetics))
+    @test !(:reference_protocol_f1_attempt_spec in names(HybridKinetics))
 end
 
 @testset "example and docs lock the new protocol surfaces" begin

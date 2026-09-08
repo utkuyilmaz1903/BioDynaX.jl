@@ -1,11 +1,11 @@
-module BioDynaXCatalystExt
+module HybridKineticsCatalystExt
 
-using BioDynaX
+using HybridKinetics
 using Catalyst
 using Symbolics
 
 # Catalyst 16 builds on ModelingToolkitBase and no longer loads ModelingToolkit,
-# so `using BioDynaX, Catalyst` must be enough to load this extension: the
+# so `using HybridKinetics, Catalyst` must be enough to load this extension: the
 # symbolic helpers come from whichever of the two Catalyst itself uses.
 const _MTK = isdefined(Catalyst, :ModelingToolkitBase) ? Catalyst.ModelingToolkitBase :
              Catalyst.ModelingToolkit
@@ -16,7 +16,7 @@ const _MTK = isdefined(Catalyst, :ModelingToolkitBase) ? Catalyst.ModelingToolki
 Convert a Catalyst `ReactionSystem` into a `BiologicalNetwork` with the same
 species (in Catalyst's order), the known kinetics compiled from the rate laws
 Catalyst exposes, and exactly one reaction, `unknown`, marked as the unknown
-destruction term. Called through `BioDynaX.network_from_reactionsystem`; see
+destruction term. Called through `HybridKinetics.network_from_reactionsystem`; see
 its docstring.
 """
 function network_from_reactionsystem(rs::ReactionSystem; unknown)
@@ -89,7 +89,7 @@ end
 
 """
 Classify a Catalyst rate expression (the factor Catalyst multiplies by the
-mass-action term) into the forms the BioDynaX compiler has a term for:
+mass-action term) into the forms the HybridKinetics compiler has a term for:
 
 - `(:constant, p)`: a single parameter `p`;
 - `(:parameter_times_species, p, X)`: a parameter times one species;
@@ -132,7 +132,7 @@ function _classify_rate(rate, species, label)
         end
     end
     throw(ArgumentError(string("reaction ", label, ": the rate ", rate,
-        " is not a form BioDynaX can compile; supported rates are a parameter k, ",
+        " is not a form HybridKinetics can compile; supported rates are a parameter k, ",
         "k * X for a species X that is not a substrate, hill(X, v, K, n) with ",
         "parameters v and K and an integer n, and mm(X, v, K)")))
 end
@@ -201,7 +201,7 @@ function _known_specs(rate, substrates, products, label, k)
                         vmax_param = rate.vmax, km_param = rate.k)))
         else
             throw(ArgumentError(string("reaction ", label,
-                ": BioDynaX compiles a substrate's loss only as first-order decay (k, X --> ...), ",
+                ": HybridKinetics compiles a substrate's loss only as first-order decay (k, X --> ...), ",
                 "Hill (hill(Y, v, K, n), X --> ...), or Michaelis-Menten (mm(Y, v, K), X --> ...) ",
                 "with one substrate of stoichiometry 1; this reaction has ",
                 length(substrates), " substrate(s) with stoichiometry ", stoich)))
@@ -235,7 +235,7 @@ function _known_specs(rate, substrates, products, label, k)
                         vmax_param = rate.vmax, km_param = rate.k)))
         else
             throw(ArgumentError(string("reaction ", label,
-                ": BioDynaX compiles a product's formation only as constant production ",
+                ": HybridKinetics compiles a product's formation only as constant production ",
                 "(k, 0 --> X), mass action from one substrate (k, Y --> X), mass action ",
                 "regulated by one species (k * Y, 0 --> X), or Michaelis-Menten ",
                 "(mm(Y, v, K), 0 --> X); this reaction's rate is ", rate.kind, " with ",

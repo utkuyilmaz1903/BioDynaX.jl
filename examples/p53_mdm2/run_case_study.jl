@@ -25,13 +25,13 @@
 #   summary.txt                                residuals, coefficients, environment
 # Run:  julia --project=. examples/p53_mdm2/run_case_study.jl
 # Smoke check (2 Adam steps, no BFGS, 4 resamples, 6 cells):
-#   BIODYNAX_SMOKE=1 julia --project=. examples/p53_mdm2/run_case_study.jl
+#   HYBRIDKINETICS_SMOKE=1 julia --project=. examples/p53_mdm2/run_case_study.jl
 # Not run by the test suite or CI.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 
-using BioDynaX
+using HybridKinetics
 using LinearAlgebra
 using OrdinaryDiffEq
 using Random
@@ -43,7 +43,7 @@ LinearAlgebra.BLAS.set_num_threads(1)
 include(joinpath(@__DIR__, "download_data.jl"))
 include(joinpath(@__DIR__, "preprocess.jl"))
 
-const SMOKE = get(ENV, "BIODYNAX_SMOKE", "") == "1"
+const SMOKE = get(ENV, "HYBRIDKINETICS_SMOKE", "") == "1"
 const RESULTS_DIR = joinpath(P53_DATA_DIR, "results")
 const P53_GRID_POINTS = 80
 
@@ -137,10 +137,10 @@ function main()
     dir = download_p53_data()
     set, info = SMOKE ? p53_experiment_set(dir; max_cells = 6) : p53_experiment_set(dir)
     net = p53_mdm2_network()
-    BioDynaX.count_unknown_destructions(net) == 1 || error("expected one unknown term")
+    HybridKinetics.count_unknown_destructions(net) == 1 || error("expected one unknown term")
     training = TrainingConfig(
-        adam_iterations = SMOKE ? 2 : BioDynaX.REFERENCE_PROTOCOL.adam_iterations,
-        bfgs_iterations = SMOKE ? 0 : BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations,
+        adam_iterations = SMOKE ? 2 : HybridKinetics.REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iterations = SMOKE ? 0 : HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations,
         log_every = 10^6, frozen_phys = P53_FROZEN)
     selection = SMOKE ? StabilitySelection(n_boot = 4) : StabilitySelection()
     phys_init = p53_phys_init(net)
@@ -221,7 +221,7 @@ function main()
             names = parameter_schema(result.model).phys_names
             println(io, "physical parameters after training: ",
                 join(
-                    (string(n, " = ", round(BioDynaX.positive_parameter(v); sigdigits = 4))
+                    (string(n, " = ", round(HybridKinetics.positive_parameter(v); sigdigits = 4))
                     for (n, v) in zip(names, collect(result.params.phys))),
                     ", "))
             println(io, "hybrid residual, first training cell: ",

@@ -35,11 +35,11 @@ end
     @testset "conversion matches the tutorial fixture" begin
         by_index = network_from_reactionsystem(_CAT_TUTORIAL; unknown = 2)
         by_name = network_from_reactionsystem(_CAT_TUTORIAL; unknown = "unknown")
-        fixture = BioDynaX.build_hill_recovery_network(; known = false, hill_order = 2)
+        fixture = HybridKinetics.build_hill_recovery_network(; known = false, hill_order = 2)
         for net in (by_index, by_name)
             @test [node.name for node in net.nodes] == [:S, :R]
             @test length(net.reactions) == 4
-            @test BioDynaX.count_unknown_destructions(net) == 1
+            @test HybridKinetics.count_unknown_destructions(net) == 1
             @test candidate_parents(net, 1) == [2]
             unknown = only(r for r in net.reactions if !r.known)
             @test unknown.regulators == [2]
@@ -58,12 +58,12 @@ end
 
     @testset "known kinetics simulate as the fixture and as Catalyst" begin
         truth = network_from_reactionsystem(_CAT_TUTORIAL; unknown = nothing)
-        fixture = BioDynaX.build_hill_recovery_network(; known = true, hill_order = 2)
-        @test BioDynaX.count_unknown_destructions(truth) == 0
-        converted = BioDynaX.reference_protocol_experiment_set(
+        fixture = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
+        @test HybridKinetics.count_unknown_destructions(truth) == 0
+        converted = HybridKinetics.reference_protocol_experiment_set(
             MersenneTwister(103), truth; smoke = true, truth_params = _CAT_TRUTH,
             initial_conditions = _CAT_ICS)
-        expected = BioDynaX.reference_protocol_experiment_set(
+        expected = HybridKinetics.reference_protocol_experiment_set(
             MersenneTwister(103), fixture; smoke = true, truth_params = _CAT_TRUTH,
             initial_conditions = _CAT_ICS)
         for (a, b) in zip(converted.experiments, expected.experiments)
@@ -89,17 +89,17 @@ end
 
     @testset "discovery output is identical to the fixture" begin
         converted = network_from_reactionsystem(_CAT_TUTORIAL; unknown = "unknown")
-        fixture = BioDynaX.build_hill_recovery_network(; known = false, hill_order = 2)
-        truth_net = BioDynaX.build_hill_recovery_network(; known = true, hill_order = 2)
-        set = BioDynaX.reference_protocol_experiment_set(
+        fixture = HybridKinetics.build_hill_recovery_network(; known = false, hill_order = 2)
+        truth_net = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
+        set = HybridKinetics.reference_protocol_experiment_set(
             MersenneTwister(103), truth_net; smoke = true, truth_params = _CAT_TRUTH,
             initial_conditions = _CAT_ICS)
         a = discover_unknown_term(converted, set; training = _CAT_CONFIG, holdout = 0,
             rng = MersenneTwister(7), verbose = false)
         b = discover_unknown_term(fixture, set; training = _CAT_CONFIG, holdout = 0,
             rng = MersenneTwister(7), verbose = false)
-        @test BioDynaX.nn_parameter_fingerprint(a.params.nn) ==
-              BioDynaX.nn_parameter_fingerprint(b.params.nn)
+        @test HybridKinetics.nn_parameter_fingerprint(a.params.nn) ==
+              HybridKinetics.nn_parameter_fingerprint(b.params.nn)
         @test collect(a.params.phys) == collect(b.params.phys)
         @test a.samples.R == b.samples.R
         @test a.samples.D == b.samples.D
@@ -148,7 +148,7 @@ end
     @testset "ModelingToolkit round trip" begin
         truth = network_from_reactionsystem(_CAT_TUTORIAL; unknown = nothing)
         model, p0 = build_ude_model(MersenneTwister(1), truth)
-        ours = BioDynaX.export_mtk_system(model)
+        ours = HybridKinetics.export_mtk_system(model)
         # Catalyst 16 replaced `convert(ODESystem, rs)` with `ode_model(rs)`.
         theirs = isdefined(Catalyst, :ode_model) ? Catalyst.ode_model(_CAT_TUTORIAL) :
                  convert(ODESystem, _CAT_TUTORIAL)
@@ -176,7 +176,7 @@ end
                     _cat_evaluate(rhs_theirs[i], theirs_map); rtol = 1e-12, atol = 1e-12)
             end
         end
-        # Catalyst -> BioDynaX -> ModelingToolkit -> ODEProblem solves like Catalyst.
+        # Catalyst -> HybridKinetics -> ModelingToolkit -> ODEProblem solves like Catalyst.
         problem = _cat_problem(complete(ours),
             [our_states[1] => 0.25, our_states[2] => 0.20],
             (0.0, 4.0),
@@ -195,9 +195,9 @@ end
 end
 
 @testset "symbolic output" begin
-    fixture = BioDynaX.build_hill_recovery_network(; known = false, hill_order = 2)
-    truth_net = BioDynaX.build_hill_recovery_network(; known = true, hill_order = 2)
-    set = BioDynaX.reference_protocol_experiment_set(
+    fixture = HybridKinetics.build_hill_recovery_network(; known = false, hill_order = 2)
+    truth_net = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
+    set = HybridKinetics.reference_protocol_experiment_set(
         MersenneTwister(103), truth_net; smoke = true, truth_params = _CAT_TRUTH,
         initial_conditions = _CAT_ICS)
     result = discover_unknown_term(fixture, set; training = _CAT_CONFIG, holdout = 0,
@@ -221,11 +221,11 @@ end
         @test latexify(result.discovery, [:R]) == latexify(expression)
         @test occursin("R", string(latexify(candidate, [:R])))
         # The completed ModelingToolkit system evaluates the discovered rate.
-        completed = BioDynaX.export_mtk_system(result.model; discovered = result)
+        completed = HybridKinetics.export_mtk_system(result.model; discovered = result)
         states = ModelingToolkit.unknowns(completed)
         @test !any(occursin("nn_", string(s)) for s in states)
         rhs = [eq.rhs for eq in ModelingToolkit.equations(completed)]
-        phys = BioDynaX.unpack_parameters(result.params).phys
+        phys = HybridKinetics.unpack_parameters(result.params).phys
         rng = MersenneTwister(5)
         for _ in 1:10
             s, r = rand(rng, 2) .* 1.5 .+ 0.05

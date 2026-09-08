@@ -1,14 +1,14 @@
-# BioDynaX.jl
+# HybridKinetics.jl
 
-Hybrid models of biochemical networks: compiled known kinetics plus one neural destruction term, recovered symbolically.
+Hybrid kinetic models for small biochemical networks: learn the one unknown rate law from time-series data, then recover it symbolically.
 
-[![CI](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/BioDynaX.jl/actions/workflows/ci.yml) [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/BioDynaX.jl/stable/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Julia](https://img.shields.io/badge/julia-%E2%89%A5%201.10-9558B2.svg)](https://julialang.org) [![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor%27s%20Guide-blueviolet)](https://github.com/SciML/ColPrac) [![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
+[![CI](https://github.com/utkuyilmaz1903/HybridKinetics.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/HybridKinetics.jl/actions/workflows/ci.yml) [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Julia](https://img.shields.io/badge/julia-%E2%89%A5%201.10-9558B2.svg)](https://julialang.org) [![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor%27s%20Guide-blueviolet)](https://github.com/SciML/ColPrac) [![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
 
-Version 0.14. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
+Version 0.15. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
 
-## What BioDynaX does
+## What HybridKinetics does
 
-BioDynaX fits hybrid models of small biochemical networks. You give it a
+HybridKinetics fits hybrid models of small biochemical networks. You give it a
 known interaction graph and known kinetics (mass action, linear decay, Hill,
 Michaelis-Menten saturation, competitive binding, or a custom rate); it
 compiles those into a production-destruction ODE
@@ -28,19 +28,19 @@ solver.
 
 ## Installation
 
-BioDynaX requires Julia 1.10 or newer. It is not yet in the General registry;
+HybridKinetics requires Julia 1.10 or newer. It is not yet in the General registry;
 install it from GitHub:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/utkuyilmaz1903/BioDynaX.jl")
+Pkg.add(url = "https://github.com/utkuyilmaz1903/HybridKinetics.jl")
 ```
 
 or clone the repository and instantiate its environment:
 
 ```bash
-git clone https://github.com/utkuyilmaz1903/BioDynaX.jl.git
-cd BioDynaX.jl
+git clone https://github.com/utkuyilmaz1903/HybridKinetics.jl.git
+cd HybridKinetics.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
@@ -54,7 +54,7 @@ the residuals on the training and on the held-out experiment. It took
 about three minutes on a 4-core machine.
 
 ```julia
-using BioDynaX, Random
+using HybridKinetics, Random
 
 # Two species. S is produced in proportion to R and degraded by a Hill-type
 # mechanism driven by R; R is produced from S and decays linearly.
@@ -109,7 +109,7 @@ trajectory with about 0.02; the discovered rate has the Hill-like
 `x^2 / (K + x^2)` structure, with a constant and a linear term remaining.
 `x[1]` is the regulator `R`.
 
-The [tutorial](https://utkuyilmaz1903.github.io/BioDynaX.jl/stable/tutorial/)
+The [tutorial](https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/tutorial/)
 shows the same call on the reference protocol and then the step-by-step
 version of what it does. The reference example (seed 103, nine initial
 conditions, 50 points each, Adam 100 / BFGS 50, discovery on a regulator grid)
@@ -140,7 +140,7 @@ dx[1]/dt = (0.24118*1 + -1.3569*x[1] + 7.7609*x[1]^2) / (1 + -0.3862*x[1] + 4.18
 | Compile | Known kinetics become production and destruction terms; the unknown term becomes a neural network with a softplus output | `build_ude_model`, `compile_mechanism` |
 | Simulate | The model is an ordinary `ODEProblem` and works with OrdinaryDiffEq solvers | `ODEProblem(model, u0, tspan, p)`, `ude_system`, `ude_rhs!` |
 | Train | Adam followed by BFGS on the trajectory mean-squared error across experiments, with adjoint sensitivities | `train_ude`, `train_experiments`, `TrainingConfig` |
-| Identifiability check | Fisher condition number and the cosine between the production-rate and destruction-scale trajectory Jacobians | `BioDynaX.report_production_destruction_tradeoff` |
+| Identifiability check | Fisher condition number and the cosine between the production-rate and destruction-scale trajectory Jacobians | `HybridKinetics.report_production_destruction_tradeoff` |
 | Symbolic discovery | The learned rate is sampled and fitted by implicit sparse regression over a graph-local rational library | `sample_unknown_destruction`, `discover_unknown_rate`, `local_basis` |
 | Resimulate | The discovered rate replaces the neural term and the hybrid model is compared with data | `compose_hybrid_rhs`, `hybrid_data_residual`, `export_rhs` |
 
@@ -204,21 +204,21 @@ Synthetic data for several initial conditions come from
 ## Optional extensions
 
 Each loads automatically when the trigger package is present. All are
-experimental and unexported; call them as `BioDynaX.name`.
+experimental and unexported; call them as `HybridKinetics.name`.
 
 | Trigger package | What it adds |
 |---|---|
-| `CUDA` | Moves experiment arrays to the GPU (`BioDynaX.to_device`, `BioDynaX.gpu_execute`) |
-| `Plots` | `BioDynaX.plot_training` for observations, truth, prediction, and the loss history |
-| `ModelingToolkit` | `BioDynaX.export_mtk_system` converts a compiled model to an `ODESystem` |
-| `SBML` | `BioDynaX.import_sbml_network` builds a network from species and reactions |
-| `SBMLToolkit` + `Catalyst` | `BioDynaX.import_sbmltoolkit_network` with mass-action detection through Catalyst |
-| `DataDrivenSparse` | `BioDynaX.DataDrivenSparseSTLSQ`, an alternative sparse-regression backend |
+| `CUDA` | Moves experiment arrays to the GPU (`HybridKinetics.to_device`, `HybridKinetics.gpu_execute`) |
+| `Plots` | `HybridKinetics.plot_training` for observations, truth, prediction, and the loss history |
+| `ModelingToolkit` | `HybridKinetics.export_mtk_system` converts a compiled model to an `ODESystem` |
+| `SBML` | `HybridKinetics.import_sbml_network` builds a network from species and reactions |
+| `SBMLToolkit` + `Catalyst` | `HybridKinetics.import_sbmltoolkit_network` with mass-action detection through Catalyst |
+| `DataDrivenSparse` | `HybridKinetics.DataDrivenSparseSTLSQ`, an alternative sparse-regression backend |
 
 ## Documentation
 
 The documentation is at
-[utkuyilmaz1903.github.io/BioDynaX.jl/dev](https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/).
+[utkuyilmaz1903.github.io/HybridKinetics.jl/dev](https://utkuyilmaz1903.github.io/HybridKinetics.jl/dev/).
 Main pages: Getting started, Tutorial (the unknown-inhibition walkthrough),
 Concepts (model form, identifiability, discovery, the train/holdout protocol),
 How-to recipes, Benchmarks, API reference, and Scope and limitations.
@@ -227,8 +227,8 @@ How-to recipes, Benchmarks, API reference, and Scope and limitations.
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'                                         # default tests
-BIODYNAX_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()'                    # plus the slow training-loop tests
-BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl  # 1-IC smoke run
+HYBRIDKINETICS_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()'                    # plus the slow training-loop tests
+HYBRIDKINETICS_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl  # 1-IC smoke run
 julia --project=. examples/unknown_inhibition.jl                                     # full example
 julia --project=. test/run_recovery_hard.jl                                          # trained-model recovery checks
 julia --project=. benchmark/recovery_suite.jl                                        # fast recovery benchmarks
@@ -242,12 +242,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules.
 Citation metadata is in [CITATION.cff](CITATION.cff).
 
 ```bibtex
-@software{biodynax,
+@software{hybridkinetics,
   author  = {Yılmaz, Utku},
-  title   = {BioDynaX.jl: hybrid models of biochemical networks with one neural destruction term},
+  title   = {HybridKinetics.jl: hybrid kinetic models for small biochemical networks},
   year    = {2026},
-  version = {0.10.0},
-  url     = {https://github.com/utkuyilmaz1903/BioDynaX.jl},
+  version = {0.15.0},
+  url     = {https://github.com/utkuyilmaz1903/HybridKinetics.jl},
   license = {MIT}
 }
 ```

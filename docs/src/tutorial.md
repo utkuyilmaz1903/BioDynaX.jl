@@ -12,7 +12,7 @@ Run it with
 julia --project=. examples/unknown_inhibition.jl
 ```
 
-It takes 10 to 15 minutes. With `BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0`
+It takes 10 to 15 minutes. With `HYBRIDKINETICS_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0`
 in the environment it uses one initial condition with 8 points and two Adam
 steps, which checks the installation in about two minutes but does not
 produce a meaningful fit.
@@ -26,14 +26,14 @@ residuals, and prints the report. The block below is the reference protocol
 in four statements (the network builder is defined in the next section):
 
 ```julia
-using BioDynaX, Random
+using HybridKinetics, Random
 
 rng = MersenneTwister(103)
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-set = BioDynaX.reference_protocol_experiment_set(rng, unknown_inhibition_network(known = true);
+set = HybridKinetics.reference_protocol_experiment_set(rng, unknown_inhibition_network(known = true);
     truth_params = truth)                      # nine experiments, 50 points each
 result = discover_unknown_term(unknown_inhibition_network(known = false), set;
-    rng = rng, known_support = BioDynaX.hill_rate_support(2), seed = 103)
+    rng = rng, known_support = HybridKinetics.hill_rate_support(2), seed = 103)
 ```
 
 By default the last two experiments are held out (`holdout = 2`), training
@@ -96,7 +96,7 @@ network is built twice: once fully known, to generate the synthetic data,
 and once with the Hill degradation marked `known = false`, to fit.
 
 ```@example tut
-using BioDynaX, Random
+using HybridKinetics, Random
 
 function unknown_inhibition_network(; known::Bool, hill_order::Int = 2)
     nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
@@ -121,7 +121,7 @@ end
 truth_net = unknown_inhibition_network(; known = true)
 ude_net = unknown_inhibition_network(; known = false)
 model, params = build_ude_model(MersenneTwister(0), ude_net)
-(compile_mechanism(ude_net).nstates, BioDynaX.count_unknown_destructions(model))
+(compile_mechanism(ude_net).nstates, HybridKinetics.count_unknown_destructions(model))
 ```
 
 | Reaction | Role | In the hybrid model |
@@ -132,7 +132,7 @@ model, params = build_ude_model(MersenneTwister(0), ude_net)
 | `R` linear decay | known | compiled destruction term |
 
 The recovery workflow requires exactly one unknown destruction term. The
-example checks this with `BioDynaX.assert_single_unknown_destruction(model)`
+example checks this with `HybridKinetics.assert_single_unknown_destruction(model)`
 and stops with an error otherwise.
 
 ### Synthetic data
@@ -146,7 +146,7 @@ here:
 
 ```@example tut
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-set = BioDynaX.reference_protocol_experiment_set(
+set = HybridKinetics.reference_protocol_experiment_set(
     MersenneTwister(103), truth_net; smoke = true, truth_params = truth)
 (length(set.experiments), size(first(set.experiments).observations))
 ```
@@ -180,7 +180,7 @@ Before discovery, the example computes the production/destruction trade-off
 for the first experiment:
 
 ```julia
-ident = BioDynaX.report_production_destruction_tradeoff(
+ident = HybridKinetics.report_production_destruction_tradeoff(
     model, trained.params, first_exp.observations, first_exp.times,
     first_exp.u0, tspan; term = term)
 ```
@@ -201,12 +201,12 @@ derived from the training data, and a rational function of the regulator is
 fitted by implicit sparse regression:
 
 ```julia
-term = only(BioDynaX.neural_destruction_terms(model))
-r_range = BioDynaX._regulator_grid(set, term)
-R, D, term = BioDynaX.sample_unknown_destruction_grid(model, trained.params, term;
+term = only(HybridKinetics.neural_destruction_terms(model))
+r_range = HybridKinetics._regulator_grid(set, term)
+R, D, term = HybridKinetics.sample_unknown_destruction_grid(model, trained.params, term;
     r_range = r_range)
 discovery = discover_unknown_rate(R, range(0.0, 1.0; length = size(R, 2)), D;
-    config = BioDynaX.reference_protocol_discovery_config(), strict = true)
+    config = HybridKinetics.reference_protocol_discovery_config(), strict = true)
 ```
 
 `discover_unknown_rate` treats the samples as a function-regression problem
@@ -221,9 +221,9 @@ nuisance terms, which is what the analytical benchmarks check:
 ```@example tut
 r = collect(range(0.1, 2.0; length = 120))
 times = collect(range(0.0, 1.0; length = length(r)))
-D = BioDynaX.hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
+D = HybridKinetics.hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
 clean = discover_unknown_rate(reshape(r, 1, :), times, reshape(D, 1, :);
-    config = BioDynaX.rate_discovery_config(bootstrap = 0, seed = 1),
+    config = HybridKinetics.rate_discovery_config(bootstrap = 0, seed = 1),
     verbose = false, strict = true)
 clean.equations
 ```
@@ -293,7 +293,7 @@ for line). Read it as follows:
 ### Held-out validation
 
 The example trains on all nine experiments. `discover_unknown_term` with its
-default `holdout = 2`, and the recovery suite (`BioDynaX.run_recovery_suite`
+default `holdout = 2`, and the recovery suite (`HybridKinetics.run_recovery_suite`
 with `sections = (:ude_discovery,)`), train on experiments 1 to 7, derive the
 discovery grid from those seven, and then report the residual on experiments
 8 and 9 (the suite also reports the destruction-rate error there). Those held-out numbers are reported as

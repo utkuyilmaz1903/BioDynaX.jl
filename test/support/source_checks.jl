@@ -57,7 +57,7 @@ function implicit_discovery_uses_domain_grid_source_holds()
 end
 
 function extras_path_calls_split_source_holds()
-    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
+    path = joinpath(pkgdir(HybridKinetics), "src", "RecoveryPipeline.jl")
     src = read(path, String)
     start = findfirst("function evaluate_recovery", src)
     start === nothing && return false
@@ -185,7 +185,7 @@ function failure_mode_index_holds()
 end
 
 function extras_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Recovery.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl"), String)
     start = findfirst("function _format_protocol_extras", src)
     start === nothing && return false
     rest = src[first(start):end]
@@ -254,7 +254,7 @@ function graph_local_library_index_holds()
 end
 
 function candidate_parents_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Network.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "Network.jl"), String)
     start = findfirst("candidate_parents(network::BiologicalNetwork, target::Integer)", src)
     start === nothing && return false
     rest = src[first(start):end]
@@ -285,7 +285,7 @@ function local_has_true_parent_check_source_holds()
 end
 
 function local_basis_scope_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "BasisFactory.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "BasisFactory.jl"), String)
     start = findfirst("function local_basis(network::BiologicalNetwork, target::Int;", src)
     start === nothing && return false
     rest = src[first(start):end]
@@ -457,7 +457,7 @@ function hybrid_residual_honesty_matrix()
 end
 
 function predict_ude_uses_odeproblem_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Training.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "Training.jl"), String)
     start = findfirst("function predict_ude(p, u0, tspan, saveat, nn, st;", src)
     start === nothing && return false
     rest = src[first(start):end]
@@ -519,7 +519,7 @@ function identifiability_product_index_holds()
 end
 
 function coefficients_are_biological_constants_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "ReferenceProtocol.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "ReferenceProtocol.jl"), String)
     start = findfirst(
         "function coefficients_are_biological_constants(ident)", src)
     start === nothing && return false
@@ -587,7 +587,7 @@ function default_phys_includes_custom_source_holds()
 end
 
 function frozen_phys_source_holds()
-    src = read(joinpath(pkgdir(BioDynaX), "src", "Training.jl"), String)
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "Training.jl"), String)
     return occursin("function _zero_frozen_phys_gradient", src) &&
            occursin("function _restore_frozen_phys", src) &&
            occursin("name in frozen", src)
@@ -629,7 +629,7 @@ function custom_kinetic_schema_source_holds()
 end
 
 function recovery_suite_admission_source_violations()
-    path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    path = joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl")
     src = read(path, String)
     required = (
         "admit_recovery_suite_network(:ude_discovery)",

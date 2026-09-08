@@ -13,20 +13,20 @@
 # Runtime: about 10 minutes (the training is the same as the example).
 # Writes docs/src/assets/unknown_inhibition.png.
 
-using BioDynaX
+using HybridKinetics
 using Plots
 using Random
 
 include(joinpath(@__DIR__, "unknown_inhibition.jl"))
 
-const _PROTOCOL = BioDynaX.REFERENCE_PROTOCOL
+const _PROTOCOL = HybridKinetics.REFERENCE_PROTOCOL
 
 function _train_reference(; seed = _PROTOCOL.seed)
     rng = MersenneTwister(seed)
     truth_net = unknown_inhibition_network(; known = true, hill_order = 2)
     ude_net = unknown_inhibition_network(; known = false, hill_order = 2)
     truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
-    set = BioDynaX.reference_protocol_experiment_set(rng, truth_net; truth_params = truth)
+    set = HybridKinetics.reference_protocol_experiment_set(rng, truth_net; truth_params = truth)
     model, params = build_ude_model(rng, ude_net)
     phys_names = Tuple(parameter_schema(model).phys_names)
     guess = NamedTuple{phys_names}(ntuple(_ -> 0.8, length(phys_names)))
@@ -45,13 +45,13 @@ function _train_reference(; seed = _PROTOCOL.seed)
             adam_iterations = _PROTOCOL.adam_iterations,
             bfgs_iterations = _PROTOCOL.bfgs_iterations, log_every = 10^6),
         verbose = false)
-    term = only(BioDynaX.neural_destruction_terms(model))
-    r_range = BioDynaX._regulator_grid(set, term)
-    R, D, term = BioDynaX.sample_unknown_destruction_grid(
+    term = only(HybridKinetics.neural_destruction_terms(model))
+    r_range = HybridKinetics._regulator_grid(set, term)
+    R, D, term = HybridKinetics.sample_unknown_destruction_grid(
         model, trained.params, term; r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
     discovery = discover_unknown_rate(
-        R, times_grid, D; config = BioDynaX.reference_protocol_discovery_config(),
+        R, times_grid, D; config = HybridKinetics.reference_protocol_discovery_config(),
         verbose = false, strict = true)
     return (; set, model, trained, term, truth, R, D, discovery, tspan)
 end
@@ -75,7 +75,7 @@ function make_figure(path = joinpath(@__DIR__, "..", "docs", "src", "assets",
     plot!(p1, dense, pred[2, :]; label = "R hybrid", linewidth = 2)
 
     r = vec(res.R)
-    hill = BioDynaX.hill_rate_truth(r; vmax = res.truth.vmax, K = res.truth.K, n = 2)
+    hill = HybridKinetics.hill_rate_truth(r; vmax = res.truth.vmax, K = res.truth.K, n = 2)
     found = [rate_fn([x]) for x in r]
     p2 = plot(xlabel = "R", ylabel = "destruction rate D(R)", legend = :topleft,
         title = "Unknown destruction rate D(R)")

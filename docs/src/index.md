@@ -1,9 +1,9 @@
-# BioDynaX.jl
+# HybridKinetics.jl
 
-Hybrid models of biochemical networks: compiled known kinetics plus one
-neural destruction term, recovered symbolically.
+Hybrid kinetic models for small biochemical networks: learn the one unknown
+rate law from time-series data, then recover it symbolically.
 
-BioDynaX fits hybrid models of small biochemical networks. You give it a
+HybridKinetics fits hybrid models of small biochemical networks. You give it a
 known interaction graph and known kinetics (mass action, linear decay, Hill,
 Michaelis-Menten saturation, competitive binding, or a custom rate); it
 compiles those into a production-destruction ODE

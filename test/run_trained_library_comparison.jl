@@ -4,7 +4,7 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-using BioDynaX
+using HybridKinetics
 include(joinpath(@__DIR__, "internals.jl"))
 using LinearAlgebra
 using Random

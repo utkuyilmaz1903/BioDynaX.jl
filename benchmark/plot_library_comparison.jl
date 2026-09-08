@@ -17,7 +17,7 @@
 # Runtime: under a minute after precompilation. Not run in CI.
 # Run:  julia benchmark/plot_library_comparison.jl [png path]
 
-using BioDynaX
+using HybridKinetics
 using Plots
 
 const PNG_PATH = length(ARGS) >= 1 ? ARGS[1] :
@@ -48,7 +48,7 @@ const STYLES = Dict(
 function panel(rows, title, variant)
     rows = [row for row in rows if row.variant === variant]
     isempty(rows) && error("no rows for variant $(variant)")
-    summary = BioDynaX.library_study_summary(rows; metrics = (:support_f1,))
+    summary = HybridKinetics.library_study_summary(rows; metrics = (:support_f1,))
     seeds = length(unique(row.seed for row in rows))
     figure = plot(;
         xlabel = "observation noise (standard deviation)",
@@ -56,7 +56,7 @@ function panel(rows, title, variant)
         title = "$(title), $(seeds) seeds",
         titlefontsize = 10, legend = :topright, ylims = (-0.02, 1.02),
         margin = 5Plots.mm)
-    for library in BioDynaX.LIBRARY_STUDY_LIBRARIES
+    for library in HybridKinetics.LIBRARY_STUDY_LIBRARIES
         entries = [entry for entry in summary if entry.library === library]
         isempty(entries) && continue
         x = [entry.noise for entry in entries]
@@ -75,7 +75,7 @@ function main()
     for spec in PANELS
         path = findfirst(isfile, spec.csv)
         rows = path === nothing ? NamedTuple[] :
-               BioDynaX.read_library_study_csv(spec.csv[path])
+               HybridKinetics.read_library_study_csv(spec.csv[path])
         if isempty(rows)
             println("no rows for the ", spec.title, "; panel skipped")
             continue

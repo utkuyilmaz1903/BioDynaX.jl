@@ -1,9 +1,9 @@
-module BioDynaXPlotsExt
+module HybridKineticsPlotsExt
 
-using BioDynaX
+using HybridKinetics
 using Plots
 
-function plot_training(training::BioDynaX.TrainingResult, times, observations,
+function plot_training(training::HybridKinetics.TrainingResult, times, observations,
         dense_times, truth, prediction;
         state_names = ["x1", "x2"])
     state_count = size(observations, 1)

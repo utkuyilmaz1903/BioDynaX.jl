@@ -30,7 +30,7 @@ end
 """
     solve_optimization(prob; maxiters, algorithm=OptimizationOptimJL.BFGS())
 
-Integrate a BioDynaX optimization problem with Optimization.jl defaults.
+Integrate a HybridKinetics optimization problem with Optimization.jl defaults.
 """
 function solve_optimization(prob::Optimization.OptimizationProblem;
         maxiters::Int = 100,

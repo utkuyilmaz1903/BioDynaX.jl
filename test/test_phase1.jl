@@ -29,8 +29,8 @@ end
     result = train_ude(
         params, noisy, times, [0.2, 0.1], (0.0, 1.0), model;
         adam_iters = 3, bfgs_iters = 0, verbose = false)
-    @test result.retcode isa BioDynaX.TrainingRetcode
-    @test result.retcode in (BioDynaX.Success, BioDynaX.NotConverged)
+    @test result.retcode isa HybridKinetics.TrainingRetcode
+    @test result.retcode in (HybridKinetics.Success, HybridKinetics.NotConverged)
     @test hasproperty(result.diagnostics, :final_gradient_norm)
     @test !isempty(result.diagnostics.gradient_norm_history)
 end
@@ -43,7 +43,7 @@ end
     spec = local_basis(
         network, 1; degree = 4, include_interactions = false,
         X, derivative, max_variables = 1)
-    numerator, denominator = BioDynaX._fit_implicit(
+    numerator, denominator = HybridKinetics._fit_implicit(
         spec, X, derivative, collect(eachindex(x)), 1e-7)
     candidate = ImplicitCandidate(
         1, spec, numerator, denominator,
@@ -84,7 +84,7 @@ end
         adam_iters = 10, discovery = true)
     @test length(outcomes) == 3
     @test all(outcome -> isfinite(outcome.final_loss), outcomes)
-    @test all(outcome -> outcome.retcode isa BioDynaX.TrainingRetcode, outcomes)
+    @test all(outcome -> outcome.retcode isa HybridKinetics.TrainingRetcode, outcomes)
 end
 
 @testset "ground truth generator separation" begin

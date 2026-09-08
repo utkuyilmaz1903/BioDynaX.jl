@@ -2,12 +2,12 @@
 # This is not a package-wide type-stability claim.
 
 function standards_jet_reports(f, types)
-    result = JET.report_call(f, types; target_modules = (BioDynaX,))
+    result = JET.report_call(f, types; target_modules = (HybridKinetics,))
     return JET.get_reports(result)
 end
 
 function standards_jet_opt_reports(f, types)
-    result = JET.report_opt(f, types; target_modules = (BioDynaX,))
+    result = JET.report_opt(f, types; target_modules = (HybridKinetics,))
     return JET.get_reports(result)
 end
 

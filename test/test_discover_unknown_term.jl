@@ -7,9 +7,9 @@ const _DUT_CONFIG = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0,
     log_every = 10^6)
 
 function _dut_fixture()
-    truth_net = BioDynaX.build_hill_recovery_network(; known = true, hill_order = 2)
-    ude_net = BioDynaX.build_hill_recovery_network(; known = false, hill_order = 2)
-    set = BioDynaX.reference_protocol_experiment_set(
+    truth_net = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
+    ude_net = HybridKinetics.build_hill_recovery_network(; known = false, hill_order = 2)
+    set = HybridKinetics.reference_protocol_experiment_set(
         MersenneTwister(103), truth_net; smoke = true, truth_params = _DUT_TRUTH,
         initial_conditions = [[0.25, 0.20], [0.80, 0.35], [0.40, 1.10]])
     return ude_net, set
@@ -32,15 +32,15 @@ function _dut_chain(ude_net, set; rng_seed = 7)
         verbose = false)
     trained = train_experiments(warm.params, set, model; config = _DUT_CONFIG,
         verbose = false)
-    term = only(BioDynaX.neural_destruction_terms(model))
-    r_range = BioDynaX._regulator_grid(set, term)
-    R, D, term = BioDynaX.sample_unknown_destruction_grid(model, trained.params, term;
+    term = only(HybridKinetics.neural_destruction_terms(model))
+    r_range = HybridKinetics._regulator_grid(set, term)
+    R, D, term = HybridKinetics.sample_unknown_destruction_grid(model, trained.params, term;
         r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
     discovery = discover_unknown_rate(R, times_grid, D;
-        config = BioDynaX.reference_protocol_discovery_config(), verbose = false,
+        config = HybridKinetics.reference_protocol_discovery_config(), verbose = false,
         strict = false)
-    ident = BioDynaX.report_production_destruction_tradeoff(
+    ident = HybridKinetics.report_production_destruction_tradeoff(
         model, trained.params, first_exp.observations, first_exp.times,
         first_exp.u0, tspan; term = term, verbose = false)
     residual = Inf
@@ -59,10 +59,10 @@ end
         chain = _dut_chain(ude_net, set)
         result = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false,
-            known_support = BioDynaX.hill_rate_support(2))
+            known_support = HybridKinetics.hill_rate_support(2))
         @test result isa UnknownTermResult
-        @test BioDynaX.nn_parameter_fingerprint(result.params.nn) ==
-              BioDynaX.nn_parameter_fingerprint(chain.trained.params.nn)
+        @test HybridKinetics.nn_parameter_fingerprint(result.params.nn) ==
+              HybridKinetics.nn_parameter_fingerprint(chain.trained.params.nn)
         @test collect(result.params.phys) == collect(chain.trained.params.phys)
         @test result.training.final_loss == chain.trained.final_loss
         @test result.term === result.term
@@ -80,16 +80,16 @@ end
         @test isempty(result.holdout_indices)
         if chain.discovery.success
             @test result.extras ==
-                  BioDynaX.reference_protocol_discovery_extras(chain.discovery.candidates[1])
+                  HybridKinetics.reference_protocol_discovery_extras(chain.discovery.candidates[1])
             @test isfinite(result.residuals.data_residual_train)
         end
         @test result.settings.n_ics == 3
         @test result.settings.n_points == size(first(set.experiments).observations, 2)
         @test result.settings.adam_iters == 2
         @test result.settings.bfgs_iters == 0
-        @test result.settings.bootstrap == BioDynaX.REFERENCE_PROTOCOL.bootstrap
+        @test result.settings.bootstrap == HybridKinetics.REFERENCE_PROTOCOL.bootstrap
         @test result.settings.discovery_seed ==
-              BioDynaX.REFERENCE_PROTOCOL.discovery_seed
+              HybridKinetics.REFERENCE_PROTOCOL.discovery_seed
         @test result.settings.unknown_holes == 1
     end
 
@@ -112,7 +112,7 @@ end
         @test result.training_indices == 1:2
         @test result.holdout_indices == [3]
         # The default report carries no held-out lines, so existing output is unchanged.
-        plain = BioDynaX.format_protocol_result(result.identifiability)
+        plain = HybridKinetics.format_protocol_result(result.identifiability)
         @test !occursin("hybrid_data_residual_train", plain)
         @test !occursin("hybrid_data_residual_holdout", plain)
         captured_path = joinpath(mktempdir(), "verbose.txt")
@@ -137,7 +137,7 @@ end
             regulator_grid = (model, params, train_set, term) -> begin
                 called[] += 1
                 @test model isa UDEModel && train_set isa ExperimentSet
-                @test term === only(BioDynaX.neural_destruction_terms(model))
+                @test term === only(HybridKinetics.neural_destruction_terms(model))
                 range(0.2, 1.4; length = 24)
             end)
         @test called[] == 1
@@ -149,7 +149,7 @@ end
             holdout = 0, rng = MersenneTwister(7), verbose = false)
         @test default.settings.regulator_grid === :observed
         @test vec(default.samples.R) ==
-              collect(BioDynaX._regulator_grid(set, default.term))
+              collect(HybridKinetics._regulator_grid(set, default.term))
         # An unobserved state: NaN observations are masked out of the loss, the
         # residuals, and the identifiability diagnostic.
         masked_experiments = map(set.experiments) do e
@@ -186,7 +186,7 @@ end
             training = _DUT_CONFIG, holdout = 3, verbose = false)
         @test_throws ArgumentError discover_unknown_term(ude_net, set;
             training = _DUT_CONFIG, holdout = -1, verbose = false)
-        known = BioDynaX.build_hill_recovery_network(; known = true, hill_order = 2)
+        known = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
         @test_throws ErrorException discover_unknown_term(known, set;
             training = _DUT_CONFIG, verbose = false)
         no_warm = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
@@ -194,8 +194,8 @@ end
         warm = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false)
         @test no_warm.settings.warmup == false
-        @test BioDynaX.nn_parameter_fingerprint(no_warm.params.nn) !=
-              BioDynaX.nn_parameter_fingerprint(warm.params.nn)
+        @test HybridKinetics.nn_parameter_fingerprint(no_warm.params.nn) !=
+              HybridKinetics.nn_parameter_fingerprint(warm.params.nn)
         indexed = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), term = 1, verbose = false)
         @test indexed.discovery.equations == warm.discovery.equations

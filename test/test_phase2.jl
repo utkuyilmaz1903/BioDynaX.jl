@@ -2,9 +2,9 @@
     rng = MersenneTwister(42)
     network = build_kinetic_generalization_network()
     compiled = compile_mechanism(network)
-    @test any(t -> t isa BioDynaX.SaturationProductionTerm, compiled.production_terms)
-    @test any(t -> t isa BioDynaX.CustomDestructionTerm, compiled.destruction_terms)
-    custom = only(filter(t -> t isa BioDynaX.CustomDestructionTerm,
+    @test any(t -> t isa HybridKinetics.SaturationProductionTerm, compiled.production_terms)
+    @test any(t -> t isa HybridKinetics.CustomDestructionTerm, compiled.destruction_terms)
+    custom = only(filter(t -> t isa HybridKinetics.CustomDestructionTerm,
         compiled.destruction_terms))
     @test custom.scale ≈ 2.0
 
@@ -26,7 +26,7 @@ end
     rng = MersenneTwister(7)
     network = build_dual_unknown_network()
     compiled = compile_mechanism(network)
-    nn_terms = filter(t -> t isa BioDynaX.NeuralDestructionTerm,
+    nn_terms = filter(t -> t isa HybridKinetics.NeuralDestructionTerm,
         compiled.destruction_terms)
     @test length(nn_terms) == 2
     @test nn_terms[1].nn_index == 1
@@ -70,7 +70,7 @@ end
     compiled = compile_mechanism(network)
     nn_terms = [t
                 for t in compiled.destruction_terms
-                if t isa BioDynaX.NeuralDestructionTerm]
+                if t isa HybridKinetics.NeuralDestructionTerm]
     @test length(nn_terms) == 2
     @test sort(getfield.(nn_terms, :nn_index)) == [1, 2]
 
@@ -144,7 +144,7 @@ end
     dx_static = Vector(ude_system(
         StaticArrays.SVector{2}(x[1], x[2]), params, 0.0, model))
     @test dx_vec ≈ dx_static
-    dx_explicit = Vector(BioDynaX._ude_system_static(
+    dx_explicit = Vector(HybridKinetics._ude_system_static(
         StaticArrays.SVector{2}(x[1], x[2]), params, 0.0, model))
     @test dx_vec ≈ dx_explicit
 end
@@ -176,7 +176,7 @@ end
 
 @testset "phase 2 optional MTK export" begin
     if !isdefined(Base, :get_extension) ||
-       Base.get_extension(BioDynaX, :BioDynaXModelingToolkitExt) === nothing
+       Base.get_extension(HybridKinetics, :HybridKineticsModelingToolkitExt) === nothing
         @test_throws ErrorException export_mtk_system(build_ude_model(MersenneTwister(0))[1])
     else
         using ModelingToolkit
@@ -210,7 +210,7 @@ end
 
 @testset "phase 2 optional SBML import" begin
     if !isdefined(Base, :get_extension) ||
-       Base.get_extension(BioDynaX, :BioDynaXSBMLExt) === nothing
+       Base.get_extension(HybridKinetics, :HybridKineticsSBMLExt) === nothing
         @test_throws ErrorException import_sbml_network("missing.xml")
         @test_throws ErrorException import_sbmltoolkit_network("missing.xml")
     end

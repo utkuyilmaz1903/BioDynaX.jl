@@ -45,7 +45,7 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-using BioDynaX
+using HybridKinetics
 using LinearAlgebra
 using Statistics
 
@@ -64,7 +64,7 @@ const FRESH = "--fresh" in ARGS_
 const PRUNING = "--pruning" in ARGS_
 const FIXTURE = Symbol(_option(ARGS_, "--fixture", "four_state"))
 const VARIANTS = _option(ARGS_, "--variants", "study") == "all" ?
-                 BioDynaX.LIBRARY_STUDY_VARIANTS :
+                 HybridKinetics.LIBRARY_STUDY_VARIANTS :
                  Tuple(Symbol.(split(_option(ARGS_, "--variants", "study"), ",")))
 const DESIGN_OPTION = _option(ARGS_, "--design", nothing)
 const DESIGN = DESIGN_OPTION === nothing ? nothing : Symbol(DESIGN_OPTION)
@@ -83,16 +83,16 @@ const OUT = _option(ARGS_, "--out",
             SAMPLE_POINTS === nothing ? "" : "_points" * string(SAMPLE_POINTS),
             PRUNING ? "_pruned" : "", ".csv")))
 const FREQUENCIES = replace(OUT, r"\.csv$" => "") * "_frequencies.txt"
-const LIBRARIES = PRUNING ? (:graph_local,) : BioDynaX.LIBRARY_STUDY_LIBRARIES
+const LIBRARIES = PRUNING ? (:graph_local,) : HybridKinetics.LIBRARY_STUDY_LIBRARIES
 const SELECTION = PRUNING ? StabilitySelection() : nothing
-const SEEDS = TIMED ? (first(BioDynaX.LIBRARY_STUDY_SEEDS),) :
+const SEEDS = TIMED ? (first(HybridKinetics.LIBRARY_STUDY_SEEDS),) :
               Tuple(parse.(
     Int, split(_option(ARGS_, "--seeds",
-            join(BioDynaX.LIBRARY_STUDY_SEEDS, ",")), ",")))
-const NOISE = TIMED ? (first(BioDynaX.LIBRARY_STUDY_NOISE_LEVELS),) :
+            join(HybridKinetics.LIBRARY_STUDY_SEEDS, ",")), ",")))
+const NOISE = TIMED ? (first(HybridKinetics.LIBRARY_STUDY_NOISE_LEVELS),) :
               Tuple(parse.(Float64,
     split(_option(ARGS_, "--noise",
-            join(BioDynaX.LIBRARY_STUDY_NOISE_LEVELS, ",")), ",")))
+            join(HybridKinetics.LIBRARY_STUDY_NOISE_LEVELS, ",")), ",")))
 
 """Versions of the packages that determine the numerical results."""
 function dependency_versions(names = ("OrdinaryDiffEq", "SciMLSensitivity", "Lux",
@@ -106,7 +106,7 @@ function main()
     println("Library comparison study")
     println("Julia ", VERSION, "; ", dependency_versions())
     println("fixture: ", FIXTURE, "; variants: ", join(VARIANTS, ", "), "; design: ",
-        DESIGN === nothing ? BioDynaX.library_study_default_design(FIXTURE) : DESIGN)
+        DESIGN === nothing ? HybridKinetics.library_study_default_design(FIXTURE) : DESIGN)
     (FIXED_PRODUCTION || NORMALISE_RATE || SAMPLE_POINTS !== nothing) &&
         println("two-state settings: fixed production ", FIXED_PRODUCTION,
             ", normalised rate ", NORMALISE_RATE, ", sample points ",
@@ -119,11 +119,11 @@ function main()
         rm(OUT)
         rm(FREQUENCIES; force = true)
     end
-    existing = TIMED ? NamedTuple[] : BioDynaX.read_library_study_csv(OUT)
-    done = BioDynaX.library_study_keys(existing)
+    existing = TIMED ? NamedTuple[] : HybridKinetics.read_library_study_csv(OUT)
+    done = HybridKinetics.library_study_keys(existing)
     isempty(done) || println("resuming: ", length(done), " rows already in ", OUT)
     started = time()
-    rows = BioDynaX.library_comparison_study(;
+    rows = HybridKinetics.library_comparison_study(;
         seeds = SEEDS, noise_levels = NOISE, libraries = LIBRARIES,
         fixture = FIXTURE, variants = VARIANTS, design = DESIGN,
         stability_selection = SELECTION,
@@ -137,7 +137,7 @@ function main()
         end) : nothing,
         skip = (seed, noise, library, variant) -> (seed, noise, library, variant) in done,
         on_row = row -> begin
-            TIMED || BioDynaX.append_library_study_row(OUT, row)
+            TIMED || HybridKinetics.append_library_study_row(OUT, row)
             println("  ", row.seed, "  ", row.noise, "  ", rpad(string(row.variant), 10),
                 rpad(string(row.library), 12),
                 " F1 ", round(row.support_f1; digits = 3),
@@ -151,8 +151,8 @@ function main()
         verbose = true)
     elapsed = time() - started
     if TIMED
-        n_default = length(BioDynaX.LIBRARY_STUDY_SEEDS) *
-                    length(BioDynaX.LIBRARY_STUDY_NOISE_LEVELS)
+        n_default = length(HybridKinetics.LIBRARY_STUDY_SEEDS) *
+                    length(HybridKinetics.LIBRARY_STUDY_NOISE_LEVELS)
         println("one run (training, sampling, three discoveries, residuals): ",
             round(elapsed; digits = 1), " s")
         println("extrapolated default study (", n_default, " runs): ",
@@ -165,8 +165,8 @@ function main()
         " min; total rows in ", OUT, ": ", length(all_rows))
     println()
     println("Summary (median [q25, q75] over seeds; fixture ", FIXTURE, "):")
-    print(BioDynaX.format_library_study_summary(
-        BioDynaX.library_study_summary(all_rows;
+    print(HybridKinetics.format_library_study_summary(
+        HybridKinetics.library_study_summary(all_rows;
             metrics = (:support_f1, :support_recall, :extra_terms, :holdout_residual,
                 :nn_rate_rmse));
         metrics = (:support_f1, :support_recall, :extra_terms, :holdout_residual,

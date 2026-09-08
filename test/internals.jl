@@ -1,5 +1,5 @@
 # Test-only imports of unexported fixtures and helpers.
-using BioDynaX:
+using HybridKinetics:
                 DEFAULT_EXAMPLE_NETWORK,
                 build_network,
                 build_linear_test_network,

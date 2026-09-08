@@ -20,7 +20,7 @@
 # permission may be required for any content within the dataset that is
 # identified as belonging to a third party", and the p53 data are identified
 # as provided by a third party, so the traces are not redistributed with
-# BioDynaX: this script downloads the archive from the deposit, checks the
+# HybridKinetics: this script downloads the archive from the deposit, checks the
 # SHA-256 of the archive and of the inner p53 file, and unpacks the three CSV
 # files into examples/p53_mdm2/data/ (not committed). Cite both papers above
 # and the deposit when using the data.

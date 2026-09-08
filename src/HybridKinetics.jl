@@ -1,12 +1,12 @@
 ###############################################################################
-# BioDynaX.jl — graph-guided biological UDEs with local rational discovery.
+# HybridKinetics.jl — graph-guided biological UDEs with local rational discovery.
 #
 # Top-level module: brings in all submodule files (single shared namespace,
 # the standard Julia package pattern) and curates the public API.
 ###############################################################################
-module BioDynaX
+module HybridKinetics
 
-const PACKAGE_VERSION = v"0.14.0"
+const PACKAGE_VERSION = v"0.15.0"
 
 # -- External dependencies ----------------------------------------------------
 using Dates
@@ -81,7 +81,7 @@ include("Precompile.jl")
 
 # -- Public API ---------------------------------------------------------------
 # Freeze list + reference-example verbs. Fixtures, Fisher, GPU/SBML/MTK, and
-# library internals are `BioDynaX.foo` (not exported).
+# library internals are `HybridKinetics.foo` (not exported).
 export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        EdgeKind, NodeKind, KineticFamily,
        ACTIVATION, INHIBITION, UNKNOWN_NN,
@@ -114,4 +114,4 @@ export RECOVERY_THRESHOLDS
 export validate_network, state_nodes, candidate_parents
 export build_ude_function, auto_sensealg, default_solver_config
 
-end # module BioDynaX
+end # module HybridKinetics

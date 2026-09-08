@@ -7,9 +7,9 @@
         read(compile_mechanism_source_path(), String))
     @test !occursin("assert_single_unknown_destruction",
         read(compile_mechanism_source_path(), String))
-    @test !(:assert_dense_neural_index in names(BioDynaX))
-    @test !(:build_skipped_duplicate_unknown_network in names(BioDynaX))
-    @test !(:build_two_regulator_unknown_network in names(BioDynaX))
+    @test !(:assert_dense_neural_index in names(HybridKinetics))
+    @test !(:build_skipped_duplicate_unknown_network in names(HybridKinetics))
+    @test !(:build_two_regulator_unknown_network in names(HybridKinetics))
 end
 
 @testset "skipped duplicate unknown edge keeps dense heads" begin
@@ -118,9 +118,9 @@ end
     @test evaluate_compiled_rhs(two_model, two_p, [0.2, 0.3, 0.4]).finite
     @test_throws ErrorException assert_reference_protocol_recovery_network(zero_net)
     @test_throws ErrorException assert_reference_protocol_recovery_network(two_net)
-    gapped = BioDynaX.CompiledMechanism(
+    gapped = HybridKinetics.CompiledMechanism(
         1, [1], Dict(1 => 1),
-        (BioDynaX.InputProductionTerm(1, :k, :s, 1.0),),
+        (HybridKinetics.InputProductionTerm(1, :k, :s, 1.0),),
         (NeuralDestructionTerm(1, 1, 3, 1.0, [1]),))
     @test neural_index_is_dense(gapped) == false
     @test_throws ErrorException assert_dense_neural_index(gapped)

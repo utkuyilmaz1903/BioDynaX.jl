@@ -9,8 +9,8 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-using BioDynaX
-using BioDynaX:
+using HybridKinetics
+using HybridKinetics:
                 run_recovery_suite, discover_equations, DiscoveryConfig,
                 DataDrivenSparseSTLSQ, build_rate_ablation_network, hill_rate_truth,
                 hill_rate_support, support_f1, denominator_violation_count,
@@ -19,7 +19,7 @@ using Printf
 using Random
 
 function _try_datadriven(X, dX, times)
-    ext = Base.get_extension(BioDynaX, :BioDynaXDataDrivenSparseExt)
+    ext = Base.get_extension(HybridKinetics, :HybridKineticsDataDrivenSparseExt)
     ext === nothing && return nothing
     t0 = time()
     result = discover_equations(
@@ -35,11 +35,11 @@ end
 
 report = run_recovery_suite(MersenneTwister(104); sections = (:ablation,))
 a = report[:ablation]
-println("Internal ablation: BioDynaX graph vs global (same y, only basis_scope differs)")
+println("Internal ablation: HybridKinetics graph vs global (same y, only basis_scope differs)")
 println("F1 after Occam is not the prior; library membership of z is.")
 @printf "  %-22s %10s %10s %10s %10s %8s\n" "prior" "F1" "false_par" "den_viol" "rate_rmse" "sec"
-@printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "BioDynaX graph" a.local_f1 string(a.local_false_parent) string(a.local_denominator_violations) a.local_rate_rmse a.local_time
-@printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "BioDynaX global" a.global_f1 string(a.global_false_parent) string(a.global_denominator_violations) a.global_rate_rmse a.global_time
+@printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "HybridKinetics graph" a.local_f1 string(a.local_false_parent) string(a.local_denominator_violations) a.local_rate_rmse a.local_time
+@printf "  %-22s %10.3f %10s %10s %10.3f %8.3f\n" "HybridKinetics global" a.global_f1 string(a.global_false_parent) string(a.global_denominator_violations) a.global_rate_rmse a.global_time
 
 r = collect(range(0.1, 2.0; length = 180))
 rng_ab = MersenneTwister(104)
@@ -49,7 +49,7 @@ D_noisy = D .+ 0.005 .* amp .* randn(rng_ab, length(r))
 z = (r .^ 2) .+ 0.08 .* maximum(r .^ 2) .* randn(rng_ab, length(r))
 X_ab = permutedims(hcat(r, z))
 dX_ab = vcat(reshape(D_noisy, 1, :), reshape(-0.5 .* z, 1, :))
-X_ab, dX_ab = BioDynaX._permute_rate_samples(X_ab, dX_ab, 104)
+X_ab, dX_ab = HybridKinetics._permute_rate_samples(X_ab, dX_ab, 104)
 times_ab = collect(range(0.0, 1.0; length = length(r)))
 dd = _try_datadriven(X_ab, dX_ab, times_ab)
 if dd === nothing

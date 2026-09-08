@@ -37,9 +37,9 @@ end
 
 @testset "known-term IR matches export contract" begin
     linear = compile_mechanism(build_linear_test_network())
-    @test any(t -> t isa BioDynaX.MassActionProductionTerm && t.param === :k_ba,
+    @test any(t -> t isa HybridKinetics.MassActionProductionTerm && t.param === :k_ba,
         linear.production_terms)
-    @test any(t -> t isa BioDynaX.LinearDestructionTerm && t.param === :k_a,
+    @test any(t -> t isa HybridKinetics.LinearDestructionTerm && t.param === :k_a,
         linear.destruction_terms)
     rng = MersenneTwister(0)
     model, p0 = build_ude_model(rng, build_linear_test_network())
@@ -52,12 +52,12 @@ end
     @test dx[1] ≈ k_ba * x[2] - k_a * x[1]
     @test dx[2] ≈ -k_b * x[2]
     hill = compile_mechanism(build_hill_recovery_network(; known = true, hill_order = 2))
-    @test any(t -> t isa BioDynaX.HillDestructionTerm && t.hill_order == 2,
+    @test any(t -> t isa HybridKinetics.HillDestructionTerm && t.hill_order == 2,
         hill.destruction_terms)
     unknown = compile_mechanism(build_hill_recovery_network(; known = false))
-    @test any(t -> t isa BioDynaX.NeuralDestructionTerm, unknown.destruction_terms)
+    @test any(t -> t isa HybridKinetics.NeuralDestructionTerm, unknown.destruction_terms)
     competitive = compile_mechanism(build_competitive_test_network())
-    @test any(t -> t isa BioDynaX.CompetitiveDestructionTerm,
+    @test any(t -> t isa HybridKinetics.CompetitiveDestructionTerm,
         competitive.destruction_terms)
 end
 
@@ -142,8 +142,8 @@ end
     @test "1" in extras
     @test "r" in extras
     @test !("r^2" in extras)
-    @test !(:discovered_support_extras in names(BioDynaX))
-    @test !(:monomial_key_label in names(BioDynaX))
+    @test !(:discovered_support_extras in names(HybridKinetics))
+    @test !(:monomial_key_label in names(HybridKinetics))
 end
 
 @testset "recovery metrics on analytical Hill rate" begin
@@ -258,8 +258,8 @@ end
     two_model, _ = build_ude_model(rng, build_dual_unknown_network())
     @test_throws ErrorException assert_single_unknown_destruction(two_model)
     @test_throws ErrorException only_unknown_destruction(two_model)
-    @test !(:assert_single_unknown_destruction in names(BioDynaX))
-    @test !(:only_unknown_destruction in names(BioDynaX))
+    @test !(:assert_single_unknown_destruction in names(HybridKinetics))
+    @test !(:only_unknown_destruction in names(HybridKinetics))
 end
 
 @testset "k_prod vs D practical identifiability is reported" begin
@@ -295,7 +295,7 @@ end
     times = collect(0.0:0.5:2.0)
     data = [0.2 0.3 0.4 0.5 0.6; 0.1 0.12 0.11 0.13 0.14]
     exp = Experiment(:raw, times, data, [0.2, 0.1])
-    masked = BioDynaX.subsample_state_mask(exp, 1, 0.5, rng)
+    masked = HybridKinetics.subsample_state_mask(exp, 1, 0.5, rng)
     @test masked.mask[1, 1]
     @test count(masked.mask[1, :]) < size(data, 2)
 end
@@ -337,7 +337,7 @@ end
     X = reshape(x, 1, :)
     dX = reshape(1.2 .* x, 1, :)
     times = collect(range(0.0, 1.0; length = 40))
-    ext = Base.get_extension(BioDynaX, :BioDynaXDataDrivenSparseExt)
+    ext = Base.get_extension(HybridKinetics, :HybridKineticsDataDrivenSparseExt)
     if ext === nothing
         result = discover_equations(
             X, times, network; derivatives = dX,
@@ -400,12 +400,12 @@ end
     @test occursin("HillMetadata", src)
     @test !occursin("build_hill_recovery_network", src)
     @test !occursin("Note:", src)
-    @test !(:REFERENCE_PROTOCOL in names(BioDynaX))
-    @test !(:reference_protocol_discovery_config in names(BioDynaX))
+    @test !(:REFERENCE_PROTOCOL in names(HybridKinetics))
+    @test !(:reference_protocol_discovery_config in names(HybridKinetics))
     cfg = reference_protocol_discovery_config()
     @test cfg.seed == proto.discovery_seed
     @test cfg.backend.bootstrap_samples == proto.bootstrap
-    @test BioDynaX._unknown_edge_ics() == [
+    @test HybridKinetics._unknown_edge_ics() == [
         [0.25, 0.20], [0.80, 0.35], [0.40, 1.10], [1.20, 0.70], [0.15, 0.90],
         [0.50, 0.15], [0.90, 1.50], [0.20, 0.50], [1.50, 1.20]]
 end
@@ -472,6 +472,6 @@ end
         support_recall = 0.99,
         discovered_rate_rmse = 0.20,
         data_residual = 0.30)
-    @test !(:format_protocol_result in names(BioDynaX))
-    @test !(:assert_single_unknown_destruction in names(BioDynaX))
+    @test !(:format_protocol_result in names(HybridKinetics))
+    @test !(:assert_single_unknown_destruction in names(HybridKinetics))
 end

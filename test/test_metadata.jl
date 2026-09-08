@@ -1,17 +1,17 @@
 @testset "typed kinetic metadata" begin
     meta = InputDriveMetadata(
         rate_param = :α, input_param = :signal, input_node = 1)
-    @test BioDynaX._meta_symbol(meta, :rate_param, :default) == :α
-    @test BioDynaX._meta_symbol(meta, :input_param, :default) == :signal
-    @test BioDynaX._meta_haskey(meta, :drive)
+    @test HybridKinetics._meta_symbol(meta, :rate_param, :default) == :α
+    @test HybridKinetics._meta_symbol(meta, :input_param, :default) == :signal
+    @test HybridKinetics._meta_haskey(meta, :drive)
 
     hill = HillMetadata(vmax_param = :vmax, k_param = :K, hill_order = 3)
-    @test BioDynaX._meta_int(hill, :hill_order, 4) == 3
-    @test BioDynaX._meta_symbol(hill, :k_param, :default) == :K
+    @test HybridKinetics._meta_int(hill, :hill_order, 4) == 3
+    @test HybridKinetics._meta_symbol(hill, :k_param, :default) == :K
 
     dict = Dict(:rate_param => :k1, :order => 2)
-    @test BioDynaX._meta_symbol(dict, :rate_param, :default) == :k1
-    @test BioDynaX._meta_int(dict, :order, 1) == 2
+    @test HybridKinetics._meta_symbol(dict, :rate_param, :default) == :k1
+    @test HybridKinetics._meta_int(dict, :order, 1) == 2
 end
 
 @testset "typed metadata compiles p53 network" begin

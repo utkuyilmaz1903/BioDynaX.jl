@@ -181,7 +181,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - name: Default suite plus the heavy tier
         env:
-          BIODYNAX_TEST_HEAVY: "1"
+          HYBRIDKINETICS_TEST_HEAVY: "1"
         run: julia --project=. -e 'using Pkg; Pkg.test()'
       - name: Trained-model recovery protocol
         run: julia --project=. --color=yes test/run_recovery_hard.jl

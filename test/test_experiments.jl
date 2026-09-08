@@ -36,7 +36,7 @@ end
 @testset "versioned checkpoint" begin
     path = tempname()
     checkpoint = Checkpoint(
-        BioDynaX.CHECKPOINT_SCHEMA_VERSION, [1.0, 2.0], nothing, 10,
+        HybridKinetics.CHECKPOINT_SCHEMA_VERSION, [1.0, 2.0], nothing, 10,
         RunMetadata(seed = 42))
     save_checkpoint(path, checkpoint)
     restored = load_checkpoint(path)
@@ -47,8 +47,8 @@ end
     result_path = tempname()
     result = TrainingResult(
         [1.0], [2.0], 2.0, 1.0, RunMetadata(seed = 1),
-        (mse = 1.0,), true, BioDynaX.Success)
+        (mse = 1.0,), true, HybridKinetics.Success)
     save_result(result_path, result)
-    @test load_result(result_path).retcode == BioDynaX.Success
+    @test load_result(result_path).retcode == HybridKinetics.Success
     rm(result_path; force = true)
 end

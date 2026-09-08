@@ -13,7 +13,7 @@
     @test trained.final_loss ≤ max(2 * trained.initial_loss,
         trained.initial_loss + 1e-3)
 
-    checkpoint_path = joinpath(tempdir(), "biodynax_release_ckpt.bin")
+    checkpoint_path = joinpath(tempdir(), "hybridkinetics_release_ckpt.bin")
     metadata = (
         run = RunMetadata(seed = 2026,
             data_hash = data_fingerprint(noisy, times, [0.2, 0.1]),
@@ -23,7 +23,7 @@
     save_checkpoint(
         checkpoint_path,
         Checkpoint(
-            BioDynaX.CHECKPOINT_SCHEMA_VERSION, trained.params, nothing, 1, metadata))
+            HybridKinetics.CHECKPOINT_SCHEMA_VERSION, trained.params, nothing, 1, metadata))
     resumed = resume_training(
         load_checkpoint(checkpoint_path),
         noisy, times, [0.2, 0.1], tspan, model;
@@ -35,7 +35,7 @@
     discovery = discover_equations(
         trained.params, model; tspan = tspan, n_samples = 40, verbose = false)
     @test discovery isa DiscoveryResult
-    @test discovery.retcode isa BioDynaX.DiscoveryRetcode
+    @test discovery.retcode isa HybridKinetics.DiscoveryRetcode
     rm(checkpoint_path; force = true)
 end
 

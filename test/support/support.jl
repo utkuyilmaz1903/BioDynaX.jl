@@ -1,9 +1,9 @@
 # Test-side helpers that were package internals up to 0.11: source-reading
 # checks, consistency matrices, and the fixture rows they build on. They are
-# loaded into the test process after `using BioDynaX` and use the package
+# loaded into the test process after `using HybridKinetics` and use the package
 # internals imported below (generated from the identifiers the helpers use).
-using BioDynaX
-import BioDynaX: BacksolveAdjoint, CHECKPOINT_SCHEMA_VERSION,
+using HybridKinetics
+import HybridKinetics: BacksolveAdjoint, CHECKPOINT_SCHEMA_VERSION,
                  COMPILER_REINDEX_MUST_CONTAIN, COMPILER_REINDEX_MUST_NOT_CONTAIN,
                  Checkpoint,
                  ComponentVector, CustomDestructionTerm, MersenneTwister, ODEProblem,

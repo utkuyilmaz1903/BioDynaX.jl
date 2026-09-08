@@ -933,7 +933,7 @@ end
 function load_checkpoint(path::AbstractString)
     checkpoint = open(deserialize, path)
     checkpoint isa Checkpoint ||
-        throw(ArgumentError("file does not contain a BioDynaX checkpoint"))
+        throw(ArgumentError("file does not contain a HybridKinetics checkpoint"))
     checkpoint.schema_version.major == CHECKPOINT_SCHEMA_VERSION.major ||
         throw(ArgumentError("incompatible checkpoint schema"))
     return checkpoint

@@ -10,10 +10,10 @@ end
     fp = reference_protocol_fingerprint()
     @test reference_protocol_fingerprint_holds(fp)
     @test reference_protocol_fingerprint_is_protocol(fp)
-    @test !(:ReferenceProtocolFingerprint in names(BioDynaX))
-    @test !(:REFERENCE_PROTOCOL_F1_ATTEMPT in names(BioDynaX))
-    @test !(:ReferenceProtocolRow in names(BioDynaX))
-    @test !(:admit_recovery_suite_network in names(BioDynaX))
+    @test !(:ReferenceProtocolFingerprint in names(HybridKinetics))
+    @test !(:REFERENCE_PROTOCOL_F1_ATTEMPT in names(HybridKinetics))
+    @test !(:ReferenceProtocolRow in names(HybridKinetics))
+    @test !(:admit_recovery_suite_network in names(HybridKinetics))
     @test reference_protocol_f1_attempt_spec().is_protocol == false
 end
 
@@ -61,7 +61,7 @@ end
         data_residual = Inf, support_recall = 0.0))
     @test missing_ident.unidentifiable_edge == false
     @test missing_ident.coefficients_are_biological_constants
-    @test !(:build_protocol_result in names(BioDynaX))
+    @test !(:build_protocol_result in names(HybridKinetics))
 end
 
 @testset "reference protocol KPI helpers encode the locked thresholds" begin
@@ -87,8 +87,8 @@ end
         identifiability = (; unidentifiable_edge = true)))
     @test reference_protocol_kpis_hold(miss_recall) == false
     @test_throws ErrorException assert_reference_protocol_residual(0.31)
-    @test !(:reference_protocol_kpis_hold in names(BioDynaX))
-    @test !(:assert_reference_protocol_residual in names(BioDynaX))
+    @test !(:reference_protocol_kpis_hold in names(HybridKinetics))
+    @test !(:assert_reference_protocol_residual in names(HybridKinetics))
 end
 
 @testset "locked UDE KPIs survive early-fail rows" begin
@@ -115,9 +115,9 @@ end
             [0.0, 0.5, 0.0, 0.4][1:n])
         for x in xs
             for i in 1:n
-                P = BioDynaX._state_production(
+                P = HybridKinetics._state_production(
                     i, x, params, model.compiled.production_terms)
-                D = BioDynaX._state_destruction(
+                D = HybridKinetics._state_destruction(
                     i, x, params, model.compiled.destruction_terms,
                     model.nn, model.st)
                 @test P ≥ -1e-14
@@ -166,13 +166,13 @@ end
     @test err isa ArgumentError
     @test occursin("insufficient", lowercase(err.msg))
 
-    @test BioDynaX._discovery_retcode(ArgumentError(
+    @test HybridKinetics._discovery_retcode(ArgumentError(
         "empty support: no terms survived thresholding")) === EmptySupport
-    @test BioDynaX._discovery_retcode(DomainError(
+    @test HybridKinetics._discovery_retcode(DomainError(
         0.0, "discovered denominator is singular")) === DenominatorUnsafe
-    @test BioDynaX._discovery_retcode(LinearAlgebra.SingularException(1)) ===
+    @test HybridKinetics._discovery_retcode(LinearAlgebra.SingularException(1)) ===
           SingularLibrary
-    @test BioDynaX._discovery_retcode(ErrorException("boom")) === DiscoveryFailed
+    @test HybridKinetics._discovery_retcode(ErrorException("boom")) === DiscoveryFailed
 end
 
 @testset "ude_rhs! vs ude_system parity" begin
