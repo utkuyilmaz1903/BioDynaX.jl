@@ -108,6 +108,20 @@ function _unknown_term_choice(model::UDEModel, term)
 end
 
 """
+Names of `term`'s regulators in compiled state order.
+
+`NeuralDestructionTerm.regulators` index `state_nodes(network)` (dynamic
+species only). Indexing `network.nodes` instead maps those integers onto
+INPUT nodes that sit in front of the ODE state, so `symbolic(result)` would
+attribute the discovered rate to the wrong species.
+"""
+function _unknown_term_regulator_names(network::BiologicalNetwork, term)
+    ids = state_nodes(network)
+    names = [network.nodes[i].name for i in ids]
+    return names[term.regulators]
+end
+
+"""
     discover_unknown_term(network, experiments; term=nothing,
                           training=TrainingConfig(adam_iterations=100, bfgs_iterations=50, log_every=10^6),
                           discovery=rate_discovery_config(), holdout=2,

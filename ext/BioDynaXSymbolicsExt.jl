@@ -38,9 +38,8 @@ function symbolic(
 end
 
 function symbolic(result::UnknownTermResult; index::Integer = 1)
-    names = [node.name for node in result.network.nodes]
-    regulators = result.term.regulators
-    return symbolic(result.discovery, names[regulators]; index = index)
+    names = BioDynaX._unknown_term_regulator_names(result.network, result.term)
+    return symbolic(result.discovery, names; index = index)
 end
 
 function _variables(names::AbstractVector{Symbol})

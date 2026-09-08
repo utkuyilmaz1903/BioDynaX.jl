@@ -244,4 +244,39 @@ end
     end
     # With the extension loaded, an unsupported argument is a MethodError.
     @test_throws MethodError symbolic(1)
+
+    @testset "symbolic(UnknownTermResult) uses dynamic-state regulator names" begin
+        # INPUT nodes occupy network.nodes slots that are not ODE states. The
+        # default p53 network is the documented case: DNA_Damage is node 1,
+        # the unknown term reads Mdm2 (state 2), and indexing nodes directly
+        # named that regulator :p53.
+        net = build_network()
+        model, params = build_ude_model(MersenneTwister(1), net)
+        term = only(BioDynaX.neural_destruction_terms(model))
+        spec = BioDynaX.LocalBasisSpec(1, [1],
+            [BioDynaX.MonomialTerm(Int[], Int[], "1")],
+            [BioDynaX.MonomialTerm([1], [1], "x[1]")])
+        candidate = ImplicitCandidate(1, spec, [1.0], [0.5], [1.0, 1.0], 0.0, 1.0)
+        discovery = DiscoveryResult(true, "ok", format_equation(candidate),
+            [spec], nothing, [candidate], RunMetadata())
+        dummy = UnknownTermResult(net, model, params,
+            TrainingResult(params, Float64[], 0.0, 0.0, RunMetadata(),
+                nothing, false, BioDynaX.NotConverged),
+            term, nothing, discovery, (; R = zeros(1, 1), D = zeros(1, 1)),
+            (; data_residual = Inf, data_residual_train = Inf,
+                data_residual_holdout = NaN),
+            [1], Int[], nothing,
+            (; unknown_holes = 1, seed = nothing, n_ics = 1, n_points = 1,
+                adam_iters = 0, bfgs_iters = 0, bootstrap = nothing,
+                discovery_seed = 0, holdout = 0, warmup = false,
+                regulator_grid = :observed))
+        expression = symbolic(dummy)
+        variable = only(Symbolics.get_variables(expression))
+        @test occursin("Mdm2", string(variable))
+        @test !occursin("p53", string(variable))
+        @test !occursin("DNA_Damage", string(variable))
+        @test isequal(expression, symbolic(discovery, [:Mdm2]))
+        @test !isequal(expression, symbolic(discovery, [:p53]))
+        @test occursin("Mdm2", string(latexify(dummy)))
+    end
 end

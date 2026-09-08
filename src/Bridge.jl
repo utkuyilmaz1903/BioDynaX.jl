@@ -96,7 +96,9 @@ end
 The discovered rational rate as a `Symbolics.Num` in the named variables:
 `names` gives one symbol per variable of the candidate's library (for
 `discover_unknown_rate`, the regulators in order; for `discover_equations`,
-the network's states); an `UnknownTermResult` uses its network's state names.
+the network's states); an `UnknownTermResult` uses the names of the unknown
+term's regulators among the network's dynamic states (`state_nodes`, so
+INPUT nodes are skipped).
 Requires `using Symbolics` (extension `BioDynaXSymbolicsExt`).
 """
 function symbolic(args...; kwargs...)

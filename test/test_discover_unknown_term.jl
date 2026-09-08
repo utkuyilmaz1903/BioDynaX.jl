@@ -202,4 +202,22 @@ end
         @test_throws ArgumentError discover_unknown_term(ude_net, set;
             training = _DUT_CONFIG, holdout = 0, term = "first", verbose = false)
     end
+
+    @testset "symbolic regulator names skip INPUT nodes" begin
+        # NeuralDestructionTerm.regulators are compiled state rows. The default
+        # p53 network has DNA_Damage as node 1 (INPUT), so indexing
+        # network.nodes by those rows named the Mdm2 regulator as :p53.
+        p53 = build_network()
+        p53_model, _ = build_ude_model(MersenneTwister(1), p53)
+        p53_term = only(BioDynaX.neural_destruction_terms(p53_model))
+        @test p53_term.regulators == [2]
+        @test [node.name for node in p53.nodes][p53_term.regulators] == [:p53]
+        @test BioDynaX._unknown_term_regulator_names(p53, p53_term) == [:Mdm2]
+        @test BioDynaX._unknown_term_regulator_names(p53, p53_term) ==
+              [p53.nodes[i].name for i in state_nodes(p53)][p53_term.regulators]
+        hill = BioDynaX.build_hill_recovery_network(; known = false, hill_order = 2)
+        hill_model, _ = build_ude_model(MersenneTwister(1), hill)
+        hill_term = only(BioDynaX.neural_destruction_terms(hill_model))
+        @test BioDynaX._unknown_term_regulator_names(hill, hill_term) == [:R]
+    end
 end

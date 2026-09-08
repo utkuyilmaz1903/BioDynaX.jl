@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- `symbolic(result::UnknownTermResult)` (and `latexify(result)`) now names
+  the discovered rate by the unknown term's compiled regulators — the
+  dynamic states — instead of indexing every `network.nodes` entry. An
+  INPUT node at the front of the default p53 network made
+  `symbolic(result)` write the Mdm2-regulated rate as a function of p53.
 
 ## [0.14.0] - 2026-09-06
 
