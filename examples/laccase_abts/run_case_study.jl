@@ -23,13 +23,13 @@
 # Run:  julia --project=. examples/laccase_abts/run_case_study.jl
 # Runtime: about 10 minutes on 4 cores. Needs the data (download_data.jl).
 # Smoke check (2 Adam steps, no BFGS, 4 resamples):
-#   BIODYNAX_SMOKE=1 julia --project=. examples/laccase_abts/run_case_study.jl
+#   HYBRIDKINETICS_SMOKE=1 julia --project=. examples/laccase_abts/run_case_study.jl
 # Not run by the test suite or CI.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 
-using BioDynaX
+using HybridKinetics
 using LinearAlgebra
 using OrdinaryDiffEq
 using Random
@@ -41,7 +41,7 @@ LinearAlgebra.BLAS.set_num_threads(1)
 include(joinpath(@__DIR__, "download_data.jl"))
 include(joinpath(@__DIR__, "preprocess.jl"))
 
-const SMOKE = get(ENV, "BIODYNAX_SMOKE", "") == "1"
+const SMOKE = get(ENV, "HYBRIDKINETICS_SMOKE", "") == "1"
 const RESULTS_DIR = joinpath(ABTS_DATA_DIR, "results")
 
 """
@@ -119,10 +119,11 @@ function main()
     dir = download_abts_data()
     set, info = abts_experiment_set(dir)
     net = laccase_abts_network()
-    BioDynaX.count_unknown_destructions(net) == 1 || error("expected one unknown term")
+    HybridKinetics.count_unknown_destructions(net) == 1 ||
+        error("expected one unknown term")
     training = TrainingConfig(
-        adam_iterations = SMOKE ? 2 : BioDynaX.REFERENCE_PROTOCOL.adam_iterations,
-        bfgs_iterations = SMOKE ? 0 : BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations,
+        adam_iterations = SMOKE ? 2 : HybridKinetics.REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iterations = SMOKE ? 0 : HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations,
         log_every = 10^6, frozen_phys = ABTS_FROZEN)
     selection = SMOKE ? StabilitySelection(n_boot = 4) : StabilitySelection()
     support = michaelis_menten_self_support()
@@ -198,7 +199,7 @@ function main()
                 result.extras === nothing ? "NA" : join(result.extras, ", "))
             println(io, "training final loss: ", result.training.final_loss)
             println(io, "physical parameters after training (frozen at 1e-8): ",
-                [BioDynaX.positive_parameter(v) for v in collect(result.params.phys)])
+                [HybridKinetics.positive_parameter(v) for v in collect(result.params.phys)])
             println(io, "hybrid residual, first training experiment: ",
                 result.residuals.data_residual)
             println(io, "hybrid residual, mean over training experiments: ",

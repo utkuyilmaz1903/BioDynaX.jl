@@ -34,7 +34,7 @@
     @test all(isfinite, adjoint_gradient)
 
     strategy = AugmentedLagrangianConfig(smoothness = 1e-2)
-    constraints = BioDynaX._constraint_values(
+    constraints = HybridKinetics._constraint_values(
         [-0.2 0.1; 0.5 1.0], strategy)
     @test constraints[1] > 0
     @test constraints[2] < 0

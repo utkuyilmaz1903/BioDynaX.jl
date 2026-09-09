@@ -1,6 +1,6 @@
 # Scope and limitations
 
-BioDynaX is a research tool for a narrow problem: a small biochemical
+HybridKinetics is a research tool for a narrow problem: a small biochemical
 network whose interaction graph and kinetics are known except for one
 destruction term. This page collects every caveat in one place.
 

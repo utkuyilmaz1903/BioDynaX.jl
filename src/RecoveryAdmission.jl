@@ -324,7 +324,7 @@ function recovery_suite_reference_protocol_sections_reject_zero_and_dual()
 end
 
 function recovery_suite_uses_admission_helper()
-    path = joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    path = joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl")
     src = read(path, String)
     return occursin("admit_recovery_suite_network(:ude_discovery)", src) &&
            occursin("admit_recovery_suite_network(:mm_unknown)", src) &&

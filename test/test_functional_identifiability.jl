@@ -49,13 +49,13 @@ function _m3a_independent_ls(D_i, D_j)
 end
 
 @testset "helpers stay unexported" begin
-    @test :FunctionalIdentifiabilityDomain ∉ names(BioDynaX)
-    @test :functional_identifiability_domain ∉ names(BioDynaX)
-    @test :scale_align_destruction ∉ names(BioDynaX)
-    @test :pairwise_destruction_metrics ∉ names(BioDynaX)
-    @test :pairwise_trajectory_metrics ∉ names(BioDynaX)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test :assess_functional_identifiability ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityDomain ∉ names(HybridKinetics)
+    @test :functional_identifiability_domain ∉ names(HybridKinetics)
+    @test :scale_align_destruction ∉ names(HybridKinetics)
+    @test :pairwise_destruction_metrics ∉ names(HybridKinetics)
+    @test :pairwise_trajectory_metrics ∉ names(HybridKinetics)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test :assess_functional_identifiability ∉ names(HybridKinetics)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
@@ -281,12 +281,12 @@ function _m3b_shift_params(p0, seed)
     return shifted
 end
 
-function _m3b_fake_fit(params, retcode = BioDynaX.Success)
+function _m3b_fake_fit(params, retcode = HybridKinetics.Success)
     return TrainingResult(
         params, Float64[], 1.0, 0.4,
         RunMetadata(seed = 0),
         (;),
-        retcode === BioDynaX.Success, retcode)
+        retcode === HybridKinetics.Success, retcode)
 end
 
 function _m3b_independent_p0_fingerprint(seed, ude_net)
@@ -302,7 +302,7 @@ end
 function _m3b_run_restarts(split, ude_net;
         throw_seed = nothing,
         predict_throw_seed = nothing,
-        retcode = BioDynaX.Success)
+        retcode = HybridKinetics.Success)
     entries = Any[]
     fit_results = Any[]
     samples = Any[]
@@ -376,11 +376,11 @@ end
         :FIT_UNKNOWN_DESTRUCTION_ENTRY_OBSERVER,
         :SAMPLE_UNKNOWN_DESTRUCTION_RESULT_OBSERVER,
         :PREDICT_UDE_OBSERVER)
-        @test isdefined(BioDynaX, name)
-        @test name ∉ names(BioDynaX)
+        @test isdefined(HybridKinetics, name)
+        @test name ∉ names(HybridKinetics)
     end
-    @test :assess_functional_identifiability ∉ names(BioDynaX)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
+    @test :assess_functional_identifiability ∉ names(HybridKinetics)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
@@ -528,12 +528,12 @@ end
 @testset "T-B-NC NotConverged is not an automatic exclusion" begin
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     split = _m3b_protocol_split()
-    live = _m3b_run_restarts(split, ude_net; retcode = BioDynaX.NotConverged)
+    live = _m3b_run_restarts(split, ude_net; retcode = HybridKinetics.NotConverged)
     @test live.result.n_attempted == 5
     @test live.result.n_successful == 5
     @test live.result.n_failed == 0
     for restart in live.result.restarts
-        @test restart.training_retcode === BioDynaX.NotConverged
+        @test restart.training_retcode === HybridKinetics.NotConverged
         @test restart.included
         @test restart.failure_reason === :none
     end
@@ -620,14 +620,14 @@ end
 end
 
 @testset "T-B-COMPAT is internal; holdout surface stays untouched" begin
-    @test isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)
-    @test isdefined(BioDynaX, :assess_functional_identifiability)
-    @test isdefined(BioDynaX, :FunctionalIdentifiabilityPair)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test :assess_functional_identifiability ∉ names(BioDynaX)
-    @test :FunctionalIdentifiabilityPair ∉ names(BioDynaX)
-    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
-    @test :function_disagree ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test isdefined(HybridKinetics, :FunctionalIdentifiabilityDiagnostic)
+    @test isdefined(HybridKinetics, :assess_functional_identifiability)
+    @test isdefined(HybridKinetics, :FunctionalIdentifiabilityPair)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test :assess_functional_identifiability ∉ names(HybridKinetics)
+    @test :FunctionalIdentifiabilityPair ∉ names(HybridKinetics)
+    @test :functional_identifiability ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
+    @test :function_disagree ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test RECOVERY_THRESHOLDS.data_residual == 0.30
@@ -660,7 +660,7 @@ function _m3c_restart(seed, included)
     return FunctionalIdentifiabilityRestart(
         seed,
         included,
-        included ? BioDynaX.Success : nothing,
+        included ? HybridKinetics.Success : nothing,
         included ? :none : :fit_threw,
         included ? "" : "injected failure for seed $seed",
         UInt64(0),
@@ -691,7 +691,7 @@ function _m3c_run_assess(split, ude_net;
         throw_seeds = Int[],
         D_by_seed = nothing,
         X_value_by_seed = nothing,
-        retcode = BioDynaX.Success,
+        retcode = HybridKinetics.Success,
         restart_seeds = FUNCTIONAL_ID_RESTART_SEEDS,
         family::Symbol = :hill)
     entries = Any[]
@@ -816,11 +816,11 @@ end
         @test name ∉ fieldnames(FunctionalIdentifiabilityPair)
         @test name ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
     end
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test :FunctionalIdentifiabilityPair ∉ names(BioDynaX)
-    @test :assemble_functional_identifiability_diagnostic ∉ names(BioDynaX)
-    @test :assess_functional_identifiability ∉ names(BioDynaX)
-    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(BioDynaX)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test :FunctionalIdentifiabilityPair ∉ names(HybridKinetics)
+    @test :assemble_functional_identifiability_diagnostic ∉ names(HybridKinetics)
+    @test :assess_functional_identifiability ∉ names(HybridKinetics)
+    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(HybridKinetics)
     @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
         min_successful_restarts = 3,
         n_attempted_restarts = 5,
@@ -1139,13 +1139,13 @@ end
 @testset "T-C-NC NotConverged remains included on the assess path" begin
     ude_net = build_hill_recovery_network(; known = false, hill_order = 2)
     split = _m3a_sentinel_split()
-    live = _m3c_run_assess(split, ude_net; retcode = BioDynaX.NotConverged)
+    live = _m3c_run_assess(split, ude_net; retcode = HybridKinetics.NotConverged)
     @test live.result.n_attempted == 5
     @test live.result.n_successful == 5
     @test live.result.n_failed == 0
     @test live.result.complete
     for restart in live.result.restarts
-        @test restart.training_retcode === BioDynaX.NotConverged
+        @test restart.training_retcode === HybridKinetics.NotConverged
         @test restart.included
     end
 end
@@ -1283,15 +1283,15 @@ function _diag_status_diagnostics()
 end
 
 @testset "T-D-SRC formatters stay internal and off the holdout surface" begin
-    @test isdefined(BioDynaX, :format_functional_identifiability_diagnostic)
-    @test isdefined(BioDynaX, :format_diagnostics_side_by_side)
-    @test :format_functional_identifiability_diagnostic ∉ names(BioDynaX)
-    @test :format_diagnostics_side_by_side ∉ names(BioDynaX)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test isdefined(HybridKinetics, :format_functional_identifiability_diagnostic)
+    @test isdefined(HybridKinetics, :format_diagnostics_side_by_side)
+    @test :format_functional_identifiability_diagnostic ∉ names(HybridKinetics)
+    @test :format_diagnostics_side_by_side ∉ names(HybridKinetics)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test :functional_identifiability ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
-    @test LOCKED_PUBLIC_EXPORTS === BioDynaX.LOCKED_PUBLIC_EXPORTS
+    @test LOCKED_PUBLIC_EXPORTS === HybridKinetics.LOCKED_PUBLIC_EXPORTS
     fi = read(joinpath(@__DIR__, "..", "src", "FunctionalIdentifiability.jl"),
         String)
     rec = read(joinpath(@__DIR__, "..", "src", "Recovery.jl"), String)
@@ -1577,7 +1577,7 @@ function _m3e_run_assess(split, ude_net;
         predict_throw_seed = nothing,
         D_by_seed = nothing,
         X_value_by_seed = nothing,
-        retcode = BioDynaX.Success,
+        retcode = HybridKinetics.Success,
         restart_seeds = FUNCTIONAL_ID_RESTART_SEEDS,
         family::Symbol = :hill)
     assess_entries = Any[]
@@ -1886,10 +1886,10 @@ end
         :with_assess_functional_identifiability_observer,
         :assess_functional_identifiability,
         :FunctionalIdentifiabilityDiagnostic)
-        @test isdefined(BioDynaX, name)
-        @test name ∉ names(BioDynaX)
+        @test isdefined(HybridKinetics, name)
+        @test name ∉ names(HybridKinetics)
     end
-    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :functional_identifiability ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
@@ -2358,8 +2358,8 @@ end
     @test string_live.assess_n == 0
     @test !_m3e_script_live_bind(string_only)
     ctor_src = """
-        using BioDynaX
-        using BioDynaX:
+        using HybridKinetics
+        using HybridKinetics:
             FUNCTIONAL_ID_RESTART_SEEDS,
             FunctionalIdentifiabilityDiagnostic,
             FunctionalIdentifiabilityDomain,
@@ -2370,7 +2370,7 @@ end
             2, [0.1, 0.5, 0.1, 0.8], 2, 2, 0.3, :train_obs_union_holdout_obs)
         restarts = [
             FunctionalIdentifiabilityRestart(
-                seed, true, BioDynaX.Success, :none, "", UInt64(0), UInt64(0))
+                seed, true, HybridKinetics.Success, :none, "", UInt64(0), UInt64(0))
             for seed in FUNCTIONAL_ID_RESTART_SEEDS]
         pairs = FunctionalIdentifiabilityPair[]
         seeds = collect(FUNCTIONAL_ID_RESTART_SEEDS)
@@ -2400,7 +2400,7 @@ end
     @test helper_n[] == 0
     @test helper_diag isa FunctionalIdentifiabilityDiagnostic
     no_assess = _m3e_write_temp_benchmark(
-        "using BioDynaX\nprintln(\"executes without assess\")\n")
+        "using HybridKinetics\nprintln(\"executes without assess\")\n")
     no_assess_live = _m3e_execute_benchmark_script(no_assess)
     @test no_assess_live.assess_n == 0
     @test !_m3e_script_live_bind(no_assess)
@@ -2529,15 +2529,15 @@ end
         @test occursin(id, corpus)
     end
     @test occursin("no functional-identifiability or occupancy fields", holdout)
-    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)",
         holdout)
-    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)",
         recovery)
     @test !occursin(
-        "!isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)", corpus)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
-    @test :function_disagree ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+        "!isdefined(HybridKinetics, :FunctionalIdentifiabilityDiagnostic)", corpus)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test :functional_identifiability ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
+    @test :function_disagree ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
@@ -2583,7 +2583,7 @@ function _m3f_phase1_fisher_fixture()
 end
 
 function _m3f_independent_fisher(model, params, data, times, u0, tspan)
-    jacobian, names = BioDynaX.trajectory_jacobian(
+    jacobian, names = HybridKinetics.trajectory_jacobian(
         model, params, u0, tspan, times)
     residual = data .- predict_ude(params, u0, tspan, times, model)
     σ² = max(eps(), sum(abs2, residual) / max(1, length(residual)))
@@ -2630,11 +2630,11 @@ end
 end
 
 @testset "T-F-Z T-F-KEYS Fisher math, scale-collinearity warning, functional-identifiability, exports" begin
-    @test BioDynaX._z_score(0.90) == 1.6448536269514722
-    @test BioDynaX._z_score(0.95) == 1.959963984540054
-    @test BioDynaX._z_score(0.99) == 2.5758293035489004
+    @test HybridKinetics._z_score(0.90) == 1.6448536269514722
+    @test HybridKinetics._z_score(0.95) == 1.959963984540054
+    @test HybridKinetics._z_score(0.99) == 2.5758293035489004
     thrown = try
-        BioDynaX._z_score(0.80)
+        HybridKinetics._z_score(0.80)
         nothing
     catch err
         err
@@ -2669,7 +2669,7 @@ end
 
     z95 = 1.959963984540054
     variances = LinearAlgebra.diag(pinv(report.fisher_information))
-    intervals = BioDynaX.parameter_credible_intervals(
+    intervals = HybridKinetics.parameter_credible_intervals(
         report, fixture.params; level = 0.95)
     uncertainty = estimate_parameter_uncertainty(
         fixture.model, fixture.params, fixture.clean, fixture.times,
@@ -2688,25 +2688,25 @@ end
         @test uncertainty.upper[i] == expected[2]
     end
 
-    tradeoff = BioDynaX.production_destruction_tradeoff(
+    tradeoff = HybridKinetics.production_destruction_tradeoff(
         fixture.model, fixture.params, fixture.clean, fixture.times,
         fixture.u0, fixture.tspan)
     @test keys(tradeoff) === _M3F_TRADEOFF_KEYS
     for name in _M3F_FORBIDDEN_FIELDS
         @test !hasproperty(tradeoff, name)
-        @test name ∉ fieldnames(BioDynaX.IdentifiabilityReport)
-        @test name ∉ fieldnames(BioDynaX.ParameterUncertainty)
+        @test name ∉ fieldnames(HybridKinetics.IdentifiabilityReport)
+        @test name ∉ fieldnames(HybridKinetics.ParameterUncertainty)
         @test name ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
-        @test name ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+        @test name ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     end
 
-    hit = BioDynaX.format_production_destruction_warning((;
+    hit = HybridKinetics.format_production_destruction_warning((;
         unidentifiable_edge = true,
         production_param = :k_prod,
         collinearity = 0.99))
     @test hit ==
           "Practical warning: production (k_prod) and unknown D(z) scale are collinear (cosine=0.99). Observed concentrations do not pin that scale. This is not structural identifiability."
-    miss = BioDynaX.format_production_destruction_warning((;
+    miss = HybridKinetics.format_production_destruction_warning((;
         unidentifiable_edge = false,
         production_param = :k_prod,
         collinearity = 0.11))
@@ -2739,10 +2739,10 @@ end
         unidentifiable_edge = false,
         data_residual = 0.003,
         support_recall = 0.99))
-    @test :parameter_credible_intervals ∉ names(BioDynaX)
+    @test :parameter_credible_intervals ∉ names(HybridKinetics)
     @test :parameter_credible_intervals ∉ LOCKED_PUBLIC_EXPORTS
-    @test :assess_identifiability ∉ names(BioDynaX)
-    @test :estimate_parameter_uncertainty ∉ names(BioDynaX)
+    @test :assess_identifiability ∉ names(HybridKinetics)
+    @test :estimate_parameter_uncertainty ∉ names(HybridKinetics)
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
 end
@@ -3067,14 +3067,14 @@ end
 end
 
 @testset "T-G-API holdout locks and public exports stay" begin
-    @test :assess_functional_identifiability ∉ names(BioDynaX)
-    @test :FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)
-    @test :FUNCTIONAL_ID_RESTART_SEEDS ∉ names(BioDynaX)
-    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(BioDynaX)
-    @test :format_functional_identifiability_diagnostic ∉ names(BioDynaX)
-    @test :functional_identifiability ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :assess_functional_identifiability ∉ names(HybridKinetics)
+    @test :FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)
+    @test :FUNCTIONAL_ID_RESTART_SEEDS ∉ names(HybridKinetics)
+    @test :FUNCTIONAL_ID_REPORTING_CUTOFFS ∉ names(HybridKinetics)
+    @test :format_functional_identifiability_diagnostic ∉ names(HybridKinetics)
+    @test :functional_identifiability ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test public_export_list_holds()
-    @test LOCKED_PUBLIC_EXPORTS === BioDynaX.LOCKED_PUBLIC_EXPORTS
+    @test LOCKED_PUBLIC_EXPORTS === HybridKinetics.LOCKED_PUBLIC_EXPORTS
     @test recovery_thresholds_hold()
     @test FUNCTIONAL_ID_REPORTING_CUTOFFS === (
         min_successful_restarts = 3,
@@ -3087,10 +3087,10 @@ end
     corpus = holdout * "\n" * recovery * "\n" * hard
     @test occursin("", corpus)
     @test occursin("", corpus)
-    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(BioDynaX)",
+    @test occursin(":FunctionalIdentifiabilityDiagnostic ∉ names(HybridKinetics)",
         holdout)
     @test !occursin(
-        "!isdefined(BioDynaX, :FunctionalIdentifiabilityDiagnostic)", corpus)
+        "!isdefined(HybridKinetics, :FunctionalIdentifiabilityDiagnostic)", corpus)
     official = _m3e_official_benchmark_path()
     src = read(official, String)
     for token in _M3G_FORBIDDEN_PIPELINE
@@ -3109,8 +3109,8 @@ end
         "println(\"assess_functional_identifiability(split, ude_net)\")\n")
     @test _m3e_execute_benchmark_script(string_only).assess_n == 0
     ctor_src = """
-        using BioDynaX
-        using BioDynaX:
+        using HybridKinetics
+        using HybridKinetics:
             FUNCTIONAL_ID_RESTART_SEEDS,
             FunctionalIdentifiabilityDiagnostic,
             FunctionalIdentifiabilityDomain,
@@ -3121,7 +3121,7 @@ end
             2, [0.1, 0.5, 0.1, 0.8], 2, 2, 0.3, :train_obs_union_holdout_obs)
         restarts = [
             FunctionalIdentifiabilityRestart(
-                seed, true, BioDynaX.Success, :none, "", UInt64(0), UInt64(0))
+                seed, true, HybridKinetics.Success, :none, "", UInt64(0), UInt64(0))
             for seed in FUNCTIONAL_ID_RESTART_SEEDS]
         pairs = FunctionalIdentifiabilityPair[]
         seeds = collect(FUNCTIONAL_ID_RESTART_SEEDS)

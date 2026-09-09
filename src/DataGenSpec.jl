@@ -33,7 +33,7 @@ const DATAGEN_COMPILED_MUST_NOT_CONTAIN = (
     "ones(1, 1) .* 0.0")
 
 function datagen_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "DataGen.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "DataGen.jl")
 end
 
 function datagen_compiled_source_holds()

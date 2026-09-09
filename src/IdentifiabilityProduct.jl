@@ -27,7 +27,7 @@ const IDENTIFIABILITY_PRODUCT_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function identifiability_jl_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "Identifiability.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Identifiability.jl")
 end
 
 # -- Live tradeoff helpers ----------------------------------------------------

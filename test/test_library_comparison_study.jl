@@ -3,7 +3,7 @@
 # level, the smoke training budget) runs here; the full study is
 # benchmark/library_comparison_study.jl.
 
-const _LCS = BioDynaX
+const _LCS = HybridKinetics
 const _LCS_TRUTH = _LCS.hill_rate_support(_LCS.LIBRARY_STUDY_TRUTH.n;
     variable = _LCS.LIBRARY_STUDY_TRUTH.variable)
 

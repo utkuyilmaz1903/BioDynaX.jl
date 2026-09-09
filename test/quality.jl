@@ -1,10 +1,10 @@
 using Aqua
-using BioDynaX
+using HybridKinetics
 using JET
 using Test
 
-# SciMLBase is a transitive dep; Julia 1.12 requires importing it via BioDynaX.
-using BioDynaX: SciMLBase
+# SciMLBase is a transitive dep; Julia 1.12 requires importing it via HybridKinetics.
+using HybridKinetics: SciMLBase
 
 # Previous (lenient) Aqua.test_all kwargs on 0.9.2:
 #   ambiguities = false
@@ -24,7 +24,7 @@ using BioDynaX: SciMLBase
 # Already-on and unchanged:
 #   undefined_exports, stale_deps, deps_compat, project_extras
 @testset "Aqua quality" begin
-    Aqua.test_all(BioDynaX;
+    Aqua.test_all(HybridKinetics;
         ambiguities = true,
         unbound_args = true,
         undefined_exports = true,
@@ -37,10 +37,10 @@ using BioDynaX: SciMLBase
 end
 
 @testset "public API ambiguities" begin
-    ambs = Test.detect_ambiguities(BioDynaX)
+    ambs = Test.detect_ambiguities(HybridKinetics)
     @test isempty(ambs)
 end
 
 @testset "JET typos" begin
-    JET.test_package(BioDynaX; target_modules = (BioDynaX,), mode = :typo)
+    JET.test_package(HybridKinetics; target_modules = (HybridKinetics,), mode = :typo)
 end

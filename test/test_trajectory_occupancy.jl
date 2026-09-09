@@ -133,7 +133,7 @@ end
 
 function _m4a_three_state_models()
     rng = MersenneTwister(1)
-    net = BioDynaX.build_three_state_unknown_network(; with_distractor = false)
+    net = HybridKinetics.build_three_state_unknown_network(; with_distractor = false)
     model, params = build_ude_model(rng, net)
     term = only_unknown_destruction(model)
     return model, params, term
@@ -286,12 +286,12 @@ function Base.replace!(v::_M4ALoggedExperiments, args...; kwargs...)
 end
 
 @testset "T-A-API occupancy helpers stay unexported" begin
-    @test :TrajectoryOccupancy ∉ names(BioDynaX)
-    @test :collect_observed_occupancy ∉ names(BioDynaX)
-    @test :sample_destruction_occupancy ∉ names(BioDynaX)
-    @test :TRAJECTORY_OCCUPANCY_PROVENANCES ∉ names(BioDynaX)
-    @test :with_sample_unknown_destruction_observer ∉ names(BioDynaX)
-    @test :SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER ∉ names(BioDynaX)
+    @test :TrajectoryOccupancy ∉ names(HybridKinetics)
+    @test :collect_observed_occupancy ∉ names(HybridKinetics)
+    @test :sample_destruction_occupancy ∉ names(HybridKinetics)
+    @test :TRAJECTORY_OCCUPANCY_PROVENANCES ∉ names(HybridKinetics)
+    @test :with_sample_unknown_destruction_observer ∉ names(HybridKinetics)
+    @test :SAMPLE_UNKNOWN_DESTRUCTION_OBSERVER ∉ names(HybridKinetics)
     @test :TrajectoryOccupancy ∉ LOCKED_PUBLIC_EXPORTS
     @test :collect_observed_occupancy ∉ LOCKED_PUBLIC_EXPORTS
     @test :sample_destruction_occupancy ∉ LOCKED_PUBLIC_EXPORTS
@@ -638,7 +638,7 @@ end
     r = vec(occupancy.X[term.regulator, :])
     truth_D = hill_rate_truth(r; vmax = 1.8, K = 0.55, n = 2)
     @test vec(sampled[2]) != truth_D
-    normalized, _ = BioDynaX.normalize_destruction_samples(sampled[2])
+    normalized, _ = HybridKinetics.normalize_destruction_samples(sampled[2])
     @test sampled[2] != normalized
     sample_body = _m4a_function_body("sample_destruction_occupancy")
     occ_src = _m4a_source()
@@ -715,7 +715,7 @@ end
 end
 
 @testset "T-A-HOLDOUT T-A-RES occupancy is not attached to composer/holdout/functional-identifiability objects" begin
-    @test :occupancy ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :occupancy ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test fieldnames(HoldoutEvidence) == (
         :data_residual_train, :data_residual_holdout,
         :d_rmse_holdout, :d_rmse_holdout_domain)

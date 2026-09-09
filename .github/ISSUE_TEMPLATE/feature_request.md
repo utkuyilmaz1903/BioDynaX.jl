@@ -12,6 +12,6 @@ What are you trying to do that the package does not support today?
 
 ## Scope check
 
-BioDynaX targets networks with a known interaction graph and exactly one
+HybridKinetics targets networks with a known interaction graph and exactly one
 unknown destruction term. If the request goes beyond that, please say why it
 belongs in this package rather than a separate one.

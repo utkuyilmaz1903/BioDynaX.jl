@@ -4,8 +4,8 @@
 # for increasing node counts. Not run in CI. Runtime: under a minute.
 # Run:  julia --project=. benchmark/scale_basis.jl
 
-using BioDynaX
-using BioDynaX: candidate_count, each_library_chunk, evaluate_library
+using HybridKinetics
+using HybridKinetics: candidate_count, each_library_chunk, evaluate_library
 using Random
 
 function sparse_network(node_count; indegree = 3)
@@ -44,7 +44,7 @@ function benchmark_basis(sizes = [10, 50, 100, 250]; n_samples = 400,
         design_terms = spec.numerator
         elapsed_fit = @elapsed begin
             library = evaluate_library(design_terms, X)
-            BioDynaX._stlsq_blocked(library, y, 1e-2; chunk_size = chunk_size)
+            HybridKinetics._stlsq_blocked(library, y, 1e-2; chunk_size = chunk_size)
         end
         bytes_chunk = chunk_size * length(design_terms) * sizeof(Float64)
         println((

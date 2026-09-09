@@ -3,7 +3,7 @@
 
 using Test
 using Random
-using BioDynaX
+using HybridKinetics
 if !@isdefined(evaluate_trained_graph_local)
     include(joinpath(@__DIR__, "internals.jl"))
 end
@@ -23,12 +23,12 @@ const _B4_SMOKE_BUNDLE = _b4_run(; kind = :smoke, inject = _b4_inject_p0)
         n_attempted_restarts = 5,
         traj_agree_rel_rmse = 0.05,
         d_disagree_scale_norm_rel_rmse = 0.20)
-    @test :evaluate_trained_graph_local ∉ names(BioDynaX)
-    @test :TrainedGraphLocalEvidence ∉ names(BioDynaX)
-    @test :TRAINED_LIBRARY_COMPARISON ∉ names(BioDynaX)
-    @test :TRAINED_LIBRARY_COMPARISON_SMOKE ∉ names(BioDynaX)
-    @test :TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN ∉ names(BioDynaX)
-    @test :training_call ∉ names(BioDynaX)
+    @test :evaluate_trained_graph_local ∉ names(HybridKinetics)
+    @test :TrainedGraphLocalEvidence ∉ names(HybridKinetics)
+    @test :TRAINED_LIBRARY_COMPARISON ∉ names(HybridKinetics)
+    @test :TRAINED_LIBRARY_COMPARISON_SMOKE ∉ names(HybridKinetics)
+    @test :TRAINED_LIBRARY_COMPARISON_SCOPE_PLAN ∉ names(HybridKinetics)
+    @test :training_call ∉ names(HybridKinetics)
     @test fieldnames(TrainedGraphLocalEvidence) === (
         :kind, :training, :model, :term, :params_nn_fingerprint,
         :X, :D, :times, :graph_discovery, :global_discovery,
@@ -36,7 +36,7 @@ const _B4_SMOKE_BUNDLE = _b4_run(; kind = :smoke, inject = _b4_inject_p0)
     for name in _B4_FORBIDDEN_EVIDENCE_FIELDS
         @test name ∉ fieldnames(TrainedGraphLocalEvidence)
     end
-    @test :occupancy ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :occupancy ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test :occupancy ∉ fieldnames(HoldoutEvidence)
     @test :occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
 end
@@ -428,9 +428,9 @@ end
     end
 
     @testset "S A1/A2 IDs stay present" begin
-        a1 = read(joinpath(pkgdir(BioDynaX), "test", "test_trajectory_occupancy.jl"),
+        a1 = read(joinpath(pkgdir(HybridKinetics), "test", "test_trajectory_occupancy.jl"),
             String)
-        a2 = read(joinpath(pkgdir(BioDynaX), "test", "test_occupancy_separation.jl"),
+        a2 = read(joinpath(pkgdir(HybridKinetics), "test", "test_occupancy_separation.jl"),
             String)
         for id in _B4_A1_IDS
             @test occursin(id, a1)
@@ -519,12 +519,12 @@ end
         :d_rmse_holdout, :d_rmse_holdout_domain)
     @test recovery_thresholds_hold()
     @test :occupancy ∉ fieldnames(HoldoutEvidence)
-    @test :occupancy ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
-    holdout_src = read(joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl"),
+    @test :occupancy ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
+    holdout_src = read(joinpath(pkgdir(HybridKinetics), "src", "RecoveryPipeline.jl"),
         String)
     @test occursin("function evaluate_holdout", holdout_src)
     @test occursin("struct HoldoutEvidence", holdout_src)
-    @test isfile(joinpath(pkgdir(BioDynaX), "test", "test_holdout.jl"))
+    @test isfile(joinpath(pkgdir(HybridKinetics), "test", "test_holdout.jl"))
     @test !occursin("evaluate_holdout", _b4_source_code())
     @test REFERENCE_PROTOCOL.n_ics == 9
     @test length(REFERENCE_PROTOCOL_TRAIN_INDICES) == 7
@@ -543,17 +543,17 @@ end
         :function_agree, :trajectory_agree_function_disagree)
     @test :occupancy ∉ fieldnames(FunctionalIdentifiabilityDomain)
     @test :occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
-    @test isfile(joinpath(pkgdir(BioDynaX), "test",
+    @test isfile(joinpath(pkgdir(HybridKinetics), "test",
         "test_functional_identifiability.jl"))
-    src = read(joinpath(pkgdir(BioDynaX), "src", "FunctionalIdentifiability.jl"),
+    src = read(joinpath(pkgdir(HybridKinetics), "src", "FunctionalIdentifiability.jl"),
         String)
     @test occursin(":train_obs_union_holdout_obs", src)
     @test occursin("construction must be :train_obs_union_holdout_obs", src)
 end
 
 @testset "T-B4-REG-A A1/A2 files and occupancy separations stay intact" begin
-    a1_path = joinpath(pkgdir(BioDynaX), "test", "test_trajectory_occupancy.jl")
-    a2_path = joinpath(pkgdir(BioDynaX), "test", "test_occupancy_separation.jl")
+    a1_path = joinpath(pkgdir(HybridKinetics), "test", "test_trajectory_occupancy.jl")
+    a2_path = joinpath(pkgdir(HybridKinetics), "test", "test_occupancy_separation.jl")
     @test isfile(a1_path)
     @test isfile(a2_path)
     a1 = read(a1_path, String)

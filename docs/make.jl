@@ -1,12 +1,12 @@
-using BioDynaX
+using HybridKinetics
 using Documenter
 using OrdinaryDiffEq
 using Random
 using SciMLBase
 
 DocMeta.setdocmeta!(
-    BioDynaX, :DocTestSetup,
-    :(using BioDynaX, SciMLBase, OrdinaryDiffEq, Random);
+    HybridKinetics, :DocTestSetup,
+    :(using HybridKinetics, SciMLBase, OrdinaryDiffEq, Random);
     recursive = true)
 
 # The changelog page is generated from the repository CHANGELOG.md so that
@@ -16,15 +16,20 @@ let changelog = read(joinpath(@__DIR__, "..", "CHANGELOG.md"), String)
 end
 
 makedocs(
-    modules = [BioDynaX],
-    sitename = "BioDynaX.jl",
+    modules = [HybridKinetics],
+    sitename = "HybridKinetics.jl",
+    authors = "Utku Yılmaz",
+    # Pinned rather than taken from the git remote, so the repository links do
+    # not depend on what the local checkout's `origin` happens to be.
+    repo = Documenter.Remotes.GitHub("utkuyilmaz1903", "HybridKinetics.jl"),
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
+        canonical = "https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/",
         edit_link = "main"),
     pages = [
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
-        "Where BioDynaX fits" => "where-it-fits.md",
+        "Where HybridKinetics fits" => "where-it-fits.md",
         "Tutorial" => "tutorial.md",
         "Concepts" => "concepts.md",
         "How-to recipes" => "howto.md",
@@ -45,7 +50,7 @@ makedocs(
 # requests and other refs only build.
 if get(ENV, "CI", "false") == "true"
     deploydocs(
-        repo = "github.com/utkuyilmaz1903/BioDynaX.jl.git",
+        repo = "github.com/utkuyilmaz1903/HybridKinetics.jl.git",
         devbranch = "main",
         push_preview = false
     )

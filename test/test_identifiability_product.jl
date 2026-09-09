@@ -1,8 +1,8 @@
 @testset "identifiability product helpers are not exported" begin
-    @test !(:live_production_destruction_tradeoff in names(BioDynaX))
-    @test !(:join_tradeoff_protocol_row in names(BioDynaX))
-    @test !(:IdentifiabilityProductRow in names(BioDynaX))
-    @test !(:format_protocol_collinearity_row in names(BioDynaX))
+    @test !(:live_production_destruction_tradeoff in names(HybridKinetics))
+    @test !(:join_tradeoff_protocol_row in names(HybridKinetics))
+    @test !(:IdentifiabilityProductRow in names(HybridKinetics))
+    @test !(:format_protocol_collinearity_row in names(HybridKinetics))
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test validate_network_stays_open_source()
@@ -19,97 +19,97 @@ end
 end
 
 @testset "coefficients follow unidentifiable_edge" begin
-    coeff = BioDynaX.coefficients_are_biological_constants_row()
+    coeff = HybridKinetics.coefficients_are_biological_constants_row()
     @test coeff.holds
     @test coeff.true_coeff == false
     @test coeff.false_coeff == true
-    hill_not_attempted = BioDynaX.protocol_row_rejects_hill_from_nn_row()
+    hill_not_attempted = HybridKinetics.protocol_row_rejects_hill_from_nn_row()
     @test hill_not_attempted.holds
-    extras = BioDynaX.extras_not_invented_on_join_row()
+    extras = HybridKinetics.extras_not_invented_on_join_row()
     @test extras.holds
-    kpi = BioDynaX.kpi_f1_not_a_failure_on_join_row()
+    kpi = HybridKinetics.kpi_f1_not_a_failure_on_join_row()
     @test kpi.holds
     @test :support_f1 ∉ kpi.failures
 end
 
 @testset "collinearity print and warning stay consistent" begin
-    col = BioDynaX.format_protocol_collinearity_row()
+    col = HybridKinetics.format_protocol_collinearity_row()
     @test col.holds
     @test col.prints_finite
     @test col.silent_nan
-    warning = BioDynaX.collinearity_warning_row()
+    warning = HybridKinetics.collinearity_warning_row()
     @test warning.holds
-    sections = BioDynaX.format_protocol_sections_row()
+    sections = HybridKinetics.format_protocol_sections_row()
     @test sections.holds
-    smoke = BioDynaX.smoke_vs_protocol_print_row()
+    smoke = HybridKinetics.smoke_vs_protocol_print_row()
     @test smoke.holds
     @test smoke.protocol_ics
     @test smoke.smoke_ics
 end
 
 @testset "live tradeoff joins ReferenceProtocolRow" begin
-    known = BioDynaX.hill_known_tradeoff_path()
+    known = HybridKinetics.hill_known_tradeoff_path()
     @test known.holds
     @test known.collinearity_nan
-    unknown = BioDynaX.hill_unknown_tradeoff_path()
+    unknown = HybridKinetics.hill_unknown_tradeoff_path()
     @test unknown.holds
     @test unknown.collinearity_finite
-    mm_u = BioDynaX.mm_unknown_tradeoff_path()
+    mm_u = HybridKinetics.mm_unknown_tradeoff_path()
     @test mm_u.holds
-    mm_k = BioDynaX.mm_known_tradeoff_path()
+    mm_k = HybridKinetics.mm_known_tradeoff_path()
     @test mm_k.holds
-    linear = BioDynaX.linear_zero_hole_tradeoff_path()
+    linear = HybridKinetics.linear_zero_hole_tradeoff_path()
     @test linear.holds
-    two = BioDynaX.two_regulator_tradeoff_path()
+    two = HybridKinetics.two_regulator_tradeoff_path()
     @test two.holds
-    default = BioDynaX.default_example_tradeoff_path()
+    default = HybridKinetics.default_example_tradeoff_path()
     @test default.holds
 end
 
 @testset "multi-head and consistency tradeoff rows" begin
-    remap = BioDynaX.remapped_tradeoff_path()
+    remap = HybridKinetics.remapped_tradeoff_path()
     @test remap.holds
     @test remap.admits == false
-    dual = BioDynaX.dual_tradeoff_path()
+    dual = HybridKinetics.dual_tradeoff_path()
     @test dual.holds
-    six = BioDynaX.six_state_tradeoff_path()
+    six = HybridKinetics.six_state_tradeoff_path()
     @test six.holds
-    three = BioDynaX.three_state_tradeoff_path()
+    three = HybridKinetics.three_state_tradeoff_path()
     @test three.holds
-    skipped = BioDynaX.skipped_duplicate_tradeoff_path()
+    skipped = HybridKinetics.skipped_duplicate_tradeoff_path()
     @test skipped.holds
-    repress = BioDynaX.repressilator_tradeoff_path()
+    repress = HybridKinetics.repressilator_tradeoff_path()
     @test repress.holds
-    comp = BioDynaX.competitive_unknown_tradeoff_path()
+    comp = HybridKinetics.competitive_unknown_tradeoff_path()
     @test comp.holds
-    missing = BioDynaX.missing_production_param_row()
+    missing = HybridKinetics.missing_production_param_row()
     @test missing.holds
-    frozen = BioDynaX.frozen_k_prod_raw_unchanged_row()
+    frozen = HybridKinetics.frozen_k_prod_raw_unchanged_row()
     @test frozen.holds
-    compile_free = BioDynaX.compile_free_tradeoff_row()
+    compile_free = HybridKinetics.compile_free_tradeoff_row()
     @test compile_free.holds
-    verbose = BioDynaX.report_verbose_tradeoff_row()
+    verbose = HybridKinetics.report_verbose_tradeoff_row()
     @test verbose.holds
-    typed = BioDynaX.identifiability_product_typed_matrix()
+    typed = HybridKinetics.identifiability_product_typed_matrix()
     @test typed.holds
-    middle = BioDynaX.skipped_middle_tradeoff_path()
+    middle = HybridKinetics.skipped_middle_tradeoff_path()
     @test middle.holds
-    kinetic = BioDynaX.kinetic_known_tradeoff_path()
+    kinetic = HybridKinetics.kinetic_known_tradeoff_path()
     @test kinetic.holds
-    cond = BioDynaX.condition_threshold_row()
+    cond = HybridKinetics.condition_threshold_row()
     @test cond.holds
-    matched = BioDynaX.format_matches_joined_protocol_row()
+    matched = HybridKinetics.format_matches_joined_protocol_row()
     @test matched.holds
     @test matched.n_ics == 9
-    blocks = BioDynaX.reference_protocol_product_blocks_hold_on_join()
+    blocks = HybridKinetics.reference_protocol_product_blocks_hold_on_join()
     @test blocks.holds
-    untouched = BioDynaX.recovery_thresholds_untouched_row()
+    untouched = HybridKinetics.recovery_thresholds_untouched_row()
     @test untouched.holds
     @test untouched.ude == 0.50
 end
 
 @testset "module include and docs page exist" begin
-    src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
+    src = read(joinpath(@__DIR__, "..", "src", "HybridKinetics.jl"), String)
     @test occursin("include(\"IdentifiabilityProduct.jl\")", src)
     @test isfile(joinpath(@__DIR__, "..", "src", "IdentifiabilityProduct.jl"))
 end

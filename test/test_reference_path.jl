@@ -2,7 +2,7 @@
     times = collect(0.0:0.5:4.0)
     obs = [exp.(-0.3 .* times)'; (0.2 .+ 0.1 .* times)']
     experiment = Experiment(:csv_roundtrip, times, obs, obs[:, 1])
-    path = joinpath(tempdir(), "biodynax_csv_roundtrip.csv")
+    path = joinpath(tempdir(), "hybridkinetics_csv_roundtrip.csv")
     write_experiment_csv(path, experiment; state_names = [:S, :R])
     loaded, names = experiment_from_csv(path)
     @test names == [:S, :R]

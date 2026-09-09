@@ -206,7 +206,7 @@ end
 
 Optional explicit discovery backend that fits coefficients with
 DataDrivenSparse.jl `STLSQ`. Requires `using DataDrivenSparse`. Graph-local
-libraries and denominator safety remain BioDynaX-owned.
+libraries and denominator safety remain HybridKinetics-owned.
 """
 Base.@kwdef struct DataDrivenSparseSTLSQ <: AbstractDiscoveryBackend
     threshold::Float64 = 1e-2

@@ -1,8 +1,8 @@
-module BioDynaXSymbolicsExt
+module HybridKineticsSymbolicsExt
 
-using BioDynaX
-using BioDynaX: ImplicitCandidate, ExplicitCandidate, MonomialTerm, DiscoveryResult,
-                UnknownTermResult
+using HybridKinetics
+using HybridKinetics: ImplicitCandidate, ExplicitCandidate, MonomialTerm, DiscoveryResult,
+                      UnknownTermResult
 using Symbolics
 
 """
@@ -11,7 +11,7 @@ using Symbolics
 The candidate's rate as a `Symbolics.Num`: for an `ImplicitCandidate` the
 rational function numerator / (1 + denominator), for an `ExplicitCandidate`
 the polynomial, in symbolic variables named by `names` (one per library
-variable index). Called through `BioDynaX.symbolic`.
+variable index). Called through `HybridKinetics.symbolic`.
 """
 function symbolic(candidate::ImplicitCandidate, names::AbstractVector{Symbol})
     variables = _variables(names)

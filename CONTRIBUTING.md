@@ -1,6 +1,6 @@
-# Contributing to BioDynaX.jl
+# Contributing to HybridKinetics.jl
 
-Thank you for considering a contribution. BioDynaX is a research package
+Thank you for considering a contribution. HybridKinetics is a research package
 with a deliberately narrow scope: hybrid models of small biochemical
 networks with a known interaction graph and exactly one unknown destruction
 term. Please read the "Scope and limitations" section of the README before
@@ -18,8 +18,8 @@ is formatted.
 ## Setting up
 
 ```bash
-git clone https://github.com/utkuyilmaz1903/BioDynaX.jl.git
-cd BioDynaX.jl
+git clone https://github.com/utkuyilmaz1903/HybridKinetics.jl.git
+cd HybridKinetics.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
@@ -31,15 +31,15 @@ GitHub for git-based package downloads.
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.test()'                      # default test suite
-BIODYNAX_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()' # plus the multi-minute training-loop tests
-BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
+HYBRIDKINETICS_TEST_HEAVY=1 julia --project=. -e 'using Pkg; Pkg.test()' # plus the multi-minute training-loop tests
+HYBRIDKINETICS_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl
 julia --project=. test/run_recovery_hard.jl                       # trained-model recovery (about 10 minutes on 4 cores)
 julia --project=docs docs/instantiate.jl && julia --project=docs docs/make.jl
 julia -e 'using Pkg; Pkg.activate(; temp=true); Pkg.develop(path=pwd()); Pkg.add(["Aqua", "JET"]); include("test/quality.jl")'
 ```
 
 The default test suite must stay fast. Put multi-minute training runs behind
-`BIODYNAX_TEST_HEAVY=1` (see `test/test_experiment_checkpoint.jl`), in
+`HYBRIDKINETICS_TEST_HEAVY=1` (see `test/test_experiment_checkpoint.jl`), in
 `test/run_recovery_hard.jl`, or in a `benchmark/` script. CI runs the default
 suite on every push and pull request and the heavy tier weekly and on demand.
 
@@ -58,7 +58,7 @@ suite on every push and pull request and the heavy tier weekly and on demand.
 
 Exported names are documented on the API page of the documentation and are
 covered by the test suite. New functionality should start unexported
-(`BioDynaX.foo`) and be documented on the extensions or how-to page. Do not
+(`HybridKinetics.foo`) and be documented on the extensions or how-to page. Do not
 add exports only to silence Documenter warnings. The GPU, SBML,
 ModelingToolkit, and DataDrivenSparse extensions are experimental.
 

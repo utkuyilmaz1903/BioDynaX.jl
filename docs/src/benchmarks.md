@@ -1,7 +1,7 @@
 # Benchmarks
 
 The recovery benchmarks are the evidence behind the claims in this
-documentation. They are run by `BioDynaX.run_recovery_suite`, the scripts in
+documentation. They are run by `HybridKinetics.run_recovery_suite`, the scripts in
 `benchmark/`, and two test entry points, and they are scored against the
 thresholds in `RECOVERY_THRESHOLDS`. Loosening a threshold is treated as a
 breaking change.
@@ -52,7 +52,7 @@ and follow the [reference protocol](concepts.md#The-reference-protocol):
   Hill recall criterion is not applied, and canonical Michaelis-Menten
   support from the trained network is not claimed.
 
-The trained-model library comparison (`BioDynaX.evaluate_trained_graph_local`,
+The trained-model library comparison (`HybridKinetics.evaluate_trained_graph_local`,
 full protocol in `test/run_trained_library_comparison.jl`) runs discovery with the
 graph-local, global, and wrong-graph libraries on one trained model's sampled
 rate.
@@ -135,7 +135,7 @@ row is unavailable because that package does not resolve against the
 ModelingToolkit versions this package allows; `benchmark/probe_datadriven.jl`
 reproduces the resolve error.
 
-Six-state graph prior (`BioDynaX.run_recovery_suite` with
+Six-state graph prior (`HybridKinetics.run_recovery_suite` with
 `sections = (:six_state, :six_state_wrong_graph)`): the graph-local library
 contains the true regulator and no false parent and excludes the distractor;
 the global library includes the distractor and admits a false parent; the

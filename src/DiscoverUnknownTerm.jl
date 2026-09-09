@@ -149,7 +149,7 @@ held out of training and used only for the held-out residual (the reference
 protocol holds out 2 of 9). Residuals and the identifiability diagnostic use
 each experiment's observation mask, so unobserved entries do not count.
 `known_support`, the true implicit support when
-the data are synthetic (for example `BioDynaX.hill_rate_support(2)`), is used
+the data are synthetic (for example `HybridKinetics.hill_rate_support(2)`), is used
 only to list the extra terms in the report. `seed` is recorded in the report
 and not used otherwise; `verbose` prints training progress and the report.
 """

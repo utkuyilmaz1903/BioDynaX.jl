@@ -5,7 +5,7 @@
 
 using Test
 using Random
-using BioDynaX
+using HybridKinetics
 if !@isdefined(_reference_protocol_rate_recovery)
     include(joinpath(@__DIR__, "internals.jl"))
 end
@@ -74,7 +74,7 @@ end
 function _a2_fake_fit(params)
     return TrainingResult(
         params, Float64[], 1.0, 0.4,
-        RunMetadata(seed = 0), (;), true, BioDynaX.Success)
+        RunMetadata(seed = 0), (;), true, HybridKinetics.Success)
 end
 
 function _a2_new_logs()
@@ -386,7 +386,7 @@ end
         :d_rmse_holdout,
         :d_rmse_holdout_domain)
     @test :occupancy ∉ fieldnames(HoldoutEvidence)
-    @test :occupancy ∉ fieldnames(BioDynaX.MechanismRecoveryResult)
+    @test :occupancy ∉ fieldnames(HybridKinetics.MechanismRecoveryResult)
     @test :occupancy ∉ fieldnames(FunctionalIdentifiabilityDiagnostic)
     model, params, term, _ = _a2_probe_models()
     truth_rate = _a2_hill_truth()

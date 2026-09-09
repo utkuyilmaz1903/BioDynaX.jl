@@ -1,6 +1,9 @@
 # Changelog
 
-All notable changes to BioDynaX.jl are documented in this file.
+All notable changes to HybridKinetics.jl are documented in this file.
+Releases up to and including 0.14.0 were published under the package's former
+name, BioDynaX.jl, and the entries below keep that name where it is what
+shipped.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 Nothing yet.
+
+## [0.15.0] - 2026-09-08
+
+### Changed
+
+- The package is renamed from BioDynaX to **HybridKinetics**. The module, the
+  package file, the extensions, the repository and the documentation URL all
+  follow the new name; the UUID is unchanged. Update your code to
+  `using HybridKinetics`, and install from the new URL:
+
+  ```julia
+  using Pkg
+  Pkg.add(url = "https://github.com/utkuyilmaz1903/HybridKinetics.jl")
+  ```
+
+  An environment that already tracks the package under the old name should
+  remove it and add it again from the new URL; the recorded name no longer
+  matches the one in the package's `Project.toml`.
+- New one-line description: "Hybrid kinetic models for small biochemical
+  networks: learn the one unknown rate law from time-series data, then recover
+  it symbolically."
+- The environment variables that select the heavy test tier and the example
+  smoke runs are renamed to `HYBRIDKINETICS_TEST_HEAVY` and
+  `HYBRIDKINETICS_SMOKE`.
+- No numerical behaviour changed: thresholds, seeds, initial-condition counts,
+  the training and holdout split, optimizer settings and the discovery library
+  are untouched, and the test suite is unchanged apart from the new name.
 
 ## [0.14.0] - 2026-09-06
 
@@ -506,7 +536,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.11.0...v0.12.0

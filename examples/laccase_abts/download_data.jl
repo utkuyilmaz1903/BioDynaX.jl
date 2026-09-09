@@ -9,7 +9,7 @@
 # fetched at a pinned commit and checked against its SHA-256 before use.
 #
 # Licence: the repository carries no licence file and the document no licence
-# statement, so the data are not redistributed with BioDynaX; this script
+# statement, so the data are not redistributed with HybridKinetics; this script
 # downloads them from the original source into examples/laccase_abts/data/,
 # which is not committed. The article itself is open access (CC BY 4.0); that
 # licence covers the article, not necessarily the repository.

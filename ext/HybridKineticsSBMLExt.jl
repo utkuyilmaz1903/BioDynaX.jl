@@ -1,6 +1,6 @@
-module BioDynaXSBMLExt
+module HybridKineticsSBMLExt
 
-using BioDynaX
+using HybridKinetics
 using SBML
 
 """

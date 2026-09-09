@@ -1,9 +1,9 @@
 @testset "hybrid residual helpers are not exported" begin
-    @test !(:hybrid_residual_sciml_solve in names(BioDynaX))
-    @test !(:residual_solver_agreement_row in names(BioDynaX))
-    @test !(:noise0_vs_noisy_residual_row in names(BioDynaX))
-    @test !(:smoke_vs_protocol_residual_row in names(BioDynaX))
-    @test !(:HybridResidualRow in names(BioDynaX))
+    @test !(:hybrid_residual_sciml_solve in names(HybridKinetics))
+    @test !(:residual_solver_agreement_row in names(HybridKinetics))
+    @test !(:noise0_vs_noisy_residual_row in names(HybridKinetics))
+    @test !(:smoke_vs_protocol_residual_row in names(HybridKinetics))
+    @test !(:HybridResidualRow in names(HybridKinetics))
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test validate_network_stays_open_source()
@@ -20,50 +20,50 @@ end
 end
 
 @testset "identity residual agrees with SciMLBase.solve and predict_ude" begin
-    hill = BioDynaX.hill_residual_solver_path()
+    hill = HybridKinetics.hill_residual_solver_path()
     @test hill.holds
     @test hill.agree.compiles == 0
-    mm = BioDynaX.mm_residual_solver_path()
+    mm = HybridKinetics.mm_residual_solver_path()
     @test mm.holds
-    two = BioDynaX.two_regulator_residual_solver_path()
+    two = HybridKinetics.two_regulator_residual_solver_path()
     @test two.holds
-    six = BioDynaX.six_state_residual_solver_path()
+    six = HybridKinetics.six_state_residual_solver_path()
     @test six.holds
-    default = BioDynaX.default_example_residual_solver_path()
+    default = HybridKinetics.default_example_residual_solver_path()
     @test default.holds
-    three = BioDynaX.three_state_residual_solver_path()
+    three = HybridKinetics.three_state_residual_solver_path()
     @test three.holds
-    competitive = BioDynaX.competitive_residual_solver_path()
+    competitive = HybridKinetics.competitive_residual_solver_path()
     @test competitive.holds
 end
 
 @testset "failed compose paths stay failed" begin
-    linear = BioDynaX.failed_compose_linear_term_row()
+    linear = HybridKinetics.failed_compose_linear_term_row()
     @test linear.holds
-    empty = BioDynaX.failed_compose_empty_terms_row()
+    empty = HybridKinetics.failed_compose_empty_terms_row()
     @test empty.holds
-    dual = BioDynaX.failed_compose_dual_only_row()
+    dual = HybridKinetics.failed_compose_dual_only_row()
     @test dual.holds
     @test dual.admits == false
-    failed = BioDynaX.failed_compose_export_row()
+    failed = HybridKinetics.failed_compose_export_row()
     @test failed.holds
-    empty_export = BioDynaX.failed_compose_empty_export_row()
+    empty_export = HybridKinetics.failed_compose_empty_export_row()
     @test empty_export.holds
-    exploding = BioDynaX.hybrid_residual_failed_solve_row()
+    exploding = HybridKinetics.hybrid_residual_failed_solve_row()
     @test exploding.holds
-    shape = BioDynaX.hybrid_residual_shape_guard_row()
+    shape = HybridKinetics.hybrid_residual_shape_guard_row()
     @test shape.holds
-    wrong = BioDynaX.failed_compose_wrong_rate_row()
+    wrong = HybridKinetics.failed_compose_wrong_rate_row()
     @test wrong.holds
 end
 
 @testset "noise-0 residual is not the noisy residual" begin
-    noise = BioDynaX.noise_does_not_paint_f1_row()
+    noise = HybridKinetics.noise_does_not_paint_f1_row()
     @test noise.holds
     @test noise.vs_clean < 1e-6
     @test noise.vs_noisy > noise.vs_clean
-    built = BioDynaX.hybrid_linear_unknown_model(401)
-    grid = BioDynaX.noise_grid_residual_row(
+    built = HybridKinetics.hybrid_linear_unknown_model(401)
+    grid = HybridKinetics.noise_grid_residual_row(
         built.model, built.packed, [0.30, 0.25])
     @test grid.holds
     @test grid.rows[1].noise_σ == 0.0
@@ -71,15 +71,15 @@ end
 end
 
 @testset "smoke residual is not the protocol residual" begin
-    smoke = BioDynaX.smoke_vs_protocol_residual_row()
+    smoke = HybridKinetics.smoke_vs_protocol_residual_row()
     @test smoke.holds
     @test smoke.smoke_ics == 1
     @test smoke.protocol_ics == 9
     @test smoke.smoke_points == 8
     @test smoke.protocol_points == 50
-    self = BioDynaX.smoke_identity_on_self_row()
+    self = HybridKinetics.smoke_identity_on_self_row()
     @test self.holds
-    protocol = BioDynaX.protocol_fingerprint_not_dropped_row()
+    protocol = HybridKinetics.protocol_fingerprint_not_dropped_row()
     @test protocol.holds
     @test protocol.n_ics == 9
     @test protocol.n_points == 50
@@ -87,34 +87,34 @@ end
 end
 
 @testset "multi-head and multi-IC residuals stay compile-free" begin
-    remap = BioDynaX.remapped_residual_solver_row()
+    remap = HybridKinetics.remapped_residual_solver_row()
     @test remap.holds
     @test remap.compiles == 0
-    skipped = BioDynaX.skipped_duplicate_residual_solver_row()
+    skipped = HybridKinetics.skipped_duplicate_residual_solver_row()
     @test skipped.holds
-    middle = BioDynaX.skipped_middle_residual_solver_row()
+    middle = HybridKinetics.skipped_middle_residual_solver_row()
     @test middle.holds
-    multi = BioDynaX.multi_ic_residual_solver_row()
+    multi = HybridKinetics.multi_ic_residual_solver_row()
     @test multi.holds
     @test multi.compiles == 0
-    known = BioDynaX.hill_known_generate_unknown_solver_row()
+    known = HybridKinetics.hill_known_generate_unknown_solver_row()
     @test known.holds
-    session = BioDynaX.session_residual_solver_path()
+    session = HybridKinetics.session_residual_solver_path()
     @test session.holds
-    typed = BioDynaX.hybrid_residual_typed_matrix()
+    typed = HybridKinetics.hybrid_residual_typed_matrix()
     @test typed.holds
-    zero = BioDynaX.linear_zero_hole_residual_row()
+    zero = HybridKinetics.linear_zero_hole_residual_row()
     @test zero.holds
-    mm_known = BioDynaX.mm_known_no_residual_row()
+    mm_known = HybridKinetics.mm_known_no_residual_row()
     @test mm_known.holds
-    repress = BioDynaX.repressilator_no_residual_row()
+    repress = HybridKinetics.repressilator_no_residual_row()
     @test repress.holds
-    kinetic = BioDynaX.kinetic_known_no_residual_row()
+    kinetic = HybridKinetics.kinetic_known_no_residual_row()
     @test kinetic.holds
 end
 
 @testset "module include and docs page exist" begin
-    src = read(joinpath(@__DIR__, "..", "src", "BioDynaX.jl"), String)
+    src = read(joinpath(@__DIR__, "..", "src", "HybridKinetics.jl"), String)
     @test occursin("include(\"HybridResidual.jl\")", src)
     @test isfile(joinpath(@__DIR__, "..", "src", "HybridResidual.jl"))
 end

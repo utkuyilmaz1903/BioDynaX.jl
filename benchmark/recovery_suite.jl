@@ -11,14 +11,14 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-using BioDynaX
-using BioDynaX: run_recovery_suite
+using HybridKinetics
+using HybridKinetics: run_recovery_suite
 using Printf
 using Random
 
 report = run_recovery_suite(MersenneTwister(1);
     sections = (:linear, :mm, :hill, :competitive, :ablation))
-println("BioDynaX recovery suite (fast sections)")
+println("HybridKinetics recovery suite (fast sections)")
 if haskey(report, :linear)
     @printf "  linear RMSE        %.4f\n" report[:linear].rmse
 end
@@ -42,10 +42,10 @@ if haskey(report, :ablation)
     println("  wall time (s)      local=", a.local_time, " global=", a.global_time)
 end
 
-hard = run_recovery_suite(MersenneTwister(BioDynaX.REFERENCE_PROTOCOL.seed);
+hard = run_recovery_suite(MersenneTwister(HybridKinetics.REFERENCE_PROTOCOL.seed);
     sections = (:ude_discovery, :mm_unknown))
-println("BioDynaX recovery suite (unknown-edge UDE)")
-fingerprint = BioDynaX.reference_protocol_fingerprint()
+println("HybridKinetics recovery suite (unknown-edge UDE)")
+fingerprint = HybridKinetics.reference_protocol_fingerprint()
 for key in (:ude_discovery, :mm_unknown)
     haskey(hard, key) || continue
     u = hard[key]
@@ -56,6 +56,6 @@ for key in (:ude_discovery, :mm_unknown)
         "  F1=", u.support_f1,
         "  recall=", u.support_recall,
         "  data_resid=", u.data_residual,
-        "  extras=", BioDynaX.extras_print_label(extras))
-    println(BioDynaX.format_recovery_protocol(u, fingerprint))
+        "  extras=", HybridKinetics.extras_print_label(extras))
+    println(HybridKinetics.format_recovery_protocol(u, fingerprint))
 end

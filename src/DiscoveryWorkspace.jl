@@ -30,11 +30,11 @@ const DISCOVERY_STREAMING_DATAGEN_MUST_NOT_CONTAIN = (
     "Lux.Dense(1 => 1")
 
 function discovery_jl_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "Discovery.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Discovery.jl")
 end
 
 function basis_factory_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "BasisFactory.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "BasisFactory.jl")
 end
 
 # -- Workspaces ---------------------------------------------------------------

@@ -37,7 +37,7 @@ anything else raises an error that names the reaction and its rate. The
 tutorial network in Catalyst:
 
 ```@example catalyst
-using BioDynaX, Catalyst, ModelingToolkit, Symbolics, Random
+using HybridKinetics, Catalyst, ModelingToolkit, Symbolics, Random
 
 tutorial = @reaction_network tutorial begin
     k_prod * R, 0 --> S
@@ -47,7 +47,7 @@ tutorial = @reaction_network tutorial begin
 end
 
 net = network_from_reactionsystem(tutorial; unknown = "unknown")
-[node.name for node in net.nodes], length(net.reactions), BioDynaX.count_unknown_destructions(net)
+[node.name for node in net.nodes], length(net.reactions), HybridKinetics.count_unknown_destructions(net)
 ```
 
 `unknown = nothing` compiles every reaction as known kinetics, which is how
@@ -79,7 +79,7 @@ whose states carry the same names, ready for `ODEProblem`:
 ```@example catalyst
 if result.discovery.success
     rate = symbolic(result)
-    completed = BioDynaX.export_mtk_system(result.model; discovered = result)
+    completed = HybridKinetics.export_mtk_system(result.model; discovered = result)
     rate, ModelingToolkit.unknowns(completed), ModelingToolkit.equations(completed)
 end
 ```
@@ -100,8 +100,8 @@ the column names. The file shipped in `examples/data/` is a synthetic
 fixture generated from the tutorial network, not a measured series.
 
 ```@example howto
-using BioDynaX
-path = joinpath(pkgdir(BioDynaX), "examples", "data", "unknown_inhibition.csv")
+using HybridKinetics
+path = joinpath(pkgdir(HybridKinetics), "examples", "data", "unknown_inhibition.csv")
 experiment, names = experiment_from_csv(path)
 (names, length(experiment.times), size(experiment.observations))
 ```
@@ -140,11 +140,11 @@ network = BiologicalNetwork(
         ReactionSpec(name = :decay_r, stoichiometry = Dict(2 => -1.0), regulators = Int[],
             metadata = LinearDecayMetadata(rate_param = :k_r))])
 model, params = build_ude_model(MersenneTwister(0), network)
-BioDynaX.count_unknown_destructions(model)
+HybridKinetics.count_unknown_destructions(model)
 ```
 
 The recovery workflow requires exactly one unknown destruction term;
-`BioDynaX.assert_single_unknown_destruction(model)` raises an error
+`HybridKinetics.assert_single_unknown_destruction(model)` raises an error
 otherwise. `validate_network` itself does not enforce the count.
 
 ## Generate synthetic data
@@ -224,9 +224,9 @@ rhs = export_rhs(result)
 ## Print the identifiability warning and the report
 
 ```julia
-ident = BioDynaX.report_production_destruction_tradeoff(
+ident = HybridKinetics.report_production_destruction_tradeoff(
     model, trained.params, data, times, u0, tspan; term = term, verbose = true)
-println(BioDynaX.format_protocol_result(ident; residual = residual,
+println(HybridKinetics.format_protocol_result(ident; residual = residual,
     equations = discovery.equations))
 ```
 
@@ -235,7 +235,7 @@ anything not supplied is printed as `NA` or as "not scored".
 
 ```@example howto
 ident = (; unidentifiable_edge = true, production_param = :k_prod, collinearity = 0.997)
-print(BioDynaX.format_protocol_result(ident; residual = 0.0017769, seed = 103, n_ics = 9))
+print(HybridKinetics.format_protocol_result(ident; residual = 0.0017769, seed = 103, n_ics = 9))
 ```
 
 ## Use the SciML solve surface
@@ -269,9 +269,9 @@ one-shot Optimization.jl path is available as an unexported alternative to
 `train_ude`:
 
 ```julia
-prob, objective = BioDynaX.build_optimization_problem(
+prob, objective = HybridKinetics.build_optimization_problem(
     model, params, data, times, u0, tspan; config = TrainingConfig())
-result = BioDynaX.train_via_optimization(
+result = HybridKinetics.train_via_optimization(
     model, params, data, times, u0, tspan; maxiters = 50)
 ```
 
@@ -288,29 +288,29 @@ resumption.
 trained = train_ude(p_init, data, times, u0, tspan, model;
     config = TrainingConfig(adam_iterations = 200),
     checkpoint_path = "run.jls", checkpoint_every = 50)
-checkpoint = BioDynaX.load_checkpoint("run.jls")
-resumed = BioDynaX.resume_training(checkpoint, data, times, u0, tspan, model;
+checkpoint = HybridKinetics.load_checkpoint("run.jls")
+resumed = HybridKinetics.resume_training(checkpoint, data, times, u0, tspan, model;
     config = TrainingConfig(adam_iterations = 300))
 ```
 
-`BioDynaX.save_result` and `BioDynaX.load_result` do the same for a finished
+`HybridKinetics.save_result` and `HybridKinetics.load_result` do the same for a finished
 `TrainingResult`.
 
 ## Run experiments on several threads or processes
 
-`BioDynaX.execute_experiments(f, set; config = BioDynaX.ExecutionConfig(backend = :threads))`
+`HybridKinetics.execute_experiments(f, set; config = HybridKinetics.ExecutionConfig(backend = :threads))`
 maps `f` over the experiments with the serial, threaded, or distributed
 backend and returns the results in input order. The `:gpu` backend needs the
 CUDA extension and only transfers arrays (see [Extensions](extensions.md)).
 
 ## Run part of the recovery suite
 
-`BioDynaX.run_recovery_suite` takes a `sections` tuple. Sections that are not
+`HybridKinetics.run_recovery_suite` takes a `sections` tuple. Sections that are not
 requested are not run, so the known-kinetics checks can be run without the
 trained-model protocol:
 
 ```julia
-report = BioDynaX.run_recovery_suite(MersenneTwister(1);
+report = HybridKinetics.run_recovery_suite(MersenneTwister(1);
     sections = (:linear, :mm, :hill, :competitive),
     linear_adam = 1, linear_bfgs = 0, mm_adam = 1, mm_bfgs = 0,
     hill_adam = 1, hill_bfgs = 0, competitive_adam = 1, competitive_bfgs = 0)

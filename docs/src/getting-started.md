@@ -2,31 +2,31 @@
 
 ## Installation
 
-BioDynaX requires Julia 1.10 or newer. Once it is in the General registry
+HybridKinetics requires Julia 1.10 or newer. Once it is in the General registry
 it installs with
 
 ```julia
 using Pkg
-Pkg.add("BioDynaX")
+Pkg.add("HybridKinetics")
 ```
 
 Until then, install it from GitHub:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/utkuyilmaz1903/BioDynaX.jl")
+Pkg.add(url = "https://github.com/utkuyilmaz1903/HybridKinetics.jl")
 ```
 
 To work on the package itself, clone the repository and instantiate its
 environment:
 
 ```bash
-git clone https://github.com/utkuyilmaz1903/BioDynaX.jl.git
-cd BioDynaX.jl
+git clone https://github.com/utkuyilmaz1903/HybridKinetics.jl.git
+cd HybridKinetics.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
-The first `using BioDynaX` precompiles the SciML dependencies and can take
+The first `using HybridKinetics` precompiles the SciML dependencies and can take
 several minutes.
 
 ## A first model, from Catalyst
@@ -40,7 +40,7 @@ its index), and `network_from_reactionsystem` marks it as the one unknown
 destruction term; the other rate laws compile to the matching known terms.
 
 ```@example gs
-using BioDynaX, Catalyst, Random
+using HybridKinetics, Catalyst, Random
 
 tutorial = @reaction_network tutorial begin
     k_prod * R, 0 --> S
@@ -112,7 +112,7 @@ trained = train_experiments(p_init, data, model;
     config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20), verbose = false)
 
 e = data.experiments[1]
-ident = BioDynaX.report_production_destruction_tradeoff(
+ident = HybridKinetics.report_production_destruction_tradeoff(
     model, trained.params, e.observations, e.times, e.u0, tspan; verbose = true)
 println("scale warning raised: ", ident.unidentifiable_edge)
 
@@ -133,7 +133,7 @@ where `x[1]` is the regulator `R`. The `x^2 / (K + x^2)` structure of the Hill
 term is present; the constant and linear terms are extra terms that the
 sparse regression did not remove. With `using Symbolics`, `symbolic(found, [:R])`
 returns this rate as a `Symbolics` expression, and with `using ModelingToolkit`,
-`BioDynaX.export_mtk_system(model; discovered = found)` returns the completed
+`HybridKinetics.export_mtk_system(model; discovered = found)` returns the completed
 model as an `ODESystem` whose states are `S(t)` and `R(t)`. The
 [Concepts](concepts.md) page explains why the coefficients are not
 biological constants, and the [Tutorial](tutorial.md) runs the reference
@@ -143,6 +143,6 @@ protocol with nine initial conditions.
 
 - `julia --project=. examples/unknown_inhibition.jl` runs the reference
   protocol and prints the full four-section report (about 10 to 15 minutes).
-- `BIODYNAX_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl`
+- `HYBRIDKINETICS_SMOKE=1 ADAM_ITERS=2 BFGS_ITERS=0 julia --project=. examples/unknown_inhibition.jl`
   runs the same script with one initial condition and two optimizer steps as
   a two-minute check that everything is installed.

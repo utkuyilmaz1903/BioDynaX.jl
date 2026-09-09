@@ -9,20 +9,20 @@
 # protocol, so expect several times the runtime of the example.
 # Run:  julia --project=. benchmark/functional_identifiability.jl
 
-if !isdefined(Main, :BioDynaX)
+if !isdefined(Main, :HybridKinetics)
     using Pkg
     Pkg.activate(joinpath(@__DIR__, ".."))
 end
 
-using BioDynaX
-using BioDynaX:
-                FUNCTIONAL_ID_RESTART_SEEDS,
-                REFERENCE_PROTOCOL,
-                assess_functional_identifiability,
-                build_hill_recovery_network,
-                format_functional_identifiability_diagnostic,
-                generate_recovery_experiments,
-                reference_protocol_experiment_split
+using HybridKinetics
+using HybridKinetics:
+                      FUNCTIONAL_ID_RESTART_SEEDS,
+                      REFERENCE_PROTOCOL,
+                      assess_functional_identifiability,
+                      build_hill_recovery_network,
+                      format_functional_identifiability_diagnostic,
+                      generate_recovery_experiments,
+                      reference_protocol_experiment_split
 using Random
 
 truth_net = build_hill_recovery_network(; known = true, hill_order = 2)

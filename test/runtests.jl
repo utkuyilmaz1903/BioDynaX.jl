@@ -1,7 +1,7 @@
-# Default test suite. Set BIODYNAX_TEST_HEAVY=1 to also run the multi-minute
+# Default test suite. Set HYBRIDKINETICS_TEST_HEAVY=1 to also run the multi-minute
 # training-loop testsets; the trained-model recovery protocol lives in
 # run_recovery_hard.jl and run_trained_library_comparison.jl and is not part of Pkg.test().
-using BioDynaX
+using HybridKinetics
 include("internals.jl")
 include(joinpath("support", "support.jl"))
 using ComponentArrays

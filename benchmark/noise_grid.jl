@@ -8,10 +8,11 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-using BioDynaX
-using BioDynaX:
-                hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
-                discover_unknown_rate, denominator_violation_count, RECOVERY_THRESHOLDS
+using HybridKinetics
+using HybridKinetics:
+                      hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
+                      discover_unknown_rate, denominator_violation_count,
+                      RECOVERY_THRESHOLDS
 using Printf
 using Random
 

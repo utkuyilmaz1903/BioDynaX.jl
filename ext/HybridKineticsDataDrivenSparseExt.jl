@@ -1,12 +1,12 @@
-module BioDynaXDataDrivenSparseExt
+module HybridKineticsDataDrivenSparseExt
 
-using BioDynaX
+using HybridKinetics
 using DataDrivenSparse
 using LinearAlgebra
 
 """Fit `y ≈ A ξ` with DataDrivenSparse `STLSQ` (A is samples × features)."""
 function sparse_coefficients(A::AbstractMatrix, y::AbstractVector,
-        backend::BioDynaX.DataDrivenSparseSTLSQ)
+        backend::HybridKinetics.DataDrivenSparseSTLSQ)
     alg = DataDrivenSparse.STLSQ(backend.threshold, backend.ridge)
     features_by_samples = permutedims(A)
     cache = DataDrivenSparse.init_cache(alg, features_by_samples, y)

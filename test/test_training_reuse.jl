@@ -1,12 +1,12 @@
 using SciMLSensitivity: BacksolveAdjoint, ZygoteVJP
 
 @testset "training reuse helpers are not exported" begin
-    @test !(:TrainingSolveSession in names(BioDynaX))
-    @test !(:lock_training_solver in names(BioDynaX))
-    @test !(:predict_ude_session in names(BioDynaX))
-    @test !(:warmup_first_experiment in names(BioDynaX))
-    @test !(:with_compile_network_counter in names(BioDynaX))
-    @test !(:train_experiments_with_warmup in names(BioDynaX))
+    @test !(:TrainingSolveSession in names(HybridKinetics))
+    @test !(:lock_training_solver in names(HybridKinetics))
+    @test !(:predict_ude_session in names(HybridKinetics))
+    @test !(:warmup_first_experiment in names(HybridKinetics))
+    @test !(:with_compile_network_counter in names(HybridKinetics))
+    @test !(:train_experiments_with_warmup in names(HybridKinetics))
     @test public_export_list_holds()
     @test recovery_thresholds_hold()
     @test validate_network_stays_open_source()
@@ -21,15 +21,15 @@ end
     @test matrix.remap.neural
     @test matrix.two.neural
     @test matrix.hill.backsolve_forbidden_for_neural
-    locked = BioDynaX.lock_training_solver(build_ude_model(
+    locked = HybridKinetics.lock_training_solver(build_ude_model(
         MersenneTwister(0), build_hill_recovery_network(; known = false))[1])
-    @test BioDynaX.training_sensealg_kind(locked) === :interpolating
+    @test HybridKinetics.training_sensealg_kind(locked) === :interpolating
 end
 
 @testset "session remake matches predict_ude without compiling" begin
     rng = MersenneTwister(7)
     model, params = build_ude_model(rng, build_linear_test_network())
-    report = BioDynaX.training_session_remake_agreement(
+    report = HybridKinetics.training_session_remake_agreement(
         model, params, [0.22, 0.14]; tspan = (0.0, 1.0), n_points = 8)
     @test report.holds
     @test report.matches
@@ -47,7 +47,7 @@ end
         initial_conditions = [[0.22, 0.14], [0.30, 0.18], [0.18, 0.12]],
         tspan = (0.0, 1.0), n_points = 6, noise_σ = 0.0,
         truth_params = truth)
-    report = BioDynaX.training_session_multi_ic_agreement(model, params, set)
+    report = HybridKinetics.training_session_multi_ic_agreement(model, params, set)
     @test report.holds
     @test report.matches
     @test report.counter == 0
@@ -65,7 +65,7 @@ end
         tspan = (0.0, 0.8), n_points = 6, noise_σ = 0.0,
         truth_params = truth)
     init = pack_parameters((k_ba = 1.0, k_a = 1.0, k_b = 0.6), p0.nn)
-    report = BioDynaX.train_experiments_compile_report(init, set, model)
+    report = HybridKinetics.train_experiments_compile_report(init, set, model)
     @test report.holds
     @test report.with_model == 0
     @test report.with_nn_st == 1
@@ -86,12 +86,12 @@ end
     cfg = TrainingConfig(
         adam_iterations = 1, bfgs_iterations = 0, log_every = 10^6,
         constraint = AugmentedLagrangianConfig(outer_iterations = 1))
-    n = BioDynaX.with_compile_network_counter() do counter
+    n = HybridKinetics.with_compile_network_counter() do counter
         train_experiments(init, set, model; config = cfg, verbose = false)
         counter[]
     end
     @test n == 0
-    @test BioDynaX.al_constraint_passes_model_source()
+    @test HybridKinetics.al_constraint_passes_model_source()
 end
 
 @testset "warmup exposes Optimisers state for train_experiments" begin
@@ -105,15 +105,15 @@ end
         tspan = (0.0, 0.6), n_points = 5, noise_σ = 0.0,
         truth_params = truth)
     init = pack_parameters((k_ba = 1.0, k_a = 1.0, k_b = 0.6), p0.nn)
-    report = BioDynaX.warmup_state_reuse_report(init, set, model; adam_iterations = 2)
+    report = HybridKinetics.warmup_state_reuse_report(init, set, model; adam_iterations = 2)
     @test report.holds
     @test report.warmup_has_state
     @test report.sensealg_locked
-    warm = BioDynaX.warmup_first_experiment(
+    warm = HybridKinetics.warmup_first_experiment(
         init, set, model;
         config = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0,
             log_every = 10^6), verbose = false)
-    @test BioDynaX.optimizer_state_from_result(warm.result) !== nothing
+    @test HybridKinetics.optimizer_state_from_result(warm.result) !== nothing
 end
 
 @testset "neural reference protocol warmup does not compile" begin
@@ -129,27 +129,27 @@ end
     two = build_two_regulator_unknown_network()
     model, params = build_ude_model(rng, two)
     packed = pack_parameters((k_es = 0.8, k_i = 0.5, k_e = 0.4), params.nn)
-    report = BioDynaX.training_session_remake_agreement(
+    report = HybridKinetics.training_session_remake_agreement(
         model, packed, [0.25, 0.20, 0.15]; tspan = (0.0, 0.5), n_points = 6)
     @test report.holds
     remap = build_remapped_two_regulator_network()
     rmodel, rparams = build_ude_model(MersenneTwister(13), remap)
     rpacked = pack_parameters(remapped_two_regulator_phys_truth(), rparams.nn)
-    rreport = BioDynaX.training_session_remake_agreement(
+    rreport = HybridKinetics.training_session_remake_agreement(
         rmodel, rpacked, remapped_two_regulator_state();
         tspan = (0.0, 0.5), n_points = 6)
     @test rreport.holds
-    @test BioDynaX.neural_training_requires_interpolating(rmodel)
+    @test HybridKinetics.neural_training_requires_interpolating(rmodel)
 end
 
 @testset "ProductionAD inplace forward stays unlocked as sensealg=nothing" begin
     rng = MersenneTwister(29)
     model, _ = build_ude_model(rng, build_linear_test_network())
     solver = SolverConfig(ad_policy = ProductionAD(), sensealg = nothing)
-    locked = BioDynaX.lock_training_solver(model, solver)
+    locked = HybridKinetics.lock_training_solver(model, solver)
     @test locked.sensealg === nothing
-    @test BioDynaX.training_sensealg_is_locked(model, locked)
-    @test BioDynaX._forward_inplace(locked)
+    @test HybridKinetics.training_sensealg_is_locked(model, locked)
+    @test HybridKinetics._forward_inplace(locked)
 end
 
 @testset "BacksolveAdjoint is rejected on a neural hole" begin
@@ -159,23 +159,23 @@ end
     bad = SolverConfig(
         ad_policy = ZygoteAD(),
         sensealg = BacksolveAdjoint(autojacvec = ZygoteVJP()))
-    @test BioDynaX.training_sensealg_is_locked(model, bad) == false
-    @test_throws ErrorException BioDynaX.assert_training_sensealg(model, bad)
-    good = BioDynaX.lock_training_solver(model, bad)
-    @test BioDynaX.training_sensealg_kind(good) === :interpolating
-    @test BioDynaX.assert_training_sensealg(model, good) === good
+    @test HybridKinetics.training_sensealg_is_locked(model, bad) == false
+    @test_throws ErrorException HybridKinetics.assert_training_sensealg(model, bad)
+    good = HybridKinetics.lock_training_solver(model, bad)
+    @test HybridKinetics.training_sensealg_kind(good) === :interpolating
+    @test HybridKinetics.assert_training_sensealg(model, good) === good
 end
 
 @testset "training reuse rules and docs hold" begin
-    @test BioDynaX.al_constraint_passes_model_source()
-    @test BioDynaX.train_experiments_accepts_optimizer_state_source()
-    @test BioDynaX.train_unknown_edge_reuses_warmup_source()
+    @test HybridKinetics.al_constraint_passes_model_source()
+    @test HybridKinetics.train_experiments_accepts_optimizer_state_source()
+    @test HybridKinetics.train_unknown_edge_reuses_warmup_source()
 end
 
 @testset "session remake matches generate_from_compiled_model" begin
     rng = MersenneTwister(7)
     model, params = build_ude_model(rng, build_linear_test_network())
-    report = BioDynaX.training_session_matches_generate(
+    report = HybridKinetics.training_session_matches_generate(
         model, params, [0.22, 0.14]; tspan = (0.0, 0.8), n_points = 8)
     @test report.holds
     @test report.matches_generate
@@ -183,8 +183,8 @@ end
 end
 
 @testset "train_ude with a compiled model does not compile" begin
-    fixture = BioDynaX.linear_training_fixture()
-    report = BioDynaX.train_ude_compile_report(
+    fixture = HybridKinetics.linear_training_fixture()
+    report = HybridKinetics.train_ude_compile_report(
         fixture.init, fixture.data, fixture.times, fixture.u0,
         fixture.tspan, fixture.model)
     @test report.holds
@@ -193,16 +193,16 @@ end
 end
 
 @testset "frozen_phys survives warmup reuse" begin
-    fixture = BioDynaX.linear_training_fixture()
-    report = BioDynaX.frozen_phys_warmup_report(
+    fixture = HybridKinetics.linear_training_fixture()
+    report = HybridKinetics.frozen_phys_warmup_report(
         fixture.init, fixture.set, fixture.model)
     @test report.holds
     @test report.frozen_held
 end
 
 @testset "masked experiments still do not compile per IC" begin
-    fixture = BioDynaX.linear_training_fixture()
-    report = BioDynaX.masked_experiment_compile_report(
+    fixture = HybridKinetics.linear_training_fixture()
+    report = HybridKinetics.masked_experiment_compile_report(
         fixture.init, fixture.set, fixture.model)
     @test report.holds
     @test report.compiles == 0
@@ -228,15 +228,15 @@ end
 end
 
 @testset "horizon curriculum and optimizer-state roundtrip do not compile" begin
-    fixture = BioDynaX.linear_training_fixture()
-    horizon = BioDynaX.horizon_curriculum_session_report(
+    fixture = HybridKinetics.linear_training_fixture()
+    horizon = HybridKinetics.horizon_curriculum_session_report(
         fixture.init, fixture.data, fixture.times, fixture.u0,
         fixture.tspan, fixture.model)
     @test horizon.holds
-    roundtrip = BioDynaX.optimizer_state_roundtrip_report(
+    roundtrip = HybridKinetics.optimizer_state_roundtrip_report(
         fixture.init, fixture.set, fixture.model)
     @test roundtrip.holds
-    resume = BioDynaX.resume_from_diagnostics_report(
+    resume = HybridKinetics.resume_from_diagnostics_report(
         fixture.init, fixture.data, fixture.times, fixture.u0,
         fixture.tspan, fixture.model)
     @test resume.holds
@@ -252,7 +252,7 @@ end
     @test RECOVERY_THRESHOLDS.support_f1_ude == 0.50
     @test RECOVERY_THRESHOLDS.support_recall == 0.99
     @test recovery_thresholds_lock() == RECOVERY_THRESHOLDS
-    @test issetequal(names(BioDynaX), collect(locked_public_names()))
+    @test issetequal(names(HybridKinetics), collect(locked_public_names()))
     zero = build_zero_unknown_linear_network()
     @test validate_network(zero) === zero
 end

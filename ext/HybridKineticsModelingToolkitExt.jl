@@ -1,15 +1,16 @@
-module BioDynaXModelingToolkitExt
+module HybridKineticsModelingToolkitExt
 
-using BioDynaX
+using HybridKinetics
 using ModelingToolkit
-using BioDynaX: UDEModel, InputProductionTerm, MassActionProductionTerm,
-                LinearDestructionTerm, HillDestructionTerm,
-                SaturationDestructionTerm, SaturationProductionTerm,
-                CompetitiveDestructionTerm, NeuralDestructionTerm,
-                ImplicitCandidate, ExplicitCandidate, DiscoveryResult, UnknownTermResult
+using HybridKinetics: UDEModel, InputProductionTerm, MassActionProductionTerm,
+                      LinearDestructionTerm, HillDestructionTerm,
+                      SaturationDestructionTerm, SaturationProductionTerm,
+                      CompetitiveDestructionTerm, NeuralDestructionTerm,
+                      ImplicitCandidate, ExplicitCandidate, DiscoveryResult,
+                      UnknownTermResult
 
 """
-    export_mtk_system(model::UDEModel; name=:BioDynaXNetwork, discovered=nothing)
+    export_mtk_system(model::UDEModel; name=:HybridKineticsNetwork, discovered=nothing)
 
 Build a symbolic `ModelingToolkit.ODESystem` from a compiled UDE. States are
 named after the network's dynamic nodes. Neural terms appear as placeholder
@@ -17,15 +18,16 @@ variables `nn_i(t)` unless `discovered` gives the discovered rate: a
 `DiscoveryResult`, an `ImplicitCandidate` or `ExplicitCandidate` (in the
 regulator variables of the single unknown term, in order), or an
 `UnknownTermResult`; the rational rate then replaces the placeholder and the
-system is complete. Called through `BioDynaX.export_mtk_system`.
+system is complete. Called through `HybridKinetics.export_mtk_system`.
 """
-function export_mtk_system(model::UDEModel; name::Symbol = :BioDynaXNetwork,
+function export_mtk_system(model::UDEModel; name::Symbol = :HybridKineticsNetwork,
         discovered = nothing)
     cm = model.compiled
     n = cm.nstates
     t = ModelingToolkit.t_nounits
     D = ModelingToolkit.D_nounits
-    state_syms = [model.network.nodes[i].name for i in BioDynaX.state_nodes(model.network)]
+    state_syms = [model.network.nodes[i].name
+                  for i in HybridKinetics.state_nodes(model.network)]
     length(state_syms) == n || (state_syms = [Symbol("x$i") for i in 1:n])
     sts = [first(@variables($sym(t))) for sym in state_syms]
     state_map = Dict(i => sts[i] for i in 1:n)

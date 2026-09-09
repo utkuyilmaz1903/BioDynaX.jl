@@ -17,7 +17,7 @@ const TRAINING_REUSE_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function training_jl_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "Training.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Training.jl")
 end
 
 # -- compile_network counter (state lives in MechanismCompiler.jl) ------------
@@ -449,7 +449,7 @@ function train_experiments_accepts_optimizer_state_source()
 end
 
 function train_unknown_edge_reuses_warmup_source()
-    path = joinpath(pkgdir(BioDynaX), "src", "RecoveryPipeline.jl")
+    path = joinpath(pkgdir(HybridKinetics), "src", "RecoveryPipeline.jl")
     src = read(path, String)
     start = findfirst("function fit_unknown_destruction", src)
     start === nothing && return false

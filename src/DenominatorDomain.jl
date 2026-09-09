@@ -25,11 +25,11 @@ const DENOMINATOR_DOMAIN_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function recovery_jl_source_path_for_denominator()
-    joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl")
 end
 
 function discovery_jl_source_path_for_denominator()
-    joinpath(pkgdir(BioDynaX), "src", "Discovery.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Discovery.jl")
 end
 
 # -- Synthetic candidates -----------------------------------------------------

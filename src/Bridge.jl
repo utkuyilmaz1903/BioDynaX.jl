@@ -8,7 +8,7 @@ function _optional_extension(name::Symbol, hint::AbstractString)
 end
 
 """
-    export_mtk_system(model::UDEModel; name = :BioDynaXNetwork, discovered = nothing)
+    export_mtk_system(model::UDEModel; name = :HybridKineticsNetwork, discovered = nothing)
 
 Convert the compiled known terms of `model` to a ModelingToolkit `ODESystem`
 whose states carry the network's node names. Neural terms appear as
@@ -16,11 +16,11 @@ placeholder variables `nn_i(t)`; `discovered` (a `DiscoveryResult`, a
 candidate, or an `UnknownTermResult`) replaces the placeholder of the single
 unknown term with the discovered rational rate, so the completed model can
 be handed to ModelingToolkit and OrdinaryDiffEq. Requires
-`using ModelingToolkit` (extension `BioDynaXModelingToolkitExt`). Not exported.
+`using ModelingToolkit` (extension `HybridKineticsModelingToolkitExt`). Not exported.
 """
 function export_mtk_system(model::UDEModel; kwargs...)
-    extension = _optional_extension(:BioDynaXModelingToolkitExt,
-        "export_mtk_system requires `using ModelingToolkit` (BioDynaXModelingToolkitExt)")
+    extension = _optional_extension(:HybridKineticsModelingToolkitExt,
+        "export_mtk_system requires `using ModelingToolkit` (HybridKineticsModelingToolkitExt)")
     return extension.export_mtk_system(model; kwargs...)
 end
 
@@ -30,11 +30,11 @@ end
 Build a `BiologicalNetwork` from the species, reactions, and stoichiometry of
 an SBML file. Kinetic laws are not parsed; reactions with an explicit kinetic
 law compile as unknown neural terms. Requires `using SBML` (extension
-`BioDynaXSBMLExt`). Not exported.
+`HybridKineticsSBMLExt`). Not exported.
 """
 function import_sbml_network(path::AbstractString)
-    extension = _optional_extension(:BioDynaXSBMLExt,
-        "import_sbml_network requires `using SBML` (BioDynaXSBMLExt). " *
+    extension = _optional_extension(:HybridKineticsSBMLExt,
+        "import_sbml_network requires `using SBML` (HybridKineticsSBMLExt). " *
         "The importer maps species and stoichiometry; unrecognized kinetic " *
         "laws become unknown reactions rather than guessed Michaelis forms.")
     return extension.import_sbml_network(path)
@@ -46,12 +46,12 @@ end
 Build a `BiologicalNetwork` from an SBML file through SBMLToolkit and Catalyst.
 Mass-action reactions are recognized; other rate laws become unknown neural
 terms. Requires `using SBMLToolkit` and `using Catalyst` (extension
-`BioDynaXSBMLToolkitExt`). Not exported.
+`HybridKineticsSBMLToolkitExt`). Not exported.
 """
 function import_sbmltoolkit_network(path::AbstractString)
-    extension = _optional_extension(:BioDynaXSBMLToolkitExt,
+    extension = _optional_extension(:HybridKineticsSBMLToolkitExt,
         "import_sbmltoolkit_network requires `using SBMLToolkit` and `using Catalyst` " *
-        "(BioDynaXSBMLToolkitExt)")
+        "(HybridKineticsSBMLToolkitExt)")
     return extension.import_sbmltoolkit_network(path)
 end
 
@@ -66,7 +66,7 @@ reaction's index in `Catalyst.reactions(rs)` or the string of its
 `description` metadata (`[description = "..."]` in the DSL); `unknown =
 nothing` compiles every reaction as known kinetics (a ground-truth model).
 
-Each Catalyst reaction is split into one BioDynaX term per species it
+Each Catalyst reaction is split into one HybridKinetics term per species it
 changes. Supported rates (the factor Catalyst multiplies by the mass-action
 term): a parameter `k` (first-order loss of a single substrate; constant
 production `k, 0 --> X`, which adds the parameter `input` that multiplies it
@@ -80,11 +80,11 @@ single substrate (Michaelis-Menten destruction) or with no substrate
 naming the reaction and the rate. The unknown reaction must consume exactly
 one species with stoichiometry 1 and produce nothing; its regulators are the
 species of its rate (the consumed species itself when the rate has none).
-Requires `using Catalyst` (extension `BioDynaXCatalystExt`).
+Requires `using Catalyst` (extension `HybridKineticsCatalystExt`).
 """
 function network_from_reactionsystem(rs; unknown)
-    extension = _optional_extension(:BioDynaXCatalystExt,
-        "network_from_reactionsystem requires `using Catalyst` (BioDynaXCatalystExt)")
+    extension = _optional_extension(:HybridKineticsCatalystExt,
+        "network_from_reactionsystem requires `using Catalyst` (HybridKineticsCatalystExt)")
     return extension.network_from_reactionsystem(rs; unknown = unknown)
 end
 
@@ -97,11 +97,11 @@ The discovered rational rate as a `Symbolics.Num` in the named variables:
 `names` gives one symbol per variable of the candidate's library (for
 `discover_unknown_rate`, the regulators in order; for `discover_equations`,
 the network's states); an `UnknownTermResult` uses its network's state names.
-Requires `using Symbolics` (extension `BioDynaXSymbolicsExt`).
+Requires `using Symbolics` (extension `HybridKineticsSymbolicsExt`).
 """
 function symbolic(args...; kwargs...)
-    extension = _optional_extension(:BioDynaXSymbolicsExt,
-        "symbolic requires `using Symbolics` (BioDynaXSymbolicsExt)")
+    extension = _optional_extension(:HybridKineticsSymbolicsExt,
+        "symbolic requires `using Symbolics` (HybridKineticsSymbolicsExt)")
     return extension.symbolic(args...; kwargs...)
 end
 

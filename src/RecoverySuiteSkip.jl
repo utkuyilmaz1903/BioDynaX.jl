@@ -20,7 +20,7 @@ const RECOVERY_SUITE_SKIP_MUST_NOT_CONTAIN = (
     "function validate_network")
 
 function recovery_jl_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "Recovery.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "Recovery.jl")
 end
 
 # -- Train counter ------------------------------------------------------------
@@ -838,15 +838,15 @@ function skip_default_minus_trainers_report()
 end
 
 function recovery_suite_benchmark_path()
-    joinpath(pkgdir(BioDynaX), "benchmark", "recovery_suite.jl")
+    joinpath(pkgdir(HybridKinetics), "benchmark", "recovery_suite.jl")
 end
 
 function recovery_suite_seeds_path()
-    joinpath(pkgdir(BioDynaX), "benchmark", "recovery_seeds.jl")
+    joinpath(pkgdir(HybridKinetics), "benchmark", "recovery_seeds.jl")
 end
 
 function recovery_suite_sindy_baseline_path()
-    joinpath(pkgdir(BioDynaX), "benchmark", "sindy_baseline.jl")
+    joinpath(pkgdir(HybridKinetics), "benchmark", "sindy_baseline.jl")
 end
 
 function recovery_suite_benchmark_fast_skips_trainers()

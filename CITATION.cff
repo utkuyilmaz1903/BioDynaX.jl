@@ -1,22 +1,18 @@
 cff-version: 1.2.0
 message: If you use this software, please cite it using these metadata.
 type: software
-title: BioDynaX.jl
+title: HybridKinetics.jl
 abstract: >-
-  BioDynaX.jl fits hybrid models of small biochemical networks in Julia:
-  known kinetics on a known interaction graph are compiled into a
-  production-destruction ODE, one unknown destruction term is learned by a
-  neural network trained on time-series data, and that term is then
-  approximated symbolically by sparse rational regression over a library
-  built from the node's graph neighbours.
+  Hybrid kinetic models for small biochemical networks: learn the one unknown
+  rate law from time-series data, then recover it symbolically.
 authors:
   - family-names: Yılmaz
     given-names: Utku
 license: MIT
-repository-code: https://github.com/utkuyilmaz1903/BioDynaX.jl
-url: https://utkuyilmaz1903.github.io/BioDynaX.jl/dev/
-version: 0.14.0
-date-released: "2026-09-06"
+repository-code: https://github.com/utkuyilmaz1903/HybridKinetics.jl
+url: https://utkuyilmaz1903.github.io/HybridKinetics.jl/dev/
+version: 0.15.0
+date-released: "2026-09-08"
 keywords:
   - julia
   - universal-differential-equations

@@ -11,11 +11,12 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-using BioDynaX
-using BioDynaX:
-                hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
-                discover_unknown_rate, normalize_destruction_samples, RECOVERY_THRESHOLDS,
-                REFERENCE_PROTOCOL, REFERENCE_PROTOCOL_F1_ATTEMPT
+using HybridKinetics
+using HybridKinetics:
+                      hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
+                      discover_unknown_rate, normalize_destruction_samples,
+                      RECOVERY_THRESHOLDS,
+                      REFERENCE_PROTOCOL, REFERENCE_PROTOCOL_F1_ATTEMPT
 using Printf
 
 function discover_f1(D, r; seed = 103)
@@ -29,7 +30,7 @@ function discover_f1(D, r; seed = 103)
               support_f1(result.candidates[1], truth.numerator, truth.denominator) :
               nothing
     extras = result.success ?
-             BioDynaX.reference_protocol_discovery_extras(result.candidates[1]) :
+             HybridKinetics.reference_protocol_discovery_extras(result.candidates[1]) :
              String[]
     f1 = metrics === nothing ? 0.0 : metrics.combined.f1
     return (;
@@ -37,11 +38,11 @@ function discover_f1(D, r; seed = 103)
         f1,
         recall = metrics === nothing ? 0.0 : metrics.combined.recall,
         extras,
-        reaches_clean = BioDynaX.reference_protocol_f1_reaches_analytical_threshold(f1),
-        meets_skeleton = BioDynaX.reference_protocol_f1_meets_skeleton_floor(f1),
-        verdict = BioDynaX.reference_protocol_f1_attempt_verdict(;
+        reaches_clean = HybridKinetics.reference_protocol_f1_reaches_analytical_threshold(f1),
+        meets_skeleton = HybridKinetics.reference_protocol_f1_meets_skeleton_floor(f1),
+        verdict = HybridKinetics.reference_protocol_f1_attempt_verdict(;
             extras,
-            reaches_clean = BioDynaX.reference_protocol_f1_reaches_analytical_threshold(f1)))
+            reaches_clean = HybridKinetics.reference_protocol_f1_reaches_analytical_threshold(f1)))
 end
 
 function main()

@@ -900,11 +900,11 @@ function public_export_list_untouched_library_row()
     return (;
         has_local_basis = :local_basis in LOCKED_PUBLIC_EXPORTS,
         has_candidate_parents = :candidate_parents in LOCKED_PUBLIC_EXPORTS,
-        gate_unexported = !(:local_has_true_parent_check in names(BioDynaX)),
+        gate_unexported = !(:local_has_true_parent_check in names(HybridKinetics)),
         holds = :local_basis in LOCKED_PUBLIC_EXPORTS &&
                 :candidate_parents in LOCKED_PUBLIC_EXPORTS &&
-                !(:local_has_true_parent_check in names(BioDynaX)) &&
-                !(:GraphLocalLibraryRow in names(BioDynaX)) &&
+                !(:local_has_true_parent_check in names(HybridKinetics)) &&
+                !(:GraphLocalLibraryRow in names(HybridKinetics)) &&
                 public_export_list_holds())
 end
 

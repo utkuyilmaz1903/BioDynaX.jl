@@ -51,17 +51,17 @@ const _B4_PRODUCTION_MUST_NOT_CONTAIN = (
     "ROBUSTNESS_SEEDS")
 
 function _b4_truth_net()
-    return BioDynaX.build_three_state_unknown_network(;
+    return HybridKinetics.build_three_state_unknown_network(;
         known = true, with_distractor = true, parent = 2)
 end
 
 function _b4_ude_net()
-    return BioDynaX.build_three_state_unknown_network(;
+    return HybridKinetics.build_three_state_unknown_network(;
         known = false, with_distractor = true, parent = 2)
 end
 
 function _b4_wrong_net()
-    return BioDynaX.build_wrong_graph_unknown_network(;
+    return HybridKinetics.build_wrong_graph_unknown_network(;
         known = false, with_distractor = true)
 end
 
@@ -74,7 +74,7 @@ end
 function _b4_fake_training(params)
     return TrainingResult(
         params, Float64[], 1.0, 0.4,
-        RunMetadata(seed = 0), (;), true, BioDynaX.Success)
+        RunMetadata(seed = 0), (;), true, HybridKinetics.Success)
 end
 
 function _b4_perturb_params(params; δ = 0.37)
@@ -84,8 +84,8 @@ function _b4_perturb_params(params; δ = 0.37)
 end
 
 function _b4_hand_candidate()
-    spec = BioDynaX.LocalBasisSpec(1, [2], BioDynaX.MonomialTerm[],
-        BioDynaX.MonomialTerm[])
+    spec = HybridKinetics.LocalBasisSpec(1, [2], HybridKinetics.MonomialTerm[],
+        HybridKinetics.MonomialTerm[])
     return ImplicitCandidate(
         1, spec,
         Float64[1.0],
@@ -95,7 +95,7 @@ function _b4_hand_candidate()
 end
 
 function _b4_source()
-    return read(joinpath(pkgdir(BioDynaX), "src", "TrainedGraphLocal.jl"), String)
+    return read(joinpath(pkgdir(HybridKinetics), "src", "TrainedGraphLocal.jl"), String)
 end
 
 function _b4_source_code(text = _b4_source())
@@ -134,7 +134,7 @@ function _b4_new_capture()
     fp = Ref{UInt64}(0)
     constructed = Ref(false)
     function training_call(args...; kwargs...)
-        returned = BioDynaX.fit_unknown_destruction(args...; kwargs...)
+        returned = HybridKinetics.fit_unknown_destruction(args...; kwargs...)
         result[] = returned
         fp[] = nn_parameter_fingerprint(returned.params.nn)
         count[] += 1

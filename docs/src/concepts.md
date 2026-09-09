@@ -2,7 +2,7 @@
 
 ## Model form
 
-Every BioDynaX model is a production-destruction system
+Every HybridKinetics model is a production-destruction system
 
 ```math
 \frac{du_i}{dt} = P_i(u, p, t) - D_i(u, p, t)\,u_i, \qquad P_i, D_i \ge 0 .
@@ -27,7 +27,7 @@ positive orthant in practice; they are not a positivity theorem.
 `validate_network` checks names, bounds, stoichiometry, and metadata. It does
 not count unknown terms: a network with zero or several unknown destruction
 terms still compiles. The recovery workflow checks the count separately
-(`BioDynaX.assert_single_unknown_destruction`) and raises an error for
+(`HybridKinetics.assert_single_unknown_destruction`) and raises an error for
 anything other than one.
 
 ## Networks and metadata
@@ -50,7 +50,7 @@ Each carries a typed metadata struct naming its rate parameters:
 `Dict{Symbol,Any}` metadata is still accepted for backward compatibility.
 
 ```@example concepts
-using BioDynaX
+using HybridKinetics
 ReactionSpec(name = :decay, stoichiometry = Dict(1 => -1.0), regulators = Int[],
     metadata = LinearDecayMetadata(rate_param = :k))
 ```
@@ -90,7 +90,7 @@ recompiling (see [How-to](howto.md)).
 
 With observed concentrations alone, a production rate and the scale of the
 destruction term that follows it trade off against each other.
-`BioDynaX.production_destruction_tradeoff` quantifies this for a trained
+`HybridKinetics.production_destruction_tradeoff` quantifies this for a trained
 model on one trajectory:
 
 - the Fisher information over the physical parameters (neural weights
@@ -107,7 +107,7 @@ and asymptotic; it is not a structural identifiability proof. A raised
 warning does not stop the workflow. In the reference protocol it is required
 output: the ambiguity must be reported, not hidden.
 
-A second, unexported diagnostic, `BioDynaX.assess_functional_identifiability`,
+A second, unexported diagnostic, `HybridKinetics.assess_functional_identifiability`,
 trains the unknown term independently from five fixed restart seeds
 (201 to 205) and compares the learned rate functions pairwise on a shared
 domain built from the training and held-out regulator values. It reports
@@ -115,7 +115,7 @@ every restart, including failed ones, the scale-normalized disagreement
 between rate functions, the agreement between trajectories, and a derived
 status. It is a diagnostic; it is not an acceptance criterion. Fisher
 information over the physical parameters is also available on its own
-through `BioDynaX.assess_identifiability`.
+through `HybridKinetics.assess_identifiability`.
 
 ## Symbolic discovery
 
@@ -162,7 +162,7 @@ Two entry points share this machinery:
 - `discover_unknown_rate(R, times, D)` regresses sampled values of the learned
   destruction rate on the regulator values. This is the path of the reference
   protocol: the neural term is sampled (`sample_unknown_destruction` along
-  trajectories, or `BioDynaX.sample_unknown_destruction_grid` on a regulator
+  trajectories, or `HybridKinetics.sample_unknown_destruction_grid` on a regulator
   grid) and a rate `D(r)` is fitted.
 - `discover_equations(X, times, network)` works on state trajectories and
   their derivatives (`estimate_derivatives`) without a trained model.
@@ -205,7 +205,7 @@ page reports what it does on the library comparison study.
 ## The reference protocol
 
 The recovery benchmarks and the example share one protocol, stored in
-`BioDynaX.REFERENCE_PROTOCOL`:
+`HybridKinetics.REFERENCE_PROTOCOL`:
 
 | Setting | Value |
 |---|---|
@@ -248,14 +248,14 @@ RECOVERY_THRESHOLDS
 Two further checks exist beyond the single-seed protocol. Both are
 unexported.
 
-- `BioDynaX.evaluate_trained_graph_local` trains one model (seed 401, three
+- `HybridKinetics.evaluate_trained_graph_local` trains one model (seed 401, three
   initial conditions), samples its learned rate once, and runs discovery
   three times on the same samples with the graph-local library, a global
   library, and a library from a deliberately wrong graph. The graph-local
   run must keep the true regulator; the wrong-graph run must miss it. A fast
   version runs in the default tests; the full version is
   `test/run_trained_library_comparison.jl`.
-- `BioDynaX.TrajectoryOccupancy` collects the observed states of the training
+- `HybridKinetics.TrajectoryOccupancy` collects the observed states of the training
   or held-out experiments as an alternative sampling context for the learned
   rate. It is not used by the functional-identifiability diagnostic or by the
   held-out evaluation.

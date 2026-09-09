@@ -130,7 +130,7 @@ end
 function load_result(path::AbstractString)
     envelope = open(deserialize, path)
     envelope isa ArtifactEnvelope ||
-        throw(ArgumentError("file is not a BioDynaX result artifact"))
+        throw(ArgumentError("file is not a HybridKinetics result artifact"))
     envelope.schema_version.major == ARTIFACT_SCHEMA_VERSION.major ||
         throw(ArgumentError("incompatible result artifact schema"))
     return envelope.payload

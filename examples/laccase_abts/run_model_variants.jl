@@ -28,13 +28,13 @@
 # Writes to examples/laccase_abts/data/results/variants_summary.txt and
 # variant_<name>_rate_samples.csv.
 # Run:  julia --project=. examples/laccase_abts/run_model_variants.jl
-# Smoke check: BIODYNAX_SMOKE=1 julia --project=. examples/laccase_abts/run_model_variants.jl
+# Smoke check: HYBRIDKINETICS_SMOKE=1 julia --project=. examples/laccase_abts/run_model_variants.jl
 # Not run by the test suite or CI.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 
-using BioDynaX
+using HybridKinetics
 using LinearAlgebra
 using OrdinaryDiffEq
 using Random
@@ -46,7 +46,7 @@ LinearAlgebra.BLAS.set_num_threads(1)
 include(joinpath(@__DIR__, "download_data.jl"))
 include(joinpath(@__DIR__, "preprocess.jl"))
 
-const SMOKE = get(ENV, "BIODYNAX_SMOKE", "") == "1"
+const SMOKE = get(ENV, "HYBRIDKINETICS_SMOKE", "") == "1"
 const RESULTS_DIR = joinpath(ABTS_DATA_DIR, "results")
 const ENZYME_UM = 0.93
 
@@ -61,7 +61,7 @@ function product_inhibition_network()
     nodes = [NodeSpec(name = :ABTS), NodeSpec(name = :C)]
     reactions = [basal_production(),
         ReactionSpec(name = :oxidation, stoichiometry = Dict(1 => -1.0),
-            regulators = [1, 2], known = false, family = BioDynaX.COMPETITIVE,
+            regulators = [1, 2], known = false, family = HybridKinetics.COMPETITIVE,
             metadata = HillMetadata())]
     # The graph edges ABTS -> ABTS and C -> ABTS are derived from the unknown
     # reaction's regulators (0.12); an explicit UNKNOWN_NN edge per regulator
@@ -74,7 +74,7 @@ function enzyme_inactivation_network()
     nodes = [NodeSpec(name = :ABTS), NodeSpec(name = :E, kind = LATENT, observed = false)]
     reactions = [basal_production(),
         ReactionSpec(name = :oxidation, stoichiometry = Dict(1 => -1.0),
-            regulators = [1, 2], known = false, family = BioDynaX.COMPETITIVE,
+            regulators = [1, 2], known = false, family = HybridKinetics.COMPETITIVE,
             metadata = HillMetadata()),
         ReactionSpec(name = :inactivation, stoichiometry = Dict(2 => -1.0),
             regulators = Int[], metadata = LinearDecayMetadata(rate_param = :k_inact))]
@@ -118,7 +118,7 @@ function train_variant(network, set, holdout, training)
     trained = train_experiments(warm.params, train_set, model; config = training,
         verbose = false)
     return (; model, params = trained.params, training = trained, train_set, holdout_set,
-        term = only(BioDynaX.neural_destruction_terms(model)))
+        term = only(HybridKinetics.neural_destruction_terms(model)))
 end
 
 function simulate(rhs, u0, times)
@@ -170,7 +170,8 @@ end
 function run_variant(variant, set, info, training, io)
     network = variant === :product ? product_inhibition_network() :
               enzyme_inactivation_network()
-    BioDynaX.count_unknown_destructions(network) == 1 || error("expected one unknown term")
+    HybridKinetics.count_unknown_destructions(network) == 1 ||
+        error("expected one unknown term")
     vset = two_state_set(set, variant)
     started = time()
     fit = train_variant(network, vset, info.holdout, training)
@@ -178,7 +179,7 @@ function run_variant(variant, set, info, training, io)
     R, D = rate_samples(variant, fit)
     times = collect(range(0.0, 1.0; length = size(R, 2)))
     discovery = discover_unknown_rate(
-        R, times, D; config = BioDynaX.rate_discovery_config(),
+        R, times, D; config = HybridKinetics.rate_discovery_config(),
         verbose = false, strict = false)
     ude = (u, p, t) -> ude_system(u, fit.params, t, fit.model)
     ude_train = rmse_over(ude, fit.train_set)
@@ -200,7 +201,7 @@ function run_variant(variant, set, info, training, io)
         fit.training.final_loss)
     println(io, "physical parameters after training (per 1000 s): ",
         join(
-            (string(n, " = ", round(BioDynaX.positive_parameter(v); sigdigits = 4))
+            (string(n, " = ", round(HybridKinetics.positive_parameter(v); sigdigits = 4))
             for (n, v) in zip(names, collect(fit.params.phys))),
             ", "))
     println(io, "rate samples: ", size(R, 2), " points; regulator ranges ",
@@ -240,8 +241,8 @@ function main()
     dir = download_abts_data()
     set, info = abts_experiment_set(dir)
     training = TrainingConfig(
-        adam_iterations = SMOKE ? 2 : BioDynaX.REFERENCE_PROTOCOL.adam_iterations,
-        bfgs_iterations = SMOKE ? 0 : BioDynaX.REFERENCE_PROTOCOL.bfgs_iterations,
+        adam_iterations = SMOKE ? 2 : HybridKinetics.REFERENCE_PROTOCOL.adam_iterations,
+        bfgs_iterations = SMOKE ? 0 : HybridKinetics.REFERENCE_PROTOCOL.bfgs_iterations,
         log_every = 10^6, frozen_phys = [:k_prod, :input])
     path = joinpath(RESULTS_DIR, "variants_summary.txt")
     open(path, "w") do io

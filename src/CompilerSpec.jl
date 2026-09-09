@@ -99,7 +99,7 @@ function neural_multihead_matches(model::UDEModel)
 end
 
 function compile_mechanism_source_path()
-    joinpath(pkgdir(BioDynaX), "src", "MechanismCompiler.jl")
+    joinpath(pkgdir(HybridKinetics), "src", "MechanismCompiler.jl")
 end
 
 function compile_mechanism_reindexes_source()
