@@ -1,4 +1,4 @@
-# One-call entry point: discover_unknown_term must run the same functions as
+# One-call entry point: discover_unknown_terms must run the same functions as
 # the chained calls of examples/unknown_inhibition.jl, in the same order and
 # with the same defaults, so its result matches the chain field by field.
 
@@ -53,34 +53,36 @@ function _dut_chain(ude_net, set; rng_seed = 7)
     return (; model, trained, term, R, D, discovery, ident, residual)
 end
 
-@testset "discover_unknown_term" begin
+@testset "discover_unknown_terms" begin
     ude_net, set = _dut_fixture()
 
     @testset "matches the chained calls field by field" begin
         chain = _dut_chain(ude_net, set)
-        result = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        result = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false,
             known_support = HybridKinetics.hill_rate_support(2))
-        @test result isa UnknownTermResult
+        @test result isa UnknownTermsResult
+        @test length(result) == 1 && keys(result) == [:S] && result[:S] === result[1]
+        @test result[1] isa UnknownTermResult
         @test HybridKinetics.nn_parameter_fingerprint(result.params.nn) ==
               HybridKinetics.nn_parameter_fingerprint(chain.trained.params.nn)
         @test collect(result.params.phys) == collect(chain.trained.params.phys)
         @test result.training.final_loss == chain.trained.final_loss
-        @test result.term === result.term
-        @test result.samples.R == chain.R
-        @test result.samples.D == chain.D
-        @test result.discovery.success == chain.discovery.success
-        @test result.discovery.equations == chain.discovery.equations
-        @test result.discovery.retcode == chain.discovery.retcode
-        @test result.identifiability.unidentifiable_edge ==
+        @test result[1].term === only(HybridKinetics.neural_destruction_terms(result.model))
+        @test result[1].samples.R == chain.R
+        @test result[1].samples.D == chain.D
+        @test result[1].discovery.success == chain.discovery.success
+        @test result[1].discovery.equations == chain.discovery.equations
+        @test result[1].discovery.retcode == chain.discovery.retcode
+        @test result[1].identifiability.unidentifiable_edge ==
               chain.ident.unidentifiable_edge
-        @test result.identifiability.collinearity == chain.ident.collinearity
+        @test result[1].identifiability.collinearity == chain.ident.collinearity
         @test isequal(result.residuals.data_residual, chain.residual)
         @test isnan(result.residuals.data_residual_holdout)
         @test result.training_indices == 1:3
         @test isempty(result.holdout_indices)
         if chain.discovery.success
-            @test result.extras ==
+            @test result[1].extras ==
                   HybridKinetics.reference_protocol_discovery_extras(chain.discovery.candidates[1])
             @test isfinite(result.residuals.data_residual_train)
         end
@@ -95,9 +97,9 @@ end
     end
 
     @testset "report and show" begin
-        result = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        result = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 1, rng = MersenneTwister(7), verbose = false, seed = 103)
-        text = report_unknown_term(result)
+        text = report_unknown_terms(result)
         for section in ("IDENTIFIABILITY", "FIT", "DISCOVERY", "REPRODUCTION")
             @test occursin("\n" * section * "\n", "\n" * text)
         end
@@ -108,18 +110,18 @@ end
         @test occursin("extras: NA", text)
         @test sprint(show, MIME("text/plain"), result) == text
         summary = sprint(show, result)
-        @test startswith(summary, "UnknownTermResult(")
+        @test startswith(summary, "UnknownTermsResult(")
         @test occursin("held out = 1", summary)
         @test result.training_indices == 1:2
         @test result.holdout_indices == [3]
         # The default report carries no held-out lines, so existing output is unchanged.
-        plain = HybridKinetics.format_protocol_result(result.identifiability)
+        plain = HybridKinetics.format_protocol_result(result[1].identifiability)
         @test !occursin("hybrid_data_residual_train", plain)
         @test !occursin("hybrid_data_residual_holdout", plain)
         captured_path = joinpath(mktempdir(), "verbose.txt")
         open(captured_path, "w") do io
             redirect_stdout(io) do
-                discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+                discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
                     holdout = 1, rng = MersenneTwister(7), verbose = true)
             end
         end
@@ -127,13 +129,13 @@ end
     end
 
     @testset "regulator grid and observation masks" begin
-        given = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        given = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false,
             regulator_grid = range(0.2, 1.4; length = 24))
-        @test vec(given.samples.R) == collect(range(0.2, 1.4; length = 24))
+        @test vec(given[1].samples.R) == collect(range(0.2, 1.4; length = 24))
         @test given.settings.regulator_grid === :given
         called = Ref(0)
-        by_function = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        by_function = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false,
             regulator_grid = (model, params, train_set, term) -> begin
                 called[] += 1
@@ -143,14 +145,14 @@ end
             end)
         @test called[] == 1
         @test by_function.settings.regulator_grid === :function
-        @test by_function.samples.R == given.samples.R
-        @test by_function.samples.D == given.samples.D
-        @test by_function.discovery.equations == given.discovery.equations
-        default = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        @test by_function[1].samples.R == given[1].samples.R
+        @test by_function[1].samples.D == given[1].samples.D
+        @test by_function[1].discovery.equations == given[1].discovery.equations
+        default = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false)
         @test default.settings.regulator_grid === :observed
-        @test vec(default.samples.R) ==
-              collect(HybridKinetics._regulator_grid(set, default.term))
+        @test vec(default[1].samples.R) ==
+              collect(HybridKinetics._regulator_grid(set, default[1].term))
         # An unobserved state: NaN observations are masked out of the loss, the
         # residuals, and the identifiability diagnostic.
         masked_experiments = map(set.experiments) do e
@@ -160,22 +162,22 @@ end
         end
         masked_set = ExperimentSet(masked_experiments, set.state_names)
         @test all(!any(e.mask[2, :]) && all(e.mask[1, :]) for e in masked_set.experiments)
-        masked = discover_unknown_term(ude_net, masked_set; training = _DUT_CONFIG,
+        masked = discover_unknown_terms(ude_net, masked_set; training = _DUT_CONFIG,
             holdout = 1, rng = MersenneTwister(7), verbose = false,
             regulator_grid = range(0.2, 1.4; length = 24))
         @test isfinite(masked.training.final_loss)
-        if masked.discovery.success
+        if masked[1].discovery.success
             @test isfinite(masked.residuals.data_residual)
             @test isfinite(masked.residuals.data_residual_train)
             @test isfinite(masked.residuals.data_residual_holdout)
         end
-        @test !isnan(masked.identifiability.condition_number)
+        @test !isnan(masked[1].identifiability.condition_number)
         # With every entry observed the mask changes nothing.
-        full = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        full = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 1, rng = MersenneTwister(7), verbose = false)
-        chain_residual = full.discovery.success ?
-                         hybrid_data_residual(full.model, full.params, full.term,
-            equation_to_function(full.discovery.candidates[1]),
+        chain_residual = full[1].discovery.success ?
+                         hybrid_data_residual(full.model, full.params, full[1].term,
+            equation_to_function(full[1].discovery.candidates[1]),
             set.experiments[1].u0,
             (first(set.experiments[1].times), last(set.experiments[1].times)),
             set.experiments[1].times, set.experiments[1].observations) : Inf
@@ -183,24 +185,36 @@ end
     end
 
     @testset "arguments" begin
-        @test_throws ArgumentError discover_unknown_term(ude_net, set;
+        @test_throws ArgumentError discover_unknown_terms(ude_net, set;
             training = _DUT_CONFIG, holdout = 3, verbose = false)
-        @test_throws ArgumentError discover_unknown_term(ude_net, set;
+        @test_throws ArgumentError discover_unknown_terms(ude_net, set;
             training = _DUT_CONFIG, holdout = -1, verbose = false)
         known = HybridKinetics.build_hill_recovery_network(; known = true, hill_order = 2)
-        @test_throws ErrorException discover_unknown_term(known, set;
+        # zero unknown terms: an ArgumentError that says how to mark one (0.15 raised
+        # the reference protocol's ErrorException from assert_single_unknown_destruction)
+        @test_throws ArgumentError discover_unknown_terms(known, set;
             training = _DUT_CONFIG, verbose = false)
-        no_warm = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        @test occursin("no unknown destruction term", sprint(showerror, try
+            discover_unknown_terms(known, set; training = _DUT_CONFIG, verbose = false)
+        catch e
+            e
+        end))
+        no_warm = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), warmup = false, verbose = false)
-        warm = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
+        warm = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false)
         @test no_warm.settings.warmup == false
         @test HybridKinetics.nn_parameter_fingerprint(no_warm.params.nn) !=
               HybridKinetics.nn_parameter_fingerprint(warm.params.nn)
-        indexed = discover_unknown_term(ude_net, set; training = _DUT_CONFIG,
-            holdout = 0, rng = MersenneTwister(7), term = 1, verbose = false)
-        @test indexed.discovery.equations == warm.discovery.equations
-        @test_throws ArgumentError discover_unknown_term(ude_net, set;
-            training = _DUT_CONFIG, holdout = 0, term = "first", verbose = false)
+        # `terms` names the unknown terms (0.15's `term` index is gone); a spec on a
+        # node that has no unknown term is refused
+        indexed = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
+            holdout = 0, rng = MersenneTwister(7), terms = [UnknownTerm(:S)],
+            verbose = false)
+        @test indexed[1].discovery.equations == warm[1].discovery.equations
+        @test_throws ArgumentError discover_unknown_terms(ude_net, set;
+            training = _DUT_CONFIG, holdout = 0, terms = [UnknownTerm(:R)], verbose = false)
+        @test_throws MethodError discover_unknown_terms(ude_net, set;
+            training = _DUT_CONFIG, holdout = 0, term = 1, verbose = false)
     end
 end

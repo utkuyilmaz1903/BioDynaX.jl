@@ -93,6 +93,27 @@ destruction term. This page collects every caveat in one place.
 - The DataDrivenSparse backend cannot currently be loaded in the package
   environment because of a dependency version conflict.
 
+## Several unknown terms
+
+- One unknown destruction term per node. A second unknown term on the same
+  node is refused, because two rates multiplying the same state are one rate
+  to the data.
+- No unknown production term. The model form is
+  `du_i/dt = P_i(u) − D_i(u)·u_i`; an unknown `P_i` is not multiplied by
+  `u_i`, needs a different network input and a different library, and on the
+  same node it is entangled with the destruction scale that the diagnostic
+  already flags. It is refused with an error naming this scope, and is a
+  later milestone.
+- What a second term costs, and when two terms cannot be separated, is
+  measured rather than assumed: see the two-term study on the
+  [Benchmarks](benchmarks.md#Two-unknown-terms) page. The cross-term
+  diagnostic reports the scale collinearity of every pair and warns above
+  `CROSS_TERM_COLLINEARITY_THRESHOLD`; it is local to the fit, concerns the
+  scales only, and is not a structural result.
+- The number of terms is not limited by the code. The study ran two and
+  three terms; beyond that the training time grows with the number of
+  networks and nothing has been measured.
+
 ## Not in scope
 
 Inferring the interaction graph, general reaction-network solving, several

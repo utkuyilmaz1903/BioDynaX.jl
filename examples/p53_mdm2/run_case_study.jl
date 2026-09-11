@@ -10,7 +10,7 @@
 #
 #     dP/dt = k_prod - D(M) P,      dM/dt = k_m P - k_dm M.
 #
-# The workflow is `discover_unknown_term` with the reference defaults (warm-up
+# The workflow is `discover_unknown_terms` with the reference defaults (warm-up
 # on the first training cell, Adam 100 then BFGS 50, bootstrap 8, discovery
 # seed 3), once without and once with stability selection. Because M is not
 # observed, the learned rate is sampled on the range of the model's own M
@@ -111,10 +111,10 @@ function simulate(rhs, u0, times)
 end
 
 function cell_rows(result, set)
-    rate_fn = result.discovery.success ?
-              equation_to_function(result.discovery.candidates[1]) : nothing
+    rate_fn = result[1].discovery.success ?
+              equation_to_function(result[1].discovery.candidates[1]) : nothing
     hybrid = rate_fn === nothing ? nothing :
-             compose_hybrid_rhs(result.model, result.params, result.term, rate_fn)
+             compose_hybrid_rhs(result.model, result.params, result[1].term, rate_fn)
     ude = (u, p, t) -> ude_system(u, result.params, t, result.model)
     rows = NamedTuple[]
     for (i, e) in enumerate(set.experiments)
@@ -154,30 +154,30 @@ function main()
         " points at ", info.interval_min, " min over ", info.duration_h, " h")
     started = time()
     println("\n== discover_unknown_term, reference defaults ==")
-    default = discover_unknown_term(net, set; training, holdout = info.holdout,
+    default = discover_unknown_terms(net, set; training, holdout = info.holdout,
         rng = MersenneTwister(0), phys_init, regulator_grid = latent_mdm2_grid,
         seed = 0, verbose = true)
     t_default = time() - started
     started = time()
     println("\n== discover_unknown_term with stability selection (n_boot ",
         selection.n_boot, ", τ ", selection.τ, ") ==")
-    stable = discover_unknown_term(net, set; training, holdout = info.holdout,
+    stable = discover_unknown_terms(net, set; training, holdout = info.holdout,
         rng = MersenneTwister(0), phys_init, regulator_grid = latent_mdm2_grid,
         seed = 0, stability_selection = selection, verbose = true)
     t_stable = time() - started
-    println("\n", format_stability_selection(stable.discovery))
+    println("\n", format_stability_selection(stable[1].discovery))
 
-    write(joinpath(RESULTS_DIR, "report_default.txt"), report_unknown_term(default))
-    write(joinpath(RESULTS_DIR, "report_stability.txt"), report_unknown_term(stable))
+    write(joinpath(RESULTS_DIR, "report_default.txt"), report_unknown_terms(default))
+    write(joinpath(RESULTS_DIR, "report_stability.txt"), report_unknown_terms(stable))
     write(joinpath(RESULTS_DIR, "selection_frequencies.txt"),
-        format_stability_selection(stable.discovery))
+        format_stability_selection(stable[1].discovery))
 
-    R = vec(default.samples.R)
-    D = vec(default.samples.D)
-    fn_default = default.discovery.success ?
-                 equation_to_function(default.discovery.candidates[1]) : nothing
-    fn_stable = stable.discovery.success ?
-                equation_to_function(stable.discovery.candidates[1]) : nothing
+    R = vec(default[1].samples.R)
+    D = vec(default[1].samples.D)
+    fn_default = default[1].discovery.success ?
+                 equation_to_function(default[1].discovery.candidates[1]) : nothing
+    fn_stable = stable[1].discovery.success ?
+                equation_to_function(stable[1].discovery.candidates[1]) : nothing
     open(joinpath(RESULTS_DIR, "rate_samples.csv"), "w") do io
         println(io, "mdm2_model_units,learned_rate_per_h,discovered_rate_per_h,",
             "discovered_stable_rate_per_h")
@@ -213,11 +213,11 @@ function main()
             length(R), " points")
         for (label, result) in (("default", default), ("stability selection", stable))
             println(io, "\n[", label, "]")
-            println(io, "discovery success: ", result.discovery.success, " (",
-                result.discovery.retcode, "): ", result.discovery.message)
+            println(io, "discovery success: ", result[1].discovery.success, " (",
+                result[1].discovery.retcode, "): ", result[1].discovery.message)
             println(io,
                 "equation (P and M in fractions of the cell's maximum p53; rates per hour): ",
-                result.discovery.equations)
+                result[1].discovery.equations)
             println(io, "training final loss: ", result.training.final_loss)
             names = parameter_schema(result.model).phys_names
             println(io, "physical parameters after training: ",
@@ -233,12 +233,12 @@ function main()
             println(io, "hybrid residual, mean over held-out cells: ",
                 result.residuals.data_residual_holdout)
             println(io, "identifiability: condition number ",
-                result.identifiability.condition_number, ", production correlation ",
-                result.identifiability.production_correlation, ", collinearity ",
-                result.identifiability.collinearity, ", flagged ",
-                result.identifiability.unidentifiable_edge)
-            if result.discovery.success
-                c = result.discovery.candidates[1]
+                result[1].identifiability.condition_number, ", production correlation ",
+                result[1].identifiability.production_correlation, ", collinearity ",
+                result[1].identifiability.collinearity, ", flagged ",
+                result[1].identifiability.unidentifiable_edge)
+            if result[1].discovery.success
+                c = result[1].discovery.candidates[1]
                 println(io, "numerator terms: ",
                     [t.label for t in c.specification.numerator], " coefficients ",
                     c.numerator_coefficients)

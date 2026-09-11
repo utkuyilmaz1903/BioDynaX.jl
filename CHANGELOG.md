@@ -10,7 +10,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed (breaking)
+
+- `discover_unknown_term` and `report_unknown_term` are replaced by
+  `discover_unknown_terms` and `report_unknown_terms`, which handle any
+  number of unknown destruction terms (one per node). The old names still
+  exist and raise an error that names the replacement and links the
+  migration section of the how-to page; nothing runs with a changed meaning.
+  `discover_unknown_terms` takes the same keywords except `term` and returns
+  an `UnknownTermsResult`: `result.params`, `result.training`,
+  `result.residuals` and `result.settings` stay at the top level, and the
+  per-term identifiability, discovery, samples and extras are `result[:S]`
+  (by node name), `result[1]`, or an element of `unknown_terms(result)`, each
+  an `UnknownTermResult`. With one unknown term every number and the report
+  text are identical to 0.15 (`test/support/fingerprints_015.toml` records
+  them and the test suite asserts it).
+- `export_mtk_system(model; discovered = result)` substitutes the discovered
+  rate of every term; a bare candidate is accepted only for a one-term model.
+
+### Added
+
+- Several unknown destruction terms on distinct nodes: `UnknownTerm(node;
+  regulators, library)`, `BiologicalNetwork(...; unknown = [...])`,
+  `unknown_terms(network)`, one network per term trained jointly, per-term
+  discovery with per-term stability selection, and the per-term
+  identifiability diagnostic with `production_param` (`:auto` finds each
+  node's own production parameter).
+- `cross_term_collinearity`, the pairwise cross-term diagnostic: the cosine
+  between the trajectory sensitivities to a scale change of each term,
+  reported per pair in the result and the report, with a warning above
+  `CROSS_TERM_COLLINEARITY_THRESHOLD`.
+- Guard rails: two unknown terms on the same node and an unknown production
+  term are errors that name the node and the milestone scope.
+- `network_from_reactionsystem(rs; unknown = [...])` marks several reactions
+  unknown; `symbolic(result; node)` selects a term.
+- The multi-term study (`benchmark/multi_term_study.jl`) with the fixtures
+  `build_two_term_separate_network`, `build_two_term_coupled_network` and
+  `build_three_term_network`, resumable rows in
+  `benchmark/results/multi_term_study.csv`.
 
 ## [0.15.0] - 2026-09-08
 

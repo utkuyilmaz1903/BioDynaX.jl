@@ -86,6 +86,27 @@ conditions. The optimizer state is kept on the result
 can hand its Adam state to the joint fit, and checkpoints can resume without
 recompiling (see [How-to](howto.md)).
 
+**Parameter vector.** The packed parameters are a `ComponentVector` with two
+blocks: `p.phys`, the physical kinetic parameters in the order of
+`parameter_schema(model).phys_names`, stored unconstrained and mapped to
+positive values by `positive_parameter`, and `p.nn`, the network weights.
+With one unknown term `p.nn` holds the layers of that network directly
+(`layer_1`, `layer_2`, `layer_3`), as in every release since 0.1; with
+several, `p.nn` holds one block per term, `head_1`, `head_2`, …, in the
+order of `unknown_terms(network)`, each with the same three layers, so
+`result.params.nn.head_2.layer_1.weight` addresses the first layer of the
+second term. The same architecture, initialisation and optimizer settings
+apply to every term; the initial weights of the first term are the ones a
+single-term model would draw from the same seed, and the further terms draw
+next from the same generator. Checkpoints store the whole vector, so
+saving and resuming work unchanged with several terms.
+
+**Warm-up with several terms.** The first-experiment warm-up trains every
+term at once, exactly as it trains one: there is no per-term stage. A staged
+warm-up (one term at a time) was not adopted because it would change the
+single-term path and because nothing in the two-term study needed it; the
+option remains open if a fixture calls for it.
+
 ## Identifiability diagnostic
 
 With observed concentrations alone, a production rate and the scale of the
@@ -116,6 +137,54 @@ between rate functions, the agreement between trajectories, and a derived
 status. It is a diagnostic; it is not an acceptance criterion. Fisher
 information over the physical parameters is also available on its own
 through `HybridKinetics.assess_identifiability`.
+
+## Several unknown terms
+
+Since 0.16 a network may have one unknown destruction term on each of
+several nodes. Each term is the rate `D_i(u)` of its own node, learned by
+its own network, which sees only that term's regulators; the networks are
+trained jointly against the same trajectories, so the only thing that ties
+the terms together is the data. Each term then gets its own graph-local
+library, built from its regulators as for a single term, its own rational
+regression, and its own stability selection; the fit numbers of the report
+(the residual on the first training experiment, over the training
+experiments, and over the held-out experiments) are those of the model with
+every discovered rate substituted at once.
+
+**Per-term diagnostic.** The production/destruction scale check of the
+[Identifiability diagnostic](@ref) runs for each term against the production
+parameter of that term's node (`production_param = :auto` picks it, or a
+`Dict` names it per node), and is reported in that term's block.
+
+**Cross-term diagnostic.** Two unknown terms can trade against each other:
+if scaling one term up and the other down leaves the observed trajectories
+unchanged, the data do not fix either scale, and the coefficients discovered
+for both inherit that freedom. `cross_term_collinearity` measures this with
+the same construction as the scale check. For each term, the output of its
+network is multiplied by `1 ± δ` (`δ = 10⁻³`), the model is simulated, and
+the central difference of the observed trajectory entries is that term's
+sensitivity vector. For each pair of terms the value is the absolute cosine
+between the two sensitivity vectors: zero when the two terms move the
+trajectory in unrelated directions, one when a scale change of one term is
+indistinguishable, in these data, from a scale change of the other.
+`discover_unknown_terms` reports the value for every pair and warns above
+`CROSS_TERM_COLLINEARITY_THRESHOLD`.
+
+What it establishes is narrow, and the same caveats as for the single-term
+check apply. It is local: computed at the fitted parameters, for the first
+training experiment's initial condition and sampling times. It concerns the
+scales only: two terms with a low cosine can still be wrong in their
+functional form, and a high cosine does not say which of the two absorbed
+the other's contribution. It is not a structural identifiability result; a
+value near one is a reason to distrust the discovered coefficients of both
+terms, not a proof that the terms cannot be separated with other data.
+
+**What the study measured.** The two-term fixtures of the benchmarks page
+put two unknown terms on nodes that do not regulate each other's term
+(`build_two_term_separate_network`) and on nodes that do
+(`build_two_term_coupled_network`), each with the single-unknown control of
+the same network. The numbers are on the [Benchmarks](benchmarks.md#Two-unknown-terms)
+page; the compensation result is stated there and in the limitations page.
 
 ## Symbolic discovery
 

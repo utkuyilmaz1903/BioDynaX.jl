@@ -72,6 +72,7 @@ include("GraphLocalLibrary.jl")
 include("TrainedGraphLocal.jl")
 include("LibraryComparisonStudy.jl")
 include("DiscoverUnknownTerm.jl")
+include("MultiTermStudy.jl")
 include("DenominatorDomain.jl")
 include("ParameterSchemaPack.jl")
 include("Bridge.jl")
@@ -105,6 +106,8 @@ export discover_equations, discover_unknown_rate, DiscoveryResult, DiscoveryRetc
        DiscoveryConfig, ImplicitSINDyPI, ExplicitSTLSQ,
        StabilitySelection, stability_selection_report, format_stability_selection,
        discover_unknown_term, UnknownTermResult, report_unknown_term,
+       discover_unknown_terms, UnknownTermsResult, report_unknown_terms,
+       UnknownTerm, unknown_terms, cross_term_collinearity,
        network_from_reactionsystem, symbolic,
        ImplicitCandidate, ExplicitCandidate,
        local_basis, export_rhs, equation_to_latex, equation_to_function,

@@ -487,6 +487,48 @@ that the regression prefers over the exact form at threshold 1e-3; they
 are not removed by the scale, and #57 stays open with these numbers. Same
 environment as the rest of the page; run 2026-09-06.
 
+## Two unknown terms
+
+The 0.16 study asks one question with data: when two unknown destruction
+terms sit on coupled nodes, can they be separated, or do the two neural
+terms compensate for each other? It runs `benchmark/multi_term_study.jl`,
+which appends rows to `benchmark/results/multi_term_study.csv` and resumes
+where it stopped.
+
+**Fixtures.** `build_two_term_separate_network`: four states `S1, R1, S2,
+R2`, two copies of the tutorial's motif joined by the production of `S2`
+from `R1`; the unknown terms are the Hill degradations of `S1` (regulator
+`R1`) and `S2` (regulator `R2`), on nodes that do not regulate each other's
+term. `build_two_term_coupled_network`: three states `A, B, C`, `A` and `B`
+produced from `C` and each degraded by a Hill term in the other; the unknown
+terms sit on adjacent nodes and each one's regulator is the other unknown
+node. `build_three_term_network`: the separate fixture with the decay of
+`R1` also a Hill term in `S1`, so `S1` and `R1` are adjacent and `S2` is
+separate. For every fixture the single-unknown controls are the same network
+with only one term unknown and the other known with its true parameters, so
+the cost of the second unknown term is measured against the same data.
+
+**Grid.** Seeds 103, 107, 111, 113, 127; observation noise 0.0, 0.02, 0.05;
+nine initial conditions per fixture drawn once from a fixed seed, 50 points
+on `(0, 8)`, the last two experiments held out; the reference training
+defaults (Adam 100, BFGS 50); the graph-local library with the reference
+discovery configuration, once without and once with stability selection on
+the same trained model.
+
+**Scores.** Per term: support recall, precision and F1 of the discovered
+implicit support against the true Hill support, the extra terms, the
+relative RMSE of the learned rate against the true rate on the sampling
+grid, and the signed relative bias of the learned rate (mean of
+`(learned − true) / true` over the grid). Per run: the residual of the model
+with every discovered rate substituted on the first training experiment and
+on the held-out experiments, the cross-term collinearity of each pair, and
+the training wall time. Two terms are said to have compensated when their
+signed biases have opposite signs and each is larger in magnitude than the
+bias of the same term in the single-unknown control at the same seed and
+noise.
+
+<!-- STUDY RESULTS -->
+
 ## Report fields
 
 | Field | Meaning |

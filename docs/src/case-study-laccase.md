@@ -105,7 +105,7 @@ the identifiability diagnostic still runs and its numbers are reported.
 
 ## Protocol
 
-`examples/laccase_abts/run_case_study.jl` calls `discover_unknown_term`
+`examples/laccase_abts/run_case_study.jl` calls `discover_unknown_terms`
 twice with the reference defaults (warm-up on the first training experiment,
 Adam 100 then BFGS 50, the learned rate sampled on the regulator grid of the
 training experiments, bootstrap 8, discovery seed 3), once without and once
@@ -261,7 +261,7 @@ would be in those units with the production/destruction scale not
 separately identifiable. Cells with sustained oscillations would be selected
 by the paper's criterion where stated and otherwise by a documented rule
 (for example at least four peaks in 48 h), resampled to a common grid, one
-experiment per cell, about 20% of cells held out, and `discover_unknown_term`
+experiment per cell, about 20% of cells held out, and `discover_unknown_terms`
 run with the reference defaults and then with stability selection, reporting
 the identifiability diagnostic, the training and held-out residuals, the
 learned destruction rate against M with the discovered rational form, and the

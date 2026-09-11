@@ -83,6 +83,49 @@ Base.@kwdef struct ReactionSpec
 end
 
 """
+    UnknownTerm(node; regulators = nothing, library = nothing)
+
+One unknown destruction term, on the node named `node` (a `Symbol`). The
+term is the rate `D_node(u)` in `du_node/dt = P_node(u) − D_node(u)·u_node`;
+a neural network learns it from data and a rational expression is then
+recovered for it.
+
+- `regulators`: the node names the term may depend on (one or two). `nothing`
+  keeps the regulators of the node's destruction reaction, which are its graph
+  parents, as before.
+- `library`: a `DiscoveryConfig` that replaces the default graph-local
+  discovery configuration for this term only; `nothing` keeps the default.
+  The override is honoured when the specs are passed to
+  `discover_unknown_terms(...; terms = ...)`.
+
+Pass a vector of specs to `BiologicalNetwork(...; unknown = [...])` to mark
+the corresponding destruction reactions unknown, or read the specs of an
+existing network with `unknown_terms(network)`. Two specs on the same node
+are an error, and so is a spec on a node without a destruction reaction.
+"""
+struct UnknownTerm
+    node::Symbol
+    regulators::Union{Nothing, Vector{Symbol}}
+    library::Any
+end
+
+function UnknownTerm(node::Symbol; regulators = nothing, library = nothing)
+    regs = regulators === nothing ? nothing : collect(Symbol, regulators)
+    regs === nothing || 1 ≤ length(regs) ≤ 2 ||
+        throw(ArgumentError(
+            "unknown term on $(node): one or two regulators are supported, got $(length(regs))"))
+    return UnknownTerm(node, regs, library)
+end
+
+function Base.show(io::IO, term::UnknownTerm)
+    print(io, "UnknownTerm(", repr(term.node))
+    term.regulators === nothing || print(io, "; regulators = ", term.regulators)
+    term.library === nothing || print(io, term.regulators === nothing ? "; " : ", ",
+        "library = ", term.library)
+    print(io, ")")
+end
+
+"""
     BiologicalNetwork
 
 Species graph (`NodeSpec`), directed interactions (`EdgeSpec`), and
@@ -107,7 +150,9 @@ struct BiologicalNetwork
 end
 
 function BiologicalNetwork(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec};
-        reactions::Vector{ReactionSpec} = ReactionSpec[])
+        reactions::Vector{ReactionSpec} = ReactionSpec[],
+        unknown::AbstractVector{UnknownTerm} = UnknownTerm[])
+    isempty(unknown) || (reactions = _mark_unknown_reactions(nodes, reactions, unknown))
     g = SimpleDiGraph(length(nodes))
     interactions = Dict{Tuple{Int, Int}, EdgeSpec}()
     for edge in edges
@@ -209,6 +254,92 @@ Check node uniqueness, bounds, stoichiometry, and kinetic-metadata requirements.
 Called by the `BiologicalNetwork` constructor; safe to call again after
 manual edits.
 """
+# -- Unknown terms -----------------------------------------------------------
+
+_node_index(nodes::Vector{NodeSpec}, name::Symbol) = findfirst(n -> n.name == name, nodes)
+
+"""Apply `UnknownTerm` specs: the destruction reaction of each node becomes unknown."""
+function _mark_unknown_reactions(nodes::Vector{NodeSpec}, reactions::Vector{ReactionSpec},
+        unknown::AbstractVector{UnknownTerm})
+    seen = Set{Symbol}()
+    marked = copy(reactions)
+    for spec in unknown
+        spec.node in seen && throw(ArgumentError(
+            "two unknown terms on the same node $(spec.node); 0.16 supports one unknown destruction term per node"))
+        push!(seen, spec.node)
+        index = _node_index(nodes, spec.node)
+        index === nothing &&
+            throw(ArgumentError("unknown term on $(spec.node): no node has that name"))
+        candidates = [k for (k, r) in pairs(marked)
+                      if get(r.stoichiometry, index, 0.0) < 0]
+        isempty(candidates) && throw(ArgumentError(
+            "unknown term on $(spec.node): the node has no destruction reaction to mark unknown"))
+        length(candidates) == 1 || throw(ArgumentError(
+            "unknown term on $(spec.node): the node has $(length(candidates)) destruction reactions; mark the intended one with ReactionSpec(known = false)"))
+        k = only(candidates)
+        r = marked[k]
+        regs = spec.regulators === nothing ? r.regulators :
+               Int[something(_node_index(nodes, name),
+                       throw(ArgumentError(
+                           "unknown term on $(spec.node): regulator $(name) is not a node")))
+                   for name in spec.regulators]
+        marked[k] = ReactionSpec(name = r.name, stoichiometry = r.stoichiometry,
+            regulators = regs, known = false, family = r.family, metadata = r.metadata)
+    end
+    return marked
+end
+
+"""
+    unknown_terms(network) -> Vector{UnknownTerm}
+
+The unknown destruction terms of `network`, one `UnknownTerm` per node whose
+destruction reaction (or `UNKNOWN_NN` edge) is marked unknown, in node
+order, with the regulators the term actually uses. `library` is `nothing`;
+a per-term override is given to `discover_unknown_terms` through `terms`.
+"""
+function unknown_terms(network::BiologicalNetwork)
+    nodes = network.nodes
+    found = Dict{Int, Vector{Int}}()
+    for reaction in network.reactions
+        reaction.known && continue
+        for (node, coefficient) in reaction.stoichiometry
+            coefficient < 0 || continue
+            haskey(found, node) && throw(ArgumentError(
+                "two unknown terms on the same node $(nodes[node].name); 0.16 supports one unknown destruction term per node"))
+            found[node] = copy(reaction.regulators)
+        end
+    end
+    for ((source, target), edge) in network.interactions
+        (edge.kind == UNKNOWN_NN && !edge.known) || continue
+        haskey(found, target) && continue   # the compiler keeps the reaction's term
+        found[target] = [source]
+    end
+    return UnknownTerm[UnknownTerm(nodes[node].name;
+                           regulators = [nodes[r].name for r in found[node]])
+                       for node in sort!(collect(keys(found)))]
+end
+
+"""Guard rails of 0.16: one unknown destruction term per node, no unknown production."""
+function _validate_unknown_terms(network::BiologicalNetwork)
+    nodes = network.nodes
+    destruction = Set{Int}()
+    for reaction in network.reactions
+        reaction.known && continue
+        for (node, coefficient) in reaction.stoichiometry
+            if coefficient > 0
+                throw(ArgumentError(string(
+                    "reaction $(reaction.name) is an unknown production term of ",
+                    nodes[node].name, "; 0.16 supports unknown destruction terms only ",
+                    "(the model form is du/dt = P(u) − D(u)·u and an unknown P is a later milestone)")))
+            end
+            node in destruction && throw(ArgumentError(
+                "two unknown terms on the same node $(nodes[node].name); 0.16 supports one unknown destruction term per node"))
+            push!(destruction, node)
+        end
+    end
+    return nothing
+end
+
 function validate_network(network::BiologicalNetwork)
     isempty(network.nodes) && throw(ArgumentError("network cannot be empty"))
     names = getfield.(network.nodes, :name)
@@ -233,6 +364,7 @@ function validate_network(network::BiologicalNetwork)
         end
         _validate_reaction_metadata!(network, reaction)
     end
+    _validate_unknown_terms(network)
     for edge in values(network.interactions)
         _validate_edge_metadata!(network, edge)
     end

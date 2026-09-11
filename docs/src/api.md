@@ -104,8 +104,20 @@ AugmentedLagrangianConfig
 ## One-call workflow
 
 ```@docs
-discover_unknown_term
+discover_unknown_terms
+UnknownTermsResult
 UnknownTermResult
+report_unknown_terms
+UnknownTerm
+unknown_terms
+cross_term_collinearity
+HybridKinetics.CROSS_TERM_COLLINEARITY_THRESHOLD
+```
+
+Removed in 0.16 (each raises an error that names its replacement):
+
+```@docs
+discover_unknown_term
 report_unknown_term
 ```
 

@@ -116,7 +116,7 @@ the p53 trajectory unchanged, which the identifiability diagnostic reports.
 
 ## Protocol
 
-`examples/p53_mdm2/run_case_study.jl` calls `discover_unknown_term` twice with
+`examples/p53_mdm2/run_case_study.jl` calls `discover_unknown_terms` twice with
 the reference defaults (warm-up on the first training cell, Adam 100 then BFGS
 50, bootstrap 8, discovery seed 3), once without and once with
 `stability_selection = StabilitySelection()` (100 resamples, τ = 0.8), the 8

@@ -48,7 +48,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
 The block below builds a two-species network, marks one destruction term as
 unknown, generates synthetic data from four initial conditions, and calls
-`discover_unknown_term`, which trains the hybrid model on three of them,
+`discover_unknown_terms`, which trains the hybrid model on three of them,
 prints the identifiability warning, discovers a symbolic rate, and reports
 the residuals on the training and on the held-out experiment. It took
 about three minutes on a 4-core machine.
@@ -81,15 +81,23 @@ data = generate_experiment_set(rng; network = network(known = true), truth_param
     tspan = (0.0, 10.0), n_points = 40, noise_σ = 0.0)
 
 # Trains on the first three experiments, holds out the fourth, and prints the report.
-result = discover_unknown_term(network(known = false), data; rng = rng, holdout = 1,
+result = discover_unknown_terms(network(known = false), data; rng = rng, holdout = 1,
     training = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20, log_every = 10^6))
 ```
 
-`discover_unknown_term` prints a four-section report (identifiability, fit,
-discovery, reproduction) and returns an `UnknownTermResult` that holds the
+`discover_unknown_terms` prints a four-section report (identifiability, fit,
+discovery, reproduction) and returns an `UnknownTermsResult` that holds the
 trained model, the identifiability diagnostic, the discovery, and the
-residuals; `report_unknown_term(result)` returns the report as a string. The lines that
+residuals; `report_unknown_terms(result)` returns the report as a string. The lines that
 matter most, from a run in September 2026:
+
+Several unknown destruction terms, one per node, go through the same call:
+mark each with `ReactionSpec(known = false)` or with
+`BiologicalNetwork(...; unknown = [UnknownTerm(:A), UnknownTerm(:B)])`, and
+read the per-term results as `result[:A]` and `result[:B]`. The report then
+adds a cross-term section with the scale collinearity of every pair of
+terms; the tutorial has a two-term example and the benchmarks page measures
+what a second term costs.
 
 ```text
   unidentifiable_edge: true

@@ -19,7 +19,7 @@ produce a meaningful fit.
 
 ## One call
 
-`discover_unknown_term` runs the whole workflow: it builds the hybrid model,
+`discover_unknown_terms` runs the whole workflow: it builds the hybrid model,
 trains it, samples the learned destruction rate, discovers a rational
 expression for it, computes the identifiability diagnostic and the
 residuals, and prints the report. The block below is the reference protocol
@@ -32,7 +32,7 @@ rng = MersenneTwister(103)
 truth = (k_prod = 0.9, vmax = 1.8, K = 0.55, k_rs = 1.0, k_r = 0.6)
 set = HybridKinetics.reference_protocol_experiment_set(rng, unknown_inhibition_network(known = true);
     truth_params = truth)                      # nine experiments, 50 points each
-result = discover_unknown_term(unknown_inhibition_network(known = false), set;
+result = discover_unknown_terms(unknown_inhibition_network(known = false), set;
     rng = rng, known_support = HybridKinetics.hill_rate_support(2), seed = 103)
 ```
 
@@ -76,10 +76,11 @@ REPRODUCTION
   smoke: false
 ```
 
-`result` is an `UnknownTermResult`: `result.params` are the trained
-parameters, `result.discovery` the `DiscoveryResult`, `result.identifiability`
+`result` is an `UnknownTermsResult`: `result.params` are the trained
+parameters, `result[:S].discovery` the `DiscoveryResult` of the unknown term
+on `S`, `result[:S].identifiability`
 the trade-off report, `result.residuals` the three residuals above, and
-`report_unknown_term(result)` the text. The held-out residual (experiments 8 and 9, never
+`report_unknown_terms(result)` the text. The held-out residual (experiments 8 and 9, never
 used for training) is about twice the training residual; both are far below
 the acceptance threshold of 0.3. The rest of this page is what the one call
 does, step by step, with the reference example
@@ -275,7 +276,7 @@ REPRODUCTION
 ```
 
 The values above come from a run in September 2026 (reproduced for 0.11 by
-`discover_unknown_term(...; holdout = 0)`, which gives the same report line
+`discover_unknown_terms(...; holdout = 0)`, which gives the same report line
 for line). Read it as follows:
 
 - The scale warning was raised, so the coefficients of the discovered rate
@@ -292,7 +293,7 @@ for line). Read it as follows:
 
 ### Held-out validation
 
-The example trains on all nine experiments. `discover_unknown_term` with its
+The example trains on all nine experiments. `discover_unknown_terms` with its
 default `holdout = 2`, and the recovery suite (`HybridKinetics.run_recovery_suite`
 with `sections = (:ude_discovery,)`), train on experiments 1 to 7, derive the
 discovery grid from those seven, and then report the residual on experiments
@@ -301,3 +302,36 @@ evidence; they are not part of the acceptance criteria. See
 [Concepts](concepts.md) for the definitions.
 
 Next: [How-to recipes](howto.md) and [Concepts](concepts.md).
+
+## Two unknown terms
+
+Since 0.16 the same call handles several unknown destruction terms, one per
+node. Marking works as before, with `ReactionSpec(known = false)`, or with
+`UnknownTerm` specs handed to the network constructor. The three-state
+network below has `A` and `B` produced from `C`, `C` decaying linearly, and
+each of `A` and `B` degraded by a Hill term in the other; both Hill terms are
+unknown, so the two neural terms sit on adjacent nodes and each one's
+regulator is the other unknown node.
+
+```julia
+truth = HybridKinetics.build_two_term_coupled_network(; unknown = ())
+net = BiologicalNetwork(truth.nodes, EdgeSpec[]; reactions = truth.reactions,
+    unknown = [UnknownTerm(:A), UnknownTerm(:B)])
+set = generate_experiment_set(MersenneTwister(103); network = truth,
+    initial_conditions = HybridKinetics.multi_term_study_ics(3),
+    tspan = (0.0, 8.0), n_points = 50, noise_σ = 0.0,
+    truth_params = HybridKinetics.TWO_TERM_COUPLED_TRUTH)
+result = discover_unknown_terms(net, set; rng = MersenneTwister(103), seed = 103,
+    known_support = Dict(:A => HybridKinetics.hill_rate_support(2),
+        :B => HybridKinetics.hill_rate_support(2)))
+result[:A].discovery.equations
+result[:B].discovery.equations
+result.cross_term
+```
+
+The report now has one shared fit section, one block per term with that
+term's identifiability diagnostic and discovery, and a cross-term section
+with the collinearity of the pair, explained on the
+[Concepts](concepts.md#Several-unknown-terms) page. What two terms cost, and
+when they cannot be separated, is measured on the
+[Benchmarks](benchmarks.md#Two-unknown-terms) page.
