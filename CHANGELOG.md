@@ -58,6 +58,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cost more, with the adjacent pair 1.4 and 2.2 times further from the
   truth and the third term's support lost in two of five seeds.
 
+### Fixed
+
+- `symbolic(result)` and `latexify(result)` name the discovered rate's
+  variables by the unknown term's regulators among the dynamic states.
+  Before, the regulator indices were applied to the full node list, so on a
+  network with an `INPUT` node in front of the states (the p53 example, where
+  `DNA_Damage` is node 1) the Mdm2-regulated rate was written as a function
+  of p53. The test suite now checks that network.
+
 ## [0.15.0] - 2026-09-08
 
 ### Changed

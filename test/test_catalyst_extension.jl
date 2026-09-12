@@ -245,6 +245,34 @@ end
     else
         @test_throws ArgumentError symbolic(result[1].discovery, [:R])
     end
+    @testset "regulator names skip INPUT nodes" begin
+        # The term's regulators index the dynamic states. On the p53 network
+        # DNA_Damage is an INPUT node in front of the states, so naming the
+        # regulators through network.nodes would call the Mdm2-regulated
+        # rate a function of p53.
+        net = HybridKinetics.build_network()
+        model, params = build_ude_model(MersenneTwister(1), net)
+        term = only(HybridKinetics.neural_destruction_terms(model))
+        spec = HybridKinetics.LocalBasisSpec(1, [1],
+            [HybridKinetics.MonomialTerm(Int[], Int[], "1")],
+            [HybridKinetics.MonomialTerm([1], [1], "x[1]")])
+        candidate = ImplicitCandidate(1, spec, [1.0], [0.5], [1.0, 1.0], 0.0, 1.0)
+        discovery = DiscoveryResult(true, "ok", format_equation(candidate),
+            [spec], nothing, [candidate], RunMetadata(), nothing)
+        training = TrainingResult(params, Float64[], 0.0, 0.0, RunMetadata(),
+            nothing, false, HybridKinetics.NotConverged)
+        dummy = UnknownTermResult(:p53, net, model, params, training, term, nothing,
+            discovery, (; R = zeros(1, 1), D = zeros(1, 1)), nothing, nothing,
+            (; regulator_grid = :observed))
+        expression = symbolic(dummy)
+        variable = only(Symbolics.get_variables(expression))
+        @test occursin("Mdm2", string(variable))
+        @test !occursin("p53", string(variable)) &&
+              !occursin("DNA_Damage", string(variable))
+        @test isequal(expression, symbolic(discovery, [:Mdm2]))
+        @test !isequal(expression, symbolic(discovery, [:p53]))
+        @test occursin("Mdm2", string(latexify(dummy)))
+    end
     # With the extension loaded, an unsupported argument is a MethodError.
     @test_throws MethodError symbolic(1)
 end
