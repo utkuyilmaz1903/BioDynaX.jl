@@ -19,9 +19,14 @@
 #   parameters and drift only in the last digits; numbers are compared at
 #   the scale-relative tolerance `FP_CROSS_ENV_RTOL` (largest deviation over
 #   the largest magnitude of the vector) and the deviations are logged.
-#   Every equation, support, flag, extra and the number of candidates stay
-#   exact. A change of the call sequence (seed, holdout, warm-up, library)
-#   moves the numbers by orders of magnitude more than the tolerance.
+#   Every support, flag, extra and the number of candidates stay exact; the
+#   equation strings and the report are compared with their numeric literals
+#   masked, because a coefficient printed at five significant digits can sit
+#   on a rounding boundary (a drift of 1e-7 turned `-2.208` into `-2.2079`
+#   on one CI runner) while the coefficients themselves are compared at the
+#   tolerance. A change of the call sequence (seed, holdout, warm-up,
+#   library) moves the numbers by orders of magnitude more than the
+#   tolerance.
 # * version: another Julia version. Julia does not keep seeded random
 #   streams stable across versions, so the initial parameters and the noise
 #   differ and no trained value is comparable (measured on 1.12.7 against
@@ -64,6 +69,15 @@ function _fp_max_dev(recorded::Vector, actual::Vector)
     return worst
 end
 _fp_max_dev(recorded::String, actual::String) = _fp_max_dev([recorded], [actual])
+
+# Text with every numeric literal replaced by `#`, so that two printouts of
+# the same structure with last-digit differences compare equal. Digits that
+# are structure, not values (a monomial's exponent after `^`, a state index
+# after `[`), are kept.
+function _fp_mask_numbers(s::AbstractString)
+    replace(s, r"(?<![\^\[])-?\d+(\.\d+)?([eE][+-]?\d+)?" => "#")
+end
+_fp_mask_numbers(v::Vector) = String[_fp_mask_numbers(s) for s in v]
 
 function _fp_same(recorded::Vector, actual::Vector, mode::Symbol)
     length(recorded) == length(actual) || return false
@@ -139,7 +153,9 @@ function _fp_compare(name::String, actual::Dict, mode::Symbol)
         @test recorded["discovery_success"] == actual["discovery_success"]
         @test recorded["retcode"] == actual["retcode"]
         @test recorded["unidentifiable_edge"] == actual["unidentifiable_edge"]
-        @test recorded["equations"] == actual["equations"]
+        mode === :exact ? (@test recorded["equations"] == actual["equations"]) :
+        (@test _fp_mask_numbers(recorded["equations"]) ==
+               _fp_mask_numbers(actual["equations"]))
         @test recorded["extras"] == actual["extras"]
         @test length(recorded["candidates"]) == length(actual["candidates"])
         for (rc, ac) in zip(recorded["candidates"], actual["candidates"])
@@ -148,9 +164,9 @@ function _fp_compare(name::String, actual::Dict, mode::Symbol)
             end
         end
         # The report is compared exactly with exact numbers; with drifting
-        # last digits its length must still hold.
+        # last digits its text must still agree once numbers are masked.
         mode === :exact ? (@test recorded["report"] == actual["report"]) :
-        (@test length(recorded["report"]) == length(actual["report"]))
+        (@test _fp_mask_numbers(recorded["report"]) == _fp_mask_numbers(actual["report"]))
     end
 end
 

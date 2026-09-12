@@ -21,6 +21,16 @@ Nothing yet.
   data, then recover them symbolically", since a network may carry several.
   This is the version submitted to the General registry.
 
+### Fixed
+
+- The 0.15 fingerprint test could fail on a machine other than the recording
+  one when a discovered coefficient sat on a five-digit rounding boundary
+  (one CI runner printed `-2.2079` where the recording has `-2.208`, with a
+  numeric drift of 3e-7). In the same-Julia-version tolerance mode the
+  equation strings and the report are now compared with their numeric
+  literals masked; the coefficients themselves are still compared at the
+  tolerance, and the exact mode is unchanged.
+
 ## [0.16.0] - 2026-09-12
 
 ### Changed (breaking)
