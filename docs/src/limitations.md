@@ -104,15 +104,23 @@ destruction term. This page collects every caveat in one place.
   same node it is entangled with the destruction scale that the diagnostic
   already flags. It is refused with an error naming this scope, and is a
   later milestone.
-- What a second term costs, and when two terms cannot be separated, is
-  measured rather than assumed: see the two-term study on the
-  [Benchmarks](benchmarks.md#Two-unknown-terms) page. The cross-term
-  diagnostic reports the scale collinearity of every pair and warns above
-  `CROSS_TERM_COLLINEARITY_THRESHOLD`; it is local to the fit, concerns the
-  scales only, and is not a structural result.
-- The number of terms is not limited by the code. The study ran two and
-  three terms; beyond that the training time grows with the number of
-  networks and nothing has been measured.
+- What a second term costs is measured, not assumed (the two-term study on
+  the [Benchmarks](benchmarks.md#Two-unknown-terms) page). Two terms on
+  nodes that do not regulate each other's term separate cleanly: same
+  support recovery as one term, a learned-rate error within 1.1 times the
+  single-term run's, training 1.5 times longer. Two terms on adjacent nodes
+  keep their supports but the downstream term's learned rate comes out
+  about 16% low in every run, six times the single-term error, and the
+  held-out residual doubles. The cross-term diagnostic separates the two
+  cases (0.4 against 0.96) and warns above
+  `CROSS_TERM_COLLINEARITY_THRESHOLD` = 0.69; it is local to the fit,
+  concerns the scales only, does not say which of the two terms drifted,
+  and is not a structural result.
+- The number of terms is not limited by the code. Two terms were measured
+  in full; the three-term fixture ran on what remained of the study budget
+  (see the benchmarks page for exactly which cells). Beyond that the
+  training time grows with the number of networks and nothing has been
+  measured.
 
 ## Not in scope
 

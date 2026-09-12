@@ -118,11 +118,17 @@ end
 """
     CROSS_TERM_COLLINEARITY_THRESHOLD
 
-Cross-term collinearity above which `discover_unknown_terms` warns that a
-pair of unknown terms may compensate for each other. Set from the two-term
-fixtures of the 0.16 study (benchmarks page, "Two unknown terms").
+Cross-term collinearity above which `discover_unknown_terms` warns that the
+scales of a pair of unknown terms are not separately determined. Set from
+the two-term study of 0.16 (benchmarks page, "Two unknown terms"): over 20
+two-unknown runs the value clustered by network structure, between 0.371 and
+0.418 for terms on nodes that do not regulate each other's term and between
+0.955 and 0.964 for terms on adjacent nodes, with nothing in between; the
+threshold is the midpoint of that gap. Above it every run showed a learned
+rate 2.6 to 6.3 times further from the truth than the single-unknown
+control; below it none did.
 """
-const CROSS_TERM_COLLINEARITY_THRESHOLD = 0.95
+const CROSS_TERM_COLLINEARITY_THRESHOLD = 0.69
 
 # -- Report -------------------------------------------------------------------
 

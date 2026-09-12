@@ -486,14 +486,42 @@ compensated (`multi_term_compensation`). Returns the two groups' medians and
 ranges and the midpoint between the highest non-compensated value and the
 lowest compensated value when the groups separate, `nothing` otherwise.
 """
-function cross_term_threshold_from_study(rows)
+function cross_term_threshold_from_study(rows; degraded_ratio::Real = 2.0)
     comp = multi_term_compensation(rows)
     yes = [c.cross_term for c in comp if c.compensated && isfinite(c.cross_term)]
     no = [c.cross_term for c in comp if !c.compensated && isfinite(c.cross_term)]
     separates = !isempty(yes) && !isempty(no) && minimum(yes) > maximum(no)
+    # a second split, on the learned rate: a run is "degraded" when the rate
+    # RMSE of some term is more than `degraded_ratio` times that of the same
+    # term in its single-unknown control
+    controls = Dict{Tuple{Symbol, Symbol, Int, Float64, Symbol}, Float64}()
+    for r in rows
+        r.unknown == r.node && (controls[(r.fixture, r.node, r.seed, r.noise, r.variant)] = r.nn_rate_rmse)
+    end
+    degraded = Float64[]
+    kept = Float64[]
+    seen = Set{Tuple{Symbol, Symbol, Int, Float64, Symbol}}()
+    for r in rows
+        r.unknown == r.node && continue
+        key = (r.fixture, r.unknown, r.seed, r.noise, r.variant)
+        key in seen && continue
+        group = [x for x in rows if (x.fixture, x.unknown, x.seed, x.noise, x.variant) == key]
+        push!(seen, key)
+        isfinite(r.cross_term_max) || continue
+        ratios = [x.nn_rate_rmse / get(controls, (x.fixture, x.node, x.seed, x.noise, x.variant), NaN)
+                  for x in group]
+        any(isfinite(q) && q > degraded_ratio for q in ratios) ? push!(degraded, r.cross_term_max) :
+        push!(kept, r.cross_term_max)
+    end
+    degraded_separates = !isempty(degraded) && !isempty(kept) && minimum(degraded) > maximum(kept)
     return (; n_compensated = length(yes), n_not = length(no),
         compensated_range = isempty(yes) ? (NaN, NaN) : extrema(yes),
         not_compensated_range = isempty(no) ? (NaN, NaN) : extrema(no),
         compensated_median = _median(yes), not_compensated_median = _median(no),
-        separates, midpoint = separates ? (maximum(no) + minimum(yes)) / 2 : nothing)
+        separates, midpoint = separates ? (maximum(no) + minimum(yes)) / 2 : nothing,
+        n_degraded = length(degraded), n_kept = length(kept),
+        degraded_range = isempty(degraded) ? (NaN, NaN) : extrema(degraded),
+        kept_range = isempty(kept) ? (NaN, NaN) : extrema(kept),
+        degraded_separates,
+        degraded_midpoint = degraded_separates ? (maximum(kept) + minimum(degraded)) / 2 : nothing)
 end

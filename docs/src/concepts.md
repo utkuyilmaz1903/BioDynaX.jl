@@ -183,8 +183,16 @@ terms, not a proof that the terms cannot be separated with other data.
 put two unknown terms on nodes that do not regulate each other's term
 (`build_two_term_separate_network`) and on nodes that do
 (`build_two_term_coupled_network`), each with the single-unknown control of
-the same network. The numbers are on the [Benchmarks](benchmarks.md#Two-unknown-terms)
-page; the compensation result is stated there and in the limitations page.
+the same network, over five seeds and two noise levels. On non-adjacent
+nodes the second term cost nothing measurable: the same support F1 as the
+control, a learned-rate error within 1.1 times the control's, cross-term
+collinearity 0.37 to 0.42. On adjacent nodes the supports were still
+recovered, but the term whose regulator is the other unknown node came out
+biased low by about 16% in every run, with a rate error 6 times the
+control's, and the cross-term collinearity was 0.96 in every run. No run
+showed the two terms trading against each other with opposite signs. The
+tables and the figure are on the [Benchmarks](benchmarks.md#Two-unknown-terms)
+page.
 
 ## Symbolic discovery
 

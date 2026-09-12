@@ -527,7 +527,83 @@ signed biases have opposite signs and each is larger in magnitude than the
 bias of the same term in the single-unknown control at the same seed and
 noise.
 
-<!-- STUDY RESULTS -->
+**Environment.** Julia 1.10.12, OrdinaryDiffEq 7.8.1, SciMLSensitivity 7.119.2,
+Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13, HybridKinetics 0.16.0, four
+cores with three study processes running at once, 2026-09-12. Rows:
+`benchmark/results/multi_term_study.csv`.
+
+### Two terms, noise 0.0 and 0.02
+
+Five seeds per cell; medians over seeds, interquartile range for F1. Without
+stability selection; with it the table is the same except that two
+single-unknown control cells of the coupled fixture gain one support term
+(F1 0.667 instead of 0.571 at noise 0.0 and 0.02 for `B`).
+
+| fixture | unknown | noise | term | runs | F1 median [IQR] | rate RMSE median | bias median | held-out residual | cross-term median | training s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| coupled | A | 0.0 | A | 5/5 | 0.571 [0.571, 0.571] | 0.054 | 0.096 | 0.006 | NA | 210 |
+| coupled | A | 0.02 | A | 5/5 | 0.667 [0.571, 0.667] | 0.05 | 0.065 | 0.021 | NA | 177 |
+| coupled | A+B | 0.0 | A | 5/5 | 0.571 [0.571, 0.571] | 0.138 | -0.014 | 0.02 | 0.959 | 272 |
+| coupled | A+B | 0.0 | B | 5/5 | 0.571 [0.571, 0.571] | 0.164 | -0.16 | 0.02 | 0.959 | 272 |
+| coupled | A+B | 0.02 | A | 5/5 | 0.571 [0.571, 0.571] | 0.151 | -0.025 | 0.034 | 0.958 | 238 |
+| coupled | A+B | 0.02 | B | 5/5 | 0.667 [0.571, 0.667] | 0.174 | -0.17 | 0.034 | 0.958 | 238 |
+| coupled | B | 0.0 | B | 5/5 | 0.571 [0.571, 0.8] | 0.026 | 0.003 | 0.01 | NA | 215 |
+| coupled | B | 0.02 | B | 4/5 | 0.571 [0.571, 0.667] | 0.064 | 0.007 | 0.021 | NA | 179 |
+| separate | S1 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.091 | 0.254 | 0.004 | NA | 345 |
+| separate | S1 | 0.02 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.088 | 0.204 | 0.019 | NA | 229 |
+| separate | S1+S2 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.094 | 0.281 | 0.011 | 0.397 | 444 |
+| separate | S1+S2 | 0.0 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.126 | 0.154 | 0.011 | 0.397 | 444 |
+| separate | S1+S2 | 0.02 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.093 | 0.196 | 0.023 | 0.399 | 308 |
+| separate | S1+S2 | 0.02 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.14 | 0.147 | 0.023 | 0.399 | 308 |
+| separate | S2 | 0.0 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.113 | 0.105 | 0.009 | NA | 279 |
+| separate | S2 | 0.02 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.129 | 0.103 | 0.021 | NA | 226 |
+
+The "runs" column counts successful discoveries; `coupled B 0.02` has one
+seed whose single-unknown discovery failed (F1 0 in the median's data).
+
+![Per-term support F1 and learned-rate error against noise](assets/multi_term_f1.png)
+
+**Compensation.** In none of the 20 two-unknown runs did the two terms
+compensate in the sense defined above (opposite-sign biases, both larger
+than the controls'), with or without stability selection. What happened
+instead differs by fixture:
+
+- Separate (non-adjacent) nodes: the second unknown term costs nothing
+  measurable. Support F1 is the control's in every cell (0.571 medians on
+  both sides), the learned-rate error is within 1.1 times the control's
+  (`S1` 0.094 against 0.091; `S2` 0.126 against 0.113 at noise 0.0), and the
+  biases have the control's sign and size. The cross-term collinearity is
+  0.37 to 0.42 in every run. Training takes 364 s against 237 and 253 s for
+  the two controls (medians over 10 runs each), about 1.5 times.
+- Coupled (adjacent) nodes: the supports are still recovered at the
+  control's level (F1 0.571 against 0.571 at noise 0.0), so the symbolic
+  form survives, but the learned rates are worse and in a consistent
+  direction: the rate of `B`, whose regulator is the other unknown node, is
+  biased low by 15 to 17% in all ten runs (median bias −0.16 and −0.17)
+  while its single-unknown control is unbiased (0.003 and 0.007); the rate
+  error is 6.3 times the control's for `B` (0.164 against 0.026) and 2.6
+  times for `A` (0.138 against 0.054). The held-out residual doubles (0.020
+  against 0.006 and 0.010). The cross-term collinearity is 0.955 to 0.964 in
+  every run. Training takes 242 s against 178 s, 1.4 times.
+
+So the answer to the milestone's question is: two terms on non-adjacent
+nodes separate cleanly; two terms on adjacent nodes do not trade against
+each other, but the downstream term absorbs a systematic scale bias of
+about 16% that the single-term run does not have, and the diagnostic sees
+it. This is the picture the pre-code analysis predicted for the adjacent
+case (the term whose input is the other unknown node degrades first), minus
+the opposite-sign compensation it also allowed for, which did not occur.
+
+**Threshold.** The cross-term values clustered by structure with nothing in
+between: 0.371 to 0.418 for the separate fixture, 0.955 to 0.964 for the
+coupled one. `CROSS_TERM_COLLINEARITY_THRESHOLD` is 0.69, the midpoint of
+that gap. Above it, every run had a learned rate 2.6 to 6.3 times further
+from the truth than its control; below it, none did. Within the coupled
+cluster the value did not distinguish seeds (all within 0.01 of each
+other), so it says which structure you have, not how far a particular run
+drifted.
+
+<!-- STUDY RESULTS 0.05 AND THREE -->
 
 ## Report fields
 
