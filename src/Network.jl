@@ -254,13 +254,6 @@ function _validate_edge_metadata!(network::BiologicalNetwork, edge::EdgeSpec)
     return nothing
 end
 
-"""
-    validate_network(network) -> network
-
-Check node uniqueness, bounds, stoichiometry, and kinetic-metadata requirements.
-Called by the `BiologicalNetwork` constructor; safe to call again after
-manual edits.
-"""
 # -- Unknown terms -----------------------------------------------------------
 
 _node_index(nodes::Vector{NodeSpec}, name::Symbol) = findfirst(n -> n.name == name, nodes)
@@ -351,6 +344,13 @@ function _validate_unknown_terms(network::BiologicalNetwork)
     return nothing
 end
 
+"""
+    validate_network(network) -> network
+
+Check node uniqueness, bounds, stoichiometry, and kinetic-metadata requirements.
+Called by the `BiologicalNetwork` constructor; safe to call again after
+manual edits.
+"""
 function validate_network(network::BiologicalNetwork)
     isempty(network.nodes) && throw(ArgumentError("network cannot be empty"))
     names = getfield.(network.nodes, :name)
