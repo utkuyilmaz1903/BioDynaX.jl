@@ -625,6 +625,24 @@ end
 """
     hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data; mask)
 
+function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
+        mask = nothing)
+    rhs = compose_hybrid_rhs(model, p, term, rate_fn)
+    prob = SciMLBase.ODEProblem(rhs, u0, tspan)
+    sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
+    SciMLBase.successful_retcode(sol) || return Inf
+    pred = Array(sol)
+    size(pred) == size(data) || return Inf
+    if mask === nothing
+        return sqrt(mean(abs2, pred .- data))
+    end
+    size(mask) == size(data) || return Inf
+    n = count(mask)
+    n == 0 && return Inf
+    residual = ifelse.(mask, pred .- data, zero(eltype(pred)))
+    return sqrt(sum(abs2, residual) / n)
+end
+
 RMSE of `compose_hybrid_rhs` versus observations (not versus UDE `ẋ`).
 This is a locked UDE claim field.
 """
@@ -643,24 +661,6 @@ function _hybrid_data_residual(rhs, u0, tspan, times, data, mask)
     pred = Array(sol)
     size(pred) == size(data) || return Inf
     mask === nothing && return sqrt(mean(abs2, pred .- data))
-    size(mask) == size(data) || return Inf
-    n = count(mask)
-    n == 0 && return Inf
-    residual = ifelse.(mask, pred .- data, zero(eltype(pred)))
-    return sqrt(sum(abs2, residual) / n)
-end
-
-function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
-        mask = nothing)
-    rhs = compose_hybrid_rhs(model, p, term, rate_fn)
-    prob = SciMLBase.ODEProblem(rhs, u0, tspan)
-    sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
-    SciMLBase.successful_retcode(sol) || return Inf
-    pred = Array(sol)
-    size(pred) == size(data) || return Inf
-    if mask === nothing
-        return sqrt(mean(abs2, pred .- data))
-    end
     size(mask) == size(data) || return Inf
     n = count(mask)
     n == 0 && return Inf

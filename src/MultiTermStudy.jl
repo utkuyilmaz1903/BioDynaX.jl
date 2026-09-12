@@ -496,7 +496,8 @@ function cross_term_threshold_from_study(rows; degraded_ratio::Real = 2.0)
     # term in its single-unknown control
     controls = Dict{Tuple{Symbol, Symbol, Int, Float64, Symbol}, Float64}()
     for r in rows
-        r.unknown == r.node && (controls[(r.fixture, r.node, r.seed, r.noise, r.variant)] = r.nn_rate_rmse)
+        r.unknown == r.node &&
+            (controls[(r.fixture, r.node, r.seed, r.noise, r.variant)] = r.nn_rate_rmse)
     end
     degraded = Float64[]
     kept = Float64[]
@@ -505,15 +506,19 @@ function cross_term_threshold_from_study(rows; degraded_ratio::Real = 2.0)
         r.unknown == r.node && continue
         key = (r.fixture, r.unknown, r.seed, r.noise, r.variant)
         key in seen && continue
-        group = [x for x in rows if (x.fixture, x.unknown, x.seed, x.noise, x.variant) == key]
+        group = [x
+                 for x in rows if (x.fixture, x.unknown, x.seed, x.noise, x.variant) == key]
         push!(seen, key)
         isfinite(r.cross_term_max) || continue
-        ratios = [x.nn_rate_rmse / get(controls, (x.fixture, x.node, x.seed, x.noise, x.variant), NaN)
+        ratios = [x.nn_rate_rmse /
+                  get(controls, (x.fixture, x.node, x.seed, x.noise, x.variant), NaN)
                   for x in group]
-        any(isfinite(q) && q > degraded_ratio for q in ratios) ? push!(degraded, r.cross_term_max) :
+        any(isfinite(q) && q > degraded_ratio for q in ratios) ?
+        push!(degraded, r.cross_term_max) :
         push!(kept, r.cross_term_max)
     end
-    degraded_separates = !isempty(degraded) && !isempty(kept) && minimum(degraded) > maximum(kept)
+    degraded_separates = !isempty(degraded) && !isempty(kept) &&
+                         minimum(degraded) > maximum(kept)
     return (; n_compensated = length(yes), n_not = length(no),
         compensated_range = isempty(yes) ? (NaN, NaN) : extrema(yes),
         not_compensated_range = isempty(no) ? (NaN, NaN) : extrema(no),
@@ -523,5 +528,6 @@ function cross_term_threshold_from_study(rows; degraded_ratio::Real = 2.0)
         degraded_range = isempty(degraded) ? (NaN, NaN) : extrema(degraded),
         kept_range = isempty(kept) ? (NaN, NaN) : extrema(kept),
         degraded_separates,
-        degraded_midpoint = degraded_separates ? (maximum(kept) + minimum(degraded)) / 2 : nothing)
+        degraded_midpoint = degraded_separates ? (maximum(kept) + minimum(degraded)) / 2 :
+                            nothing)
 end

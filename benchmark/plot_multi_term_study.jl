@@ -20,8 +20,11 @@ series = []
 for fixture in (:separate, :coupled)
     fx = HybridKinetics.multi_term_fixture(fixture)
     label_all = Symbol(join(string.(fx.nodes), "+"))
-    for node in fx.nodes, (unknown, kind) in ((label_all, "both unknown"), (node, "control"))
-        pts = [(s.noise, s.f1_median, s.rmse_median) for s in summary
+    for node in fx.nodes,
+        (unknown, kind) in ((label_all, "both unknown"), (node, "control"))
+
+        pts = [(s.noise, s.f1_median, s.rmse_median)
+               for s in summary
                if s.fixture == fixture && s.unknown == unknown && s.variant == :plain &&
                   s.node == node]
         isempty(pts) || push!(series, (fixture, node, kind, sort(pts)))
@@ -36,7 +39,8 @@ function panel(index, ylabel; ylims)
         x = first.(pts) .+ offsets[k]
         y = index == 1 ? getindex.(pts, 2) : getindex.(pts, 3)
         plot!(plt, x, y; marker = markers[fixture], markersize = 5,
-            linestyle = kind == "control" ? :dot : :solid, alpha = kind == "control" ? 0.7 : 1.0,
+            linestyle = kind == "control" ? :dot : :solid, alpha = kind == "control" ? 0.7 :
+                                                                   1.0,
             label = "$(fixture), $(node), $(kind)")
     end
     return plt
