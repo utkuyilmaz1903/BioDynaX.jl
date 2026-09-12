@@ -25,8 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-term identifiability, discovery, samples and extras are `result[:S]`
   (by node name), `result[1]`, or an element of `unknown_terms(result)`, each
   an `UnknownTermResult`. With one unknown term every number and the report
-  text are identical to 0.15 (`test/support/fingerprints_015.toml` records
-  them and the test suite asserts it).
+  text are identical to 0.15: `test/support/fingerprints_015.toml` records
+  them from 0.15 on Julia 1.10.12 and the test suite asserts exact equality
+  on that environment, equality within a scale-relative 1e-3 on another
+  machine with the same Julia version, and only the RNG-independent parts on
+  another Julia version (Julia's seeded random streams differ between
+  versions, so the initial parameters differ there).
 - `export_mtk_system(model; discovered = result)` substitutes the discovered
   rate of every term; a bare candidate is accepted only for a one-term model.
 
