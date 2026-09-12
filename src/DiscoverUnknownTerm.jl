@@ -307,7 +307,13 @@ function _production_param_for(choice, model::UDEModel, term, node::Symbol, phys
     candidates = Symbol[]
     for production in model.compiled.production_terms
         production.target == term.target || continue
-        hasproperty(production, :rate_param) && push!(candidates, production.rate_param)
+        if production isa InputProductionTerm
+            push!(candidates, production.rate_param)
+        elseif production isa MassActionProductionTerm
+            push!(candidates, production.param)
+        elseif production isa SaturationProductionTerm
+            push!(candidates, production.vmax_param)
+        end
     end
     return length(candidates) == 1 ? only(candidates) : :k_prod
 end

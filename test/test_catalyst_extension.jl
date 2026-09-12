@@ -263,8 +263,20 @@ end
     @test network_from_reactionsystem(two; unknown = [3, 4]) |> unknown_terms ==
           unknown_terms(net)
     @test_throws ArgumentError network_from_reactionsystem(two; unknown = [3, 3])
-    # same-node marks are refused by the network, not silently merged
-    @test_throws ArgumentError network_from_reactionsystem(two; unknown = [3, 5])
+    # two marks on the same node are refused by the network, not silently merged
+    twice = @reaction_network two_terms_twice begin
+        k_ca * C, 0 --> A
+        k_cb * C, 0 --> B
+        hill(B, vmax_a, K_a, 2), A --> 0, [description = "unknown A"]
+        hill(A, vmax_b, K_b, 2), B --> 0, [description = "unknown B"]
+        k_c, C --> 0
+        hill(C, vmax_a2, K_a2, 2), A --> 0, [description = "unknown A again"]
+    end
+    @test_throws ArgumentError network_from_reactionsystem(twice; unknown = [3, 6])
+    # marking a reaction whose rate has no species gives a self-regulated term
+    self = network_from_reactionsystem(two; unknown = [3, 5])
+    @test unknown_terms(self) == [UnknownTerm(:A; regulators = [:B]),
+        UnknownTerm(:C; regulators = [:C])]
     set = generate_experiment_set(MersenneTwister(103);
         network = network_from_reactionsystem(two; unknown = nothing),
         initial_conditions = [[0.3, 0.2, 0.5], [0.6, 0.4, 0.8], [0.2, 0.7, 0.3]],
@@ -281,13 +293,18 @@ end
         @test isequal(symbolic(result[:B]), symbolic(result[:B].discovery, [:A]))
         @test latexify(result[:A]) == latexify(symbolic(result[:A]))
         @test_throws ArgumentError latexify(result)
+        # placeholders nn_i(t) are free variables of the equations, not states
+        function placeholders(sys)
+            unique(string(v)
+            for eq in ModelingToolkit.equations(sys)
+            for v in Symbolics.get_variables(eq.rhs)
+            if startswith(string(v), "nn_"))
+        end
         sys = HybridKinetics.export_mtk_system(result.model; discovered = result)
-        @test isempty(filter(
-            v -> startswith(string(v), "nn_"), ModelingToolkit.unknowns(sys)))
+        @test isempty(placeholders(sys))
+        @test length(placeholders(HybridKinetics.export_mtk_system(result.model))) == 2
         one_term = HybridKinetics.export_mtk_system(result.model; discovered = result[:A])
-        placeholders = filter(
-            v -> startswith(string(v), "nn_"), ModelingToolkit.unknowns(one_term))
-        @test length(placeholders) == 1
+        @test placeholders(one_term) == ["nn_2(t)"]
         @test_throws ArgumentError HybridKinetics.export_mtk_system(result.model;
             discovered = result[:A].discovery)
     end

@@ -117,6 +117,13 @@ function UnknownTerm(node::Symbol; regulators = nothing, library = nothing)
     return UnknownTerm(node, regs, library)
 end
 
+function Base.:(==)(a::UnknownTerm, b::UnknownTerm)
+    a.node == b.node &&
+        a.regulators == b.regulators &&
+        a.library == b.library
+end
+Base.hash(term::UnknownTerm, h::UInt) = hash((term.node, term.regulators, term.library), h)
+
 function Base.show(io::IO, term::UnknownTerm)
     print(io, "UnknownTerm(", repr(term.node))
     term.regulators === nothing || print(io, "; regulators = ", term.regulators)
@@ -278,11 +285,15 @@ function _mark_unknown_reactions(nodes::Vector{NodeSpec}, reactions::Vector{Reac
             "unknown term on $(spec.node): the node has $(length(candidates)) destruction reactions; mark the intended one with ReactionSpec(known = false)"))
         k = only(candidates)
         r = marked[k]
-        regs = spec.regulators === nothing ? r.regulators :
-               Int[something(_node_index(nodes, name),
-                       throw(ArgumentError(
-                           "unknown term on $(spec.node): regulator $(name) is not a node")))
-                   for name in spec.regulators]
+        regs = spec.regulators === nothing ? r.regulators : Int[]
+        if spec.regulators !== nothing
+            for name in spec.regulators
+                ri = _node_index(nodes, name)
+                ri === nothing && throw(ArgumentError(
+                    "unknown term on $(spec.node): regulator $(name) is not a node"))
+                push!(regs, ri)
+            end
+        end
         marked[k] = ReactionSpec(name = r.name, stoichiometry = r.stoichiometry,
             regulators = regs, known = false, family = r.family, metadata = r.metadata)
     end

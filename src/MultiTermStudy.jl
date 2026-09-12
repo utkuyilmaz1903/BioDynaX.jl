@@ -371,3 +371,129 @@ function multi_term_study(; fixtures = (:separate, :coupled),
         skipped, " already recorded, in ", out)
     return read_multi_term_csv(out)
 end
+
+# -- Summary --------------------------------------------------------------------
+
+_median(v) = isempty(v) ? NaN : median(v)
+_iqr(v) = isempty(v) ? (NaN, NaN) : (quantile(v, 0.25), quantile(v, 0.75))
+
+"""
+    multi_term_compensation(rows) -> Vector{NamedTuple}
+
+For every run with all terms unknown (one row per term and variant), whether
+the terms compensated: the signed biases of the learned rates have opposite
+signs, and each is larger in magnitude than the bias of the same term in the
+single-unknown control of the same fixture, seed, noise level and variant.
+Returns one entry per run and variant with `compensated`, the biases, the
+control biases and the cross-term collinearity.
+"""
+function multi_term_compensation(rows)
+    controls = Dict{Tuple{Symbol, Symbol, Int, Float64, Symbol}, Float64}()
+    for r in rows
+        r.unknown == r.node || continue   # a single-unknown control row
+        controls[(r.fixture, r.node, r.seed, r.noise, r.variant)] = r.nn_rate_bias
+    end
+    groups = Dict{Tuple{Symbol, Symbol, Int, Float64, Symbol}, Vector{Any}}()
+    for r in rows
+        r.unknown == r.node && continue
+        push!(get!(groups, (r.fixture, r.unknown, r.seed, r.noise, r.variant), Any[]), r)
+    end
+    out = NamedTuple[]
+    for (key, group) in sort!(collect(groups); by = first)
+        fixture, unknown, seed, noise, variant = key
+        biases = [r.nn_rate_bias for r in group]
+        nodes = [r.node for r in group]
+        control = [get(controls, (fixture, n, seed, noise, variant), NaN) for n in nodes]
+        opposite = length(biases) ≥ 2 && any(b > 0 for b in biases) &&
+                   any(b < 0 for b in biases)
+        larger = all(isfinite(c) ? abs(b) > abs(c) : false
+        for (b, c) in zip(biases, control))
+        push!(out,
+            (; fixture, unknown, seed, noise, variant, nodes, biases,
+                control_biases = control, compensated = opposite && larger,
+                cross_term = first(group).cross_term_max,
+                f1 = [r.support_f1 for r in group],
+                control_f1 = [r.support_f1
+                              for r in rows
+                              if r.unknown == r.node && r.fixture == fixture &&
+                                     r.seed == seed && r.noise == noise &&
+                                     r.variant == variant]))
+    end
+    return out
+end
+
+"""
+    multi_term_study_summary(rows) -> Vector{NamedTuple}
+
+Per fixture, unknown-term configuration, noise level, variant and node:
+number of runs, median and interquartile range of support F1, of the
+relative rate RMSE, of the signed bias, of the held-out residual, of the
+cross-term collinearity, and of the training time.
+"""
+function multi_term_study_summary(rows)
+    groups = Dict{Tuple{Symbol, Symbol, Float64, Symbol, Symbol}, Vector{Any}}()
+    for r in rows
+        push!(get!(groups, (r.fixture, r.unknown, r.noise, r.variant, r.node), Any[]), r)
+    end
+    out = NamedTuple[]
+    for (key, group) in sort!(collect(groups); by = first)
+        fixture, unknown, noise, variant, node = key
+        f1 = [r.support_f1 for r in group]
+        rmse = [r.nn_rate_rmse for r in group]
+        bias = [r.nn_rate_bias for r in group]
+        hold = [r.holdout_residual for r in group if isfinite(r.holdout_residual)]
+        cross = [r.cross_term_max for r in group if isfinite(r.cross_term_max)]
+        train = [r.train_time_s for r in group]
+        push!(out,
+            (; fixture, unknown, noise, variant, node, n = length(group),
+                successes = count(r -> r.success, group),
+                f1_median = _median(f1), f1_iqr = _iqr(f1),
+                rmse_median = _median(rmse), rmse_iqr = _iqr(rmse),
+                bias_median = _median(bias), bias_iqr = _iqr(bias),
+                holdout_median = _median(hold),
+                cross_median = _median(cross), cross_iqr = _iqr(cross),
+                train_median = _median(train)))
+    end
+    return out
+end
+
+_fmt3(x) = isnan(x) ? "NA" : string(round(x; digits = 3))
+_fmt_iqr(t) = string("[", _fmt3(t[1]), ", ", _fmt3(t[2]), "]")
+
+"""Markdown table of `multi_term_study_summary` for one variant."""
+function format_multi_term_summary(summary; variant::Symbol = :plain)
+    io = IOBuffer()
+    println(io,
+        "| fixture | unknown | noise | term | runs | F1 median [IQR] | rate RMSE median | bias median | held-out residual | cross-term median | training s |")
+    println(io, "|---|---|---|---|---|---|---|---|---|---|---|")
+    for s in summary
+        s.variant == variant || continue
+        println(
+            io, "| ", s.fixture, " | ", s.unknown, " | ", s.noise, " | ", s.node, " | ",
+            s.successes, "/", s.n, " | ", _fmt3(s.f1_median), " ", _fmt_iqr(s.f1_iqr),
+            " | ", _fmt3(s.rmse_median), " | ", _fmt3(s.bias_median), " | ",
+            _fmt3(s.holdout_median), " | ", _fmt3(s.cross_median), " | ",
+            isnan(s.train_median) ? "NA" : string(round(Int, s.train_median)), " |")
+    end
+    return String(take!(io))
+end
+
+"""
+    cross_term_threshold_from_study(rows) -> NamedTuple
+
+The cross-term values of the two-unknown runs split by whether the terms
+compensated (`multi_term_compensation`). Returns the two groups' medians and
+ranges and the midpoint between the highest non-compensated value and the
+lowest compensated value when the groups separate, `nothing` otherwise.
+"""
+function cross_term_threshold_from_study(rows)
+    comp = multi_term_compensation(rows)
+    yes = [c.cross_term for c in comp if c.compensated && isfinite(c.cross_term)]
+    no = [c.cross_term for c in comp if !c.compensated && isfinite(c.cross_term)]
+    separates = !isempty(yes) && !isempty(no) && minimum(yes) > maximum(no)
+    return (; n_compensated = length(yes), n_not = length(no),
+        compensated_range = isempty(yes) ? (NaN, NaN) : extrema(yes),
+        not_compensated_range = isempty(no) ? (NaN, NaN) : extrema(no),
+        compensated_median = _median(yes), not_compensated_median = _median(no),
+        separates, midpoint = separates ? (maximum(no) + minimum(yes)) / 2 : nothing)
+end

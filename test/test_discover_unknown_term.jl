@@ -194,11 +194,13 @@ end
         # the reference protocol's ErrorException from assert_single_unknown_destruction)
         @test_throws ArgumentError discover_unknown_terms(known, set;
             training = _DUT_CONFIG, verbose = false)
-        @test occursin("no unknown destruction term", sprint(showerror, try
-            discover_unknown_terms(known, set; training = _DUT_CONFIG, verbose = false)
-        catch e
-            e
-        end))
+        @test occursin("no unknown destruction term",
+            sprint(showerror,
+                try
+                    discover_unknown_terms(known, set; training = _DUT_CONFIG, verbose = false)
+                catch e
+                    e
+                end))
         no_warm = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), warmup = false, verbose = false)
         warm = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
