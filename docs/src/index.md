@@ -1,7 +1,7 @@
 # HybridKinetics.jl
 
-Hybrid kinetic models for small biochemical networks: learn the one unknown
-rate law from time-series data, then recover it symbolically.
+Hybrid kinetic models for small biochemical networks: learn the unknown rate
+laws from time-series data, then recover them symbolically.
 
 HybridKinetics fits hybrid models of small biochemical networks. You give it a
 known interaction graph and known kinetics (mass action, linear decay, Hill,
