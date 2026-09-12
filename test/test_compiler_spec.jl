@@ -135,7 +135,7 @@ end
     gapped = NeuralDestructionTerm(1, 1, 3, 1.0, [1])
     @test gapped.nn_index > size(cache.nn_inputs, 2)
     @test neural_cache_matches_heads(model, cache)
-    dx = ude_system([0.2, 0.3, 0.4], params, 0.0, model)
+    dx = ude_rhs([0.2, 0.3, 0.4], params, 0.0, model)
     ude_rhs!(cache.du, [0.2, 0.3, 0.4], params, 0.0, model, cache)
     @test Vector(cache.du) ≈ dx
 end

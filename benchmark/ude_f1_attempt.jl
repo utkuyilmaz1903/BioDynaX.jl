@@ -14,13 +14,13 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 using HybridKinetics
 using HybridKinetics:
                       hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
-                      discover_unknown_rate, normalize_destruction_samples,
+                      regress_unknown_rate, normalize_destruction_samples,
                       RECOVERY_THRESHOLDS,
                       REFERENCE_PROTOCOL, REFERENCE_PROTOCOL_F1_ATTEMPT
 using Printf
 
 function discover_f1(D, r; seed = 103)
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         reshape(r, 1, :), collect(range(0.0, 1.0; length = length(r))),
         reshape(vec(D), 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = seed),

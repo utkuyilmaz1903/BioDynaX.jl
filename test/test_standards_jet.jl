@@ -11,7 +11,7 @@ function standards_jet_opt_reports(f, types)
     return JET.get_reports(result)
 end
 
-@testset "JET report_call on train_ude discover_unknown_rate compose_hybrid_rhs" begin
+@testset "JET report_call on train_ude regress_unknown_rate compose_hybrid_rhs" begin
     rng = MersenneTwister(41)
     model, params = build_ude_model(
         rng, build_hill_recovery_network(; known = false, hill_order = 2))
@@ -33,7 +33,7 @@ end
         typeof(u0), typeof(tspan), UDEModel}
 
     compose_reports = standards_jet_reports(compose_hybrid_rhs, compose_types)
-    discover_reports = standards_jet_reports(discover_unknown_rate, discover_types)
+    discover_reports = standards_jet_reports(regress_unknown_rate, discover_types)
     train_reports = standards_jet_reports(train_ude, train_types)
 
     @test isempty(compose_reports)
@@ -63,6 +63,6 @@ end
         typeof(u0), typeof(tspan), UDEModel}
 
     @test isempty(standards_jet_opt_reports(compose_hybrid_rhs, compose_types))
-    @test isempty(standards_jet_opt_reports(discover_unknown_rate, discover_types))
+    @test isempty(standards_jet_opt_reports(regress_unknown_rate, discover_types))
     @test isempty(standards_jet_opt_reports(train_ude, train_types))
 end

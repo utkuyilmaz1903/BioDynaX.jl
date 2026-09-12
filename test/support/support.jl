@@ -3,6 +3,9 @@
 # loaded into the test process after `using HybridKinetics` and use the package
 # internals imported below (generated from the identifiers the helpers use).
 using HybridKinetics
+# Un-exported since 0.17 (still public API): imported for the test files.
+using HybridKinetics: EmptyMetadata, MetadataLike, RECOVERY_THRESHOLDS, allocate_cache,
+                      pack_parameters, positive_parameter
 import HybridKinetics: BacksolveAdjoint, CHECKPOINT_SCHEMA_VERSION,
                        COMPILER_REINDEX_MUST_CONTAIN, COMPILER_REINDEX_MUST_NOT_CONTAIN,
                        Checkpoint,

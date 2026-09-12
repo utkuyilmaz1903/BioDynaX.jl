@@ -17,7 +17,7 @@ end
     @test hybrid_compose_index_holds()
 end
 
-@testset "neural identity recovers ude_system" begin
+@testset "neural identity recovers ude_rhs" begin
     hill = HybridKinetics.hill_ude_identity_path()
     @test hill.holds
     mm = HybridKinetics.mm_unknown_identity_path()

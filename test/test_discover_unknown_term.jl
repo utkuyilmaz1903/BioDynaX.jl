@@ -38,7 +38,7 @@ function _dut_chain(ude_net, set; rng_seed = 7)
         model, trained.params, term;
         r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
-    discovery = discover_unknown_rate(R, times_grid, D;
+    discovery = regress_unknown_rate(R, times_grid, D;
         config = HybridKinetics.reference_protocol_discovery_config(), verbose = false,
         strict = false)
     ident = HybridKinetics.report_production_destruction_tradeoff(
@@ -61,7 +61,7 @@ end
         result = discover_unknown_terms(ude_net, set; training = _DUT_CONFIG,
             holdout = 0, rng = MersenneTwister(7), verbose = false,
             known_support = HybridKinetics.hill_rate_support(2))
-        @test result isa UnknownTermsResult
+        @test result isa DiscoveryRun
         @test length(result) == 1 && keys(result) == [:S] && result[:S] === result[1]
         @test result[1] isa UnknownTermResult
         @test HybridKinetics.nn_parameter_fingerprint(result.params.nn) ==
@@ -110,7 +110,7 @@ end
         @test occursin("extras: NA", text)
         @test sprint(show, MIME("text/plain"), result) == text
         summary = sprint(show, result)
-        @test startswith(summary, "UnknownTermsResult(")
+        @test startswith(summary, "DiscoveryRun(")
         @test occursin("held out = 1", summary)
         @test result.training_indices == 1:2
         @test result.holdout_indices == [3]

@@ -161,7 +161,7 @@ end
     r = collect(range(0.1, 2.0; length = 180))
     times = collect(range(0.0, 1.0; length = length(r)))
     D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
-    clean = discover_unknown_rate(
+    clean = regress_unknown_rate(
         reshape(r, 1, :), times, reshape(D, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 1),
         verbose = false, strict = true)
@@ -172,7 +172,7 @@ end
         clean.candidates[1], hill.numerator, hill.denominator).combined.f1
     @test reference_protocol_f1_reaches_analytical_threshold(clean_f1)
 
-    dirty = discover_unknown_rate(
+    dirty = regress_unknown_rate(
         reshape(r, 1, :), times, reshape(D .+ 0.04 .+ 0.04 .* r, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 103),
         verbose = false, strict = false)
@@ -233,7 +233,7 @@ end
     @test count_unknown_destructions(two_model) == 2
     @test_throws ErrorException assert_single_unknown_destruction(two_model)
     @test_throws ErrorException only_unknown_destruction(two_model)
-    dx = ude_system([0.2, 0.3, 0.4], two_p, 0.0, two_model)
+    dx = ude_rhs([0.2, 0.3, 0.4], two_p, 0.0, two_model)
     @test all(isfinite, dx)
 
     known_hill = build_hill_recovery_network(; known = true)

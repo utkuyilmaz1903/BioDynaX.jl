@@ -14,6 +14,7 @@ if abspath(PROGRAM_FILE) == abspath(@__FILE__)
 end
 
 using HybridKinetics
+using HybridKinetics: pack_parameters
 using OrdinaryDiffEq
 using Random
 using SciMLBase
@@ -106,7 +107,7 @@ function main(; seed::Int = HybridKinetics.REFERENCE_PROTOCOL.seed,
         X_traj = predict_ude(
             trained.params, first_exp.u0, tspan, first_exp.times, model)
         R, D, term = sample_unknown_destruction(model, trained.params, X_traj)
-        discovery = discover_unknown_rate(
+        discovery = regress_unknown_rate(
             R, first_exp.times, D; verbose = false, strict = false)
     else
         term = only(HybridKinetics.neural_destruction_terms(model))
@@ -114,7 +115,7 @@ function main(; seed::Int = HybridKinetics.REFERENCE_PROTOCOL.seed,
         R, D, term = HybridKinetics.sample_unknown_destruction_grid(
             model, trained.params, term; r_range = r_range)
         times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
-        discovery = discover_unknown_rate(
+        discovery = regress_unknown_rate(
             R, times_grid, D;
             config = HybridKinetics.reference_protocol_discovery_config(),
             verbose = true, strict = true)

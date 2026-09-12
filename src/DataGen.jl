@@ -39,7 +39,7 @@ end
 function _ground_truth_rhs(x, p, t, truth::GroundTruthModel)
     truth.generator == :hill_p53_fixture &&
         return _ground_truth_rhs_p53(x, p, t)
-    return ude_system(x, p, t, truth.model)
+    return ude_rhs(x, p, t, truth.model)
 end
 
 function _ground_truth_rhs_p53(x, p, t)

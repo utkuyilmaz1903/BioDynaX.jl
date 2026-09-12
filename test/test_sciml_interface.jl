@@ -87,7 +87,7 @@ end
     times = collect(range(tspan...; length = 5))
 
     f = build_ude_function(model)
-    @test f([0.2, 0.1], params, 0.0) ≈ ude_system([0.2, 0.1], params, 0.0, model)
+    @test f([0.2, 0.1], params, 0.0) ≈ ude_rhs([0.2, 0.1], params, 0.0, model)
 
     sol = SciMLBase.solve(model, u0, tspan, params; saveat = times)
     @test all(isfinite, Array(sol))

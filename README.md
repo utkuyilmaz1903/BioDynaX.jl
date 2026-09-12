@@ -4,7 +4,7 @@ Hybrid kinetic models for small biochemical networks: learn the unknown rate law
 
 [![CI](https://github.com/utkuyilmaz1903/HybridKinetics.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/HybridKinetics.jl/actions/workflows/ci.yml) [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Julia](https://img.shields.io/badge/julia-%E2%89%A5%201.10-9558B2.svg)](https://julialang.org) [![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor%27s%20Guide-blueviolet)](https://github.com/SciML/ColPrac) [![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
 
-Version 0.16. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
+Version 0.17. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
 
 ## What HybridKinetics does
 
@@ -86,7 +86,7 @@ result = discover_unknown_terms(network(known = false), data; rng = rng, holdout
 ```
 
 `discover_unknown_terms` prints a four-section report (identifiability, fit,
-discovery, reproduction) and returns an `UnknownTermsResult` that holds the
+discovery, reproduction) and returns a `DiscoveryRun` that holds the
 trained model, the identifiability diagnostic, the discovery, and the
 residuals; `report_unknown_terms(result)` returns the report as a string. The lines that
 matter most, from a run in September 2026:
@@ -146,10 +146,10 @@ dx[1]/dt = (0.24118*1 + -1.3569*x[1] + 7.7609*x[1]^2) / (1 + -0.3862*x[1] + 4.18
 |---|---|---|
 | Network specification | Nodes, edges or reactions, and typed kinetic metadata | `BiologicalNetwork`, `NodeSpec`, `ReactionSpec`, `HillMetadata`, ... |
 | Compile | Known kinetics become production and destruction terms; the unknown term becomes a neural network with a softplus output | `build_ude_model`, `compile_mechanism` |
-| Simulate | The model is an ordinary `ODEProblem` and works with OrdinaryDiffEq solvers | `ODEProblem(model, u0, tspan, p)`, `ude_system`, `ude_rhs!` |
+| Simulate | The model is an ordinary `ODEProblem` and works with OrdinaryDiffEq solvers | `ODEProblem(model, u0, tspan, p)`, `ude_rhs`, `ude_rhs!` |
 | Train | Adam followed by BFGS on the trajectory mean-squared error across experiments, with adjoint sensitivities | `train_ude`, `train_experiments`, `TrainingConfig` |
 | Identifiability check | Fisher condition number and the cosine between the production-rate and destruction-scale trajectory Jacobians | `HybridKinetics.report_production_destruction_tradeoff` |
-| Symbolic discovery | The learned rate is sampled and fitted by implicit sparse regression over a graph-local rational library | `sample_unknown_destruction`, `discover_unknown_rate`, `local_basis` |
+| Symbolic discovery | The learned rate is sampled and fitted by implicit sparse regression over a graph-local rational library | `sample_unknown_destruction`, `regress_unknown_rate`, `local_basis` |
 | Resimulate | The discovered rate replaces the neural term and the hybrid model is compared with data | `compose_hybrid_rhs`, `hybrid_data_residual`, `export_rhs` |
 
 Synthetic data for several initial conditions come from

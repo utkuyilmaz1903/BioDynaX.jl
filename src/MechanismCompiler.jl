@@ -122,7 +122,7 @@ function NeuralDestructionTerm(target::Int, regulator::Int, nn_index::Int, scale
     NeuralDestructionTerm(target, regulator, nn_index, scale, Int[regulator])
 end
 
-"""Small networks (`n ≤ STATIC_STATE_THRESHOLD`) dispatch `ude_system` through StaticArrays when the state is already an `SVector`."""
+"""Small networks (`n ≤ STATIC_STATE_THRESHOLD`) dispatch `ude_rhs` through StaticArrays when the state is already an `SVector`."""
 const STATIC_STATE_THRESHOLD = 4
 
 struct CompiledMechanism{P, D}
@@ -626,18 +626,18 @@ end
 end
 
 """
-    ude_system(x, p, t, model::UDEModel) -> dx
+    ude_rhs(x, p, t, model::UDEModel) -> dx
 
 Evaluate the compiled production–destruction RHS. `SVector` states with
 `n ≤ STATIC_STATE_THRESHOLD` use the StaticArrays kernel.
 """
-function ude_system(x, p, t, model::UDEModel)
+function ude_rhs(x, p, t, model::UDEModel)
     # Heap-state path: bounce to the specialized impl without forwarding
     # isbits `t`. The linear A/B fixture uses the Vector{Float64} method.
     return _ude_system_impl(x, p, model.impl, nothing)
 end
 
-function ude_system(x, p, t, model::UDEModelImpl)
+function ude_rhs(x, p, t, model::UDEModelImpl)
     return _ude_system_impl(x, p, model, nothing)
 end
 
@@ -655,7 +655,7 @@ end
     return _ude_system_static_impl(x, p, model.impl)::SVector{2, Float64}
 end
 
-@inline function ude_system(x::SVector{2, Float64}, p, t,
+@inline function ude_rhs(x::SVector{2, Float64}, p, t,
         model::UDEModel)::SVector{2, Float64}
     _require_matching_state_length(x, model.nstates)
     if model.is_linear_ab
@@ -682,13 +682,13 @@ end
     return _generic_vec64(x, p, model)
 end
 
-function ude_system(x::Vector{Float64}, p, t, model::UDEModel)
+function ude_rhs(x::Vector{Float64}, p, t, model::UDEModel)
     return _ude_system_vec64_primal(x, p, model)
 end
 
 # Zygote traces both sides of `if model.is_linear_ab`. A custom rrule
 # evaluates only the taken kernel so training stays on one AD graph.
-function ChainRulesCore.rrule(::typeof(ude_system), x::Vector{Float64}, p, t,
+function ChainRulesCore.rrule(::typeof(ude_rhs), x::Vector{Float64}, p, t,
         model::UDEModel)
     y = _ude_system_vec64_primal(x, p, model)
     function ude_system_vec64_pullback(Δ)
@@ -705,12 +705,12 @@ function ChainRulesCore.rrule(::typeof(ude_system), x::Vector{Float64}, p, t,
     return y, ude_system_vec64_pullback
 end
 
-@inline function ude_system(x::SVector{N, T}, p, t, model::UDEModel) where {N, T}
-    N == 2 && T === Float64 && return ude_system(SVector{2, Float64}(x), p, t, model)
+@inline function ude_rhs(x::SVector{N, T}, p, t, model::UDEModel) where {N, T}
+    N == 2 && T === Float64 && return ude_rhs(SVector{2, Float64}(x), p, t, model)
     return _ude_system_static_impl(x, p, model.impl)
 end
 
-@inline function ude_system(x::SVector{N, T}, p, t, model::UDEModelImpl) where {N, T}
+@inline function ude_rhs(x::SVector{N, T}, p, t, model::UDEModelImpl) where {N, T}
     return _ude_system_static_impl(x, p, model)
 end
 
@@ -720,25 +720,25 @@ end
     return _ude_system_static(x, p, 0.0, model.compiled, model.nn, model.st)
 end
 
-function ude_system(x::SVector{N, T}, p, t, model::UDEModel,
+function ude_rhs(x::SVector{N, T}, p, t, model::UDEModel,
         cache::UDEModelCache) where {N, T}
-    return ude_system(x, p, 0.0, model.impl, cache)
+    return ude_rhs(x, p, 0.0, model.impl, cache)
 end
 
-function ude_system(x::SVector{N, T}, p, t, model::UDEModelImpl,
+function ude_rhs(x::SVector{N, T}, p, t, model::UDEModelImpl,
         cache::UDEModelCache) where {N, T}
     _require_matching_state_length(x, model.compiled.nstates)
     ude_rhs!(cache.du, x, p, t, model, cache)
     return SVector{N, T}(ntuple(i -> cache.du[i], Val{N}()))
 end
 
-function ude_system(x, p, t, nn, st)
-    return ude_system(x, p, t, nn, st, DEFAULT_EXAMPLE_NETWORK)
+function ude_rhs(x, p, t, nn, st)
+    return ude_rhs(x, p, t, nn, st, DEFAULT_EXAMPLE_NETWORK)
 end
 
-function ude_system(x, p, t, nn, st, network::BiologicalNetwork)
+function ude_rhs(x, p, t, nn, st, network::BiologicalNetwork)
     model = ignore_derivatives(() -> compile_network(network, nn, st))
-    return ude_system(x, p, t, model)
+    return ude_rhs(x, p, t, model)
 end
 
 function _custom_kinetic_evaluator(meta::CustomKineticMetadata, reaction_name::Symbol)
@@ -976,7 +976,7 @@ function compile_mechanism(network::BiologicalNetwork)
     # Duplicate unknown reaction+edge pairs skip the edge after
     # `_edge_destruction_term` has already incremented `nn_index`. A later
     # kept unknown then received a gapped slot (1, 3, …). Multi-head dispatch
-    # and `allocate_cache` index by that slot, so `ude_system` / `ude_rhs!`
+    # and `allocate_cache` index by that slot, so `ude_rhs` / `ude_rhs!`
     # threw BoundsError. Renumber kept heads to 1:n.
     destruction_terms = _reindex_neural_destruction(destruction_terms)
 

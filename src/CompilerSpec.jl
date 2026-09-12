@@ -3,7 +3,7 @@
 #
 # Duplicate unknown reaction+edge pairs skip the edge after incrementing
 # nn_index. compile_mechanism reindexes kept NeuralDestructionTerm heads to
-# 1:n so ude_system / ude_rhs! / allocate_cache stay in bounds.
+# 1:n so ude_rhs / ude_rhs! / allocate_cache stay in bounds.
 # validate_network does not own these rules. generate_data /
 # default_parameters build the compiled NN tree (multi-head and
 # multi-regulator); they are not a 1-input dummy hole.
@@ -111,11 +111,11 @@ end
 """
     evaluate_compiled_rhs(model, params, x) -> NamedTuple
 
-Finite `ude_system` / `ude_rhs!` pair used to lock remapping. A gapped
+Finite `ude_rhs` / `ude_rhs!` pair used to lock remapping. A gapped
 slot throws BoundsError here.
 """
 function evaluate_compiled_rhs(model::UDEModel, params, x)
-    dx = ude_system(x, params, 0.0, model)
+    dx = ude_rhs(x, params, 0.0, model)
     cache = allocate_cache(model, Float64)
     ude_rhs!(cache.du, x, params, 0.0, model, cache)
     return (;

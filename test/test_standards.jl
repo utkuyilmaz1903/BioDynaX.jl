@@ -180,7 +180,7 @@ end
 
     dual_u = [ForwardDiff.Dual(0.2, 1.0), ForwardDiff.Dual(0.1, 0.0)]
     @test begin
-        du = ude_system(dual_u, params, 0.0, model)
+        du = ude_rhs(dual_u, params, 0.0, model)
         length(du) == 2 && eltype(du) <: ForwardDiff.Dual &&
             all(isfinite, ForwardDiff.value.(du))
     end
@@ -220,11 +220,11 @@ end
 
     uSA = SVector{2, Float64}(0.2, 0.1)
     for _ in 1:20
-        ude_system(uSA, params, 0.0, model)
+        ude_rhs(uSA, params, 0.0, model)
     end
-    hot_sa = @allocated ude_system(uSA, params, 0.0, model)
+    hot_sa = @allocated ude_rhs(uSA, params, 0.0, model)
     @test hot_sa == 0
-    @test @inferred(ude_system(uSA, params, 0.0, model)) isa SVector{2, Float64}
+    @test @inferred(ude_rhs(uSA, params, 0.0, model)) isa SVector{2, Float64}
     @test @inferred(ude_rhs!(
         cache.du, u, params, 0.0, model, cache)) === cache.du
     @test @inferred(recommend_sensealg(model; n_observations = 20)) isa

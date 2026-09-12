@@ -6,6 +6,7 @@
 # Run:  julia --project=. benchmark/allocation_check.jl
 
 using HybridKinetics
+using HybridKinetics: pack_parameters, allocate_cache
 using Random
 
 function allocation_check()

@@ -430,7 +430,7 @@ function build_network()::BiologicalNetwork
     return BiologicalNetwork(nodes, edges; reactions = reactions)
 end
 
-"""Frozen p53/Mdm2 fixture used by legacy five-argument `ude_system` calls."""
+"""Frozen p53/Mdm2 fixture used by legacy five-argument `ude_rhs` calls."""
 const DEFAULT_EXAMPLE_NETWORK = build_network()
 
 """Small fully-known network for allocation and compiler parity checks."""

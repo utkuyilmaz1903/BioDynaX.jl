@@ -238,7 +238,7 @@ end
     StabilitySelection(; n_boot=100, τ=0.8, seed=7)
 
 Optional pruning stage for implicit discovery, passed as
-`stability_selection = StabilitySelection()` to `discover_unknown_rate` or
+`stability_selection = StabilitySelection()` to `regress_unknown_rate` or
 `discover_equations`. After the candidate has been fitted as usual, the
 training rows of the regression are resampled with replacement `n_boot`
 times, the thresholded fit is repeated on every resample, and a term of the

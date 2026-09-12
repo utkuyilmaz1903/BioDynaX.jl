@@ -48,7 +48,7 @@ const BASELINE_TESTSETS = (
     "production-destruction positivity invariant",
     "graph-local library excludes distractor Z",
     "discovery retcode messages",
-    "ude_rhs! vs ude_system parity",
+    "ude_rhs! vs ude_rhs parity",
     "analytical Hill discovery breaks at σ = 0.05",
     "golden-path example smoke"
 )

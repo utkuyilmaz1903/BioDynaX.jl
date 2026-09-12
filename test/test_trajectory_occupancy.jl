@@ -621,7 +621,7 @@ end
     captured_calls = Any[]
     sampled = _m4a_with_sample_call_log(captured_calls) do
         with_discover_unknown_rate_observer(
-            (_...) -> error("discover_unknown_rate entered occupancy sampling")) do
+            (_...) -> error("regress_unknown_rate entered occupancy sampling")) do
             with_discover_equations_observer(
                 (_...) -> error("discover_equations entered occupancy sampling")) do
                 return sample_destruction_occupancy(
@@ -706,7 +706,7 @@ end
     @test occursin("times = collect(range(0.0, 1.0; length = length(r)))",
         composer)
     sample_hits = Ref(0)
-    with_discover_unknown_rate_observer((_...) -> error("occupancy sampling must not enter discover_unknown_rate")) do
+    with_discover_unknown_rate_observer((_...) -> error("occupancy sampling must not enter regress_unknown_rate")) do
         with_sample_unknown_destruction_observer(_ -> (sample_hits[] += 1; nothing)) do
             sample_destruction_occupancy(model, params, term, occupancy)
         end

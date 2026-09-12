@@ -340,7 +340,7 @@ end
     @test public_export_list_holds()
     body = _pipeline_function_body("evaluate_recovery")
     @test occursin("extras_denominator = ude_extras_denominator_row(", body)
-    @test !occursin("discover_unknown_rate", body)
+    @test !occursin("regress_unknown_rate", body)
     @test !occursin("normalize_destruction_samples", body)
     @test !occursin("training_ok", body)
     @test !occursin("reference_protocol_discovery_config", body)
@@ -594,7 +594,7 @@ end
         @test !occursin("build_protocol_result(mm_row)", body)
         @test !occursin("sample_destruction(", body)
         @test !occursin("evaluate_recovery(", body)
-        @test !occursin("discover_unknown_rate(", body)
+        @test !occursin("regress_unknown_rate(", body)
         @test !occursin("normalize_destruction_samples", body)
     end
     @test occursin("admit_recovery_suite_network(:ude_discovery)", ude_body)
@@ -730,7 +730,7 @@ end
         ("sample_destruction(", "sample_unknown_destruction_grid"))
     gate_at = findfirst("training_ok", composer)
     early_at = findfirst("discovery = nothing", composer)
-    disc_at = findfirst("discover_unknown_rate", composer)
+    disc_at = findfirst("regress_unknown_rate", composer)
     norm_at = findfirst("normalize_destruction_samples", composer)
     eval_at = findfirst("evaluate_recovery(", composer)
     @test sample_at !== nothing
@@ -743,8 +743,8 @@ end
     @test first(disc_at) < first(norm_at) < first(eval_at)
     @test occursin("if !training_ok", composer)
     @test !occursin("evaluate_recovery(", composer[1:first(early_at)])
-    @test !occursin("discover_unknown_rate", composer[1:first(early_at)])
-    @test count("discover_unknown_rate", composer) == 2
+    @test !occursin("regress_unknown_rate", composer[1:first(early_at)])
+    @test count("regress_unknown_rate", composer) == 2
 end
 
 @testset "reference protocol suite shells stay a checked dispatcher" begin
@@ -765,7 +765,7 @@ end
               findfirst("report_recovery(", body)
         @test !occursin("sample_destruction(", body)
         @test !occursin("evaluate_recovery(", body)
-        @test !occursin("discover_unknown_rate(", body)
+        @test !occursin("regress_unknown_rate(", body)
         @test !occursin("normalize_destruction_samples", body)
         @test !occursin("generate_recovery_experiments(", body)
         @test !occursin("fit_unknown_destruction(", body)

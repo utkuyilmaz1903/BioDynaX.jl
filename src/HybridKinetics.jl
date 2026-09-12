@@ -6,7 +6,7 @@
 ###############################################################################
 module HybridKinetics
 
-const PACKAGE_VERSION = v"0.16.1"
+const PACKAGE_VERSION = v"0.17.0"
 
 # -- External dependencies ----------------------------------------------------
 using Dates
@@ -88,32 +88,30 @@ export BiologicalNetwork, NodeSpec, EdgeSpec, ReactionSpec,
        ACTIVATION, INHIBITION, UNKNOWN_NN,
        STATE, INPUT, LATENT,
        MASS_ACTION, SATURATION, HILL, COMPETITIVE, CUSTOM_KINETIC
-export KineticMetadata, EmptyMetadata, InputDriveMetadata, MassActionMetadata,
-       HillMetadata, CompetitiveMetadata, LinearDecayMetadata, MetadataLike,
+export KineticMetadata, InputDriveMetadata, MassActionMetadata,
+       HillMetadata, CompetitiveMetadata, LinearDecayMetadata,
        SaturationMetadata, CustomKineticMetadata
-export UDEModel, build_ude_model, compile_mechanism, ude_system, ude_rhs!,
-       pack_parameters, parameter_schema, ParameterSchema, allocate_cache,
-       positive_parameter
+export UDEModel, build_ude_model, compile_mechanism, ude_rhs, ude_rhs!,
+       parameter_schema, ParameterSchema
 export TrainingResult, TrainingRetcode, TrainingConfig, HorizonCurriculum,
        SolverConfig, StructuralPositivity, AugmentedLagrangianConfig,
        AbstractConstraintStrategy, AbstractADPolicy, ZygoteAD, ProductionAD,
        train_ude, train_experiments, predict_ude
 export Experiment, ExperimentSet, experiment_from_csv, write_experiment_csv,
        generate_experiment_set
-export discover_equations, discover_unknown_rate, DiscoveryResult, DiscoveryRetcode,
+export discover_equations, regress_unknown_rate, DiscoveryResult, DiscoveryRetcode,
        DiscoverySuccess, InsufficientSamples, DenominatorUnsafe, EmptySupport,
        SingularLibrary, DiscoveryFailed,
        DiscoveryConfig, ImplicitSINDyPI, ExplicitSTLSQ,
        StabilitySelection, stability_selection_report, format_stability_selection,
        discover_unknown_term, UnknownTermResult, report_unknown_term,
-       discover_unknown_terms, UnknownTermsResult, report_unknown_terms,
+       discover_unknown_terms, DiscoveryRun, report_unknown_terms,
        UnknownTerm, unknown_terms, cross_term_collinearity,
        network_from_reactionsystem, symbolic,
        ImplicitCandidate, ExplicitCandidate,
        local_basis, export_rhs, equation_to_latex, equation_to_function,
        estimate_derivatives, compose_hybrid_rhs, sample_unknown_destruction,
        hybrid_data_residual, NeuralDestructionTerm
-export RECOVERY_THRESHOLDS
 export validate_network, state_nodes, candidate_parents
 export build_ude_function, auto_sensealg, default_solver_config
 

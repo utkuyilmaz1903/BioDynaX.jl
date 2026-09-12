@@ -123,7 +123,7 @@ end
                 @test P ≥ -1e-14
                 @test D ≥ -1e-14
             end
-            dx = ude_system(x, params, 0.0, model)
+            dx = ude_rhs(x, params, 0.0, model)
             for i in 1:n
                 if x[i] == 0
                     @test dx[i] ≥ -1e-12
@@ -175,13 +175,13 @@ end
     @test HybridKinetics._discovery_retcode(ErrorException("boom")) === DiscoveryFailed
 end
 
-@testset "ude_rhs! vs ude_system parity" begin
+@testset "ude_rhs! vs ude_rhs parity" begin
     rng = MersenneTwister(11)
     model, params = build_ude_model(rng, build_linear_test_network())
     cache = allocate_cache(model, Float64)
     u = [0.25, 0.15]
     ude_rhs!(cache.du, u, params, 0.0, model, cache)
-    @test cache.du ≈ ude_system(u, params, 0.0, model)
+    @test cache.du ≈ ude_rhs(u, params, 0.0, model)
 end
 
 @testset "analytical Hill discovery breaks at σ = 0.05" begin
@@ -190,7 +190,7 @@ end
     D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
     amp = max(maximum(abs, D), eps(Float64))
     D_obs = D .+ 0.05 .* amp .* randn(rng, length(r))
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         reshape(r, 1, :), collect(range(0.0, 1.0; length = length(r))),
         reshape(D_obs, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 104),

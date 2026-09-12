@@ -8,9 +8,15 @@
     @test validate_network_stays_open_source()
     @test RECOVERY_THRESHOLDS.support_f1_ude == 0.50
     @test RECOVERY_THRESHOLDS.support_f1_clean == 0.99
-    @test :pack_parameters in names(HybridKinetics)
+    # Since 0.17 the pack helpers are public but not exported; the functions
+    # and their docstrings stay.
+    @test !(:pack_parameters in names(HybridKinetics))
+    @test !(:positive_parameter in names(HybridKinetics))
+    @test isdefined(HybridKinetics, :pack_parameters) &&
+          isdefined(HybridKinetics, :positive_parameter)
+    @test !isempty(string(Base.Docs.doc(Base.Docs.Binding(
+        HybridKinetics, :pack_parameters))))
     @test :parameter_schema in names(HybridKinetics)
-    @test :positive_parameter in names(HybridKinetics)
 end
 
 @testset "source and landing checks stay locked" begin

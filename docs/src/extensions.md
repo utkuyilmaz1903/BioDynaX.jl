@@ -37,7 +37,7 @@ written by hand.
 ## Symbolics output and Latexify
 
 `symbolic(candidate, names)`, `symbolic(result::DiscoveryResult, names)`,
-`symbolic(result::UnknownTermsResult; node)` and `symbolic(result[:S])` return
+`symbolic(result::DiscoveryRun; node)` and `symbolic(result[:S])` return
 the discovered rational rate as a `Symbolics.Num` in the named variables (a
 per-term result uses its
 network's state names). With `Latexify` loaded, `latexify(result)`,
@@ -63,8 +63,8 @@ model prediction, plus the objective history.
 production and destruction terms into a ModelingToolkit `ODESystem` whose
 states carry the network's node names. Neural terms appear as placeholder
 variables `nn_i(t)` unless `discovered` (a `DiscoveryResult`, a candidate,
-an `UnknownTermsResult` or one of its per-term results) is given, in which case the discovered rational
-rate replaces the placeholder of that unknown term (an `UnknownTermsResult`
+a `DiscoveryRun` or one of its per-term results) is given, in which case the discovered rational
+rate replaces the placeholder of that unknown term (a `DiscoveryRun`
 replaces all of them) and the system is complete: `ODEProblem(complete(sys), u0, tspan, p)` solves it. For a fully
 known network the exported right-hand sides equal Catalyst's own
 `Catalyst.ode_model(rs)` (`convert(ODESystem, rs)` before Catalyst 16), which the test suite checks.

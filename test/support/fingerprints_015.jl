@@ -89,7 +89,7 @@ function _fp_same(recorded::String, actual::String, mode::Symbol)
     _fp_same([recorded], [actual], mode)
 end
 
-function _fp_record(result::UnknownTermsResult)
+function _fp_record(result::DiscoveryRun)
     term = only(result.terms)
     d = term.discovery
     function coeffs(c)

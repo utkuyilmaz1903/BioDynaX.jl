@@ -36,7 +36,7 @@ rather than running with different meaning.
 | 0.15 | 0.16 |
 |---|---|
 | `discover_unknown_term(network, experiments; ...)` | `discover_unknown_terms(network, experiments; ...)`, same keywords except `term` (every unknown term is discovered) |
-| `UnknownTermResult` returned by the call | `UnknownTermsResult`; the per-term `UnknownTermResult` is `result[:S]` (by node name), `result[1]`, or an element of `unknown_terms(result)` |
+| `UnknownTermResult` returned by the call | `DiscoveryRun`; the per-term `UnknownTermResult` is `result[:S]` (by node name), `result[1]`, or an element of `unknown_terms(result)` |
 | `result.discovery`, `result.identifiability`, `result.samples`, `result.term`, `result.extras` | `result[:S].discovery` and so on; `result.params`, `result.training`, `result.residuals`, `result.settings` stay at the top level |
 | `report_unknown_term(result)` | `report_unknown_terms(result)`; with one unknown term the text is identical |
 | `symbolic(result)` | unchanged with one term; `symbolic(result; node = :S)` or `symbolic(result[:S])` with several |
@@ -65,7 +65,7 @@ The error a 0.15 call raises:
 discover_unknown_term was removed in HybridKinetics 0.16. Call
 discover_unknown_terms(network, experiments; ...) instead; it takes the same
 keywords except `term` (all unknown terms are discovered) and returns an
-UnknownTermsResult whose per-term contents are result[:node]. Migration:
+DiscoveryRun whose per-term contents are result[:node]. Migration:
 https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/howto/#Migrating-from-0.15
 ```
 
@@ -73,6 +73,19 @@ With one unknown term nothing else changes: the trained parameters, the
 sampled rate, the discovered equations and coefficients, the residuals and
 the report text are the ones 0.15 produced, and the test suite checks them
 against values recorded on 0.15.0 (`test/support/fingerprints_015.toml`).
+
+### Migrating from 0.16
+
+0.17 renames three names and stops exporting six, with no aliases (the
+package was not yet registered). The old names are gone, so a 0.16 script
+fails at the first use with `UndefVarError` rather than running differently.
+
+| 0.16 | 0.17 |
+|---|---|
+| `discover_unknown_rate` | `regress_unknown_rate` |
+| `ude_system` | `ude_rhs` |
+| `UnknownTermsResult` | `DiscoveryRun` (the container; `UnknownTermResult` is still the per-term type) |
+| `pack_parameters`, `positive_parameter`, `allocate_cache`, `RECOVERY_THRESHOLDS`, `EmptyMetadata`, `MetadataLike` | unchanged, but no longer exported: write `HybridKinetics.pack_parameters` or `using HybridKinetics: pack_parameters` |
 
 ## Marking several terms unknown
 
@@ -95,6 +108,11 @@ term its own `DiscoveryConfig` when the specs are passed to
 `discover_unknown_terms(...; terms = ...)`.
 
 ## Reading a multi-term result
+
+Two result types: `discover_unknown_terms` returns one `DiscoveryRun`, the
+whole run (model, trained parameters, residuals, cross-term diagnostic), and
+`run[:S]`, `run[1]` or `unknown_terms(run)` give the `UnknownTermResult` of
+one term (its identifiability, discovery, samples and extras).
 
 ```@example multi
 set = generate_experiment_set(MersenneTwister(103); network = truth,
@@ -267,7 +285,7 @@ trained = train_experiments(params, set, model;
     config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 50))
 X = predict_ude(trained.params, u0, tspan, times, model)
 R, D, term = sample_unknown_destruction(model, trained.params, X)
-discovery = discover_unknown_rate(R, times, D; strict = false)
+discovery = regress_unknown_rate(R, times, D; strict = false)
 if discovery.success
     rate_fn = equation_to_function(discovery.candidates[1])
     rhs = compose_hybrid_rhs(model, trained.params, term, rate_fn)
@@ -336,11 +354,11 @@ allocations in the forward pass:
 
 ```@example howto
 using SciMLBase, OrdinaryDiffEq
-p = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5),
+p = HybridKinetics.pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5),
     build_ude_model(MersenneTwister(0), known)[2].nn)
 m = build_ude_model(MersenneTwister(0), known)[1]
 prob = ODEProblem(m, [0.2, 0.1], (0.0, 4.0), p)
-cache = allocate_cache(m, Float64)
+cache = HybridKinetics.allocate_cache(m, Float64)
 inplace = ODEProblem(m, [0.2, 0.1], (0.0, 4.0), p; inplace = true, cache = cache)
 sol = solve(remake(prob; u0 = [0.5, 0.4]), Tsit5(); saveat = [0.0, 2.0, 4.0])
 round.(sol[end]; digits = 4)
@@ -364,6 +382,21 @@ prob, objective = HybridKinetics.build_optimization_problem(
 result = HybridKinetics.train_via_optimization(
     model, params, data, times, u0, tspan; maxiters = 50)
 ```
+
+## Which right-hand side builder do I want?
+
+Three functions turn a model or a discovery into a callable right-hand side;
+they answer different questions.
+
+| You have | You want | Call |
+|---|---|---|
+| a compiled `UDEModel` with trained parameters `p` | to integrate the hybrid model as it is, neural terms included, through the SciML interface (`ODEProblem`, `remake`, sensitivities) | `build_ude_function(model)` gives the `ODEFunction`; `ude_rhs(model, u, p, t)` or `ude_rhs!(du, u, p, t, cache)` evaluate it directly |
+| a `DiscoveryRun` or an `UnknownTermResult` | the same model with the *discovered rational rate* substituted for a neural term, everything known kept from the compiled model | `compose_hybrid_rhs(model, p, term, rate_fn)` (one term) or `compose_hybrid_rhs(model, p, pairs)` (several); `hybrid_data_residual` scores it against data |
+| a `DiscoveryResult` of `discover_equations` on every state | a right-hand side made only of the discovered equations, no compiled terms at all | `export_rhs(result)` |
+
+For a completed model as a ModelingToolkit system rather than a Julia
+closure, use `export_mtk_system(model; discovered = run)`
+([Extensions](extensions.md)).
 
 ## Checkpoint and resume
 

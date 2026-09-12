@@ -36,7 +36,7 @@ using Test: @inferred
         p53_cache.du, u, p53_parameters, 0.0, p53_model, p53_cache)
     @test p53_hot ≤ 4096
 
-    out = ude_system(u, p53_parameters, 0.0, p53_model)
+    out = ude_rhs(u, p53_parameters, 0.0, p53_model)
     @test out isa Vector{Float64}
     @test out ≈ Vector(p53_cache.du)
 end

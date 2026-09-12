@@ -61,7 +61,7 @@ OrdinaryDiffEq solver:
 
 ```@example gs
 using SciMLBase, OrdinaryDiffEq
-p = pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), p0.nn)
+p = HybridKinetics.pack_parameters((k_prod = 0.9, k_rs = 1.0, k_r = 0.6), p0.nn)
 prob = ODEProblem(model, [0.2, 0.1], (0.0, 10.0), p)
 sol = solve(prob, Tsit5(); saveat = 0:2.0:10.0)
 round.(Array(sol); digits = 3)
@@ -107,7 +107,7 @@ data = generate_experiment_set(rng; network = network(known = true), truth_param
     n_points = 40, noise_σ = 0.0)
 
 model, p0 = build_ude_model(rng, network(known = false))
-p_init = pack_parameters((k_prod = 0.8, k_rs = 0.8, k_r = 0.8), p0.nn)
+p_init = HybridKinetics.pack_parameters((k_prod = 0.8, k_rs = 0.8, k_r = 0.8), p0.nn)
 trained = train_experiments(p_init, data, model;
     config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20), verbose = false)
 
@@ -118,7 +118,7 @@ println("scale warning raised: ", ident.unidentifiable_edge)
 
 X = hcat((predict_ude(trained.params, ex.u0, tspan, ex.times, model) for ex in data.experiments)...)
 R, D, term = sample_unknown_destruction(model, trained.params, X)
-found = discover_unknown_rate(R, 1:size(R, 2), D; verbose = false)
+found = regress_unknown_rate(R, 1:size(R, 2), D; verbose = false)
 println(found.equations)
 ```
 

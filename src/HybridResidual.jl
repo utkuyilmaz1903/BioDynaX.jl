@@ -1,7 +1,7 @@
 ###############################################################################
 # Hybrid residual versus solver (not exported).
 #
-# HybridCompose locked compose_hybrid_rhs identity against ude_system.
+# HybridCompose locked compose_hybrid_rhs identity against ude_rhs.
 # This file locks the remaining residual join: hybrid_data_residual versus
 # SciMLBase.solve of the composed RHS, versus predict_ude, versus
 # SciMLBase.ODEProblem(model, ...). Failed compose paths stay failed.
@@ -466,7 +466,7 @@ function failed_compose_dual_only_row()
     for term in terms
         rhs = compose_hybrid_rhs(
             model, packed, term, neural_identity_rate(model, packed, term))
-        push!(matches, ude_system(u0, packed, 0.0, model) ≈ rhs(u0, packed, 0.0))
+        push!(matches, ude_rhs(u0, packed, 0.0, model) ≈ rhs(u0, packed, 0.0))
     end
     return (;
         n_terms = length(terms),
@@ -546,7 +546,7 @@ function failed_compose_wrong_rate_row()
         neural_identity_rate(built.model, built.packed, term))
     shifted = compose_hybrid_rhs(
         built.model, built.packed, term, constant_rate(2.5))
-    a = ude_system(u0, built.packed, 0.0, built.model)
+    a = ude_rhs(u0, built.packed, 0.0, built.model)
     b = identity(u0, built.packed, 0.0)
     c = shifted(u0, built.packed, 0.0)
     return (;
@@ -984,7 +984,7 @@ function format_hybrid_residual_index()
     println(io, "| empty_export | export_rhs rejects empty candidates |")
     println(io, "| exploding | a huge rate is Inf-or-large, not 0.99 F1 |")
     println(io, "| shape | mismatched observation width is Inf |")
-    println(io, "| wrong_rate | a constant rate does not recover ude_system |")
+    println(io, "| wrong_rate | a constant rate does not recover ude_rhs |")
     println(io, "| remapped | each remapped head residual matches solve |")
     println(io, "| skipped_duplicate | two dense heads residual-match |")
     println(io, "| skipped_middle | remapped 1:n heads residual-match |")

@@ -6,21 +6,21 @@
         (α_p53 = 0.9, β_mdm2 = 1.1, γ_mdm2 = 1.5, signal = 1.0),
         nn_parameters)
 
-    derivative = ude_system([0.0, 0.0], parameters, 0.0, nn, nn_state)
+    derivative = ude_rhs([0.0, 0.0], parameters, 0.0, nn, nn_state)
     @test all(isfinite, derivative)
     @test all(≥(0), derivative)
 
-    negative_probe = ude_system(
+    negative_probe = ude_rhs(
         [-1e-6, -1e-6], parameters, 0.0, nn, nn_state)
     @test all(isfinite, negative_probe)
     @test all(≥(0), negative_probe)
 
     model = compile_network(network, nn, nn_state)
-    @test ude_system([0.2, 0.1], parameters, 0.0, model) ≈
-          ude_system([0.2, 0.1], parameters, 0.0, nn, nn_state)
+    @test ude_rhs([0.2, 0.1], parameters, 0.0, model) ≈
+          ude_rhs([0.2, 0.1], parameters, 0.0, nn, nn_state)
 
     objective = p -> sum(abs2,
-        ude_system([0.2, 0.1], p, 0.0, nn, nn_state))
+        ude_rhs([0.2, 0.1], p, 0.0, nn, nn_state))
     gradient = Zygote.gradient(objective, parameters)[1]
     @test all(isfinite, gradient)
     @test any(!iszero, gradient)

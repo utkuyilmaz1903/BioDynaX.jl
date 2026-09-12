@@ -45,7 +45,7 @@ end
     model, p0 = build_ude_model(rng, build_linear_test_network())
     p = pack_parameters((k_ba = 0.8, k_a = 1.2, k_b = 0.5), p0.nn)
     x = [0.3, 0.4]
-    dx = ude_system(x, p, 0.0, model)
+    dx = ude_rhs(x, p, 0.0, model)
     k_ba = positive_parameter(p.phys.k_ba)
     k_a = positive_parameter(p.phys.k_a)
     k_b = positive_parameter(p.phys.k_b)
@@ -124,7 +124,7 @@ end
     D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
     times = collect(range(0.0, 1.0; length = length(r)))
     truth = hill_rate_support(2)
-    clean = discover_unknown_rate(
+    clean = regress_unknown_rate(
         reshape(r, 1, :), times, reshape(D, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 1),
         verbose = false, strict = true)
@@ -132,7 +132,7 @@ end
     @test isempty(discovered_support_extras(
         clean.candidates[1], truth.numerator, truth.denominator))
     nn_like = D .+ 0.04 .+ 0.04 .* r
-    dirty = discover_unknown_rate(
+    dirty = regress_unknown_rate(
         reshape(r, 1, :), times, reshape(nn_like, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 103),
         verbose = false, strict = false)
@@ -152,7 +152,7 @@ end
     R = reshape(r, 1, :)
     dX = reshape(D, 1, :)
     times = collect(range(0.0, 1.0; length = length(r)))
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         R, times, dX; config = rate_discovery_config(bootstrap = 0, seed = 1),
         verbose = false, strict = true)
     @test result.success
@@ -174,7 +174,7 @@ end
     D_noisy = D .+ 0.005 .* amp .* randn(rng, length(r))
     R = reshape(r, 1, :)
     times = collect(range(0.0, 1.0; length = length(r)))
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         R, times, reshape(D_noisy, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = 4),
         verbose = false, strict = true)
@@ -307,7 +307,7 @@ end
     @test nn_terms[1].regulators == [2, 3]
     rng = MersenneTwister(8)
     model, p = build_ude_model(rng, build_competitive_test_network(; known = false))
-    dx = ude_system([0.3, 0.4, 0.2], p, 0.0, model)
+    dx = ude_rhs([0.3, 0.4, 0.2], p, 0.0, model)
     @test all(isfinite, dx)
     report = run_recovery_suite(MersenneTwister(304); sections = (:competitive_unknown,))
     comp = report[:competitive_unknown]

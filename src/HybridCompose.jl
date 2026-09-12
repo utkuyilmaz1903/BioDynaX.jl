@@ -2,7 +2,7 @@
 # Hybrid compose path (not exported).
 #
 # The reference protocol ends at compose_hybrid_rhs versus data. This file locks
-# the remaining join: a neural identity rate_fn recovers ude_system,
+# the remaining join: a neural identity rate_fn recovers ude_rhs,
 # hybrid_data_residual versus generated data is ~0 at noise 0, a failed
 # DiscoveryResult cannot export_rhs, and remapped multi-head networks
 # compose one NeuralDestructionTerm at a time.
@@ -31,7 +31,7 @@ const HYBRID_COMPOSE_MUST_NOT_CONTAIN = (
     neural_identity_rate(model, p, term)
 
 `rate_fn` that returns the compiled neural destruction at the regulator
-vector. `compose_hybrid_rhs` with this rate must recover `ude_system`.
+vector. `compose_hybrid_rhs` with this rate must recover `ude_rhs`.
 """
 function neural_identity_rate(model::UDEModel, p, term::NeuralDestructionTerm)
     nstates = model.compiled.nstates
@@ -84,7 +84,7 @@ end
 """
     neural_identity_rhs_row(model, p, u0)
 
-`compose_hybrid_rhs` with `neural_identity_rate` matches `ude_system`
+`compose_hybrid_rhs` with `neural_identity_rate` matches `ude_rhs`
 at `u0` and at a nearby state. `compile_network` stays at zero.
 """
 function neural_identity_rhs_row(model::UDEModel, p, u0)
@@ -94,10 +94,10 @@ function neural_identity_rhs_row(model::UDEModel, p, u0)
     rate = neural_identity_rate(model, p, term)
     rhs = compose_hybrid_rhs(model, p, term, rate)
     n = with_compile_network_counter() do counter
-        a = ude_system(Float64.(u0), p, 0.0, model)
+        a = ude_rhs(Float64.(u0), p, 0.0, model)
         b = rhs(Float64.(u0), p, 0.0)
         shifted = Float64.(u0) .+ 0.05
-        c = ude_system(shifted, p, 0.0, model)
+        c = ude_rhs(shifted, p, 0.0, model)
         d = rhs(shifted, p, 0.0)
         return (;
             compiles = counter[],
@@ -347,7 +347,7 @@ function remapped_compose_row()
         for term in terms
             rate = neural_identity_rate(model, packed, term)
             rhs = compose_hybrid_rhs(model, packed, term, rate)
-            a = ude_system(Float64.(u0), packed, 0.0, model)
+            a = ude_rhs(Float64.(u0), packed, 0.0, model)
             b = rhs(Float64.(u0), packed, 0.0)
             push!(rows,
                 (;
@@ -380,7 +380,7 @@ function skipped_duplicate_compose_row()
         rate = neural_identity_rate(model, packed, term)
         rhs = compose_hybrid_rhs(model, packed, term, rate)
         push!(matches,
-            ude_system(u0, packed, 0.0, model) ≈ rhs(u0, packed, 0.0))
+            ude_rhs(u0, packed, 0.0, model) ≈ rhs(u0, packed, 0.0))
     end
     return (;
         n_terms = length(terms),
@@ -431,7 +431,7 @@ end
     discover_then_compose_row()
 
 Sample neural destruction on a hill UDE smoke trajectory, run
-`discover_unknown_rate`, and if discovery succeeds compose the hybrid
+`regress_unknown_rate`, and if discovery succeeds compose the hybrid
 RHS. A failed discovery does not compose. This is not the 9-IC protocol.
 """
 function discover_then_compose_row()
@@ -441,7 +441,7 @@ function discover_then_compose_row()
         tspan = (0.0, 1.2), n_points = 32)
     R, D, term = sample_unknown_destruction(
         built.model, built.packed, traj.data)
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         R, traj.times, D;
         config = DiscoveryConfig(
             backend = ExplicitSTLSQ(threshold = 1e-2), seed = 53),
@@ -579,7 +579,7 @@ function skipped_middle_compose_row()
     packed = pack_parameters(phys, p0.nn)
     terms = neural_destruction_terms(model)
     u0 = [0.22, 0.18, 0.16, 0.14]
-    matches = [ude_system(u0, packed, 0.0, model) ≈
+    matches = [ude_rhs(u0, packed, 0.0, model) ≈
                compose_hybrid_rhs(model, packed, term,
                    neural_identity_rate(model, packed, term))(u0, packed, 0.0)
                for term in terms]
@@ -671,7 +671,7 @@ function dual_per_term_compose_row()
     packed = pack_parameters((k_ca = 0.8, k_cb = 0.9, k_c = 0.5), p0.nn)
     terms = neural_destruction_terms(model)
     u0 = [0.22, 0.18, 0.16]
-    matches = [ude_system(u0, packed, 0.0, model) ≈
+    matches = [ude_rhs(u0, packed, 0.0, model) ≈
                compose_hybrid_rhs(model, packed, term,
                    neural_identity_rate(model, packed, term))(u0, packed, 0.0)
                for term in terms]
@@ -894,7 +894,7 @@ function format_hybrid_compose_index()
     io = IOBuffer()
     println(io, "| fixture | role |")
     println(io, "|---|---|")
-    println(io, "| hill_identity | neural rate recovers ude_system |")
+    println(io, "| hill_identity | neural rate recovers ude_rhs |")
     println(io, "| mm_identity | MM unknown identity residual |")
     println(io, "| two_regulator | D(S,I) identity |")
     println(io, "| six_state | six-state identity |")

@@ -115,7 +115,7 @@ function cell_rows(result, set)
               equation_to_function(result[1].discovery.candidates[1]) : nothing
     hybrid = rate_fn === nothing ? nothing :
              compose_hybrid_rhs(result.model, result.params, result[1].term, rate_fn)
-    ude = (u, p, t) -> ude_system(u, result.params, t, result.model)
+    ude = (u, p, t) -> ude_rhs(u, result.params, t, result.model)
     rows = NamedTuple[]
     for (i, e) in enumerate(set.experiments)
         pred = simulate(ude, e.u0, e.times)

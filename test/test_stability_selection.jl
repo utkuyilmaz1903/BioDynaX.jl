@@ -33,9 +33,9 @@ end
     @testset "off by default: output identical with and without the keyword" begin
         for nuisance in (false, true), bootstrap in (0, 8)
             R, times, D, config = _ss_fixture(; nuisance, bootstrap)
-            plain = discover_unknown_rate(R, times, D; config, verbose = false,
+            plain = regress_unknown_rate(R, times, D; config, verbose = false,
                 strict = true)
-            explicit = discover_unknown_rate(R, times, D; config, verbose = false,
+            explicit = regress_unknown_rate(R, times, D; config, verbose = false,
                 strict = true, stability_selection = nothing)
             @test plain.success && explicit.success
             @test _ss_fields(plain.candidates[1]) == _ss_fields(explicit.candidates[1])
@@ -48,10 +48,10 @@ end
 
     @testset "on: prunes only, reports every term, deterministic" begin
         R, times, D, config = _ss_fixture(; nuisance = true, bootstrap = 0)
-        base = discover_unknown_rate(R, times, D; config, verbose = false,
+        base = regress_unknown_rate(R, times, D; config, verbose = false,
             strict = true)
         selection = StabilitySelection(n_boot = 40, τ = 0.8, seed = 11)
-        pruned = discover_unknown_rate(R, times, D; config, verbose = false,
+        pruned = regress_unknown_rate(R, times, D; config, verbose = false,
             strict = true, stability_selection = selection)
         @test pruned.success
         report = stability_selection_report(pruned)
@@ -88,7 +88,7 @@ end
         text = format_stability_selection(pruned)
         @test occursin("n_boot = 40", text)
         @test occursin("frequency", text)
-        again = discover_unknown_rate(R, times, D; config, verbose = false,
+        again = regress_unknown_rate(R, times, D; config, verbose = false,
             strict = true, stability_selection = selection)
         @test _ss_fields(again.candidates[1]) == _ss_fields(candidate)
         @test stability_selection_report(again) == report
@@ -96,12 +96,12 @@ end
 
     @testset "τ at zero frequency keeps the candidate" begin
         R, times, D, config = _ss_fixture(; nuisance = false, bootstrap = 0)
-        base = discover_unknown_rate(R, times, D; config, verbose = false,
+        base = regress_unknown_rate(R, times, D; config, verbose = false,
             strict = true)
         # τ = 1 requires selection in every resample; the clean Hill fixture
         # is recovered with two terms and either both survive or the stage
         # reports why it was not applied.
-        pruned = discover_unknown_rate(R, times, D; config, verbose = false,
+        pruned = regress_unknown_rate(R, times, D; config, verbose = false,
             strict = true, stability_selection = StabilitySelection(
                 n_boot = 20, τ = 1.0, seed = 5))
         entry = stability_selection_report(pruned).reports[1]
@@ -117,10 +117,10 @@ end
     @testset "explicit backend rejects the option" begin
         R, times, D, config = _ss_fixture(; nuisance = false)
         explicit = DiscoveryConfig(backend = ExplicitSTLSQ(), include_interactions = false)
-        @test_throws ArgumentError discover_unknown_rate(R, times, D;
+        @test_throws ArgumentError regress_unknown_rate(R, times, D;
             config = explicit, verbose = false, strict = true,
             stability_selection = StabilitySelection(n_boot = 2))
-        lenient = discover_unknown_rate(R, times, D; config = explicit,
+        lenient = regress_unknown_rate(R, times, D; config = explicit,
             verbose = false, strict = false,
             stability_selection = StabilitySelection(n_boot = 2))
         @test !lenient.success

@@ -95,7 +95,7 @@ function experiment_residuals(result, set)
         rate_fn = equation_to_function(result[1].discovery.candidates[1])
         hybrid = compose_hybrid_rhs(result.model, result.params, result[1].term, rate_fn)
     end
-    ude = (u, p, t) -> ude_system(u, result.params, t, result.model)
+    ude = (u, p, t) -> ude_rhs(u, result.params, t, result.model)
     rows = NamedTuple[]
     for (i, e) in enumerate(set.experiments)
         pred_ude = simulate(ude, e.u0, e.times)

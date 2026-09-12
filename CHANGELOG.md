@@ -12,14 +12,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
-## [0.16.1] - 2026-09-12
+## [0.17.0] - 2026-09-12
+
+### Changed (breaking)
+
+- Three names are renamed and six are no longer exported, with no aliases:
+  the package is not yet registered, so the old names disappear and a 0.16
+  script fails at the first use with `UndefVarError`. The how-to page has the
+  migration table ("Migrating from 0.16").
+
+  | 0.16 | 0.17 |
+  |---|---|
+  | `discover_unknown_rate` | `regress_unknown_rate` |
+  | `ude_system` | `ude_rhs` |
+  | `UnknownTermsResult` | `DiscoveryRun` (`UnknownTermResult` stays the per-term type) |
+  | `pack_parameters`, `positive_parameter`, `allocate_cache`, `RECOVERY_THRESHOLDS`, `EmptyMetadata`, `MetadataLike` | kept with their docstrings, not exported: `HybridKinetics.pack_parameters` or `using HybridKinetics: pack_parameters` |
+
+  No number changes: the 0.15 fingerprint test still passes exactly on the
+  recording environment.
+
+### Added
+
+- How-to: "Which right-hand side builder do I want?", a table for
+  `build_ude_function` / `ude_rhs`, `compose_hybrid_rhs` and `export_rhs`; a
+  sentence on which result type is which (`DiscoveryRun` is the whole run,
+  `UnknownTermResult` one term).
 
 ### Changed
 
 - The package description (`Project.toml`, README, documentation index,
   `CITATION.cff`) now reads "learn the unknown rate laws from time-series
   data, then recover them symbolically", since a network may carry several.
-  This is the version submitted to the General registry.
+  0.17.0 is the version submitted to the General registry.
 
 ### Fixed
 
@@ -616,8 +640,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.16.1...HEAD
-[0.16.1]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.16.0...v0.16.1
+[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...v0.14.0
