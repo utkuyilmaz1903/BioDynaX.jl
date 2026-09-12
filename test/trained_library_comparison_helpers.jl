@@ -35,7 +35,7 @@ const _B4_PRODUCTION_MUST_NOT_CONTAIN = (
     "sample_unknown_destruction_grid",
     "sample_destruction(",
     "sample_learned_function",
-    "discover_unknown_rate",
+    "regress_unknown_rate",
     "equation_to_function",
     "reference_protocol_experiment_split",
     "evaluate_holdout",

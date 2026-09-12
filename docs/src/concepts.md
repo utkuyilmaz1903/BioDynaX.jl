@@ -18,8 +18,8 @@ concentrations to a non-negative rate. The unknown term is multiplicative
 (`D_i(u) * u_i`), not an additive residual on the right-hand side.
 
 Physical parameters are stored in raw form and mapped through a softplus so
-that they stay positive; `positive_parameter` applies the map and
-`pack_parameters` builds the `ComponentVector` with `phys` and `nn` axes that
+that they stay positive; `HybridKinetics.positive_parameter` applies the map and
+`HybridKinetics.pack_parameters` builds the `ComponentVector` with `phys` and `nn` axes that
 every solver and trainer takes. States pass through `max(0, x)` inside the
 right-hand side. These are architectural choices that keep the model in the
 positive orthant in practice; they are not a positivity theorem.
@@ -45,7 +45,7 @@ Each carries a typed metadata struct naming its rate parameters:
 | `CompetitiveMetadata` | competitive binding of two regulators | see the API page |
 | `InputDriveMetadata` | production driven by an input node | `rate_param`, `input_param`, `input_node` |
 | `CustomKineticMetadata` | user-supplied rate expression | `rate_param` |
-| `EmptyMetadata` | no parameters (used for unknown edges) | none |
+| `HybridKinetics.EmptyMetadata` | no parameters (used for unknown edges) | none |
 
 `Dict{Symbol,Any}` metadata is still accepted for backward compatibility.
 
@@ -89,7 +89,7 @@ recompiling (see [How-to](howto.md)).
 **Parameter vector.** The packed parameters are a `ComponentVector` with two
 blocks: `p.phys`, the physical kinetic parameters in the order of
 `parameter_schema(model).phys_names`, stored unconstrained and mapped to
-positive values by `positive_parameter`, and `p.nn`, the network weights.
+positive values by `HybridKinetics.positive_parameter`, and `p.nn`, the network weights.
 With one unknown term `p.nn` holds the layers of that network directly
 (`layer_1`, `layer_2`, `layer_3`), as in every release since 0.1; with
 several, `p.nn` holds one block per term, `head_1`, `head_2`, …, in the
@@ -232,7 +232,7 @@ and that a sample design on which the target is constant does.
 net = BiologicalNetwork(
     [NodeSpec(name = :S), NodeSpec(name = :R), NodeSpec(name = :Z)],
     [EdgeSpec(source = 2, target = 1, kind = INHIBITION, known = false,
-        family = HILL, metadata = EmptyMetadata())])
+        family = HILL, metadata = HybridKinetics.EmptyMetadata())])
 graph = local_basis(net, 1; degree = 2, scope = :graph)
 global_lib = local_basis(net, 1; degree = 2, scope = :global)
 (graph.variables, length(graph.numerator), global_lib.variables, length(global_lib.numerator))
@@ -240,7 +240,7 @@ global_lib = local_basis(net, 1; degree = 2, scope = :global)
 
 Two entry points share this machinery:
 
-- `discover_unknown_rate(R, times, D)` regresses sampled values of the learned
+- `regress_unknown_rate(R, times, D)` regresses sampled values of the learned
   destruction rate on the regulator values. This is the path of the reference
   protocol: the neural term is sampled (`sample_unknown_destruction` along
   trajectories, or `HybridKinetics.sample_unknown_destruction_grid` on a regulator
@@ -268,7 +268,7 @@ Discovery on a learned rate often keeps small terms that fit the neural
 network's approximation error rather than the mechanism; on the reference
 protocol these are a constant and a linear term next to the true Hill
 monomials. The optional stability-selection stage,
-`discover_unknown_rate(...; stability_selection = StabilitySelection())`,
+`regress_unknown_rate(...; stability_selection = StabilitySelection())`,
 resamples the training rows of the regression with replacement `n_boot`
 times (default 100), repeats the thresholded fit on every resample, and
 keeps a term of the fitted candidate only if it was selected in at least a
@@ -318,10 +318,10 @@ least 0.99. Combined support F1 is reported against a floor of 0.50 and is
 not part of the criteria; nuisance terms typically remain. Held-out numbers
 are reported and are never compared with a threshold. Michaelis-Menten
 unknown terms are checked on the neural-rate error and the residual only.
-All thresholds live in `RECOVERY_THRESHOLDS`:
+All thresholds live in `HybridKinetics.RECOVERY_THRESHOLDS`:
 
 ```@example concepts
-RECOVERY_THRESHOLDS
+HybridKinetics.RECOVERY_THRESHOLDS
 ```
 
 ## Robustness checks

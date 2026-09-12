@@ -73,13 +73,13 @@ function _collect_trajectory_data(p_trained, nn, st, u0, tspan, n_samples;
         X = predict_ude(p_trained, u0, tspan, times, nn, st;
             solver_config = solver)
         derivatives = reduce(hcat,
-            (ude_system(@view(X[:, i]), p_trained, times[i], nn, st)
+            (ude_rhs(@view(X[:, i]), p_trained, times[i], nn, st)
             for i in 1:size(X, 2)))
     else
         X = predict_ude(p_trained, u0, tspan, times, model;
             solver_config = solver)
         derivatives = reduce(hcat,
-            (ude_system(@view(X[:, i]), p_trained, times[i], model)
+            (ude_rhs(@view(X[:, i]), p_trained, times[i], model)
             for i in 1:size(X, 2)))
     end
     keep = vec(all(isfinite, X; dims = 1) .&

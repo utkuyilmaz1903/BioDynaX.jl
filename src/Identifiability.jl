@@ -198,7 +198,7 @@ function production_destruction_tradeoff(
         δ = rel_step
         function scaled_rhs(sign)
             return function (u, _, t)
-                du = ude_system(u, p, t, model)
+                du = ude_rhs(u, p, t, model)
                 D = _destruction_contribution(
                     chosen, chosen.target, u, p, model.nn, model.st)
                 du[chosen.target] -= sign * δ * D * u[chosen.target]
@@ -263,7 +263,7 @@ function cross_term_collinearity(model::UDEModel, p, u0, tspan, times;
     δ = rel_step
     function scaled_rhs(term, sign)
         return function (u, _, t)
-            du = ude_system(u, p, t, model)
+            du = ude_rhs(u, p, t, model)
             D = _destruction_contribution(term, term.target, u, p, model.nn, model.st)
             du[term.target] -= sign * δ * D * u[term.target]
             return du

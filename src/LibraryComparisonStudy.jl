@@ -36,7 +36,7 @@
 #                 excluded), no bootstrap, samples unpermuted.
 #   :reference    parent-only libraries, the reference protocol's bootstrap,
 #                 discovery seed, and sample permutation; for the graph-local
-#                 library this is exactly `discover_unknown_rate` with
+#                 library this is exactly `regress_unknown_rate` with
 #                 `rate_discovery_config()`.
 ###############################################################################
 
@@ -194,7 +194,7 @@ composition as `compose_hybrid_rhs`, which passes the term's regulators.
 function _library_study_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm,
         rate_fn, rows)
     return function (u, _, t)
-        du = ude_system(u, p, t, model)::typeof(u)
+        du = ude_rhs(u, p, t, model)::typeof(u)
         nn_D = _destruction_contribution(
             term, term.target, u, p, model.nn, model.st)
         hat_D = rate_fn(u[rows])
@@ -255,7 +255,7 @@ function _library_study_discover(variant::Symbol, library::Symbol, X, D, times,
             stability_selection = stability_selection)
         return result, rows
     elseif variant === :reference
-        result = discover_unknown_rate(R, times, Matrix(D);
+        result = regress_unknown_rate(R, times, Matrix(D);
             config = rate_discovery_config(), verbose = false,
             stability_selection = stability_selection)
         return result, rows

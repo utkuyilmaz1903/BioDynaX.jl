@@ -314,7 +314,7 @@ function discover_unknown_rate_insufficient_row()
     times = collect(range(0.0, 0.5; length = 8))
     R = [0.2 .+ 0.01 .* times'; 0.15 .+ 0.01 .* times']
     D = reshape(0.3 .+ 0.02 .* times, 1, :)
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         R, times, D;
         network = build_hill_recovery_network(; known = false, hill_order = 2),
         config = rate_discovery_config(),
@@ -995,7 +995,7 @@ function format_failure_mode_index()
     println(io, "| empty_support | zero derivatives → EmptySupport |")
     println(io, "| explicit_success | linear ExplicitSTLSQ |")
     println(io, "| implicit_insufficient | implicit 10 samples |")
-    println(io, "| rate_insufficient | discover_unknown_rate 8 pts |")
+    println(io, "| rate_insufficient | regress_unknown_rate 8 pts |")
     println(io, "| failed_result | DiscoveryFailed, no 0.99 F1 |")
     println(io, "| hole_matrix | validate open on 0/1/2/3 holes |")
     println(io, "| zero_dual | recovery rejects; validate open |")

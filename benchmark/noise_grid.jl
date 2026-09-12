@@ -11,7 +11,7 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 using HybridKinetics
 using HybridKinetics:
                       hill_rate_truth, hill_rate_support, support_f1, rate_discovery_config,
-                      discover_unknown_rate, denominator_violation_count,
+                      regress_unknown_rate, denominator_violation_count,
                       RECOVERY_THRESHOLDS
 using Printf
 using Random
@@ -25,7 +25,7 @@ function run_sigma(σ::Float64)
     D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
     amp = max(maximum(abs, D), eps(Float64))
     D_obs = D .+ σ .* amp .* randn(rng, length(r))
-    result = discover_unknown_rate(
+    result = regress_unknown_rate(
         reshape(r, 1, :), collect(range(0.0, 1.0; length = length(r))),
         reshape(D_obs, 1, :);
         config = rate_discovery_config(bootstrap = 0, seed = SEED),

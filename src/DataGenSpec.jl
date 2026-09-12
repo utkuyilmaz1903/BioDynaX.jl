@@ -437,7 +437,7 @@ function joint_datagen_compiler_row(network::BiologicalNetwork;
         defaults,
         default_matches = default_parameters_match_compiled(snap.model, defaults),
         default_finite = all(isfinite,
-            ude_system(state0, defaults, 0.0, snap.model)),
+            ude_rhs(state0, defaults, 0.0, snap.model)),
         admission,
         recovery_admits = admission.recovery_admits,
         validate_open = snap.validate_open && admission.validate_open,

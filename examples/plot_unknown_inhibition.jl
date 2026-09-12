@@ -14,6 +14,7 @@
 # Writes docs/src/assets/unknown_inhibition.png.
 
 using HybridKinetics
+using HybridKinetics: pack_parameters
 using Plots
 using Random
 
@@ -51,7 +52,7 @@ function _train_reference(; seed = _PROTOCOL.seed)
     R, D, term = HybridKinetics.sample_unknown_destruction_grid(
         model, trained.params, term; r_range = r_range)
     times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
-    discovery = discover_unknown_rate(
+    discovery = regress_unknown_rate(
         R, times_grid, D; config = HybridKinetics.reference_protocol_discovery_config(),
         verbose = false, strict = true)
     return (; set, model, trained, term, truth, R, D, discovery, tspan)

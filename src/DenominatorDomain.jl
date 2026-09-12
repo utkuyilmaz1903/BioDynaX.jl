@@ -521,7 +521,7 @@ function extras_on_hill_truth_discovery_row()
     D = reshape(hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2), 1, :)
     R = reshape(r, 1, :)
     times = collect(range(0.0, 1.0; length = 80))
-    discovery = discover_unknown_rate(
+    discovery = regress_unknown_rate(
         R, times, D;
         config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
@@ -550,7 +550,7 @@ function extras_on_mm_truth_discovery_row()
     D = reshape(mm_rate_truth(r; vmax = 1.4, km = 0.45), 1, :)
     R = reshape(r, 1, :)
     times = collect(range(0.0, 1.0; length = 80))
-    discovery = discover_unknown_rate(
+    discovery = regress_unknown_rate(
         R, times, D;
         config = reference_protocol_discovery_config(),
         verbose = false, strict = false)

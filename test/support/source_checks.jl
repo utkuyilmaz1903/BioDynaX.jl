@@ -301,7 +301,7 @@ function hybrid_compose_index_holds()
     text = format_hybrid_compose_index()
     names = hybrid_compose_fixture_names()
     return length(unique(names)) == length(names) &&
-           occursin("ude_system", text) &&
+           occursin("ude_rhs", text) &&
            occursin("export_rhs", text) &&
            !occursin("support_f1_ude = 0.99", text)
 end
@@ -389,7 +389,7 @@ function compose_hybrid_rhs_source_holds()
     rest = src[first(start):end]
     nxt = findnext(r"\nfunction ", rest, 2)
     body = nxt === nothing ? rest : rest[1:(first(nxt) - 1)]
-    return occursin("ude_system(u, p, t, model)", body) &&
+    return occursin("ude_rhs(u, p, t, model)", body) &&
            occursin("_destruction_contribution", body) &&
            occursin("rate_fn", body) &&
            occursin("term.regulators", body) &&

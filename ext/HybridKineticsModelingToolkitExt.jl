@@ -7,7 +7,7 @@ using HybridKinetics: UDEModel, InputProductionTerm, MassActionProductionTerm,
                       SaturationDestructionTerm, SaturationProductionTerm,
                       CompetitiveDestructionTerm, NeuralDestructionTerm,
                       ImplicitCandidate, ExplicitCandidate, DiscoveryResult,
-                      UnknownTermResult, UnknownTermsResult
+                      UnknownTermResult, DiscoveryRun
 
 """
     export_mtk_system(model::UDEModel; name=:HybridKineticsNetwork, discovered=nothing)
@@ -57,7 +57,7 @@ function export_mtk_system(model::UDEModel; name::Symbol = :HybridKineticsNetwor
         sym = Symbol("nn_", term.nn_index)
         nn_map[term.nn_index] = first(@variables($sym(t)))
     end
-    if discovered isa UnknownTermsResult
+    if discovered isa DiscoveryRun
         for term_result in discovered.terms
             term = term_result.term
             regulators = [sts[r] for r in term.regulators]
@@ -70,7 +70,7 @@ function export_mtk_system(model::UDEModel; name::Symbol = :HybridKineticsNetwor
     elseif discovered !== nothing
         length(neural) == 1 || throw(ArgumentError(string(
             "a bare candidate or DiscoveryResult can replace the placeholder of exactly one ",
-            "unknown term; the model has $(length(neural)). Pass the UnknownTermsResult, ",
+            "unknown term; the model has $(length(neural)). Pass the DiscoveryRun, ",
             "or one of its per-term results, to say which term each rate belongs to")))
         term = only(neural)
         regulators = [sts[r] for r in term.regulators]

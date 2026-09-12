@@ -314,7 +314,7 @@ function recovery_suite_section_source_row(section::Symbol)
     trains_experiments = occursin("train_experiments(", body) &&
                          !occursin("train_experiments_with_warmup", body)
     discovers = occursin("discover_equations(", body) ||
-                occursin("discover_unknown_rate(", body)
+                occursin("regress_unknown_rate(", body)
     uses_admit = occursin("admit_recovery_suite_network", body)
     uses_generate = occursin("generate_experiment_set(", body) ||
                     (spec.uses_generate_experiment_set &&
@@ -703,7 +703,7 @@ const RECOVERY_SUITE_SECTION_NEEDLES = (
     partial_obs = ("train_experiments(",
         "admit_recovery_suite_network(:partial_obs)",
         "ude_mask_train_claimed = false"),
-    competitive_unknown = ("discover_unknown_rate(",
+    competitive_unknown = ("regress_unknown_rate(",
         "canonical_f1_claimed = false"),
     literature = ("build_repressilator_network",
         "experimental_csv = false",

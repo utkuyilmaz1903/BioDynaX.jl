@@ -236,7 +236,7 @@ end
         String)
     forbidden = (
         "evaluate_holdout",
-        "discover_unknown_rate",
+        "regress_unknown_rate",
         "discover_equations",
         "run_recovery_suite",
         "RECOVERY_THRESHOLDS",
@@ -1739,7 +1739,7 @@ const _M3E_WALK_STOP = Set((
     "neural_destruction_terms"))
 
 const _M3E_FORBIDDEN_TARGETS = (
-    "discover_unknown_rate",
+    "regress_unknown_rate",
     "discover_equations",
     "discover_unknown_destruction",
     "run_recovery_suite",
@@ -2435,7 +2435,7 @@ end
     @test !haskey(bodies, "sample_unknown_destruction_grid")
     @test !haskey(bodies, "evaluate_holdout")
     @test !haskey(bodies, "_train_unknown_edge")
-    @test !haskey(bodies, "discover_unknown_rate")
+    @test !haskey(bodies, "regress_unknown_rate")
     for token in _M3E_FORBIDDEN_TOKENS
         @test !_m3e_has_token(bodies, token)
     end

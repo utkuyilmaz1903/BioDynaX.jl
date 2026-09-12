@@ -284,7 +284,7 @@ function multi_term_study_run(; fixture::Symbol, seed::Integer, noise_σ::Real,
         per_term = []
         for term in result
             found = variant == :plain ? term.discovery :
-                    discover_unknown_rate(term.samples.R,
+                    regress_unknown_rate(term.samples.R,
                 collect(range(0.0, 1.0; length = size(term.samples.R, 2))), term.samples.D;
                 config = rate_discovery_config(), verbose = false,
                 stability_selection = stability)

@@ -52,9 +52,10 @@ struct UnknownTermResult{M, P, T, I, D, S}
 end
 
 """
-    UnknownTermsResult
+    DiscoveryRun
 
-Everything `discover_unknown_terms` computes:
+Everything `discover_unknown_terms` computes. This is the container for the
+whole run; `UnknownTermResult` is the per-term type inside it.
 
 - `network`, `model`, `params`, `training`: the hybrid model, its trained
   parameters, and the `TrainingResult` of the joint fit;
@@ -77,7 +78,7 @@ prints it. With one unknown term the report is the four-section report of
 0.15; with several it has one shared fit section, one block per term, and a
 cross-term section.
 """
-struct UnknownTermsResult{M, P, V <: AbstractVector, X}
+struct DiscoveryRun{M, P, V <: AbstractVector, X}
     network::BiologicalNetwork
     model::M
     params::P
@@ -92,26 +93,26 @@ struct UnknownTermsResult{M, P, V <: AbstractVector, X}
 end
 
 """
-    unknown_terms(result::UnknownTermsResult) -> Vector{UnknownTermResult}
+    unknown_terms(result::DiscoveryRun) -> Vector{UnknownTermResult}
 
 The per-term results, in node order.
 """
-unknown_terms(result::UnknownTermsResult) = result.terms
+unknown_terms(result::DiscoveryRun) = result.terms
 
-Base.length(result::UnknownTermsResult) = length(result.terms)
-function Base.iterate(result::UnknownTermsResult, state = 1)
+Base.length(result::DiscoveryRun) = length(result.terms)
+function Base.iterate(result::DiscoveryRun, state = 1)
     state > length(result.terms) ? nothing : (result.terms[state], state + 1)
 end
-Base.eltype(::Type{UnknownTermsResult{M, P, V, X}}) where {M, P, V, X} = eltype(V)
-Base.keys(result::UnknownTermsResult) = [term.node for term in result.terms]
-Base.getindex(result::UnknownTermsResult, i::Integer) = result.terms[i]
-function Base.getindex(result::UnknownTermsResult, node::Symbol)
+Base.eltype(::Type{DiscoveryRun{M, P, V, X}}) where {M, P, V, X} = eltype(V)
+Base.keys(result::DiscoveryRun) = [term.node for term in result.terms]
+Base.getindex(result::DiscoveryRun, i::Integer) = result.terms[i]
+function Base.getindex(result::DiscoveryRun, node::Symbol)
     for term in result.terms
         term.node == node && return term
     end
     throw(KeyError(node))
 end
-function Base.haskey(result::UnknownTermsResult, node::Symbol)
+function Base.haskey(result::DiscoveryRun, node::Symbol)
     any(t -> t.node == node, result.terms)
 end
 
@@ -133,7 +134,7 @@ const CROSS_TERM_COLLINEARITY_THRESHOLD = 0.46
 # -- Report -------------------------------------------------------------------
 
 """
-    report_unknown_terms(result::UnknownTermsResult) -> String
+    report_unknown_terms(result::DiscoveryRun) -> String
 
 The report of a `discover_unknown_terms` result. With one unknown term it is
 the four-section report (identifiability, fit, discovery, reproduction) that
@@ -142,7 +143,7 @@ prints one shared fit section, then one block per term with that term's
 identifiability and discovery sections, then the cross-term section, then
 the reproduction section.
 """
-function report_unknown_terms(result::UnknownTermsResult)
+function report_unknown_terms(result::DiscoveryRun)
     settings = result.settings
     residuals = result.residuals
     holdout = isempty(result.holdout_indices) ? nothing : residuals.data_residual_holdout
@@ -227,12 +228,12 @@ function _format_term_block(term::UnknownTermResult)
     return String(take!(io))
 end
 
-function Base.show(io::IO, ::MIME"text/plain", result::UnknownTermsResult)
+function Base.show(io::IO, ::MIME"text/plain", result::DiscoveryRun)
     print(io, report_unknown_terms(result))
 end
 
-function Base.show(io::IO, result::UnknownTermsResult)
-    print(io, "UnknownTermsResult(unknown terms = ", keys(result),
+function Base.show(io::IO, result::DiscoveryRun)
+    print(io, "DiscoveryRun(unknown terms = ", keys(result),
         ", experiments = ", result.settings.n_ics,
         ", held out = ", length(result.holdout_indices),
         ", discovery ", all(t -> t.discovery.success, result.terms) ? "succeeded" :
@@ -258,7 +259,7 @@ const MIGRATION_SECTION = "https://utkuyilmaz1903.github.io/HybridKinetics.jl/st
     discover_unknown_term(args...; kwargs...)
 
 Removed in 0.16. Call `discover_unknown_terms(network, experiments; ...)`,
-which returns an `UnknownTermsResult`; with one unknown term its numbers
+which returns a `DiscoveryRun`; with one unknown term its numbers
 are identical and its report is the same text. Per-term contents are
 `result[:S]` (by node) or `result[1]`. See the migration section of the
 how-to page.
@@ -268,7 +269,7 @@ function discover_unknown_term(args...; kwargs...)
         "discover_unknown_term was removed in HybridKinetics 0.16. Call ",
         "discover_unknown_terms(network, experiments; ...) instead; it takes the same ",
         "keywords except `term` (all unknown terms are discovered) and returns an ",
-        "UnknownTermsResult whose per-term contents are result[:node]. ",
+        "DiscoveryRun whose per-term contents are result[:node]. ",
         "Migration: ", MIGRATION_SECTION)))
 end
 
@@ -342,7 +343,7 @@ end
 
 Train the hybrid model of `network` on `experiments`, discover a rational
 expression for each of its unknown destruction terms, and return an
-`UnknownTermsResult`. The steps are those of `examples/unknown_inhibition.jl`,
+`DiscoveryRun`. The steps are those of `examples/unknown_inhibition.jl`,
 in the same order and with the same defaults:
 
 1. `build_ude_model(rng, network)`; the network must have at least one
@@ -360,7 +361,7 @@ in the same order and with the same defaults:
    trained jointly; each sees only its own regulators.
 5. For each unknown term, in node order: its learned rate is sampled on the
    regulator grid of the training experiments
-   (`sample_unknown_destruction_grid`) and `discover_unknown_rate` fits a
+   (`sample_unknown_destruction_grid`) and `regress_unknown_rate` fits a
    rational rate with `discovery` (default: the reference protocol's
    configuration, bootstrap 8, discovery seed 3), or with the term's own
    `library` when `terms` carries one. `stability_selection` and `strict`
@@ -492,7 +493,7 @@ function discover_unknown_terms(network::BiologicalNetwork, experiments::Experim
         R, D, chosen = sample_unknown_destruction_grid(model, trained.params, chosen;
             r_range = r_range)
         times_grid = collect(range(0.0, 1.0; length = size(R, 2)))
-        found = discover_unknown_rate(R, times_grid, D;
+        found = regress_unknown_rate(R, times_grid, D;
             config = config, verbose = false, strict = strict,
             stability_selection = stability_selection)
         prod_param = _production_param_for(
@@ -552,7 +553,7 @@ function discover_unknown_terms(network::BiologicalNetwork, experiments::Experim
         end
     end
 
-    result = UnknownTermsResult(
+    result = DiscoveryRun(
         network, model, trained.params, trained, per_term,
         (; data_residual = Float64(residual),
             data_residual_train = Float64(residual_train),

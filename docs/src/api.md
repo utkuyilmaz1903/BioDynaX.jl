@@ -35,8 +35,6 @@ candidate_parents
 
 ```@docs
 KineticMetadata
-MetadataLike
-EmptyMetadata
 InputDriveMetadata
 MassActionMetadata
 HillMetadata
@@ -53,13 +51,10 @@ compile_mechanism
 build_ude_model
 UDEModel
 NeuralDestructionTerm
-ude_system
+ude_rhs
 ude_rhs!
-allocate_cache
-pack_parameters
 parameter_schema
 ParameterSchema
-positive_parameter
 ```
 
 ## SciML interface
@@ -105,7 +100,7 @@ AugmentedLagrangianConfig
 
 ```@docs
 discover_unknown_terms
-UnknownTermsResult
+DiscoveryRun
 UnknownTermResult
 report_unknown_terms
 UnknownTerm
@@ -124,7 +119,7 @@ report_unknown_term
 ## Symbolic discovery
 
 ```@docs
-discover_unknown_rate
+regress_unknown_rate
 discover_equations
 sample_unknown_destruction
 estimate_derivatives
@@ -165,9 +160,9 @@ symbolic
 
 ## Benchmark thresholds
 
-```@docs
-RECOVERY_THRESHOLDS
-```
+`HybridKinetics.RECOVERY_THRESHOLDS` (not exported since 0.17) holds the
+recovery thresholds of the reference protocol; loosening one is a breaking
+change. The [Benchmarks](benchmarks.md) page lists them.
 
 ## Library comparison study
 

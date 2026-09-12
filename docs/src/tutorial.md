@@ -76,7 +76,7 @@ REPRODUCTION
   smoke: false
 ```
 
-`result` is an `UnknownTermsResult`: `result.params` are the trained
+`result` is a `DiscoveryRun`: `result.params` are the trained
 parameters, `result[:S].discovery` the `DiscoveryResult` of the unknown term
 on `S`, `result[:S].identifiability`
 the trade-off report, `result.residuals` the three residuals above, and
@@ -165,7 +165,7 @@ Adam followed by BFGS on the full-set loss. The physical parameters start
 from a flat guess of 0.8.
 
 ```julia
-warm = train_ude(pack_parameters(guess, params.nn),
+warm = train_ude(HybridKinetics.pack_parameters(guess, params.nn),
     first_exp.observations, first_exp.times, first_exp.u0, tspan, model;
     config = TrainingConfig(adam_iterations = 100, bfgs_iterations = 0,
         horizon_schedule = HorizonCurriculum(fractions = [0.35, 0.7, 1.0])))
@@ -206,11 +206,11 @@ term = only(HybridKinetics.neural_destruction_terms(model))
 r_range = HybridKinetics._regulator_grid(set, term)
 R, D, term = HybridKinetics.sample_unknown_destruction_grid(model, trained.params, term;
     r_range = r_range)
-discovery = discover_unknown_rate(R, range(0.0, 1.0; length = size(R, 2)), D;
+discovery = regress_unknown_rate(R, range(0.0, 1.0; length = size(R, 2)), D;
     config = HybridKinetics.reference_protocol_discovery_config(), strict = true)
 ```
 
-`discover_unknown_rate` treats the samples as a function-regression problem
+`regress_unknown_rate` treats the samples as a function-regression problem
 in the regulator (the time argument is a dummy index). With
 `strict = true` a failed discovery throws; with `strict = false` it returns a
 `DiscoveryResult` whose `retcode` explains the failure (see
@@ -223,7 +223,7 @@ nuisance terms, which is what the analytical benchmarks check:
 r = collect(range(0.1, 2.0; length = 120))
 times = collect(range(0.0, 1.0; length = length(r)))
 D = HybridKinetics.hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
-clean = discover_unknown_rate(reshape(r, 1, :), times, reshape(D, 1, :);
+clean = regress_unknown_rate(reshape(r, 1, :), times, reshape(D, 1, :);
     config = HybridKinetics.rate_discovery_config(bootstrap = 0, seed = 1),
     verbose = false, strict = true)
 clean.equations

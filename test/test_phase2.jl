@@ -12,7 +12,7 @@
     model = compile_network(network, nn, st)
     params = pack_parameters((vmax = 1.5, km = 0.4, k_custom = 0.8, k_s = 0.6), nn_ps)
     x = [0.3, 0.5]
-    dx = ude_system(x, params, 0.0, model)
+    dx = ude_rhs(x, params, 0.0, model)
     @test all(isfinite, dx)
 
     s = x[2]
@@ -38,7 +38,7 @@ end
     schema = parameter_schema(model)
     @test schema.nn_heads == 2
 
-    dx = ude_system([0.2, 0.3, 0.4], params, 0.0, model)
+    dx = ude_rhs([0.2, 0.3, 0.4], params, 0.0, model)
     @test all(isfinite, dx)
 end
 
@@ -79,7 +79,7 @@ end
     @test model.nn isa MultiHeadNetwork
     @test length(model.nn.heads) == 2
     x = [0.2, 0.3, 0.4]
-    dx = ude_system(x, params, 0.0, model)
+    dx = ude_rhs(x, params, 0.0, model)
     @test all(isfinite, dx)
     cache = allocate_cache(model, Float64)
     ude_rhs!(cache.du, x, params, 0.0, model, cache)
@@ -118,7 +118,7 @@ end
     defaults = default_parameters(dual_model; rng = MersenneTwister(18))
     @test hasproperty(defaults.nn, :head_1)
     @test hasproperty(defaults.nn, :head_2)
-    @test all(isfinite, ude_system([0.2, 0.3, 0.4], defaults, 0.0, dual_model))
+    @test all(isfinite, ude_rhs([0.2, 0.3, 0.4], defaults, 0.0, dual_model))
 
     comp_net = build_competitive_test_network(; known = false)
     times3, clean3, _, packed_comp = generate_data(
@@ -132,7 +132,7 @@ end
     comp_model, _ = build_ude_model(rng, comp_net)
     comp_defaults = default_parameters(comp_model; rng = MersenneTwister(19))
     @test size(comp_defaults.nn.layer_1.weight, 2) == 2
-    @test all(isfinite, ude_system([0.25, 0.45, 0.2], comp_defaults, 0.0, comp_model))
+    @test all(isfinite, ude_rhs([0.25, 0.45, 0.2], comp_defaults, 0.0, comp_model))
 end
 
 @testset "phase 2 static specialization parity" begin
@@ -140,8 +140,8 @@ end
     network = build_linear_test_network()
     model, params = build_ude_model(rng, network)
     x = [0.25, 0.15]
-    dx_vec = ude_system(x, params, 0.0, model)
-    dx_static = Vector(ude_system(
+    dx_vec = ude_rhs(x, params, 0.0, model)
+    dx_static = Vector(ude_rhs(
         StaticArrays.SVector{2}(x[1], x[2]), params, 0.0, model))
     @test dx_vec ≈ dx_static
     dx_explicit = Vector(HybridKinetics._ude_system_static(

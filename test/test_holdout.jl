@@ -351,7 +351,7 @@ const _M2D_INTERNAL_NAMES = (
     :with_discover_equations_observer)
 
 const _M2D_FORBIDDEN_DISCOVERY = (
-    "discover_unknown_rate(",
+    "regress_unknown_rate(",
     "discover_unknown(",
     "discover_equations(",
     "discover_unknown_destruction(",
@@ -965,7 +965,7 @@ end
     @test !occursin("split.train", composer)
     @test !occursin(".holdout", composer)
     @test occursin("times = collect(range(0.0, 1.0; length = length(r)))", composer)
-    @test count("discover_unknown_rate(", composer) == 2
+    @test count("regress_unknown_rate(", composer) == 2
     @test occursin("normalize_destruction_samples", composer)
     @test occursin("evaluate_recovery(", composer)
     @test occursin("if !training_ok", composer)
@@ -1166,7 +1166,7 @@ end
     end
     src = _m2d_pipeline_source()
     @test count("discover_equations(", src) == 0
-    @test count("discover_unknown_rate(", src) == 0
+    @test count("regress_unknown_rate(", src) == 0
     @test count("discover_unknown_destruction(", src) == 0
     @test count("_peek_holdout", src) == 0
     @test count("evaluate_holdout(", src) == 1
@@ -1415,7 +1415,7 @@ end
     set = _m2d_synthetic_set()
     split = reference_protocol_experiment_split(set)
     ev = with_discover_unknown_rate_observer(
-        (_...) -> error("discover_unknown_rate entered")) do
+        (_...) -> error("regress_unknown_rate entered")) do
         with_discover_equations_observer(
             (_...) -> error("discover_equations entered")) do
             with_fit_unknown_destruction_observer(
@@ -2231,7 +2231,7 @@ const _M2G1_HOLDOUT_STOP = Set((
     "generate_experiment_set",
     "generate_data",
     "fit_unknown_destruction",
-    "discover_unknown_rate",
+    "regress_unknown_rate",
     "discover_unknown",
     "discover_equations",
     "discover_unknown_destruction",
@@ -2274,7 +2274,7 @@ const _M2G1_GENERATE = (
     "generate_data(")
 
 const _M2G1_DISCOVERY = (
-    "discover_unknown_rate(",
+    "regress_unknown_rate(",
     "discover_unknown(",
     "discover_equations(",
     "discover_unknown_destruction(")
@@ -2924,7 +2924,7 @@ end
     set = _m2d_synthetic_set()
     split = reference_protocol_experiment_split(set)
     ev = with_discover_unknown_rate_observer(
-        (_...) -> error("discover_unknown_rate entered")) do
+        (_...) -> error("regress_unknown_rate entered")) do
         with_discover_equations_observer(
             (_...) -> error("discover_equations entered")) do
             evaluate_holdout(
@@ -2935,7 +2935,7 @@ end
     pipe = _m2g_normalize(read(
         joinpath(@__DIR__, "..", "src", "RecoveryPipeline.jl"), String))
     @test count("discover_equations(", pipe) == 0
-    @test count("discover_unknown_rate(", pipe) == 0
+    @test count("regress_unknown_rate(", pipe) == 0
     @test count("discover_unknown_destruction(", pipe) == 0
 end
 
@@ -2953,7 +2953,7 @@ end
     for (entry, stop) in (
         ("_evaluate_unknown_rate_recovery",
             Set(["evaluate_recovery",
-                "discover_unknown_rate", "sample_unknown_destruction_grid",
+                "regress_unknown_rate", "sample_unknown_destruction_grid",
                 "normalize_destruction_samples", "evaluate_holdout"])),
         ("report_recovery",
             Set(["locked_ude_kpis", "build_protocol_result",

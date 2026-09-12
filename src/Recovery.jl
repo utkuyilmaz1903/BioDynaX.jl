@@ -545,13 +545,13 @@ function _trusted_rate_network(nodes::Vector{NodeSpec}, edges::Vector{EdgeSpec})
 end
 
 """
-    discover_unknown_rate(R, times, D; network, config, ...)
+    regress_unknown_rate(R, times, D; network, config, ...)
 
 Discover a scalar destruction rate `D(r)` with graph-local implicit SINDy-PI.
 `R` is `n_regulators × n` and `D` is `1 × n`. `stability_selection =
 StabilitySelection()` enables the optional pruning stage (off by default).
 """
-function discover_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
+function regress_unknown_rate(R::AbstractMatrix, times, D::AbstractMatrix;
         network = nothing,
         config::DiscoveryConfig = rate_discovery_config(),
         verbose::Bool = false, strict::Bool = false,
@@ -582,7 +582,7 @@ destruction `term` with `rate_fn` of the regulator vector.
 """
 function compose_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm, rate_fn)
     return function (u, _, t)
-        du = ude_system(u, p, t, model)::typeof(u)
+        du = ude_rhs(u, p, t, model)::typeof(u)
         nn_D = _destruction_contribution(
             term, term.target, u, p, model.nn, model.st)
         hat_D = rate_fn(_hybrid_regulator_vector(u, term.regulators))
@@ -603,7 +603,7 @@ function compose_hybrid_rhs(model::UDEModel, p, pairs::AbstractVector)
     length(pairs) == 1 &&
         return compose_hybrid_rhs(model, p, first(pairs)[1], first(pairs)[2])
     return function (u, _, t)
-        du = ude_system(u, p, t, model)::typeof(u)
+        du = ude_rhs(u, p, t, model)::typeof(u)
         for (term, rate_fn) in pairs
             nn_D = _destruction_contribution(
                 term, term.target, u, p, model.nn, model.st)
@@ -772,12 +772,12 @@ function _evaluate_unknown_rate_recovery(ude_model, ude_params, term, truth_rate
     end
     times = collect(range(0.0, 1.0; length = length(r)))
     truth_support = family === :hill ? hill_rate_support(order) : mm_rate_support()
-    discovery = discover_unknown_rate(
+    discovery = regress_unknown_rate(
         R_grid, times, D_nn;
         config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
     D_norm, _ = normalize_destruction_samples(D_nn)
-    discovery_norm = discover_unknown_rate(
+    discovery_norm = regress_unknown_rate(
         R_grid, times, reshape(vec(D_norm), size(D_nn));
         config = reference_protocol_discovery_config(),
         verbose = false, strict = false)
@@ -1382,7 +1382,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         r = collect(range(0.1, 2.0; length = 120))
         D_h = hill_rate_truth(r; vmax = 1.8, K = 0.6, n = 2)
         D_n, _ = normalize_destruction_samples(D_h)
-        result_n = discover_unknown_rate(
+        result_n = regress_unknown_rate(
             reshape(r, 1, :), collect(range(0.0, 1.0; length = length(r))),
             reshape(vec(D_n), 1, :);
             config = rate_discovery_config(bootstrap = 0, seed = 9),
@@ -1434,7 +1434,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         D = hill_rate_truth(r; vmax = 1.7, K = 0.6, n = 2)
         keep = trues(length(r))
         keep[2:2:end] .= false
-        result = discover_unknown_rate(
+        result = regress_unknown_rate(
             reshape(r[keep], 1, :), collect(range(0.0, 1.0; length = count(keep))),
             reshape(D[keep], 1, :);
             config = rate_discovery_config(bootstrap = 0, seed = 6),
@@ -1513,7 +1513,7 @@ function run_recovery_suite(rng::AbstractRNG = MersenneTwister(1);
         dX = vcat(reshape(D, 1, :), zeros(2, length(D)))
         R, dX = _permute_rate_samples(R, dX, 304)
         times_c = collect(range(0.0, 1.0; length = length(D)))
-        result = discover_unknown_rate(
+        result = regress_unknown_rate(
             R[1:2, :], times_c, dX[1:1, :];
             config = rate_discovery_config(bootstrap = 0, seed = 7),
             verbose = false, strict = false)

@@ -2,7 +2,7 @@ module HybridKineticsLatexifyExt
 
 using HybridKinetics
 using HybridKinetics: ImplicitCandidate, ExplicitCandidate, DiscoveryResult,
-                      UnknownTermResult, UnknownTermsResult
+                      UnknownTermResult, DiscoveryRun
 using Latexify
 using Symbolics
 
@@ -28,7 +28,7 @@ end
 
 # One unknown term renders as before; with several, latexify a per-term
 # result (`latexify(result[:S])`) so it is clear which rate is shown.
-Latexify.@latexrecipe function _(result::UnknownTermsResult)
+Latexify.@latexrecipe function _(result::DiscoveryRun)
     env --> :equation
     return HybridKinetics.symbolic(result)
 end

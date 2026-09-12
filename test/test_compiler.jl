@@ -55,14 +55,14 @@
     hill_params = pack_parameters(
         (k_prod = 1.0, vmax = 2.0, K = 0.5, gamma = 0.7), nn_ps)
     x = [0.3, 0.4]
-    dx = ude_system(x, hill_params, 0.0, hill_model)
+    dx = ude_rhs(x, hill_params, 0.0, hill_model)
     @test all(isfinite, dx)
 
     comp_params = pack_parameters(
         (k_in = 0.9, vmax = 1.5, km = 0.4, ki = 0.6, k_s = 0.8, k_i = 0.5),
         nn_ps)
     x2 = [0.2, 0.5, 0.1]
-    dx2 = ude_system(x2, comp_params, 0.0, comp_model)
+    dx2 = ude_rhs(x2, comp_params, 0.0, comp_model)
     @test all(isfinite, dx2)
 
     @test_throws ArgumentError compile_mechanism(BiologicalNetwork(

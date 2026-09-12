@@ -3,7 +3,7 @@
 The recovery benchmarks are the evidence behind the claims in this
 documentation. They are run by `HybridKinetics.run_recovery_suite`, the scripts in
 `benchmark/`, and two test entry points, and they are scored against the
-thresholds in `RECOVERY_THRESHOLDS`. Loosening a threshold is treated as a
+thresholds in `HybridKinetics.RECOVERY_THRESHOLDS`. Loosening a threshold is treated as a
 breaking change.
 
 ## What is run
@@ -101,7 +101,7 @@ Environment of the rerun: Julia 1.10.12, OrdinaryDiffEq 7.8.1,
 SciMLSensitivity 7.119.2, Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13
 (SciMLBase 3.50.2). No Manifest is committed, so each installation resolves
 its own dependency versions, and benchmark values move with them; the
-thresholds in `RECOVERY_THRESHOLDS` are what is checked.
+thresholds in `HybridKinetics.RECOVERY_THRESHOLDS` are what is checked.
 
 A support F1 of 0.571 means the true Hill monomials were all recovered
 (recall 1.0) together with two nuisance terms, a constant and a linear term.
@@ -156,7 +156,7 @@ a grid from 0.1 to 2.0, Q and Z noisy functions of R, and S spread over the
 range observed in the training experiments in a fixed shuffled order; in
 0.11 S was fixed at 0.4, which is still available as `design = :constant`),
 and discovery runs three times on those samples with the reference
-protocol's configuration (`discover_unknown_rate` with `rate_discovery_config()`:
+protocol's configuration (`regress_unknown_rate` with `rate_discovery_config()`:
 bootstrap 8, consensus refit, samples permuted before the validation
 split): with the graph-local library, monomials up to degree 2 of the
 parent of S in the graph (R); with the global library, monomials of every
@@ -319,7 +319,7 @@ table above), `bootstrap` (the study's libraries with the reference
 bootstrap), `parents` (libraries over the parent states only, no
 bootstrap), and `reference` (parent-only libraries with the reference
 bootstrap, seed, and permutation; for the graph-local library this is
-exactly `discover_unknown_rate` with `rate_discovery_config()`; this is the
+exactly `regress_unknown_rate` with `rate_discovery_config()`; this is the
 headline table of this section). Pooled over the 15 runs of each library,
 S fixed at 0.4:
 

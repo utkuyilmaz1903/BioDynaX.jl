@@ -155,7 +155,7 @@ end
         known_support = Dict(:A => HybridKinetics.hill_rate_support(2),
             :B => HybridKinetics.hill_rate_support(2)),
         production_param = Dict(:A => :k_ca, :B => :k_cb))
-    @test result isa UnknownTermsResult
+    @test result isa DiscoveryRun
     @test length(result) == 2
     @test keys(result) == [:A, :B]
     @test result[:A] === result[1] && result[:B] === result[2]
@@ -213,7 +213,7 @@ end
     @test occursin("\nCROSS-TERM\n", text) && occursin("A, B: collinearity", text)
     @test occursin("\nREPRODUCTION\n", text) && occursin("unknown_terms: 2", text)
     @test sprint(show, MIME("text/plain"), result) == text
-    @test startswith(sprint(show, result), "UnknownTermsResult(unknown terms = [:A, :B]")
+    @test startswith(sprint(show, result), "DiscoveryRun(unknown terms = [:A, :B]")
     @test startswith(sprint(show, result[:A]), "UnknownTermResult(:A")
     @test startswith(sprint(show, MIME("text/plain"), result[:B]), "TERM B")
     # the joint fit is the same whichever way the network was marked unknown

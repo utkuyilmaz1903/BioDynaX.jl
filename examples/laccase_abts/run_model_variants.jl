@@ -35,6 +35,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 
 using HybridKinetics
+using HybridKinetics: pack_parameters
 using LinearAlgebra
 using OrdinaryDiffEq
 using Random
@@ -156,7 +157,7 @@ function rate_samples(variant, fit)
         columns = Vector{Float64}[]
         for e in fit.train_set.experiments
             traj = simulate(
-                (u, p, t) -> ude_system(u, fit.params, t, fit.model), e.u0, e.times)
+                (u, p, t) -> ude_rhs(u, fit.params, t, fit.model), e.u0, e.times)
             for j in 1:2:size(traj, 2)
                 push!(columns, traj[:, j])
             end
@@ -178,10 +179,10 @@ function run_variant(variant, set, info, training, io)
     train_time = time() - started
     R, D = rate_samples(variant, fit)
     times = collect(range(0.0, 1.0; length = size(R, 2)))
-    discovery = discover_unknown_rate(
+    discovery = regress_unknown_rate(
         R, times, D; config = HybridKinetics.rate_discovery_config(),
         verbose = false, strict = false)
-    ude = (u, p, t) -> ude_system(u, fit.params, t, fit.model)
+    ude = (u, p, t) -> ude_rhs(u, fit.params, t, fit.model)
     ude_train = rmse_over(ude, fit.train_set)
     ude_hold = rmse_over(ude, fit.holdout_set)
     hybrid_train = hybrid_hold = NaN

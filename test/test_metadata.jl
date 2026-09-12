@@ -25,7 +25,7 @@ end
     @test model.compiled.nstates == 2
     params = pack_parameters(
         (α_p53 = 0.9, β_mdm2 = 1.1, γ_mdm2 = 1.5, signal = 1.0), nn_ps)
-    dx = ude_system([0.2, 0.1], params, 0.0, model)
+    dx = ude_rhs([0.2, 0.1], params, 0.0, model)
     @test all(isfinite, dx)
 end
 
@@ -48,5 +48,5 @@ end
         ])
     model = compile_network(network, nn, st)
     params = pack_parameters((k_xy = 1.0, k_x = 0.5, k_y = 0.4), nn_ps)
-    @test all(isfinite, ude_system([0.3, 0.2], params, 0.0, model))
+    @test all(isfinite, ude_rhs([0.3, 0.2], params, 0.0, model))
 end

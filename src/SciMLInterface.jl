@@ -11,7 +11,7 @@ struct CompiledOOPRhs{M}
     model::M
 end
 
-@inline (f::CompiledOOPRhs)(u, p, t) = ude_system(u, p, t, f.model)
+@inline (f::CompiledOOPRhs)(u, p, t) = ude_rhs(u, p, t, f.model)
 
 """
     build_ude_function(model; inplace=false, cache=nothing)
