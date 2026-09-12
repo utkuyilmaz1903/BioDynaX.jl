@@ -107,12 +107,12 @@ destruction term. This page collects every caveat in one place.
 - What a second term costs is measured, not assumed (the two-term study on
   the [Benchmarks](benchmarks.md#Two-unknown-terms) page). Two terms on
   nodes that do not regulate each other's term separate cleanly: same
-  support recovery as one term, a learned-rate error within 1.1 times the
+  support recovery as one term, a learned-rate error within 1.15 times the
   single-term run's, training 1.5 times longer. Two terms on adjacent nodes
   keep their supports but the downstream term's learned rate comes out
-  about 16% low in every run, six times the single-term error, and the
-  held-out residual doubles. The cross-term diagnostic separates the two
-  cases (0.4 against 0.96) and warns above
+  15 to 30% low in every run (median 16%), two to six times the single-term
+  error, and the noise-free held-out residual doubles. The cross-term
+  diagnostic separates the two cases (0.37–0.43 against 0.95–0.96) and warns above
   `CROSS_TERM_COLLINEARITY_THRESHOLD` = 0.69; it is local to the fit,
   concerns the scales only, does not say which of the two terms drifted,
   and is not a structural result.
