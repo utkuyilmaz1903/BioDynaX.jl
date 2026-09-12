@@ -16,7 +16,7 @@ Build a symbolic `ModelingToolkit.ODESystem` from a compiled UDE. States are
 named after the network's dynamic nodes. Neural terms appear as placeholder
 variables `nn_i(t)` unless `discovered` gives the discovered rate: a
 `DiscoveryResult`, an `ImplicitCandidate` or `ExplicitCandidate` (in the
-regulator variables of the single unknown term, in order), or an
+regulator variables of the model's only unknown term, in order), or an
 `UnknownTermResult`; the rational rate then replaces the placeholder and the
 system is complete. Called through `HybridKinetics.export_mtk_system`.
 """

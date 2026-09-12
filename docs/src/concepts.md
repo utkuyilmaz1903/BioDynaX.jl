@@ -11,10 +11,12 @@ Every HybridKinetics model is a production-destruction system
 `compile_mechanism` lowers reactions and edges into production and
 destruction terms. Known kinetics stay symbolic and compiled: mass action,
 linear decay, Hill, Michaelis-Menten saturation, competitive binding, an
-input drive, or a custom rate expression. Exactly one destruction term may be
-marked `known = false`; it becomes a `NeuralDestructionTerm`, a small Lux
-multilayer perceptron with a softplus output that maps the regulator
-concentrations to a non-negative rate. The unknown term is multiplicative
+input drive, or a custom rate expression. Any number of destruction terms,
+on distinct nodes, may be marked `known = false`; each becomes a
+`NeuralDestructionTerm`, a small Lux multilayer perceptron with a softplus
+output that maps the regulator concentrations to a non-negative rate (two
+unknown terms on the same node and an unknown production term are refused).
+Each unknown term is multiplicative
 (`D_i(u) * u_i`), not an additive residual on the right-hand side.
 
 Physical parameters are stored in raw form and mapped through a softplus so

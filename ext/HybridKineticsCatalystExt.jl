@@ -15,8 +15,9 @@ const _MTK = isdefined(Catalyst, :ModelingToolkitBase) ? Catalyst.ModelingToolki
 
 Convert a Catalyst `ReactionSystem` into a `BiologicalNetwork` with the same
 species (in Catalyst's order), the known kinetics compiled from the rate laws
-Catalyst exposes, and exactly one reaction, `unknown`, marked as the unknown
-destruction term. Called through `HybridKinetics.network_from_reactionsystem`; see
+Catalyst exposes, and the reaction or reactions named by `unknown` (an index,
+a `description` string, or a vector of those; one per node) marked as unknown
+destruction terms. Called through `HybridKinetics.network_from_reactionsystem`; see
 its docstring.
 """
 function network_from_reactionsystem(rs::ReactionSystem; unknown)

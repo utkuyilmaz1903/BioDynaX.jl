@@ -12,6 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.17.1] - 2026-09-12
+
+### Fixed
+
+- Stale single-unknown-term wording, left from before 0.16, replaced with
+  what holds at 0.17: any number of unknown destruction terms on distinct
+  nodes, two on the same node refused, an unknown production term out of
+  scope, and the measured cost of several terms from the 0.16 study. Changed
+  in the README ("Scope and limitations" and the overview), the
+  documentation index, concepts, how-to, tutorial, getting-started and
+  limitations pages, the `network_from_reactionsystem` docstrings, the
+  contributing guide and the feature-request template. The guard-rail errors
+  no longer name a release ("0.16 supports …") and say that an unknown
+  production term is out of scope. The reference recovery protocol behind
+  the benchmarks remains a single-term instrument, and the pages say so.
+
 ## [0.17.0] - 2026-09-12
 
 ### Changed (breaking)
@@ -640,7 +656,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.14.0...v0.15.0

@@ -265,7 +265,7 @@ function _mark_unknown_reactions(nodes::Vector{NodeSpec}, reactions::Vector{Reac
     marked = copy(reactions)
     for spec in unknown
         spec.node in seen && throw(ArgumentError(
-            "two unknown terms on the same node $(spec.node); 0.16 supports one unknown destruction term per node"))
+            "two unknown terms on the same node $(spec.node); HybridKinetics supports one unknown destruction term per node"))
         push!(seen, spec.node)
         index = _node_index(nodes, spec.node)
         index === nothing &&
@@ -309,7 +309,7 @@ function unknown_terms(network::BiologicalNetwork)
         for (node, coefficient) in reaction.stoichiometry
             coefficient < 0 || continue
             haskey(found, node) && throw(ArgumentError(
-                "two unknown terms on the same node $(nodes[node].name); 0.16 supports one unknown destruction term per node"))
+                "two unknown terms on the same node $(nodes[node].name); HybridKinetics supports one unknown destruction term per node"))
             found[node] = copy(reaction.regulators)
         end
     end
@@ -323,7 +323,7 @@ function unknown_terms(network::BiologicalNetwork)
                        for node in sort!(collect(keys(found)))]
 end
 
-"""Guard rails of 0.16: one unknown destruction term per node, no unknown production."""
+"""Guard rails: one unknown destruction term per node, no unknown production term."""
 function _validate_unknown_terms(network::BiologicalNetwork)
     nodes = network.nodes
     destruction = Set{Int}()
@@ -333,11 +333,11 @@ function _validate_unknown_terms(network::BiologicalNetwork)
             if coefficient > 0
                 throw(ArgumentError(string(
                     "reaction $(reaction.name) is an unknown production term of ",
-                    nodes[node].name, "; 0.16 supports unknown destruction terms only ",
-                    "(the model form is du/dt = P(u) − D(u)·u and an unknown P is a later milestone)")))
+                    nodes[node].name, "; only destruction terms may be unknown ",
+                    "(the model form is du/dt = P(u) − D(u)·u; an unknown production term is out of scope)")))
             end
             node in destruction && throw(ArgumentError(
-                "two unknown terms on the same node $(nodes[node].name); 0.16 supports one unknown destruction term per node"))
+                "two unknown terms on the same node $(nodes[node].name); HybridKinetics supports one unknown destruction term per node"))
             push!(destruction, node)
         end
     end

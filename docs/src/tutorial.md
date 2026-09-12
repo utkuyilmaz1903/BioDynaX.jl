@@ -132,9 +132,11 @@ model, params = build_ude_model(MersenneTwister(0), ude_net)
 | `S -> R` production | known mass action | compiled production term |
 | `R` linear decay | known | compiled destruction term |
 
-The recovery workflow requires exactly one unknown destruction term. The
-example checks this with `HybridKinetics.assert_single_unknown_destruction(model)`
-and stops with an error otherwise.
+The step-by-step chain below works on exactly one unknown destruction
+term, and the example checks this with
+`HybridKinetics.assert_single_unknown_destruction(model)`. The one-call
+`discover_unknown_terms` handles several, one per node ("Two unknown terms"
+at the end of this page).
 
 ### Synthetic data
 

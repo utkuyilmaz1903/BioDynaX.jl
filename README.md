@@ -12,13 +12,14 @@ HybridKinetics fits hybrid models of small biochemical networks. You give it a
 known interaction graph and known kinetics (mass action, linear decay, Hill,
 Michaelis-Menten saturation, competitive binding, or a custom rate); it
 compiles those into a production-destruction ODE
-`du_i/dt = P_i(u) - D_i(u) * u_i`. Exactly one destruction term may be marked
-unknown. That term is replaced by a small neural network (a universal
-differential equation), trained on time-series data from one or more initial
-conditions, and then approximated symbolically by sparse rational regression
-(implicit SINDy) over a library built only from that node's graph neighbours.
+`du_i/dt = P_i(u) - D_i(u) * u_i`. Any number of destruction terms, on
+distinct nodes, may be marked unknown. Each is replaced by its own small
+neural network (a universal differential equation), trained jointly on
+time-series data from one or more initial conditions, and then approximated
+symbolically by sparse rational regression (implicit SINDy) over a library
+built only from that node's graph neighbours.
 
-The package reports three things: whether the unknown term is practically
+The package reports three things: whether each unknown term is practically
 identifiable from the data (a Fisher-information and scale-collinearity
 diagnostic), how well the hybrid model reproduces observed and held-out
 trajectories, and which symbolic terms are recovered. It is a research tool
@@ -58,7 +59,7 @@ using HybridKinetics, Random
 
 # Two species. S is produced in proportion to R and degraded by a Hill-type
 # mechanism driven by R; R is produced from S and decays linearly.
-# `known = false` marks the Hill degradation as the one unknown term.
+# `known = false` marks the Hill degradation as the unknown term.
 function network(; known::Bool)
     nodes = [NodeSpec(name = :S), NodeSpec(name = :R)]
     reactions = [
@@ -145,7 +146,7 @@ dx[1]/dt = (0.24118*1 + -1.3569*x[1] + 7.7609*x[1]^2) / (1 + -0.3862*x[1] + 4.18
 | Step | What happens | Main functions |
 |---|---|---|
 | Network specification | Nodes, edges or reactions, and typed kinetic metadata | `BiologicalNetwork`, `NodeSpec`, `ReactionSpec`, `HillMetadata`, ... |
-| Compile | Known kinetics become production and destruction terms; the unknown term becomes a neural network with a softplus output | `build_ude_model`, `compile_mechanism` |
+| Compile | Known kinetics become production and destruction terms; each unknown term becomes a neural network with a softplus output | `build_ude_model`, `compile_mechanism` |
 | Simulate | The model is an ordinary `ODEProblem` and works with OrdinaryDiffEq solvers | `ODEProblem(model, u0, tspan, p)`, `ude_rhs`, `ude_rhs!` |
 | Train | Adam followed by BFGS on the trajectory mean-squared error across experiments, with adjoint sensitivities | `train_ude`, `train_experiments`, `TrainingConfig` |
 | Identifiability check | Fisher condition number and the cosine between the production-rate and destruction-scale trajectory Jacobians | `HybridKinetics.report_production_destruction_tradeoff` |
@@ -158,10 +159,17 @@ Synthetic data for several initial conditions come from
 
 ## Scope and limitations
 
-- **One unknown term.** The recovery workflow requires exactly one unknown
-  destruction term. The example and the recovery suite raise an error for zero
-  or two or more unknown terms. The compiler accepts other configurations, but
-  nothing in the package validates them.
+- **Unknown destruction terms only, one per node.** Any number of
+  destruction terms on distinct nodes may be unknown. Two unknown terms on the
+  same node are refused with an error (two rates multiplying the same state
+  are one rate to the data), and an unknown production term is out of scope
+  and refused. Two terms on nodes that do not regulate each other's term separate
+cleanly; two terms on adjacent nodes leave the downstream term's learned rate
+15–30% low, which the cross-term diagnostic flags above 0.46; three terms
+degrade further and lose a support in some seeds (0.16 study, benchmarks
+page). The reference recovery protocol behind the
+  benchmarks (`run_recovery_suite`) is a single-term instrument and raises an
+  error for zero or several unknown terms.
 - **The identifiability diagnostic is local and practical.** It flags an edge
   as unidentifiable when the Fisher condition number exceeds `1e6` or when the
   production-rate and destruction-scale trajectory Jacobians have a cosine of

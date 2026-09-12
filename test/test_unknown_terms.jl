@@ -112,7 +112,7 @@ end
     end
     @test err isa ArgumentError
     @test occursin("unknown production term of A", sprint(showerror, err))
-    @test occursin("later milestone", sprint(showerror, err))
+    @test occursin("out of scope", sprint(showerror, err))
     # and the compiler refuses it too, should a network reach it another way
     @test_throws ArgumentError HybridKinetics._reaction_production_term(
         production[1], 1, Dict(1 => 1, 2 => 2, 3 => 3), 1.0)
