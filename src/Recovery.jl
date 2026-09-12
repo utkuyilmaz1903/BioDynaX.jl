@@ -625,6 +625,9 @@ end
 """
     hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data; mask)
 
+RMSE of `compose_hybrid_rhs` versus observations (not versus UDE `ẋ`).
+This is a locked UDE claim field.
+"""
 function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
         mask = nothing)
     rhs = compose_hybrid_rhs(model, p, term, rate_fn)
@@ -643,8 +646,12 @@ function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
     return sqrt(sum(abs2, residual) / n)
 end
 
-RMSE of `compose_hybrid_rhs` versus observations (not versus UDE `ẋ`).
-This is a locked UDE claim field.
+"""
+    hybrid_data_residual(model, p, pairs, u0, tspan, times, data; mask)
+
+RMSE of the hybrid right-hand side with several unknown terms (`pairs` is a
+vector of `(term, rate_fn)` tuples) versus observations. One pair reduces to the
+single-term method.
 """
 function hybrid_data_residual(model, p, pairs::AbstractVector, u0, tspan, times, data;
         mask = nothing)
