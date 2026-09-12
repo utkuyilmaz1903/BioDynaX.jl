@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The package description (`Project.toml`, README, documentation index,
+  `CITATION.cff`) now reads "learn the unknown rate laws from time-series
+  data, then recover them symbolically", since a network may carry several.
+
 ## [0.16.0] - 2026-09-12
 
 ### Changed (breaking)
@@ -33,12 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   versions, so the initial parameters differ there).
 - `export_mtk_system(model; discovered = result)` substitutes the discovered
   rate of every term; a bare candidate is accepted only for a one-term model.
-
-### Changed
-
-- The package description (`Project.toml`, README, documentation index,
-  `CITATION.cff`) now reads "learn the unknown rate laws from time-series
-  data, then recover them symbolically", since a network may carry several.
 
 ### Added
 
