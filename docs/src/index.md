@@ -18,7 +18,7 @@ time-series data from one or more initial conditions, and then approximated
 symbolically by sparse rational regression (implicit SINDy) over a library
 built only from that node's graph neighbours.
 
-The package reports three things: whether the unknown term is practically
+The package reports three things: whether each unknown term is practically
 identifiable from the data (a Fisher-information and scale-collinearity
 diagnostic), how well the hybrid model reproduces observed and held-out
 trajectories, and which symbolic terms are recovered. It is a research tool

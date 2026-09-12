@@ -235,6 +235,68 @@ function production_destruction_tradeoff(
 end
 
 """
+    cross_term_collinearity(model, p, u0, tspan, times; mask, rel_step = 1e-3)
+
+Pairwise diagnostic for models with several unknown destruction terms. For
+each term the output of its network is scaled by `1 ± rel_step`, the model is
+simulated on `times`, and the central finite difference of the trajectory is
+the term's sensitivity vector over the observed entries (`mask`, all by
+default). For each pair of terms the value is the absolute cosine between the
+two sensitivity vectors. A value near one means that, in these data, scaling
+one term looks like scaling the other, so the two scales are not separately
+determined at this fit. It is the same construction as the scale collinearity
+of `production_destruction_tradeoff`, applied between terms rather than
+between a term and the production rate, and like it a local statement at `p`,
+not a structural identifiability result; it says nothing about the terms'
+functional form beyond their scale.
+
+Returns a vector with one entry per pair, `(; nodes, terms, collinearity)`,
+empty when the model has fewer than two unknown terms.
+"""
+function cross_term_collinearity(model::UDEModel, p, u0, tspan, times;
+        mask = nothing, rel_step::Real = 1e-3)
+    terms = neural_destruction_terms(model)
+    length(terms) ≥ 2 || return NamedTuple{(:nodes, :terms, :collinearity),
+        Tuple{Tuple{Symbol, Symbol}, Tuple{Int, Int}, Float64}}[]
+    names = [node.name for node in model.network.nodes]
+    state_nodes_list = state_nodes(model.network)
+    δ = rel_step
+    function scaled_rhs(term, sign)
+        return function (u, _, t)
+            du = ude_system(u, p, t, model)
+            D = _destruction_contribution(term, term.target, u, p, model.nn, model.st)
+            du[term.target] -= sign * δ * D * u[term.target]
+            return du
+        end
+    end
+    sensitivities = Vector{Union{Nothing, Vector{Float64}}}(undef, length(terms))
+    for (i, term) in pairs(terms)
+        plus = _simulate_trajectory(scaled_rhs(term, 1.0), u0, tspan, times)
+        minus = _simulate_trajectory(scaled_rhs(term, -1.0), u0, tspan, times)
+        sensitivities[i] = plus === nothing || minus === nothing ? nothing :
+                           vec((plus .- minus) ./ (2δ))
+    end
+    observed = mask === nothing ? nothing : vec(mask)
+    out = NamedTuple{(:nodes, :terms, :collinearity),
+        Tuple{Tuple{Symbol, Symbol}, Tuple{Int, Int}, Float64}}[]
+    for i in 1:(length(terms) - 1), j in (i + 1):length(terms)
+        a, b = sensitivities[i], sensitivities[j]
+        value = if a === nothing || b === nothing
+            NaN
+        else
+            aa = observed === nothing ? a : a[observed]
+            bb = observed === nothing ? b : b[observed]
+            denom = norm(aa) * norm(bb)
+            denom == 0 ? 0.0 : abs(dot(aa, bb)) / denom
+        end
+        node_i = names[state_nodes_list[terms[i].target]]
+        node_j = names[state_nodes_list[terms[j].target]]
+        push!(out, (; nodes = (node_i, node_j), terms = (i, j), collinearity = value))
+    end
+    return out
+end
+
+"""
     unidentifiable_edge_from_fisher(; condition_number, collinearity, ...)
 
 Fisher condition-number **or** trajectory-Jacobian cosine flag.

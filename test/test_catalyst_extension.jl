@@ -97,22 +97,22 @@ end
         set = HybridKinetics.reference_protocol_experiment_set(
             MersenneTwister(103), truth_net; smoke = true, truth_params = _CAT_TRUTH,
             initial_conditions = _CAT_ICS)
-        a = discover_unknown_term(converted, set; training = _CAT_CONFIG, holdout = 0,
+        a = discover_unknown_terms(converted, set; training = _CAT_CONFIG, holdout = 0,
             rng = MersenneTwister(7), verbose = false)
-        b = discover_unknown_term(fixture, set; training = _CAT_CONFIG, holdout = 0,
+        b = discover_unknown_terms(fixture, set; training = _CAT_CONFIG, holdout = 0,
             rng = MersenneTwister(7), verbose = false)
         @test HybridKinetics.nn_parameter_fingerprint(a.params.nn) ==
               HybridKinetics.nn_parameter_fingerprint(b.params.nn)
         @test collect(a.params.phys) == collect(b.params.phys)
-        @test a.samples.R == b.samples.R
-        @test a.samples.D == b.samples.D
-        @test a.discovery.success == b.discovery.success
-        @test a.discovery.equations == b.discovery.equations
-        if a.discovery.success
-            @test a.discovery.candidates[1].numerator_coefficients ==
-                  b.discovery.candidates[1].numerator_coefficients
-            @test a.discovery.candidates[1].denominator_coefficients ==
-                  b.discovery.candidates[1].denominator_coefficients
+        @test a[1].samples.R == b[1].samples.R
+        @test a[1].samples.D == b[1].samples.D
+        @test a[1].discovery.success == b[1].discovery.success
+        @test a[1].discovery.equations == b[1].discovery.equations
+        if a[1].discovery.success
+            @test a[1].discovery.candidates[1].numerator_coefficients ==
+                  b[1].discovery.candidates[1].numerator_coefficients
+            @test a[1].discovery.candidates[1].denominator_coefficients ==
+                  b[1].discovery.candidates[1].denominator_coefficients
         end
     end
 
@@ -203,25 +203,25 @@ end
     set = HybridKinetics.reference_protocol_experiment_set(
         MersenneTwister(103), truth_net; smoke = true, truth_params = _CAT_TRUTH,
         initial_conditions = _CAT_ICS)
-    result = discover_unknown_term(fixture, set; training = _CAT_CONFIG, holdout = 0,
+    result = discover_unknown_terms(fixture, set; training = _CAT_CONFIG, holdout = 0,
         rng = MersenneTwister(7), verbose = false)
-    if result.discovery.success
-        candidate = result.discovery.candidates[1]
+    if result[1].discovery.success
+        candidate = result[1].discovery.candidates[1]
         expression = symbolic(result)
         @test expression isa Num
-        by_names = symbolic(result.discovery, [:R])
+        by_names = symbolic(result[1].discovery, [:R])
         @test isequal(expression, by_names)
         variable = only(Symbolics.get_variables(expression))
         fn = equation_to_function(candidate)
-        for r in vec(result.samples.R)
+        for r in vec(result[1].samples.R)
             @test isapprox(_cat_evaluate(expression, Dict(variable => r)), fn([r]);
                 rtol = 1e-12, atol = 1e-12)
         end
-        @test_throws ArgumentError symbolic(result.discovery, [:R]; index = 5)
+        @test_throws ArgumentError symbolic(result[1].discovery, [:R]; index = 5)
         @test_throws ArgumentError symbolic(candidate, Symbol[])
         # Latexify agrees with the symbolic expression.
         @test latexify(result) == latexify(expression)
-        @test latexify(result.discovery, [:R]) == latexify(expression)
+        @test latexify(result[1].discovery, [:R]) == latexify(expression)
         @test occursin("R", string(latexify(candidate, [:R])))
         # The completed ModelingToolkit system evaluates the discovered rate.
         completed = HybridKinetics.export_mtk_system(result.model; discovered = result)
@@ -235,7 +235,7 @@ end
             assignments = Dict(states[1] => s, states[2] => r,
                 (pa => getproperty(phys, ModelingToolkit.tosymbol(pa))
                 for pa in ModelingToolkit.parameters(completed))...)
-            hybrid = compose_hybrid_rhs(result.model, result.params, result.term, fn)
+            hybrid = compose_hybrid_rhs(result.model, result.params, result[1].term, fn)
             expected = hybrid([s, r], nothing, 0.0)
             @test isapprox(_cat_evaluate(rhs[1], assignments), expected[1];
                 rtol = 1e-8, atol = 1e-8)
@@ -243,8 +243,97 @@ end
                 rtol = 1e-8, atol = 1e-8)
         end
     else
-        @test_throws ArgumentError symbolic(result.discovery, [:R])
+        @test_throws ArgumentError symbolic(result[1].discovery, [:R])
+    end
+    @testset "regulator names skip INPUT nodes" begin
+        # The term's regulators index the dynamic states. On the p53 network
+        # DNA_Damage is an INPUT node in front of the states, so naming the
+        # regulators through network.nodes would call the Mdm2-regulated
+        # rate a function of p53.
+        net = HybridKinetics.build_network()
+        model, params = build_ude_model(MersenneTwister(1), net)
+        term = only(HybridKinetics.neural_destruction_terms(model))
+        spec = HybridKinetics.LocalBasisSpec(1, [1],
+            [HybridKinetics.MonomialTerm(Int[], Int[], "1")],
+            [HybridKinetics.MonomialTerm([1], [1], "x[1]")])
+        candidate = ImplicitCandidate(1, spec, [1.0], [0.5], [1.0, 1.0], 0.0, 1.0)
+        discovery = DiscoveryResult(true, "ok", format_equation(candidate),
+            [spec], nothing, [candidate], RunMetadata(), nothing)
+        training = TrainingResult(params, Float64[], 0.0, 0.0, RunMetadata(),
+            nothing, false, HybridKinetics.NotConverged)
+        dummy = UnknownTermResult(:p53, net, model, params, training, term, nothing,
+            discovery, (; R = zeros(1, 1), D = zeros(1, 1)), nothing, nothing,
+            (; regulator_grid = :observed))
+        expression = symbolic(dummy)
+        variable = only(Symbolics.get_variables(expression))
+        @test occursin("Mdm2", string(variable))
+        @test !occursin("p53", string(variable)) &&
+              !occursin("DNA_Damage", string(variable))
+        @test isequal(expression, symbolic(discovery, [:Mdm2]))
+        @test !isequal(expression, symbolic(discovery, [:p53]))
+        @test occursin("Mdm2", string(latexify(dummy)))
     end
     # With the extension loaded, an unsupported argument is a MethodError.
     @test_throws MethodError symbolic(1)
+end
+
+@testset "two unknown terms through Catalyst, Symbolics and ModelingToolkit" begin
+    two = @reaction_network two_terms begin
+        k_ca * C, 0 --> A
+        k_cb * C, 0 --> B
+        hill(B, vmax_a, K_a, 2), A --> 0, [description = "unknown A"]
+        hill(A, vmax_b, K_b, 2), B --> 0, [description = "unknown B"]
+        k_c, C --> 0
+    end
+    net = network_from_reactionsystem(two; unknown = ["unknown A", "unknown B"])
+    @test unknown_terms(net) == [UnknownTerm(:A; regulators = [:B]),
+        UnknownTerm(:B; regulators = [:A])]
+    @test network_from_reactionsystem(two; unknown = [3, 4]) |> unknown_terms ==
+          unknown_terms(net)
+    @test_throws ArgumentError network_from_reactionsystem(two; unknown = [3, 3])
+    # two marks on the same node are refused by the network, not silently merged
+    twice = @reaction_network two_terms_twice begin
+        k_ca * C, 0 --> A
+        k_cb * C, 0 --> B
+        hill(B, vmax_a, K_a, 2), A --> 0, [description = "unknown A"]
+        hill(A, vmax_b, K_b, 2), B --> 0, [description = "unknown B"]
+        k_c, C --> 0
+        hill(C, vmax_a2, K_a2, 2), A --> 0, [description = "unknown A again"]
+    end
+    @test_throws ArgumentError network_from_reactionsystem(twice; unknown = [3, 6])
+    # marking a reaction whose rate has no species gives a self-regulated term
+    self = network_from_reactionsystem(two; unknown = [3, 5])
+    @test unknown_terms(self) == [UnknownTerm(:A; regulators = [:B]),
+        UnknownTerm(:C; regulators = [:C])]
+    set = generate_experiment_set(MersenneTwister(103);
+        network = network_from_reactionsystem(two; unknown = nothing),
+        initial_conditions = [[0.3, 0.2, 0.5], [0.6, 0.4, 0.8], [0.2, 0.7, 0.3]],
+        tspan = (0.0, 6.0), n_points = 12, noise_σ = 0.0,
+        truth_params = (k_ca = 0.8, k_cb = 0.9, vmax_a = 1.5, K_a = 0.5,
+            vmax_b = 1.2, K_b = 0.6, k_c = 0.5))
+    result = discover_unknown_terms(net, set; training = _CAT_CONFIG, holdout = 1,
+        rng = MersenneTwister(7), verbose = false)
+    @test length(result) == 2
+    @test_throws ArgumentError symbolic(result)
+    if all(t -> t.discovery.success, result.terms)
+        @test symbolic(result; node = :A) isa Num
+        @test isequal(symbolic(result; node = :A), symbolic(result[:A]))
+        @test isequal(symbolic(result[:B]), symbolic(result[:B].discovery, [:A]))
+        @test latexify(result[:A]) == latexify(symbolic(result[:A]))
+        @test_throws ArgumentError latexify(result)
+        # placeholders nn_i(t) are free variables of the equations, not states
+        function placeholders(sys)
+            unique(string(v)
+            for eq in ModelingToolkit.equations(sys)
+            for v in Symbolics.get_variables(eq.rhs)
+            if startswith(string(v), "nn_"))
+        end
+        sys = HybridKinetics.export_mtk_system(result.model; discovered = result)
+        @test isempty(placeholders(sys))
+        @test length(placeholders(HybridKinetics.export_mtk_system(result.model))) == 2
+        one_term = HybridKinetics.export_mtk_system(result.model; discovered = result[:A])
+        @test placeholders(one_term) == ["nn_2(t)"]
+        @test_throws ArgumentError HybridKinetics.export_mtk_system(result.model;
+            discovered = result[:A].discovery)
+    end
 end

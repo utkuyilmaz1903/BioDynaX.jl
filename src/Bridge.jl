@@ -13,7 +13,7 @@ end
 Convert the compiled known terms of `model` to a ModelingToolkit `ODESystem`
 whose states carry the network's node names. Neural terms appear as
 placeholder variables `nn_i(t)`; `discovered` (a `DiscoveryResult`, a
-candidate, or an `UnknownTermResult`) replaces the placeholder of the single
+candidate, an `UnknownTermsResult`, or one of its per-term results) replaces the placeholder of the
 unknown term with the discovered rational rate, so the completed model can
 be handed to ModelingToolkit and OrdinaryDiffEq. Requires
 `using ModelingToolkit` (extension `HybridKineticsModelingToolkitExt`). Not exported.
@@ -91,12 +91,14 @@ end
 """
     symbolic(candidate, names) -> Num
     symbolic(result::DiscoveryResult, names; index = 1) -> Num
+    symbolic(result::UnknownTermsResult; node = nothing, index = 1) -> Num
     symbolic(result::UnknownTermResult; index = 1) -> Num
 
 The discovered rational rate as a `Symbolics.Num` in the named variables:
 `names` gives one symbol per variable of the candidate's library (for
 `discover_unknown_rate`, the regulators in order; for `discover_equations`,
-the network's states); an `UnknownTermResult` uses its network's state names.
+the network's states); a per-term result uses the names of its regulators, and
+an `UnknownTermsResult` needs `node` unless it has one term.
 Requires `using Symbolics` (extension `HybridKineticsSymbolicsExt`).
 """
 function symbolic(args...; kwargs...)

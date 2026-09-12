@@ -9,7 +9,7 @@
 #
 # so that Michaelis-Menten depletion, -Vmax [ABTS] / (K + [ABTS]), corresponds to
 # D = Vmax / (K + [ABTS]): a constant numerator and a linear denominator.
-# The workflow is `discover_unknown_term` with the reference defaults (Adam 100
+# The workflow is `discover_unknown_terms` with the reference defaults (Adam 100
 # then BFGS 50, bootstrap 8, discovery seed 3), once without and once with
 # stability selection; six of the 27 replicate curves (the 25 µM and 75 µM
 # curves) are held out. Nothing is tuned per curve.
@@ -91,9 +91,9 @@ end
 
 function experiment_residuals(result, set)
     hybrid = nothing
-    if result.discovery.success && !isempty(result.discovery.candidates)
-        rate_fn = equation_to_function(result.discovery.candidates[1])
-        hybrid = compose_hybrid_rhs(result.model, result.params, result.term, rate_fn)
+    if result[1].discovery.success && !isempty(result[1].discovery.candidates)
+        rate_fn = equation_to_function(result[1].discovery.candidates[1])
+        hybrid = compose_hybrid_rhs(result.model, result.params, result[1].term, rate_fn)
     end
     ude = (u, p, t) -> ude_system(u, result.params, t, result.model)
     rows = NamedTuple[]
@@ -136,31 +136,31 @@ function main()
         info.time_scale, " s")
     started = time()
     println("\n== discover_unknown_term, reference defaults ==")
-    default = discover_unknown_term(net, set; training, holdout = info.holdout,
+    default = discover_unknown_terms(net, set; training, holdout = info.holdout,
         rng = MersenneTwister(0), phys_init = ABTS_PHYS_INIT, known_support = support,
         seed = 0, verbose = true)
     t_default = time() - started
     started = time()
     println("\n== discover_unknown_term with stability selection (n_boot ",
         selection.n_boot, ", τ ", selection.τ, ") ==")
-    stable = discover_unknown_term(net, set; training, holdout = info.holdout,
+    stable = discover_unknown_terms(net, set; training, holdout = info.holdout,
         rng = MersenneTwister(0), phys_init = ABTS_PHYS_INIT, known_support = support,
         seed = 0, stability_selection = selection, verbose = true)
     t_stable = time() - started
-    println("\n", format_stability_selection(stable.discovery))
+    println("\n", format_stability_selection(stable[1].discovery))
 
-    write(joinpath(RESULTS_DIR, "report_default.txt"), report_unknown_term(default))
-    write(joinpath(RESULTS_DIR, "report_stability.txt"), report_unknown_term(stable))
+    write(joinpath(RESULTS_DIR, "report_default.txt"), report_unknown_terms(default))
+    write(joinpath(RESULTS_DIR, "report_stability.txt"), report_unknown_terms(stable))
     write(joinpath(RESULTS_DIR, "selection_frequencies.txt"),
-        format_stability_selection(stable.discovery))
+        format_stability_selection(stable[1].discovery))
 
     # Learned rate and discovered rates on the regulator grid, in data units.
-    R = vec(default.samples.R)
-    D = vec(default.samples.D)
-    fn_default = default.discovery.success ?
-                 equation_to_function(default.discovery.candidates[1]) : nothing
-    fn_stable = stable.discovery.success ?
-                equation_to_function(stable.discovery.candidates[1]) : nothing
+    R = vec(default[1].samples.R)
+    D = vec(default[1].samples.D)
+    fn_default = default[1].discovery.success ?
+                 equation_to_function(default[1].discovery.candidates[1]) : nothing
+    fn_stable = stable[1].discovery.success ?
+                equation_to_function(stable[1].discovery.candidates[1]) : nothing
     open(joinpath(RESULTS_DIR, "rate_samples.csv"), "w") do io
         println(io, "abts_model_units,abts_uM,learned_rate_per_model_time,",
             "learned_rate_per_s,discovered_rate_per_s,discovered_stable_rate_per_s")
@@ -191,12 +191,12 @@ function main()
             " s, with stability selection ", round(t_stable; digits = 1), " s")
         for (label, result) in (("default", default), ("stability selection", stable))
             println(io, "\n[", label, "]")
-            println(io, "discovery success: ", result.discovery.success, " (",
-                result.discovery.retcode, "): ", result.discovery.message)
+            println(io, "discovery success: ", result[1].discovery.success, " (",
+                result[1].discovery.retcode, "): ", result[1].discovery.message)
             println(io, "equation (model units, D per 1000 s, S per 100 µM): ",
-                result.discovery.equations)
+                result[1].discovery.equations)
             println(io, "extras beyond D = a / (1 + b S): ",
-                result.extras === nothing ? "NA" : join(result.extras, ", "))
+                result[1].extras === nothing ? "NA" : join(result[1].extras, ", "))
             println(io, "training final loss: ", result.training.final_loss)
             println(io, "physical parameters after training (frozen at 1e-8): ",
                 [HybridKinetics.positive_parameter(v) for v in collect(result.params.phys)])
@@ -207,11 +207,11 @@ function main()
             println(io, "hybrid residual, mean over held-out experiments: ",
                 result.residuals.data_residual_holdout)
             println(io, "identifiability: condition number ",
-                result.identifiability.condition_number, ", collinearity ",
-                result.identifiability.collinearity, ", flagged ",
-                result.identifiability.unidentifiable_edge)
-            if result.discovery.success
-                c = result.discovery.candidates[1]
+                result[1].identifiability.condition_number, ", collinearity ",
+                result[1].identifiability.collinearity, ", flagged ",
+                result[1].identifiability.unidentifiable_edge)
+            if result[1].discovery.success
+                c = result[1].discovery.candidates[1]
                 println(io, "numerator coefficients: ", c.numerator_coefficients)
                 println(io, "denominator coefficients: ", c.denominator_coefficients)
                 println(io, "numerator terms: ",

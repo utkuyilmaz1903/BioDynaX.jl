@@ -591,6 +591,29 @@ function compose_hybrid_rhs(model::UDEModel, p, term::NeuralDestructionTerm, rat
     end
 end
 
+"""
+    compose_hybrid_rhs(model, p, pairs)
+
+Right-hand side that keeps the compiled known terms and replaces every
+neural destruction term in `pairs` (a vector of `term => rate_fn`) with its
+rate function of the regulator vector. With one pair this is the single-term
+`compose_hybrid_rhs`.
+"""
+function compose_hybrid_rhs(model::UDEModel, p, pairs::AbstractVector)
+    length(pairs) == 1 &&
+        return compose_hybrid_rhs(model, p, first(pairs)[1], first(pairs)[2])
+    return function (u, _, t)
+        du = ude_system(u, p, t, model)::typeof(u)
+        for (term, rate_fn) in pairs
+            nn_D = _destruction_contribution(
+                term, term.target, u, p, model.nn, model.st)
+            hat_D = rate_fn(_hybrid_regulator_vector(u, term.regulators))
+            du[term.target] += (nn_D - hat_D) * u[term.target]
+        end
+        return du
+    end
+end
+
 @inline function _hybrid_regulator_vector(u, regulators)
     n = length(regulators)
     T = eltype(u)
@@ -616,6 +639,35 @@ function hybrid_data_residual(model, p, term, rate_fn, u0, tspan, times, data;
     if mask === nothing
         return sqrt(mean(abs2, pred .- data))
     end
+    size(mask) == size(data) || return Inf
+    n = count(mask)
+    n == 0 && return Inf
+    residual = ifelse.(mask, pred .- data, zero(eltype(pred)))
+    return sqrt(sum(abs2, residual) / n)
+end
+
+"""
+    hybrid_data_residual(model, p, pairs, u0, tspan, times, data; mask)
+
+RMSE of the hybrid right-hand side with several unknown terms (`pairs` is a
+vector of `(term, rate_fn)` tuples) versus observations. One pair reduces to the
+single-term method.
+"""
+function hybrid_data_residual(model, p, pairs::AbstractVector, u0, tspan, times, data;
+        mask = nothing)
+    length(pairs) == 1 && return hybrid_data_residual(
+        model, p, first(pairs)[1], first(pairs)[2], u0, tspan, times, data; mask = mask)
+    return _hybrid_data_residual(compose_hybrid_rhs(model, p, pairs), u0, tspan, times,
+        data, mask)
+end
+
+function _hybrid_data_residual(rhs, u0, tspan, times, data, mask)
+    prob = SciMLBase.ODEProblem(rhs, u0, tspan)
+    sol = solve(prob, Tsit5(); saveat = times, sensealg = nothing)
+    SciMLBase.successful_retcode(sol) || return Inf
+    pred = Array(sol)
+    size(pred) == size(data) || return Inf
+    mask === nothing && return sqrt(mean(abs2, pred .- data))
     size(mask) == size(data) || return Inf
     n = count(mask)
     n == 0 && return Inf
