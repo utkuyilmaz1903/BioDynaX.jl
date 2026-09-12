@@ -10,7 +10,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+## [0.16.0] - 2026-09-12
+
+### Changed (breaking)
+
+- `discover_unknown_term` and `report_unknown_term` are replaced by
+  `discover_unknown_terms` and `report_unknown_terms`, which handle any
+  number of unknown destruction terms (one per node). The old names still
+  exist and raise an error that names the replacement and links the
+  migration section of the how-to page; nothing runs with a changed meaning.
+  `discover_unknown_terms` takes the same keywords except `term` and returns
+  an `UnknownTermsResult`: `result.params`, `result.training`,
+  `result.residuals` and `result.settings` stay at the top level, and the
+  per-term identifiability, discovery, samples and extras are `result[:S]`
+  (by node name), `result[1]`, or an element of `unknown_terms(result)`, each
+  an `UnknownTermResult`. With one unknown term every number and the report
+  text are identical to 0.15: `test/support/fingerprints_015.toml` records
+  them from 0.15 on Julia 1.10.12 and the test suite asserts exact equality
+  on that environment, equality within a scale-relative 1e-3 on another
+  machine with the same Julia version, and only the RNG-independent parts on
+  another Julia version (Julia's seeded random streams differ between
+  versions, so the initial parameters differ there).
+- `export_mtk_system(model; discovered = result)` substitutes the discovered
+  rate of every term; a bare candidate is accepted only for a one-term model.
+
+### Added
+
+- Several unknown destruction terms on distinct nodes: `UnknownTerm(node;
+  regulators, library)`, `BiologicalNetwork(...; unknown = [...])`,
+  `unknown_terms(network)`, one network per term trained jointly, per-term
+  discovery with per-term stability selection, and the per-term
+  identifiability diagnostic with `production_param` (`:auto` finds each
+  node's own production parameter).
+- `cross_term_collinearity`, the pairwise cross-term diagnostic: the cosine
+  between the trajectory sensitivities to a scale change of each term,
+  reported per pair in the result and the report, with a warning above
+  `CROSS_TERM_COLLINEARITY_THRESHOLD` (0.46, the value below which no run
+  of the study showed a measurable cost of the extra term).
+- Guard rails: two unknown terms on the same node and an unknown production
+  term are errors that name the node and the milestone scope.
+- `network_from_reactionsystem(rs; unknown = [...])` marks several reactions
+  unknown; `symbolic(result; node)` selects a term.
+- The multi-term study (`benchmark/multi_term_study.jl`) with the fixtures
+  `build_two_term_separate_network`, `build_two_term_coupled_network` and
+  `build_three_term_network`, resumable rows in
+  `benchmark/results/multi_term_study.csv`. Its finding, on the benchmarks
+  page: in 30 two-unknown runs the two terms never compensated for each
+  other; on non-adjacent nodes the second term costs nothing measurable, on
+  adjacent nodes the downstream term's learned rate comes out about 16% low
+  and the cross-term diagnostic flags the case; three terms (noise 0 only)
+  cost more, with the adjacent pair 1.4 and 2.2 times further from the
+  truth and the third term's support lost in two of five seeds.
+
+### Fixed
+
+- `symbolic(result)` and `latexify(result)` name the discovered rate's
+  variables by the unknown term's regulators among the dynamic states.
+  Before, the regulator indices were applied to the full node list, so on a
+  network with an `INPUT` node in front of the states (the p53 example, where
+  `DNA_Damage` is node 1) the Mdm2-regulated rate was written as a function
+  of p53. The test suite now checks that network.
 
 ## [0.15.0] - 2026-09-08
 
@@ -536,7 +595,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.12.0...v0.13.0

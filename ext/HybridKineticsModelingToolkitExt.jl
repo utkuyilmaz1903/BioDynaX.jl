@@ -7,7 +7,7 @@ using HybridKinetics: UDEModel, InputProductionTerm, MassActionProductionTerm,
                       SaturationDestructionTerm, SaturationProductionTerm,
                       CompetitiveDestructionTerm, NeuralDestructionTerm,
                       ImplicitCandidate, ExplicitCandidate, DiscoveryResult,
-                      UnknownTermResult
+                      UnknownTermResult, UnknownTermsResult
 
 """
     export_mtk_system(model::UDEModel; name=:HybridKineticsNetwork, discovered=nothing)
@@ -57,9 +57,21 @@ function export_mtk_system(model::UDEModel; name::Symbol = :HybridKineticsNetwor
         sym = Symbol("nn_", term.nn_index)
         nn_map[term.nn_index] = first(@variables($sym(t)))
     end
-    if discovered !== nothing
-        length(neural) == 1 || throw(ArgumentError(
-            "discovered rates can replace the placeholder of exactly one unknown term; the model has $(length(neural))"))
+    if discovered isa UnknownTermsResult
+        for term_result in discovered.terms
+            term = term_result.term
+            regulators = [sts[r] for r in term.regulators]
+            nn_map[term.nn_index] = _discovered_rate(term_result, regulators)
+        end
+    elseif discovered isa UnknownTermResult
+        term = discovered.term
+        regulators = [sts[r] for r in term.regulators]
+        nn_map[term.nn_index] = _discovered_rate(discovered, regulators)
+    elseif discovered !== nothing
+        length(neural) == 1 || throw(ArgumentError(string(
+            "a bare candidate or DiscoveryResult can replace the placeholder of exactly one ",
+            "unknown term; the model has $(length(neural)). Pass the UnknownTermsResult, ",
+            "or one of its per-term results, to say which term each rate belongs to")))
         term = only(neural)
         regulators = [sts[r] for r in term.regulators]
         nn_map[term.nn_index] = _discovered_rate(discovered, regulators)

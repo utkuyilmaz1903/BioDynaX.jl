@@ -116,8 +116,8 @@ jobs:
           deps = merge(
               get(project, "deps", Dict{String,Any}()),
               get(project, "weakdeps", Dict{String,Any}()))
-          stdlibs = Set(["Dates", "Distributed", "LinearAlgebra", "Random",
-                         "Serialization", "SHA", "Statistics", "Test", "julia"])
+          stdlibs = Set(["Dates", "Distributed", "LinearAlgebra", "Printf", "Random",
+                         "Serialization", "SHA", "Statistics", "Test", "TOML", "julia"])
           @testset "compat hygiene" begin
               for name in keys(deps)
                   @test haskey(compat, name)

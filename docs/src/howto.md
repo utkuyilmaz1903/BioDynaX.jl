@@ -6,7 +6,7 @@ documentation build; the others are illustrative and assume the `model`,
 
 ## Run the whole workflow in one call
 
-`discover_unknown_term(network, experiments)` builds the hybrid model,
+`discover_unknown_terms(network, experiments)` builds the hybrid model,
 trains it (a warm-up on the first experiment, then Adam 100 and BFGS 50 on
 the training experiments), samples the learned rate on the regulator grid,
 discovers a rational rate, computes the identifiability diagnostic and the
@@ -14,17 +14,107 @@ residuals, and prints the four-section report. The last `holdout`
 experiments (default 2) are held out of training and reported separately.
 
 ```julia
-result = discover_unknown_term(ude_net, set; rng = MersenneTwister(0), holdout = 2)
+result = discover_unknown_terms(ude_net, set; rng = MersenneTwister(0), holdout = 2)
 result.params            # trained parameters
-result.discovery         # DiscoveryResult
+result[:S].discovery     # DiscoveryResult of the unknown term on S
 result.residuals         # (data_residual, data_residual_train, data_residual_holdout)
-report_unknown_term(result)   # the report as a string
+report_unknown_terms(result)  # the report as a string
 ```
 
 `training = TrainingConfig(...)`, `discovery = DiscoveryConfig(...)`,
 `stability_selection = StabilitySelection()`, `warmup = false`, and
 `phys_init` change the individual steps; the [Tutorial](tutorial.md) shows
 the call on the reference protocol and then the steps one by one.
+
+## Migrating from 0.15
+
+0.16 supports several unknown destruction terms, and the single-term entry
+point was renamed to say so. The old names are still defined, but each raises
+an error that names its replacement, so a 0.15 script fails at the first call
+rather than running with different meaning.
+
+| 0.15 | 0.16 |
+|---|---|
+| `discover_unknown_term(network, experiments; ...)` | `discover_unknown_terms(network, experiments; ...)`, same keywords except `term` (every unknown term is discovered) |
+| `UnknownTermResult` returned by the call | `UnknownTermsResult`; the per-term `UnknownTermResult` is `result[:S]` (by node name), `result[1]`, or an element of `unknown_terms(result)` |
+| `result.discovery`, `result.identifiability`, `result.samples`, `result.term`, `result.extras` | `result[:S].discovery` and so on; `result.params`, `result.training`, `result.residuals`, `result.settings` stay at the top level |
+| `report_unknown_term(result)` | `report_unknown_terms(result)`; with one unknown term the text is identical |
+| `symbolic(result)` | unchanged with one term; `symbolic(result; node = :S)` or `symbolic(result[:S])` with several |
+| `export_mtk_system(model; discovered = result)` | unchanged; substitutes every term's rate |
+| `network_from_reactionsystem(rs; unknown = 2)` | unchanged; `unknown = [2, 4]` marks several |
+
+Before:
+
+```julia
+result = discover_unknown_term(net, set; holdout = 2)
+result.discovery.equations
+report_unknown_term(result)
+```
+
+After:
+
+```julia
+result = discover_unknown_terms(net, set; holdout = 2)
+result[:S].discovery.equations
+report_unknown_terms(result)
+```
+
+The error a 0.15 call raises:
+
+```
+discover_unknown_term was removed in HybridKinetics 0.16. Call
+discover_unknown_terms(network, experiments; ...) instead; it takes the same
+keywords except `term` (all unknown terms are discovered) and returns an
+UnknownTermsResult whose per-term contents are result[:node]. Migration:
+https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/howto/#Migrating-from-0.15
+```
+
+With one unknown term nothing else changes: the trained parameters, the
+sampled rate, the discovered equations and coefficients, the residuals and
+the report text are the ones 0.15 produced, and the test suite checks them
+against values recorded on 0.15.0 (`test/support/fingerprints_015.toml`).
+
+## Marking several terms unknown
+
+Mark each unknown destruction term with `ReactionSpec(known = false)` as
+before, or pass `UnknownTerm` specs to the network constructor; both give the
+same network. One unknown term per node; a second one on the same node, and
+an unknown production term, are errors.
+
+```@example multi
+using HybridKinetics, Random
+truth = HybridKinetics.build_two_term_coupled_network(; unknown = ())
+net = BiologicalNetwork(truth.nodes, EdgeSpec[]; reactions = truth.reactions,
+    unknown = [UnknownTerm(:A), UnknownTerm(:B)])
+unknown_terms(net)
+```
+
+`UnknownTerm(:A; regulators = [:C])` overrides the regulators the term may
+depend on (one or two nodes); `UnknownTerm(:A; library = config)` gives that
+term its own `DiscoveryConfig` when the specs are passed to
+`discover_unknown_terms(...; terms = ...)`.
+
+## Reading a multi-term result
+
+```@example multi
+set = generate_experiment_set(MersenneTwister(103); network = truth,
+    initial_conditions = [[0.3, 0.2, 0.5], [0.6, 0.4, 0.8], [0.2, 0.7, 0.3]],
+    tspan = (0.0, 6.0), n_points = 12, noise_σ = 0.0,
+    truth_params = HybridKinetics.TWO_TERM_COUPLED_TRUTH)
+result = discover_unknown_terms(net, set; holdout = 1, rng = MersenneTwister(7),
+    training = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0, log_every = 10^6),
+    verbose = false)
+keys(result)                       # [:A, :B]
+result[:A].discovery.equations     # the rate discovered for the term on A
+result.residuals                   # fit of the model with both rates substituted
+result.cross_term                  # one entry per pair of terms
+println(report_unknown_terms(result))
+```
+
+The report has one shared fit section, one block per term (its
+identifiability diagnostic and its discovery), a cross-term section, and the
+reproduction section. The cross-term collinearity is explained on the
+[Concepts](concepts.md#Several-unknown-terms) page.
 
 ## Starting from a Catalyst model
 
@@ -66,10 +156,10 @@ From here the workflow is the usual one; a two-step training keeps this
 example short (the reference settings are Adam 100 and BFGS 50):
 
 ```@example catalyst
-result = discover_unknown_term(net, set;
+result = discover_unknown_terms(net, set;
     training = TrainingConfig(adam_iterations = 2, bfgs_iterations = 0, log_every = 10^6),
     holdout = 0, rng = MersenneTwister(7), verbose = false)
-result.discovery.success, result.discovery.equations
+result[:S].discovery.success, result[:S].discovery.equations
 ```
 
 The discovered rate is available as a `Symbolics` expression in the
@@ -77,7 +167,7 @@ network's state names, and the completed model as a ModelingToolkit system
 whose states carry the same names, ready for `ODEProblem`:
 
 ```@example catalyst
-if result.discovery.success
+if result[:S].discovery.success
     rate = symbolic(result)
     completed = HybridKinetics.export_mtk_system(result.model; discovered = result)
     rate, ModelingToolkit.unknowns(completed), ModelingToolkit.equations(completed)

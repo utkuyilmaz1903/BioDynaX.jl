@@ -2,7 +2,7 @@ module HybridKineticsSymbolicsExt
 
 using HybridKinetics
 using HybridKinetics: ImplicitCandidate, ExplicitCandidate, MonomialTerm, DiscoveryResult,
-                      UnknownTermResult
+                      UnknownTermResult, UnknownTermsResult
 using Symbolics
 
 """
@@ -39,8 +39,25 @@ end
 
 function symbolic(result::UnknownTermResult; index::Integer = 1)
     names = [node.name for node in result.network.nodes]
-    regulators = result.term.regulators
+    regulators = HybridKinetics.state_nodes(result.network)[result.term.regulators]
     return symbolic(result.discovery, names[regulators]; index = index)
+end
+
+"""
+    symbolic(result::UnknownTermsResult; node = nothing, index = 1) -> Num
+
+The discovered rate of one unknown term as a `Symbolics.Num` in the names
+of its regulators. With one unknown term `node` may be omitted; with
+several it names the term (`result[:S]` works too).
+"""
+function symbolic(result::UnknownTermsResult; node = nothing, index::Integer = 1)
+    if node === nothing
+        length(result.terms) == 1 || throw(ArgumentError(string(
+            "the result has $(length(result.terms)) unknown terms (",
+            join(string.(keys(result)), ", "), "); pass node = :name or use symbolic(result[:name])")))
+        return symbolic(only(result.terms); index = index)
+    end
+    return symbolic(result[node]; index = index)
 end
 
 function _variables(names::AbstractVector{Symbol})

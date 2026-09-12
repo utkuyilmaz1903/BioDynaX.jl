@@ -26,7 +26,7 @@ function network_from_reactionsystem(rs::ReactionSystem; unknown)
     allunique(names) || throw(ArgumentError("species names must be unique: $(names)"))
     rxs = collect(Catalyst.reactions(rs))
     isempty(rxs) && throw(ArgumentError("the reaction system has no reactions"))
-    unknown_index = _unknown_reaction_index(rxs, unknown)
+    unknown_indices = _unknown_reaction_indices(rxs, unknown)
     specs = ReactionSpec[]
     for (k, rx) in enumerate(rxs)
         label = _reaction_label(rx, k)
@@ -37,7 +37,7 @@ function network_from_reactionsystem(rs::ReactionSystem; unknown)
         products = [(_species_index(species, sp, label), Int(c))
                     for (sp, c) in zip(rx.products, rx.prodstoich)]
         rate = _classify_rate(rx.rate, species, label)
-        if k == unknown_index
+        if k in unknown_indices
             append!(specs, _unknown_specs(rate, substrates, products, label, k))
         else
             append!(specs, _known_specs(rate, substrates, products, label, k))
@@ -65,8 +65,23 @@ end
 The unknown reaction: an integer index into `reactions(rs)`, a string matched
 against the reactions' `description` metadata (exactly one match), or
 `nothing` for a fully known network (every reaction compiled as known
-kinetics).
+kinetics). A vector marks several reactions unknown.
 """
+function _unknown_reaction_indices(rxs, unknown)
+    unknown === nothing && return Set{Int}()
+    if unknown isa AbstractVector || unknown isa Tuple
+        indices = Set{Int}()
+        for item in unknown
+            k = _unknown_reaction_index(rxs, item)
+            k in indices && throw(ArgumentError(
+                "unknown names reaction $(k) twice"))
+            push!(indices, k)
+        end
+        return indices
+    end
+    return Set{Int}([_unknown_reaction_index(rxs, unknown)])
+end
+
 function _unknown_reaction_index(rxs, unknown)
     unknown === nothing && return 0
     if unknown isa Integer

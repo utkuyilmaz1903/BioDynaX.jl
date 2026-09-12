@@ -487,6 +487,188 @@ that the regression prefers over the exact form at threshold 1e-3; they
 are not removed by the scale, and #57 stays open with these numbers. Same
 environment as the rest of the page; run 2026-09-06.
 
+## Two unknown terms
+
+The 0.16 study asks one question with data: when two unknown destruction
+terms sit on coupled nodes, can they be separated, or do the two neural
+terms compensate for each other? It runs `benchmark/multi_term_study.jl`,
+which appends rows to `benchmark/results/multi_term_study.csv` and resumes
+where it stopped.
+
+**Fixtures.** `build_two_term_separate_network`: four states `S1, R1, S2,
+R2`, two copies of the tutorial's motif joined by the production of `S2`
+from `R1`; the unknown terms are the Hill degradations of `S1` (regulator
+`R1`) and `S2` (regulator `R2`), on nodes that do not regulate each other's
+term. `build_two_term_coupled_network`: three states `A, B, C`, `A` and `B`
+produced from `C` and each degraded by a Hill term in the other; the unknown
+terms sit on adjacent nodes and each one's regulator is the other unknown
+node. `build_three_term_network`: the separate fixture with the decay of
+`R1` also a Hill term in `S1`, so `S1` and `R1` are adjacent and `S2` is
+separate. For every fixture the single-unknown controls are the same network
+with only one term unknown and the other known with its true parameters, so
+the cost of the second unknown term is measured against the same data.
+
+**Grid.** Seeds 103, 107, 111, 113, 127; observation noise 0.0, 0.02, 0.05;
+nine initial conditions per fixture drawn once from a fixed seed, 50 points
+on `(0, 8)`, the last two experiments held out; the reference training
+defaults (Adam 100, BFGS 50); the graph-local library with the reference
+discovery configuration, once without and once with stability selection on
+the same trained model.
+
+**Scores.** Per term: support recall, precision and F1 of the discovered
+implicit support against the true Hill support, the extra terms, the
+relative RMSE of the learned rate against the true rate on the sampling
+grid, and the signed relative bias of the learned rate (mean of
+`(learned − true) / true` over the grid). Per run: the residual of the model
+with every discovered rate substituted on the first training experiment and
+on the held-out experiments, the cross-term collinearity of each pair, and
+the training wall time. Two terms are said to have compensated when their
+signed biases have opposite signs and each is larger in magnitude than the
+bias of the same term in the single-unknown control at the same seed and
+noise.
+
+**Environment.** Julia 1.10.12, OrdinaryDiffEq 7.8.1, SciMLSensitivity 7.119.2,
+Lux 1.31.4, Optimization 5.9.0, Zygote 0.7.13, HybridKinetics 0.16.0, four
+cores with three study processes running at once, 2026-09-12. Rows:
+`benchmark/results/multi_term_study.csv`.
+
+### Two terms, noise 0.0, 0.02 and 0.05
+
+Five seeds per cell; medians over seeds, interquartile range for F1. Without
+stability selection; with it the table is the same except that the
+single-unknown control of `B` in the coupled fixture gains one support term
+(F1 median 0.667 instead of 0.571 at every noise level) and the IQR of
+`coupled A 0.02` narrows to [0.667, 0.667].
+
+| fixture | unknown | noise | term | runs | F1 median [IQR] | rate RMSE median | bias median | held-out residual | cross-term median | training s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| coupled | A | 0.0 | A | 5/5 | 0.571 [0.571, 0.571] | 0.054 | 0.096 | 0.006 | NA | 210 |
+| coupled | A | 0.02 | A | 5/5 | 0.667 [0.571, 0.667] | 0.05 | 0.065 | 0.021 | NA | 177 |
+| coupled | A | 0.05 | A | 5/5 | 0.8 [0.667, 0.8] | 0.041 | 0.058 | 0.049 | NA | 198 |
+| coupled | A+B | 0.0 | A | 5/5 | 0.571 [0.571, 0.571] | 0.138 | -0.014 | 0.02 | 0.959 | 272 |
+| coupled | A+B | 0.0 | B | 5/5 | 0.571 [0.571, 0.571] | 0.164 | -0.16 | 0.02 | 0.959 | 272 |
+| coupled | A+B | 0.02 | A | 5/5 | 0.571 [0.571, 0.571] | 0.151 | -0.025 | 0.034 | 0.958 | 238 |
+| coupled | A+B | 0.02 | B | 5/5 | 0.667 [0.571, 0.667] | 0.174 | -0.17 | 0.034 | 0.958 | 238 |
+| coupled | A+B | 0.05 | A | 5/5 | 0.571 [0.571, 0.571] | 0.17 | -0.009 | 0.053 | 0.957 | 239 |
+| coupled | A+B | 0.05 | B | 5/5 | 0.667 [0.571, 0.8] | 0.165 | -0.16 | 0.053 | 0.957 | 239 |
+| coupled | B | 0.0 | B | 5/5 | 0.571 [0.571, 0.8] | 0.026 | 0.003 | 0.01 | NA | 215 |
+| coupled | B | 0.02 | B | 4/5 | 0.571 [0.571, 0.667] | 0.064 | 0.007 | 0.021 | NA | 179 |
+| coupled | B | 0.05 | B | 5/5 | 0.571 [0.571, 0.667] | 0.086 | -0.011 | 0.052 | NA | 185 |
+| separate | S1 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.091 | 0.254 | 0.004 | NA | 345 |
+| separate | S1 | 0.02 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.088 | 0.204 | 0.019 | NA | 229 |
+| separate | S1 | 0.05 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.083 | 0.109 | 0.047 | NA | 232 |
+| separate | S1+S2 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.094 | 0.281 | 0.011 | 0.397 | 444 |
+| separate | S1+S2 | 0.0 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.126 | 0.154 | 0.011 | 0.397 | 444 |
+| separate | S1+S2 | 0.02 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.093 | 0.196 | 0.023 | 0.399 | 308 |
+| separate | S1+S2 | 0.02 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.14 | 0.147 | 0.023 | 0.399 | 308 |
+| separate | S1+S2 | 0.05 | S1 | 5/5 | 0.571 [0.571, 0.667] | 0.093 | 0.105 | 0.05 | 0.402 | 309 |
+| separate | S1+S2 | 0.05 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.132 | 0.164 | 0.05 | 0.402 | 309 |
+| separate | S2 | 0.0 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.113 | 0.105 | 0.009 | NA | 279 |
+| separate | S2 | 0.02 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.129 | 0.103 | 0.021 | NA | 226 |
+| separate | S2 | 0.05 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.128 | 0.069 | 0.049 | NA | 227 |
+
+The "runs" column counts successful discoveries; `coupled B 0.02` has one
+seed whose single-unknown discovery failed (F1 0 in the median's data).
+
+![Per-term support F1 and learned-rate error against noise](assets/multi_term_f1.png)
+
+**Compensation.** In none of the 30 two-unknown runs (two fixtures, five
+seeds, three noise levels) did the two terms compensate in the sense defined
+above (opposite-sign biases, both larger than the controls'), with or
+without stability selection. What happened instead differs by fixture and
+does not change with noise:
+
+- Separate (non-adjacent) nodes: the second unknown term costs nothing
+  measurable. Support F1 is the control's in every cell (0.571 medians on
+  both sides at every noise level), the learned-rate error is within 1.15
+  times the control's (`S1` 0.094 against 0.091, `S2` 0.126 against 0.113 at
+  noise 0.0; `S1` 0.093 against 0.083, `S2` 0.132 against 0.128 at 0.05), and
+  the biases have the control's sign and size. The cross-term collinearity
+  is 0.371 to 0.425 in every run. Training takes 362 s against 237 and
+  253 s for the two controls (medians over 15 runs each), about 1.5 times.
+- Coupled (adjacent) nodes: the supports are still recovered at the
+  control's level (F1 medians 0.571 to 0.667 against 0.571 to 0.8), so the
+  symbolic form survives, but the learned rates are worse and in a
+  consistent direction: the rate of `B`, whose regulator is the other
+  unknown node, is biased low in all fifteen runs (per-run bias −0.149 to
+  −0.301, median −0.16 at every noise level) while its single-unknown
+  control is unbiased (medians 0.003, 0.007 and −0.011). The rate error is
+  6.3 times the control's for `B` at noise 0.0 (0.164 against 0.026) and
+  1.9 times at 0.05 (0.165 against 0.086, where the control itself has
+  degraded with noise), and 2.6 to 4.1 times for `A`. The held-out residual
+  doubles at noise 0.0 (0.020 against 0.006 and 0.010) and is within the
+  noise floor at 0.05 (0.053 against 0.049 and 0.052). The cross-term
+  collinearity is 0.954 to 0.964 in every run. Training takes 239 s against
+  179 and 181 s, 1.3 times.
+
+So the answer to the milestone's question is: two terms on non-adjacent
+nodes separate cleanly; two terms on adjacent nodes do not trade against
+each other, but the downstream term absorbs a systematic scale bias of
+about 16% that the single-term run does not have, and the diagnostic sees
+it. This is the picture the pre-code analysis predicted for the adjacent
+case (the term whose input is the other unknown node degrades first), minus
+the opposite-sign compensation it also allowed for, which did not occur at
+any noise level.
+
+The two-term cross-term values clustered by structure with nothing in
+between: 0.371 to 0.425 for the separate fixture, 0.954 to 0.964 for the
+coupled one, at every noise level. Within the coupled cluster the value did
+not distinguish seeds or noise levels (all within 0.01 of each other), so
+it says which structure you have, not how far a particular run drifted. A
+split on the per-run rate degradation alone (learned-rate error above twice
+the control's) does not separate the two clusters, because single runs of
+the separate fixture also cross that ratio; the diagnostic is a structural
+warning, not a per-run error estimate. The threshold itself is set after
+the three-term fixture below, whose values fall inside that gap.
+
+### Three terms, noise 0.0
+
+The three-term fixture ran at noise 0.0 only (five seeds, the three-unknown
+run and its three single-unknown controls, 60 rows); its noise 0.02 and
+0.05 cells were dropped when the study reached its four-hour budget, as the
+milestone's plan says to drop first. Without stability selection; with it
+the table is identical.
+
+| fixture | unknown | noise | term | runs | F1 median [IQR] | rate RMSE median | bias median | held-out residual | cross-term median | training s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| three | R1 | 0.0 | R1 | 5/5 | 0.571 [0.571, 0.571] | 0.053 | 0.105 | 0.004 | NA | 232 |
+| three | S1 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.098 | 0.244 | 0.002 | NA | 229 |
+| three | S1+R1+S2 | 0.0 | R1 | 5/5 | 0.571 [0.571, 0.571] | 0.119 | 0.241 | 0.008 | 0.547 | 358 |
+| three | S1+R1+S2 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.14 | 0.396 | 0.008 | 0.547 | 358 |
+| three | S1+R1+S2 | 0.0 | S2 | 5/5 | 0.571 [0.333, 0.571] | 0.093 | 0.086 | 0.008 | 0.547 | 358 |
+| three | S2 | 0.0 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.075 | 0.062 | 0.004 | NA | 228 |
+
+Three terms cost more than two, and in a different way from the coupled
+two-term fixture. No run showed opposite-sign compensation: every learned
+rate is biased in the same direction as its control. But the adjacent pair
+`S1`, `R1` (the decay of `R1` is a Hill term in `S1`, the degradation of
+`S1` a Hill term in `R1`) is biased further high than the controls in every
+run (`S1` median bias 0.396 against 0.244, `R1` 0.241 against 0.105), with
+learned-rate errors 1.4 times (`S1`, 0.140 against 0.098) and 2.2 times
+(`R1`, 0.119 against 0.053) the controls'; the third term `S2`, on the
+separate branch, keeps its rate error at the control's level (0.093 against
+0.075) but loses its support in two of five seeds (F1 0 and 0.333, against
+0.571 in all five controls). The held-out residual is 0.008 against 0.002
+to 0.004 for the controls. Training takes 358 s against 228 to 233 s, 1.6
+times. Per pair, the cross-term collinearity is 0.40 to 0.61 for `S1`–`R1`,
+0.50 to 0.55 for `R1`–`S2` (`R1` produces `S2`), and 0.08 to 0.21 for
+`S1`–`S2`; the largest pair of each run is 0.498 to 0.610.
+
+**Threshold.** Over the 35 multi-unknown runs of the study, every run with
+no measurable cost of the extra term (the 15 runs of the separate fixture)
+had all its pairs at or below 0.425, and every run with a measurable cost
+(the 15 coupled runs and the 5 three-term runs) had at least one pair at or
+above 0.498. `CROSS_TERM_COLLINEARITY_THRESHOLD` is 0.46, the midpoint of
+that gap, so the warning fires on every run in which the study measured a
+cost and on none in which it did not. The size of the cost grows with the
+value (about 1.1 times the control's rate error at 0.4, 1.4 to 2.2 times at
+0.5 to 0.6, 2 to 6 times at 0.96), but five seeds and three fixtures are
+too few to read the value as an error estimate; treat it as a warning that
+the discovered coefficients of that pair need another look. Before the
+three-term rows came in, the two-term fixtures alone would have put the
+threshold at 0.69, the midpoint of their gap; the three-term fixture showed
+a measurable cost below that, which is why the lower value is used.
+
 ## Report fields
 
 | Field | Meaning |

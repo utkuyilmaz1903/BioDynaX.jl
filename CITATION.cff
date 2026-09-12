@@ -11,8 +11,8 @@ authors:
 license: MIT
 repository-code: https://github.com/utkuyilmaz1903/HybridKinetics.jl
 url: https://utkuyilmaz1903.github.io/HybridKinetics.jl/dev/
-version: 0.15.0
-date-released: "2026-09-08"
+version: 0.16.0
+date-released: "2026-09-12"
 keywords:
   - julia
   - universal-differential-equations

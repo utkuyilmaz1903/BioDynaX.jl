@@ -4,7 +4,7 @@ Hybrid kinetic models for small biochemical networks: learn the one unknown rate
 
 [![CI](https://github.com/utkuyilmaz1903/HybridKinetics.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/utkuyilmaz1903/HybridKinetics.jl/actions/workflows/ci.yml) [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://utkuyilmaz1903.github.io/HybridKinetics.jl/stable/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Julia](https://img.shields.io/badge/julia-%E2%89%A5%201.10-9558B2.svg)](https://julialang.org) [![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor%27s%20Guide-blueviolet)](https://github.com/SciML/ColPrac) [![SciML Code Style](https://img.shields.io/static/v1?label=code%20style&message=SciML&color=9558b2&labelColor=389826)](https://github.com/SciML/SciMLStyle)
 
-Version 0.15. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
+Version 0.16. The public API may still change before 1.0; see [CHANGELOG.md](CHANGELOG.md).
 
 ## What HybridKinetics does
 
@@ -48,7 +48,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
 The block below builds a two-species network, marks one destruction term as
 unknown, generates synthetic data from four initial conditions, and calls
-`discover_unknown_term`, which trains the hybrid model on three of them,
+`discover_unknown_terms`, which trains the hybrid model on three of them,
 prints the identifiability warning, discovers a symbolic rate, and reports
 the residuals on the training and on the held-out experiment. It took
 about three minutes on a 4-core machine.
@@ -81,15 +81,23 @@ data = generate_experiment_set(rng; network = network(known = true), truth_param
     tspan = (0.0, 10.0), n_points = 40, noise_σ = 0.0)
 
 # Trains on the first three experiments, holds out the fourth, and prints the report.
-result = discover_unknown_term(network(known = false), data; rng = rng, holdout = 1,
+result = discover_unknown_terms(network(known = false), data; rng = rng, holdout = 1,
     training = TrainingConfig(adam_iterations = 100, bfgs_iterations = 20, log_every = 10^6))
 ```
 
-`discover_unknown_term` prints a four-section report (identifiability, fit,
-discovery, reproduction) and returns an `UnknownTermResult` that holds the
+`discover_unknown_terms` prints a four-section report (identifiability, fit,
+discovery, reproduction) and returns an `UnknownTermsResult` that holds the
 trained model, the identifiability diagnostic, the discovery, and the
-residuals; `report_unknown_term(result)` returns the report as a string. The lines that
+residuals; `report_unknown_terms(result)` returns the report as a string. The lines that
 matter most, from a run in September 2026:
+
+Several unknown destruction terms, one per node, go through the same call:
+mark each with `ReactionSpec(known = false)` or with
+`BiologicalNetwork(...; unknown = [UnknownTerm(:A), UnknownTerm(:B)])`, and
+read the per-term results as `result[:A]` and `result[:B]`. The report then
+adds a cross-term section with the scale collinearity of every pair of
+terms; the tutorial has a two-term example and the benchmarks page measures
+what a second term costs.
 
 ```text
   unidentifiable_edge: true
