@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-12
+
 ### Changed (breaking)
 
 - `discover_unknown_term` and `report_unknown_term` are replaced by
@@ -39,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `cross_term_collinearity`, the pairwise cross-term diagnostic: the cosine
   between the trajectory sensitivities to a scale change of each term,
   reported per pair in the result and the report, with a warning above
-  `CROSS_TERM_COLLINEARITY_THRESHOLD`.
+  `CROSS_TERM_COLLINEARITY_THRESHOLD` (0.46, the value below which no run
+  of the study showed a measurable cost of the extra term).
 - Guard rails: two unknown terms on the same node and an unknown production
   term are errors that name the node and the milestone scope.
 - `network_from_reactionsystem(rs; unknown = [...])` marks several reactions
@@ -47,7 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The multi-term study (`benchmark/multi_term_study.jl`) with the fixtures
   `build_two_term_separate_network`, `build_two_term_coupled_network` and
   `build_three_term_network`, resumable rows in
-  `benchmark/results/multi_term_study.csv`.
+  `benchmark/results/multi_term_study.csv`. Its finding, on the benchmarks
+  page: in 30 two-unknown runs the two terms never compensated for each
+  other; on non-adjacent nodes the second term costs nothing measurable, on
+  adjacent nodes the downstream term's learned rate comes out about 16% low
+  and the cross-term diagnostic flags the case; three terms (noise 0 only)
+  cost more, with the adjacent pair 1.4 and 2.2 times further from the
+  truth and the third term's support lost in two of five seeds.
 
 ## [0.15.0] - 2026-09-08
 
@@ -573,7 +582,8 @@ thresholds, seeds, protocol settings, library construction) is unchanged.
 - `predict_ude` routes through `SciMLBase.ODEProblem` for both AD policies.
 - `RunMetadata` defaults to `BioDynaX.PACKAGE_VERSION`.
 
-[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/utkuyilmaz1903/HybridKinetics.jl/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/utkuyilmaz1903/BioDynaX.jl/compare/v0.12.0...v0.13.0

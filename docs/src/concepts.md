@@ -192,6 +192,9 @@ unknown node came out biased low in all fifteen runs (15 to 30%, median
 16%), with a rate error 2 to 6 times the control's, and the cross-term
 collinearity was 0.95 to 0.96 in every run. No run at any noise level
 showed the two terms trading against each other with opposite signs. The
+three-term fixture (noise 0 only) cost more: its adjacent pair came out 1.4
+and 2.2 times further from the truth than the controls and the third term
+lost its support in two of five seeds, at cross-term values of 0.5 to 0.6. The
 tables and the figure are on the [Benchmarks](benchmarks.md#Two-unknown-terms)
 page.
 

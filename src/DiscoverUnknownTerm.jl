@@ -120,16 +120,15 @@ end
 
 Cross-term collinearity above which `discover_unknown_terms` warns that the
 scales of a pair of unknown terms are not separately determined. Set from
-the two-term study of 0.16 (benchmarks page, "Two unknown terms"): over 30
-two-unknown runs (five seeds, noise 0, 0.02 and 0.05) the value clustered by
-network structure, between 0.371 and 0.425 for terms on nodes that do not
-regulate each other's term and between 0.954 and 0.964 for terms on adjacent
-nodes, with nothing in between; the threshold is the midpoint of that gap.
-Above it every cell showed a learned rate 1.9 to 6.3 times further from the
-truth than the single-unknown control; below it none was more than 1.15
-times further.
+the multi-term study of 0.16 (benchmarks page, "Two unknown terms"): over
+35 multi-unknown runs (two two-term fixtures at noise 0, 0.02 and 0.05 and a
+three-term fixture at noise 0, five seeds each) every run in which the extra
+term had no measurable cost had all its pairs at or below 0.425, and every
+run with a measurable cost (a learned rate 1.4 to 6.3 times further from the
+truth than the single-unknown control, or a lost support) had at least one
+pair at or above 0.498; the threshold is the midpoint of that gap.
 """
-const CROSS_TERM_COLLINEARITY_THRESHOLD = 0.69
+const CROSS_TERM_COLLINEARITY_THRESHOLD = 0.46
 
 # -- Report -------------------------------------------------------------------
 

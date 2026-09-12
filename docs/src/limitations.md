@@ -113,12 +113,17 @@ destruction term. This page collects every caveat in one place.
   15 to 30% low in every run (median 16%), two to six times the single-term
   error, and the noise-free held-out residual doubles. The cross-term
   diagnostic separates the two cases (0.37–0.43 against 0.95–0.96) and warns above
-  `CROSS_TERM_COLLINEARITY_THRESHOLD` = 0.69; it is local to the fit,
+  `CROSS_TERM_COLLINEARITY_THRESHOLD` = 0.46, the value below which no run
+  of the study showed a measurable cost; it is local to the fit,
   concerns the scales only, does not say which of the two terms drifted,
   and is not a structural result.
 - The number of terms is not limited by the code. Two terms were measured
-  in full; the three-term fixture ran on what remained of the study budget
-  (see the benchmarks page for exactly which cells). Beyond that the
+  in full; the three-term fixture ran at noise 0.0 only (its noisy cells
+  were dropped at the study's budget). There, the adjacent pair came out
+  1.4 and 2.2 times further from the truth than the single-term runs and
+  the third term lost its support in two of five seeds, with cross-term
+  values of 0.5 to 0.6, so three terms should be read as a measured but
+  weaker case, not as two terms plus one. Beyond that the
   training time grows with the number of networks and nothing has been
   measured.
 

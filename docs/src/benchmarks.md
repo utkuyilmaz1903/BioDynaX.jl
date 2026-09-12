@@ -610,20 +610,64 @@ case (the term whose input is the other unknown node degrades first), minus
 the opposite-sign compensation it also allowed for, which did not occur at
 any noise level.
 
-**Threshold.** The cross-term values clustered by structure with nothing in
+The two-term cross-term values clustered by structure with nothing in
 between: 0.371 to 0.425 for the separate fixture, 0.954 to 0.964 for the
-coupled one, at every noise level. `CROSS_TERM_COLLINEARITY_THRESHOLD` is
-0.69, the midpoint of that gap. Above it, every cell had a learned rate 1.9
-to 6.3 times further from the truth than its control; below it, none was
-more than 1.15 times. Within the coupled cluster the value did not
-distinguish seeds or noise levels (all within 0.01 of each other), so it
-says which structure you have, not how far a particular run drifted. A
+coupled one, at every noise level. Within the coupled cluster the value did
+not distinguish seeds or noise levels (all within 0.01 of each other), so
+it says which structure you have, not how far a particular run drifted. A
 split on the per-run rate degradation alone (learned-rate error above twice
 the control's) does not separate the two clusters, because single runs of
 the separate fixture also cross that ratio; the diagnostic is a structural
-warning, not a per-run error estimate.
+warning, not a per-run error estimate. The threshold itself is set after
+the three-term fixture below, whose values fall inside that gap.
 
-<!-- STUDY RESULTS THREE -->
+### Three terms, noise 0.0
+
+The three-term fixture ran at noise 0.0 only (five seeds, the three-unknown
+run and its three single-unknown controls, 60 rows); its noise 0.02 and
+0.05 cells were dropped when the study reached its four-hour budget, as the
+milestone's plan says to drop first. Without stability selection; with it
+the table is identical.
+
+| fixture | unknown | noise | term | runs | F1 median [IQR] | rate RMSE median | bias median | held-out residual | cross-term median | training s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| three | R1 | 0.0 | R1 | 5/5 | 0.571 [0.571, 0.571] | 0.053 | 0.105 | 0.004 | NA | 232 |
+| three | S1 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.098 | 0.244 | 0.002 | NA | 229 |
+| three | S1+R1+S2 | 0.0 | R1 | 5/5 | 0.571 [0.571, 0.571] | 0.119 | 0.241 | 0.008 | 0.547 | 358 |
+| three | S1+R1+S2 | 0.0 | S1 | 5/5 | 0.571 [0.571, 0.571] | 0.14 | 0.396 | 0.008 | 0.547 | 358 |
+| three | S1+R1+S2 | 0.0 | S2 | 5/5 | 0.571 [0.333, 0.571] | 0.093 | 0.086 | 0.008 | 0.547 | 358 |
+| three | S2 | 0.0 | S2 | 5/5 | 0.571 [0.571, 0.571] | 0.075 | 0.062 | 0.004 | NA | 228 |
+
+Three terms cost more than two, and in a different way from the coupled
+two-term fixture. No run showed opposite-sign compensation: every learned
+rate is biased in the same direction as its control. But the adjacent pair
+`S1`, `R1` (the decay of `R1` is a Hill term in `S1`, the degradation of
+`S1` a Hill term in `R1`) is biased further high than the controls in every
+run (`S1` median bias 0.396 against 0.244, `R1` 0.241 against 0.105), with
+learned-rate errors 1.4 times (`S1`, 0.140 against 0.098) and 2.2 times
+(`R1`, 0.119 against 0.053) the controls'; the third term `S2`, on the
+separate branch, keeps its rate error at the control's level (0.093 against
+0.075) but loses its support in two of five seeds (F1 0 and 0.333, against
+0.571 in all five controls). The held-out residual is 0.008 against 0.002
+to 0.004 for the controls. Training takes 358 s against 228 to 233 s, 1.6
+times. Per pair, the cross-term collinearity is 0.40 to 0.61 for `S1`–`R1`,
+0.50 to 0.55 for `R1`–`S2` (`R1` produces `S2`), and 0.08 to 0.21 for
+`S1`–`S2`; the largest pair of each run is 0.498 to 0.610.
+
+**Threshold.** Over the 35 multi-unknown runs of the study, every run with
+no measurable cost of the extra term (the 15 runs of the separate fixture)
+had all its pairs at or below 0.425, and every run with a measurable cost
+(the 15 coupled runs and the 5 three-term runs) had at least one pair at or
+above 0.498. `CROSS_TERM_COLLINEARITY_THRESHOLD` is 0.46, the midpoint of
+that gap, so the warning fires on every run in which the study measured a
+cost and on none in which it did not. The size of the cost grows with the
+value (about 1.1 times the control's rate error at 0.4, 1.4 to 2.2 times at
+0.5 to 0.6, 2 to 6 times at 0.96), but five seeds and three fixtures are
+too few to read the value as an error estimate; treat it as a warning that
+the discovered coefficients of that pair need another look. Before the
+three-term rows came in, the two-term fixtures alone would have put the
+threshold at 0.69, the midpoint of their gap; the three-term fixture showed
+a measurable cost below that, which is why the lower value is used.
 
 ## Report fields
 
