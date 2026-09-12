@@ -3,8 +3,8 @@ message: If you use this software, please cite it using these metadata.
 type: software
 title: HybridKinetics.jl
 abstract: >-
-  Hybrid kinetic models for small biochemical networks: learn the one unknown
-  rate law from time-series data, then recover it symbolically.
+  Hybrid kinetic models for small biochemical networks: learn the unknown rate
+  laws from time-series data, then recover them symbolically.
 authors:
   - family-names: Yılmaz
     given-names: Utku
