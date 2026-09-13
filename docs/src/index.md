@@ -12,11 +12,13 @@ compiles those into a production-destruction ODE
 \frac{du_i}{dt} = P_i(u) - D_i(u)\,u_i .
 ```
 
-Exactly one destruction term may be marked unknown. That term is replaced by
-a small neural network (a universal differential equation), trained on
-time-series data from one or more initial conditions, and then approximated
-symbolically by sparse rational regression (implicit SINDy) over a library
-built only from that node's graph neighbours.
+Any number of destruction terms, on distinct nodes, may be marked unknown.
+Each is replaced by its own small neural network (a universal differential
+equation), trained jointly on time-series data from one or more initial
+conditions, and then approximated symbolically by sparse rational regression
+(implicit SINDy) over a library built only from that node's graph
+neighbours. Two unknown terms on the same node are refused, and an unknown
+production term is out of scope.
 
 The package reports three things: whether each unknown term is practically
 identifiable from the data (a Fisher-information and scale-collinearity

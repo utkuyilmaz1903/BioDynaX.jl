@@ -251,9 +251,13 @@ model, params = build_ude_model(MersenneTwister(0), network)
 HybridKinetics.count_unknown_destructions(model)
 ```
 
-The recovery workflow requires exactly one unknown destruction term;
+The step-by-step chain of this section and the reference recovery
+protocol work on exactly one unknown destruction term;
 `HybridKinetics.assert_single_unknown_destruction(model)` raises an error
-otherwise. `validate_network` itself does not enforce the count.
+otherwise. `discover_unknown_terms` handles several (one per node, see
+"Marking several terms unknown"); `validate_network` refuses two unknown
+terms on the same node and an unknown production term but does not
+otherwise limit the count.
 
 ## Generate synthetic data
 

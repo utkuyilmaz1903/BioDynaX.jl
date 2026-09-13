@@ -60,10 +60,11 @@ end
 
 Build a `BiologicalNetwork` from a Catalyst `ReactionSystem`: the same species
 in Catalyst's order, the known kinetics compiled from the rate laws Catalyst
-exposes, the interaction graph derived from the reactions, and exactly one
-reaction, `unknown`, marked as the unknown destruction term. `unknown` is the
-reaction's index in `Catalyst.reactions(rs)` or the string of its
-`description` metadata (`[description = "..."]` in the DSL); `unknown =
+exposes, the interaction graph derived from the reactions, and the reaction
+or reactions named by `unknown` marked as unknown destruction terms (one per
+node). `unknown` is a reaction's index in `Catalyst.reactions(rs)` or the
+string of its `description` metadata (`[description = "..."]` in the DSL),
+or a vector of those; `unknown =
 nothing` compiles every reaction as known kinetics (a ground-truth model).
 
 Each Catalyst reaction is split into one HybridKinetics term per species it

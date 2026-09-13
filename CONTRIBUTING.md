@@ -2,8 +2,8 @@
 
 Thank you for considering a contribution. HybridKinetics is a research package
 with a deliberately narrow scope: hybrid models of small biochemical
-networks with a known interaction graph and exactly one unknown destruction
-term. Please read the "Scope and limitations" section of the README before
+networks with a known interaction graph and unknown destruction terms on
+distinct nodes (unknown production terms are out of scope). Please read the "Scope and limitations" section of the README before
 proposing a feature. Community norms are in
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 

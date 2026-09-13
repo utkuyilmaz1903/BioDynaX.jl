@@ -6,10 +6,13 @@ destruction term. This page collects every caveat in one place.
 
 ## Scope
 
-- **One unknown term.** The recovery workflow requires exactly one unknown
-  destruction term. The example and the recovery suite raise an error for
-  zero or two or more unknown terms. The compiler accepts other
-  configurations, but nothing in the package validates them.
+- **Unknown destruction terms only, one per node.** Any number of
+  destruction terms on distinct nodes may be unknown; two on the same node
+  and an unknown production term are refused with an error. What several
+  terms cost is measured and listed under "Several unknown terms" below.
+  The reference recovery protocol behind the benchmarks
+  (`run_recovery_suite`) is a single-term instrument and raises an error for
+  zero or several unknown terms.
 - **Known graph.** The graph-local library is built from the interaction
   graph you supply. Inferring the graph itself is out of scope.
 - **Small networks.** The benchmarks cover two-, three-, and six-state
@@ -102,8 +105,8 @@ destruction term. This page collects every caveat in one place.
   `du_i/dt = P_i(u) − D_i(u)·u_i`; an unknown `P_i` is not multiplied by
   `u_i`, needs a different network input and a different library, and on the
   same node it is entangled with the destruction scale that the diagnostic
-  already flags. It is refused with an error naming this scope, and is a
-  later milestone.
+  already flags. It is refused with an error naming this scope; it is out
+  of scope at 0.17.
 - What a second term costs is measured, not assumed (the two-term study on
   the [Benchmarks](benchmarks.md#Two-unknown-terms) page). Two terms on
   nodes that do not regulate each other's term separate cleanly: same

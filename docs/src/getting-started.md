@@ -36,8 +36,8 @@ example below is the network used throughout the documentation: `S` is
 produced in proportion to `R` and degraded by a Hill-type mechanism driven
 by `R`; `R` is produced from `S` and decays linearly. The reaction whose
 rate law is to be discovered is named by its `description` metadata (or by
-its index), and `network_from_reactionsystem` marks it as the one unknown
-destruction term; the other rate laws compile to the matching known terms.
+its index), and `network_from_reactionsystem` marks it as the unknown
+destruction term (a vector names several, one per node); the other rate laws compile to the matching known terms.
 
 ```@example gs
 using HybridKinetics, Catalyst, Random

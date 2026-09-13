@@ -775,8 +775,8 @@ function _reaction_production_term(
         reaction::ReactionSpec, target::Int,
         node_to_state::Dict{Int, Int}, scale::Float64)
     reaction.known || throw(ArgumentError(string(
-        "reaction $(reaction.name) is an unknown production term; 0.16 supports ",
-        "unknown destruction terms only (an unknown production term is a later milestone)")))
+        "reaction $(reaction.name) is an unknown production term; only destruction ",
+        "terms may be unknown (an unknown production term is out of scope)")))
     meta = reaction.metadata
     if isempty(reaction.regulators)
         _meta_haskey(meta, :input_param) ||
